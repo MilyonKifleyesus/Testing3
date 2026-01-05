@@ -1,0 +1,42 @@
+::ng-deep{
+
+
+    .firebase {
+        width: 30px;
+        height: 30px;
+    }
+    .nav-tabs{
+        border-color:none !important;
+    }
+        
+    }
+    .logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.logo-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  z-index: 1;
+}
+
+.mobile-logo-wrap{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #3f5f46;   
+  padding: 14px 18px;
+  border-radius: 14px;
+}
+
+.mobile-logo{
+  height: 56px;          
+  width: auto;
+  max-width: 80vw;
+  object-fit: contain;
+  display: block;
+}

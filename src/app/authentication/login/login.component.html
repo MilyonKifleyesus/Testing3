@@ -1,0 +1,107 @@
+<!-- CONTAINER OPEN -->
+<div class="page main-signin-wrapper">
+    <div class="d-lg-none text-center mb-4">
+  <div class="mobile-logo-wrap">
+    <img src="assets/images/brand-logos/main-logo.png" alt="logo" class="mobile-logo" />
+  </div>
+</div>
+  <ul
+    ngbNav
+    #nav="ngbNav"
+    [(activeId)]="active"
+    class="nav-tabs rounded-2 justify-content-center mt-2 border-bottom-0"
+  >
+    <li ngbNavItem="Angular">
+      <ng-template ngbNavContent>
+        <div class="col-md-12">
+          <div class="card mb-0">
+            <div class="row row-sm">
+              <div
+                class="col-lg-6 col-xl-5 d-none d-lg-flex bg-primary details logo-container"
+              >
+                <img
+                  src="assets/images/brand-logos/main-logo.png"
+                  alt="logo"
+                  class="logo-img"
+                />
+              </div>              
+              <div class="col-lg-6 col-xl-7 col-xs-12 col-sm-12 login_form">
+                <div class="main-container container-fluid">
+                  <div class="row row-sm">
+                    <div class="card-body mt-2 mb-2">
+                      <div class="clearfix"></div>
+                      <form [formGroup]="loginForm" (ngSubmit)="Submit()">
+                        
+                        <h5 class="text-start mb-2">Signin to Your Account</h5>
+                        <p class="mb-4 text-muted fs-13 ms-0 text-start">
+                          Signin to create, discover and connect with the global
+                          community
+                        </p>
+                        <div class="form-group text-start">
+                          <label class="form-label">Email</label>
+                          <input
+                            class="form-control"
+                            placeholder="Enter your email"
+                            type="text"
+                            autocomplete
+                            placeholder="Enter your Email"
+                            formControlName="username"
+                            [(ngModel)]="email"
+                            required
+                          />
+                        </div>
+                        <div class="form-group text-start">
+                          <label class="form-label">Password</label>
+                          <input
+                            class="form-control"
+                            placeholder="Enter your password"
+                            type="password"
+                            autocomplete
+                            id="input-password"
+                            placeholder="Password"
+                            formControlName="password"
+                            [(ngModel)]="password"
+                            required
+                          />
+                        </div>
+                        <div class="d-grid">
+                          <button
+                            type="submit"
+                            class="btn btn-primary{{ disabled }}"
+                            autofocus
+                            [class.loader--text]="authservice.showLoader"
+                            [disabled]="
+                              !loginForm.valid || authservice.showLoader
+                            "
+                          >
+                            Sign In
+                          </button>
+                        </div>
+                      </form>
+                      <div class="text-start mt-5 ms-0">
+                        <div class="mb-1">
+                          <a routerLink="/custom/forget-password"
+                            >Forgot password?</a
+                          >
+                        </div>
+                        <div>
+                          Don't have an account?
+                          <a routerLink="/custom/sign-up">Register Here</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-template>
+    </li>
+  </ul>
+  <div class="row signpages text-center mt-3">
+    <div [ngbNavOutlet]="nav"></div>
+  </div>
+</div>
+
+<!-- CONTAINER CLOSED -->
