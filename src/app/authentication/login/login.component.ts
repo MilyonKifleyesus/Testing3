@@ -11,13 +11,13 @@ import { environment } from '../../../environments/environment';
 import { FirebaseService } from '../../shared/services/firebase.service';
 import { ToastrModule, ToastrService } from 'ngx-toastr';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
-import { DOCUMENT } from '@angular/common';
+import { DOCUMENT, CommonModule } from '@angular/common';
 import { DomSanitizer } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [RouterModule,NgbModule,AngularFireAuthModule,FormsModule, ReactiveFormsModule ,AngularFireModule,
+  imports: [CommonModule, RouterModule,NgbModule,AngularFireAuthModule,FormsModule, ReactiveFormsModule ,AngularFireModule,
     AngularFireDatabaseModule,
     AngularFirestoreModule,ToastrModule
 ],
@@ -55,8 +55,8 @@ export class LoginComponent {
   ngOnInit(): void {
     this.renderer.addClass(this.document.body, 'error-1');
     this.loginForm = this.formBuilder.group({
-      username: ['spruko@admin.com', [Validators.required, Validators.email]],
-      password: ['sprukoadmin', Validators.required],
+      username: ['superadmin', [Validators.required, Validators.email]],
+      password: ['admin123', Validators.required],
     });
 
     this.firestoreModule = this.firebaseService.getFirestore();
@@ -64,8 +64,8 @@ export class LoginComponent {
     this.authModule = this.firebaseService.getAuth();
   }
   // firebase
-  email = 'spruko@admin.com';
-  password = 'sprukoadmin';
+  email = 'superadmin';
+  password = 'admin123';
   errorMessage = ''; // validation _error handle
   _error: { name: string; message: string } = { name: '', message: '' }; // for firbase _error handle
 
@@ -136,8 +136,8 @@ export class LoginComponent {
   Submit() {
     console.log(this.loginForm)
     if (
-      this.loginForm.controls['username'].value === 'spruko@admin.com' &&
-      this.loginForm.controls['password'].value === 'sprukoadmin'
+      this.loginForm.controls['username'].value === 'superadmin' &&
+      this.loginForm.controls['password'].value === 'admin123'
     ) {
       this.router.navigate(['/dashboard']);
       this.toastr.success('login successful','spruha', {

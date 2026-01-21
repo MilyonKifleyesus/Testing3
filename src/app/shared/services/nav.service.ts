@@ -44,6 +44,23 @@ export class NavService implements OnDestroy {
         this.collapseSidebar = false;
       });
     }
+    
+    // Load menu based on stored user role on app initialization
+    this.initializeMenuFromStorage();
+  }
+
+  private initializeMenuFromStorage(): void {
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user && user.role) {
+          this.loadMenuByRole(user.role);
+        }
+      } catch (e) {
+        console.error('Error parsing stored user', e);
+      }
+    }
   }
 
   private setScreenWidth(width: number): void {
@@ -55,348 +72,404 @@ export class NavService implements OnDestroy {
     this.unsubscriber.complete();
   }
 
+  // Super Admin Menu Items
+  SUPERADMIN_MENUITEMS: Menu[] = [
+    { headTitle: 'Super Admin Dashboard' },
+    {
+      path: '/admin/dashboard',
+      title: 'Dashboard',
+      icon: 'ti-dashboard',
+      type: 'link',
+      active: false,
+    },
+    {
+      title: 'Project Management',
+      type: 'sub',
+      icon: 'ti-layout',
+      active: false,
+      children: [
+        {
+          path: '/admin/projects/list',
+          title: 'List of Projects',
+          type: 'link',
+        },
+        {
+          path: '/admin/projects/new',
+          title: 'New Project',
+          type: 'link',
+        }
+      ]
+    },
+    {
+      title: 'User Management',
+      type: 'sub',
+      icon: 'ti-user',
+      active: false,
+      children: [
+        {
+          path: '/admin/users/list',
+          title: 'List of Users',
+          type: 'link',
+        },
+        {
+          path: '/admin/users/inspectors',
+          title: 'Inspectors',
+          type: 'link',
+        }
+      ]
+    },
+    {
+      title: 'Configuration',
+      type: 'sub',
+      icon: 'ti-settings',
+      active: false,
+      children: [
+        {
+          path: '/admin/config/inspector-category',
+          title: 'Inspector Category',
+          type: 'link',
+        },
+        {
+          path: '/admin/config/inspector-task',
+          title: 'Inspector Task',
+          type: 'link',
+        },
+        {
+          path: '/admin/config/inspector-status',
+          title: 'Inspector Status',
+          type: 'link',
+        },
+        {
+          path: '/admin/config/project-type',
+          title: 'Project Type',
+          type: 'link',
+        },
+        {
+          path: '/admin/config/defect-type',
+          title: 'Defect Type',
+          type: 'link',
+        },
+        {
+          path: '/admin/config/defect-location',
+          title: 'Defect Location',
+          type: 'link',
+        },
+        {
+          path: '/admin/config/types-of-time',
+          title: 'Types of Time',
+          type: 'link',
+        },
+        {
+          path: '/admin/config/category-inspection',
+          title: 'Category Inspection',
+          type: 'link',
+        },
+        {
+          path: '/admin/config/location',
+          title: 'Location',
+          type: 'link',
+        },
+        {
+          path: '/admin/config/languages',
+          title: 'Languages',
+          type: 'link',
+        }
+      ]
+    },
+    {
+      path: '/admin/timesheet',
+      title: 'Time Sheet',
+      icon: 'ti-time',
+      type: 'link',
+      active: false,
+    },
+    {
+      title: 'Logs',
+      type: 'sub',
+      icon: 'ti-file',
+      active: false,
+      children: [
+        {
+          path: '/admin/logs/edit',
+          title: 'Edit Logs',
+          type: 'link',
+        },
+        {
+          path: '/admin/logs/sync',
+          title: 'Sync',
+          type: 'link',
+        },
+        {
+          path: '/admin/logs/access',
+          title: 'Access',
+          type: 'link',
+        }
+      ]
+    },
+    {
+      title: 'BusPulse Simulator',
+      type: 'sub',
+      icon: 'ti-pulse',
+      active: false,
+      children: [
+        {
+          path: '/admin/simulator/asset-tracker',
+          title: 'Asset Tracker',
+          type: 'link',
+        },
+        {
+          path: '/admin/simulator/create-ticket',
+          title: 'Create Ticket',
+          type: 'link',
+        },
+        {
+          path: '/admin/simulator/create-snag',
+          title: 'Create Snag',
+          type: 'link',
+        },
+        {
+          path: '/admin/simulator/create-timesheet',
+          title: 'Create Timesheet',
+          type: 'link',
+        },
+        {
+          path: '/admin/simulator/inspection-list',
+          title: 'Inspection List',
+          type: 'link',
+        }
+      ]
+    },
+    {
+      title: 'REPORTS',
+      type: 'sub',
+      icon: 'ti-panel',
+      active: false,
+      children: [
+        {
+          title: 'Ticket Reports',
+          type: 'sub',
+          children: [
+            {
+              path: '/admin/reports/ticket-reports/daily',
+              title: 'Daily Reports',
+              type: 'link',
+            },
+            {
+              path: '/admin/reports/ticket-reports/weekly',
+              title: 'Weekly Report',
+              type: 'link',
+            }
+          ]
+        },
+        {
+          title: 'Vehicle Reports',
+          type: 'sub',
+          children: [
+            {
+              path: '/admin/reports/vehicle-reports/ticket-report',
+              title: 'Vehicle Ticket Report',
+              type: 'link',
+            },
+            {
+              path: '/admin/reports/vehicle-reports/station-tracker',
+              title: 'Vehicle Station Tracker Report',
+              type: 'link',
+            },
+            {
+              path: '/admin/reports/vehicle-reports/final-reports',
+              title: 'Vehicle Final Reports',
+              type: 'link',
+            }
+          ]
+        },
+        {
+          title: 'Administrative Reports',
+          type: 'sub',
+          children: [
+            {
+              path: '/admin/reports',
+              title: 'All Reports',
+              type: 'link',
+            }
+          ]
+        }
+      ]
+    },
+    {
+      title: 'Vehicles',
+      type: 'sub',
+      icon: 'ti-truck',
+      active: false,
+      children: [
+        {
+          path: '/admin/vehicles/list',
+          title: 'Vehicle List',
+          type: 'link',
+        },
+        {
+          path: '/admin/vehicles/management',
+          title: 'Vehicle Management',
+          type: 'link',
+        }
+      ]
+    },
+    {
+      path: '/admin/snags',
+      title: 'Snags',
+      icon: 'ti-flag',
+      type: 'link',
+      active: false,
+    },
+    {
+      path: '/admin/tickets',
+      title: 'Tickets',
+      icon: 'ti-ticket',
+      type: 'link',
+      active: false,
+    }
+  ];
+
+  // Default/Original Menu Items
   MENUITEMS: Menu[] = [
     //title
-    { headTitle: 'dashboard' },
-    // Visible para todos
-  {
-    title: 'Dashboard',
-    path: '/',
-    type: 'link',
-    icon: 'fas fa-tachometer-alt',
-    active: false,
-    selected: false
-  },
-
-  // Visible para role = GeneralAdmin || Admin
-  {
-    title: 'Asset Requests',
-    path: '/AssetRequest',
-    type: 'link',
-    icon: 'fas fa-list-ul',
-    badgeClass: 'badge-danger navbar-badge',
-    badgeValue: '0', // <-- actualízalo dinámicamente con el valor real (PendingAssets)
-    active: false,
-    selected: false
-  },
-
-  // Visible para role = Admin
-  {
-    title: 'Projects',
-    type: 'sub',
-    icon: 'fas fa-folder',
-    active: false,
-    selected: false,
-    children: [
-      {
-        title: 'Projects',
-        path: '/project',
-        type: 'link'
-      },
-      {
-        title: 'Timesheets',
-        path: '/TimeSheet',
-        type: 'link'
-      }
-    ]
-  },
-
-  // Visible para todos
-  {
-    title: 'Tickets',
-    path: '/ticket/',
-    type: 'link',
-    icon: 'fas fa-tags',
-    active: false,
-    selected: false
-  },
-  {
-    title: 'Snags',
-    path: '/snag/',
-    type: 'link',
-    icon: 'fas fa-tags',
-    active: false,
-    selected: false
-  },
-
-  // Visible para role = Admin
-  {
-    title: 'Stations',
-    type: 'sub',
-    icon: 'fas fa-building',
-    active: false,
-    selected: false,
-    children: [
-      {
-        title: 'Stations',
-        path: '/station',
-        type: 'link'
-      },
-      {
-        title: 'Station Tracker',
-        path: '/stationtracker/',
-        type: 'link'
-      }
-    ]
-  },
-
-  // Visible para role = Admin
-  {
-    title: 'Vehicles',
-    type: 'sub',
-    icon: 'fas fa-bus-alt',
-    active: false,
-    selected: false,
-    children: [
-      {
-        title: 'Vehicles',
-        path: '/vehicle',
-        type: 'link'
-      },
-      {
-        title: 'Propulsion Types',
-        path: '/Vehicle/propulsion',
-        type: 'link'
-      },
-      {
-        title: 'Mileage Types',
-        path: '/Vehicle/Mileage',
-        type: 'link'
-      }
-    ]
-  },
-
-  // Visible para role = Admin
-  {
-    title: 'Users',
-    type: 'sub',
-    icon: 'fas fa-users',
-    active: false,
-    selected: false,
-    children: [
-      { title: 'Users', path: '/user', type: 'link' },
-      { title: 'Clients', path: '/client', type: 'link' },
-      { title: 'Manufacturers', path: '/manufacturer', type: 'link' },
-      { title: 'Time Logs', path: '/timelog', type: 'link' },
-      { title: 'Access Logs', path: '/Audit', type: 'link' },
-      { title: 'Sync Logs', path: '/SyncLog', type: 'link' }
-    ]
-  },
-
-  // Visible para role = Admin || GeneralAdmin || AdminClient
-  {
-    title: 'Reports',
-    type: 'sub',
-    icon: 'fas fa-chart-pie',
-    active: false,
-    selected: false,
-    children: [
-      { title: 'Daily Reports', path: '/report/dailyreport', type: 'link' },
-      { title: 'Weekly Reports', path: '/report/weeklyreport', type: 'link' },
-      { title: 'Vehicle Ticket Reports', path: '/report/vehicleticketreport', type: 'link' },
-      { title: 'Vehicle Station Tracker Reports', path: '/report/VehicleStationTrackerReport', type: 'link' },
-      { title: 'Road Test and Vehicle Health Reports', path: '/report/RTAndHealthReport', type: 'link' },
-
-      // Visible SOLO para role = Admin (sub-submenu en Razor)
-      {
-        title: 'Admin Reports',
-        type: 'sub',
-        active: false,
-        selected: false,
-        children: [
-          { title: 'Labour Reports', path: '/report/LabourReport', type: 'link' },
-          { title: 'Summary Reports', path: '/report/SummaryReportTimeLogged', type: 'link' },
-          { title: 'Inspector Asset Reports', path: '/report/InspectorAssetReport', type: 'link' },
-          { title: 'Vehicle Hour Reports', path: '/report/VehicleHourReport', type: 'link' }
-        ]
-      }
-    ]
-  },
-
-  // Visible para role = Admin
-  {
-    title: 'Configurations',
-    type: 'sub',
-    icon: 'fas fa-cogs',
-    active: false,
-    selected: false,
-    children: [
-      { title: 'Inspector Categories', path: '/InspectorCategory', type: 'link' },
-      { title: 'Inspector Tasks', path: '/InspectorTask', type: 'link' },
-      { title: 'Inspector Status', path: '/InspectorStatus', type: 'link' },
-      { title: 'Project Types', path: '/ProjectType', type: 'link' },
-      { title: 'Defect Types', path: '/DefectType', type: 'link' },
-      { title: 'Defect Locations', path: '/DefectLocation', type: 'link' },
-      { title: 'Type of Time', path: '/typeoftime', type: 'link' },
-      { title: 'Inspector Main Category', path: '/inspectormaincategory', type: 'link' },
-      { title: 'Location', path: '/Location', type: 'link' },
-      { title: 'Language', path: '/Language', type: 'link' }
-    ]
-  },
+    { headTitle: 'Bus Pulse'},
     {
       title: 'Dashboard',
       path: '/dashboard',
       type: 'link',
-      icon: 'ti-home',
+      icon: 'ti-dashboard',
       active: false,
       selected:false
     },
     {
-      title: 'Crypto Currencies',
-      icon: 'ti-wallet',
-      type: 'sub',
-      active: false,
-      children: [
-        { path: '/crypto/crypto-dashboard', title: 'Dashboard', type: 'link' },
-        { path: '/crypto/marketcap', title: 'Marketcap', type: 'link' },
-        {
-          path: '/crypto/currency-exchange',
-          title: 'Currency Exchange',
-          type: 'link',
-        },
-        { path: '/crypto/buy-sell', title: 'Buy & Sell', type: 'link' },
-        { path: '/crypto/wallet', title: 'Wallet', type: 'link' },
-        { path: '/crypto/transactions', title: 'Transactions', type: 'link' },
-      ],
-    },
-    {
-      title: 'ECommerce',
-      icon: 'ti-shopping-cart-full',
-      type: 'sub',
-      active: false,
-      children: [
-        {
-          path: '/ecommerce/ecommerce-dashboard',
-          title: 'Dashboard',
-          type: 'link',
-        },
-        { path: '/ecommerce/products', title: 'Products', type: 'link' },
-        {
-          path: '/ecommerce/product-deatils',
-          title: 'Product Details',
-          type: 'link',
-        },
-        { path: '/ecommerce/cart', title: 'Cart', type: 'link' },
-        { path: '/ecommerce/wishlist', title: 'Wishlist', type: 'link' },
-        { path: '/ecommerce/checkout', title: 'Checkout', type: 'link' },
-        { path: '/ecommerce/orders', title: 'Orders', type: 'link' },
-        { path: '/ecommerce/add-product', title: 'Add product', type: 'link' },
-        { path: '/ecommerce/account', title: 'Account', type: 'link' },
-      ],
-    },
-
-    { headTitle: 'Landing' },
-    {
-      path: '/landing-page',
-      title: 'Landing Page',
+      path: '/assets',
+      title: 'Asset Requests',
+      icon: 'ti-menu',
       type: 'link',
+      active: false,
+    },
+    {
+      path: '/tickets',
+      title: 'Tickets',
+      icon: 'ti-ticket',
+      type: 'link',
+      active: false,
+    },
+    {
+      path: '/snags',
+      title: 'Snags',
+      icon: 'ti-ticket',
+      type: 'link',
+      active: false,
+    },
+    {
+      path: '/projects',
+      title: 'Projects',
+      type: 'sub',
       icon: 'ti-layout',
       active: false,
+      children: [
+        {
+          path: '/projects/list',
+          title: 'Projects',
+          type: 'link',
+        },
+        {
+          path: '/projects/final-vehicle',
+          title: 'Final Vehicle',
+          type: 'link',
+        }]
     },
-    { headTitle: 'applications' },
 
     {
-      title: 'Apps',
-      icon: 'ti-write',
+      path: '/stations',
+      title: 'STATIONS',
       type: 'sub',
+      icon: 'ti-rocket',
       active: false,
       children: [
         {
-          path: '/apps/widgets',
-          title: 'Widgets',
-          type: 'link',
-          active: false,
-        },
-        {
-          path: '/apps/sweet-alerts',
-          title: 'Sweet Alerts',
+          path: '/stations/list',
+          title: 'Station',
           type: 'link',
         },
         {
-          title: 'Mail',
-          type: 'sub',
-          badgeClass: 'bg-warning',
-          badgeValue: '2',
-          active: false,
-          children: [
-            {
-              path: '/apps/mail/mail-inbox',
-              title: 'Mail Inbox',
-              type: 'link',
-            },
-            { path: '/apps/mail/view-mail', title: 'View Mail', type: 'link' },
-            { path: '/apps/mail/mail-compose', title: 'Mail Compose', type: 'link' },
-          ],
-        },
-        {
-          title: 'Maps',
-          type: 'sub',
-          badgeClass: 'bg-secondary',
-          badgeValue: '2',
-          active: false,
-          children: [
-            { path: '/apps/maps/leaflet', title: 'Leaflet Maps', type: 'link' },
-          ],
-        },
-        {
-          title: 'Tables',
-          type: 'sub',
-          active: false,
-          children: [
-            { path: '/apps/tables/tables', title: 'Tables', type: 'link' },
-            { path: '/apps/tables/ngx-easy-table', title: 'Ngx-Easy-Tables', type: 'link' },
-            { path: '/apps/tables/angular-material-table', title:'Angular Material Tables', type: 'link' },
-
-          ],
-        },
-        {
-          title: 'Blog',
-          type: 'sub',
-          active: false,
-          children: [
-            { path: '/apps/blog/blog-page', title: 'Blog Page', type: 'link' },
-            {
-              path: '/apps/blog/blog-details',
-              title: 'Blog details',
-              type: 'link',
-            },
-            { path: '/apps/blog/blog-post', title: 'Blog Post', type: 'link' },
-          ],
-        },
-        {
-          title: 'File manager',
-          type: 'sub',
-          active: false,
-          children: [
-            {
-              path: '/apps/filemanager/filemanager',
-              title: 'File Manager',
-              type: 'link',
-            },
-            {
-              path: '/apps/filemanager/filemanager-list',
-              title: 'File Manager List',
-              type: 'link',
-            },
-            {
-              path: '/apps/filemanager/file-details',
-              title: 'File Details',
-              type: 'link',
-            },
-           
-          ],
-        },
-        {
-          path: '/apps/icons',
-          title: 'Icons',
+          path: '/stations/tracker',
+          title: 'Station Tracker',
           type: 'link',
-          active: false,
+        }]
+    },
+    
+     {
+      path: '/vehicles',
+      title: 'Vehicles',
+      type: 'sub',
+      icon: 'ti-truck',
+      active: false,
+      children: [
+        {
+          path: '/vehicles/list',
+          title: 'Vehicles',
+          type: 'link',
         },
-       
-      ],
+        {
+          path: '/vehicles/propulsion',
+          title: 'Propulsion',
+          type: 'link',
+        },
+        {
+          path: '/vehicles/mileage',
+          title: 'Mileage',
+          type: 'link',
+        }
+      ]
     },
 
-    { headTitle: 'components' },
+{
+      path: '/users',
+      title: 'USERS',
+      type: 'sub',
+      icon: 'ti-user',
+      active: false,
+      children: [
+        {
+          path: '/users/list',
+          title: 'Users',
+          type: 'link',
+        },
+        {
+          path: '/users/inspectors',
+          title: 'Inspectors',
+          type: 'link',
+        },
+        {
+          path: '/users/clients',
+          title: 'Clients',
+          type: 'link',
+        },
+        {
+          path: '/users/manufacturers',
+          title: 'Manufacturers',
+          type: 'link',
+        },
+        {
+          path: '/users/time-logs',
+          title: 'Time Logs',
+          type: 'link',
+        },
+        {
+          path: '/users/access-logs',
+          title: 'Access Logs',
+          type: 'link',
+        },
+        {
+          path: '/users/sync-logs',
+          title: 'Sync Logs',
+          type: 'link',
+        }
+      ]
+    },
+
     {
       title: 'Elements',
       icon: 'ti-package',
@@ -782,4 +855,26 @@ export class NavService implements OnDestroy {
 
   //array
   items = new BehaviorSubject<Menu[]>(this.MENUITEMS);
+
+  // Get menu items based on user role
+  getMenuByRole(role: string): Menu[] {
+    switch(role) {
+      case 'superadmin':
+        return this.SUPERADMIN_MENUITEMS;
+      case 'admin':
+        return this.MENUITEMS; // Can be customized for admin
+      case 'inspector':
+        return this.MENUITEMS; // Can be customized for inspector
+      case 'client':
+        return this.MENUITEMS; // Can be customized for client
+      default:
+        return this.MENUITEMS;
+    }
+  }
+
+  // Update menu items based on role
+  loadMenuByRole(role: string): void {
+    const menuItems = this.getMenuByRole(role);
+    this.items.next(menuItems);
+  }
 }

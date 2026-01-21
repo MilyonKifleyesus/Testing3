@@ -3,3 +3,99 @@
         display: none !important;
     }
 }
+
+/* Add spacing to head title in sidebar */
+:host ::ng-deep .category-name {
+    display: block;
+    margin: 5px 16px 10px 16px;
+}
+
+/* Ensure logo displays in sidebar */
+.main-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 1rem 1rem 1rem;
+    background: #f8fafb;
+    border-radius: 0;
+    margin: 0;
+    min-height: auto;
+    margin-bottom: 3rem;
+
+    .logo-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: auto;
+            text-decoration: none;
+
+            img {
+                max-width: 180px;
+                height: auto;
+                object-fit: contain;
+            }
+
+            /* Show desktop-dark for both light and dark mode */
+            .desktop-dark {
+                display: block;
+                width: 180px;
+            }
+
+            .desktop-white,
+            .toggle-white,
+            .toggle-logo,
+            .toggle-dark,
+            .desktop-logo {
+                display: none;
+            }
+        }
+    }
+}
+
+/* Dark mode */
+:host-context(html[data-theme-mode="dark"]) {
+    .main-sidebar-header {
+        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+
+        .logo-container {
+            .header-logo {
+                /* Keep showing desktop-dark in dark mode too */
+                .desktop-dark {
+                    display: block;
+                    width: 180px;
+                }
+
+                .desktop-white,
+                .toggle-white,
+                .toggle-logo,
+                .toggle-dark,
+                .desktop-logo {
+                    display: none;
+                }
+            }
+        }
+    }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .main-sidebar-header {
+        padding: 0.75rem 0.75rem 1rem 0.75rem;
+        min-height: auto;
+        margin-bottom: 2rem;
+
+        .logo-container {
+            .header-logo img {
+                max-width: 140px;
+                width: 140px;
+            }
+        }
+    }
+}

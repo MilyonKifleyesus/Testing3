@@ -9,7 +9,7 @@ import { LandingpageLayoutComponent } from './shared/layouts/landingpage-layout/
 import { landing } from './shared/routes/landingpage';
 
 export const App_Route: Route[] = [
-      { path: '', redirectTo: '/auth/login', pathMatch: 'full' },
+      { path: '', redirectTo: '/custom/sign-in', pathMatch: 'full' },
       {
         path: 'auth/login',
         loadComponent: () =>

@@ -23,7 +23,7 @@ interface StateType {
 export class AppStateService {
   private readonly localStorageKey = 'rixzo-ng'; // Customize this key
   private initialState: StateType = {
-    theme: 'light',            // light, dark
+    theme: 'dark',            // light, dark
     direction: 'ltr',               // ltr, rtl
     navigationStyles: 'vertical',   // vertical, horizontal
     menuStyles: '',                 // menu-click, menu-hover, icon-click, icon-hover
@@ -32,8 +32,8 @@ export class AppStateService {
     widthStyles: 'fullwidth',       // fullwidth, boxed
     menuPosition: 'fixed',          // fixed, scrollable
     headerPosition: 'fixed',        // fixed, scrollable
-    menuColor: 'dark',                  // light, dark, color, gradient, transparent
-    headerColor: 'light',                // light, dark, color, gradient, transparent
+    menuColor: 'color',                  // light, dark, color, gradient, transparent
+    headerColor: 'dark',                // light, dark, color, gradient, transparent, green
     themePrimary: '',               // '58, 88, 146', '92, 144, 163', '161, 90, 223', '78, 172, 76', '223, 90, 90'
     themeBackground: '',
     backgroundImage: '',            // bgimg1, bgimg2, bgimg3, bgimg4, bgimg5
@@ -52,7 +52,9 @@ export class AppStateService {
     try {
       const storedState = localStorage.getItem(this.localStorageKey);
       if (storedState) {
-        return JSON.parse(storedState);
+        const parsed = JSON.parse(storedState);
+        // Don't override stored state - let it use what was saved
+        return parsed;
       }
     } catch (error) {
       console.error('Error retrieving initial state from local storage:', error);
@@ -64,6 +66,13 @@ export class AppStateService {
   private initializeState() {
     const state = { ...this.initialState }; // Clone initial state to avoid mutation
     this.applyDirectionSpecificChanges(state.direction); // Apply initial changes
+    this.applythemeSpecificChanges(state.theme); // Apply theme
+    this.applymenuColorSpecificChanges(state.menuColor); // Apply menu color
+    this.applyheaderColorSpecificChanges(state.headerColor); // Apply header color
+    this.applyNavigationStylesSpecificChanges(state.navigationStyles); // Apply navigation
+    if (state.layoutStyles) {
+      this.applyLayoutStylesSpecificChanges(state.layoutStyles);
+    }
     this.stateSubject.next(state); // Emit initial state after changes
   }
 
@@ -109,9 +118,8 @@ export class AppStateService {
   }
   private applythemeSpecificChanges(theme: string) {
     let html = document.querySelector('html');
-    html?.setAttribute('data-theme-mode', theme);  //setting theme style
-    html?.setAttribute('data-header-styles', theme); //setting header style
-    html?.setAttribute('data-menu-styles', theme); //setting menu style
+    // Only set theme mode here; header/menu styles come from headerColor/menuColor
+    html?.setAttribute('data-theme-mode', theme);
   }
   private applyNavigationStylesSpecificChanges(navigationStyles: string) {
 
@@ -292,3 +300,7 @@ export class AppStateService {
     }
   }
 }
+
+
+
+

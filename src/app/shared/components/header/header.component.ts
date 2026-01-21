@@ -116,7 +116,7 @@ collapse: any;
       updateTheme(theme: string) {
         this.appStateService.updateState({ theme , menuColor:theme });
         if(theme=='light'){
-          this.appStateService.updateState({ theme,themeBackground : '',headerColor:'light',menuColor:'dark' });
+          this.appStateService.updateState({ theme,themeBackground : '',headerColor:'light',menuColor:'color' });
           let html = document.querySelector('html');
             html?.style.removeProperty( '--body-bg-rgb');
             html?.style.removeProperty( '--body-bg-rgb2');
@@ -126,7 +126,7 @@ collapse: any;
             html?.style.removeProperty( '--sidemenu-active-bgcolor' );
           }
         if(theme=='dark'){
-          this.appStateService.updateState({ theme,themeBackground : '',headerColor:'dark',menuColor:'dark' });
+          this.appStateService.updateState({ theme,themeBackground : '',headerColor:'dark',menuColor:'color' });
           let html = document.querySelector('html');
             html?.style.removeProperty( '--body-bg-rgb');
             html?.style.removeProperty( '--body-bg-rgb2');

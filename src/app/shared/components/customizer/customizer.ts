@@ -244,6 +244,7 @@ export function customClickFn() {
   let darkBtn = document.getElementById('myonoffswitch2') as HTMLInputElement;
   let lightMenu: any = document.querySelector('#myonoffswitch3');
   let colorMenu: any = document.querySelector('#myonoffswitch4');
+  let gradientMenu: any = document.querySelector('#myonoffswitch4b');
   let darkMenu: any = document.querySelector('#myonoffswitch5');
   let lightHeader: any = document.querySelector('#myonoffswitch6');
   let darkHeader: any = document.querySelector('#myonoffswitch8');
@@ -445,16 +446,25 @@ export function customClickFn() {
   fromEvent(lightMenu, 'click').subscribe(() => {
     body?.classList.add('light-menu');
     body?.classList.remove('color-menu');
+    body?.classList.remove('gradient-menu');
     body?.classList.remove('dark-menu');
   });
   fromEvent(colorMenu, 'click').subscribe(() => {
     body?.classList.add('color-menu');
     body?.classList.remove('light-menu');
+    body?.classList.remove('gradient-menu');
+    body?.classList.remove('dark-menu');
+  });
+  fromEvent(gradientMenu, 'click').subscribe(() => {
+    body?.classList.add('gradient-menu');
+    body?.classList.remove('light-menu');
+    body?.classList.remove('color-menu');
     body?.classList.remove('dark-menu');
   });
   fromEvent(darkMenu, 'click').subscribe(() => {
     body?.classList.add('dark-menu');
     body?.classList.remove('color-menu');
+    body?.classList.remove('gradient-menu');
     body?.classList.remove('light-menu');
   });
   // header
@@ -501,6 +511,11 @@ export function checkOptions() {
   if (document.querySelector('body')?.classList.contains('color-menu')) {
     let color = document.getElementById('myonoffswitch4') as HTMLInputElement;
     color.checked = true;
+  }
+  // gradient menu
+  if (document.querySelector('body')?.classList.contains('gradient-menu')) {
+    let gradient = document.getElementById('myonoffswitch4b') as HTMLInputElement;
+    gradient.checked = true;
   }
   // dark menu
   if (document.querySelector('body')?.classList.contains('dark-menu')) {

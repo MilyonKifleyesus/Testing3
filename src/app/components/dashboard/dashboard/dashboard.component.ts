@@ -278,4 +278,45 @@ export class DashboardComponent {
       statusClass: 'bg-danger-transparent'
     }
   ];
+
+  // Tickets horizontal bar chart (inhouse ApexCharts wrapper)
+  ticketsBarOptions = {
+    chart: {
+      type: 'bar',
+      height: 320,
+      toolbar: { show: false }
+    },
+    plotOptions: {
+      bar: {
+        horizontal: true,
+        barHeight: '60%',
+        borderRadius: 4,
+      }
+    },
+    dataLabels: {
+      enabled: true,
+      style: { colors: ['#6c757d'] },
+      formatter: function (val: number) { return val + ''; }
+    },
+    xaxis: {
+      categories: ['Open', 'In Progress', 'Resolved', 'Closed', 'Escalated'],
+      labels: { style: { colors: '#6c757d' } }
+    },
+    series: [
+      {
+        name: 'Tickets',
+        data: [42, 28, 36, 24, 8]
+      }
+    ],
+    colors: ['var(--primary-color)'],
+    grid: {
+      borderColor: 'rgba(0,0,0,0.08)'
+    },
+    tooltip: {
+      y: {
+        formatter: function (val: number) { return val + ' tickets'; }
+      }
+    },
+    legend: { show: false }
+  };
 }

@@ -63,7 +63,9 @@
               "node_modules/swiper/swiper.css"
 
             ],
-            "scripts": []
+            "scripts": [
+              "public/assets/libs/bootstrap/js/bootstrap.bundle.min.js"
+            ]
           },
           "configurations": {
             "production": {
@@ -128,7 +130,9 @@
               "node_modules/swiper/swiper.css"
 
             ],
-            "scripts": []
+            "scripts": [
+              "public/assets/libs/bootstrap/js/bootstrap.bundle.min.js"
+            ]
           }
         }
       }

@@ -78,19 +78,19 @@ Width
 @import url("https://fonts.googleapis.com/css?family=Raleway:400,500,600,700,800");
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap");
 :root {
-  --body-bg-rgb:	234, 237, 247;
-  --primary-rgb:	106, 151, 112;
-  --secondary-rgb:	241, 56, 139;
-  --warning-rgb:	255, 155, 33;
-  --info-rgb:	1, 184, 255;
-  --success-rgb:	25, 177, 89;
-  --danger-rgb:	253, 96, 116;
-  --light-rgb:	234, 237, 247;
-  --dark-rgb:	59, 72, 99;
-  --orange-rgb:	253, 126, 20;
-  --pink-rgb:	255, 117, 173;
-  --teal-rgb:	0, 204, 204;
-  --purple-rgb:	111, 66, 193;
+  --body-bg-rgb:	245, 248, 246;
+  --primary-rgb:	45, 122, 79;
+  --secondary-rgb:	76, 175, 80;
+  --warning-rgb:	255, 152, 0;
+  --info-rgb:	33, 150, 243;
+  --success-rgb:	76, 175, 80;
+  --danger-rgb:	229, 57, 53;
+  --light-rgb:	245, 248, 246;
+  --dark-rgb:	27, 94, 32;
+  --orange-rgb:	255, 152, 0;
+  --pink-rgb:	255, 64, 129;
+  --teal-rgb:	0, 150, 136;
+  --purple-rgb:	103, 58, 183;
   --default-body-bg-color:	rgb(var(--body-bg-rgb));
   --primary-color:	rgb(var(--primary-rgb));
   --primary-border:	rgb(var(--primary-rgb));
@@ -106,33 +106,33 @@ Width
   --primary005:	rgba(var(--primary-rgb), 0.05);
   --default-font-family:	"Roboto", sans-serif;
   --default-font-weight:	400;
-  --default-text-color:	#1d212f;
-  --default-border:	#e8e8f7;
-  --default-background:	#eaedf7;
+  --default-text-color:	#1b5e20;
+  --default-border:	#c8e6c9;
+  --default-background:	#f1f8f5;
   --menu-bg:	#fff;
-  --menu-prime-color:	#536485;
-  --menu-border-color:	#e8e8f7;
+  --menu-prime-color:	#2d7a4f;
+  --menu-border-color:	#c8e6c9;
   --header-bg: #fff;
-  --header-prime-color:	#536485;
-  --header-border-color:	#e8e8f7;
+  --header-prime-color:	#2d7a4f;
+  --header-border-color:	#c8e6c9;
   --custom-white:	#fff;
   --custom-black:	#000;
-  --bootstrap-card-border:	#e8e8f7;
-  --list-hover-focus-bg:	#f1f2f9;
-  --text-muted:	#8f8fb1;
-  --input-border:	#e9edf6;
+  --bootstrap-card-border:	#c8e6c9;
+  --list-hover-focus-bg:	#e8f5e9;
+  --text-muted:	#558b2f;
+  --input-border:	#a5d6a7;
   --form-control-bg:	#ffffff;
-  --sidemenu-active-bgcolor: #eaedf7;
+  --sidemenu-active-bgcolor: #e8f5e9;
   /* Gray set */
-  --gray-1:	#eaeafb;
-  --gray-2:	#d0d0ec;
-  --gray-3:	#babade;
-  --gray-4:	#8f8fb7;
-  --gray-5:	#717196;
-  --gray-6:	#4f4f71;
-  --gray-7:	#3c3c5d;
-  --gray-8:	#262644;
-  --gray-9:	#1b1b33;
+  --gray-1:	#e8f5e9;
+  --gray-2:	#c8e6c9;
+  --gray-3:	#a5d6a7;
+  --gray-4:	#81c784;
+  --gray-5:	#66bb6a;
+  --gray-6:	#4caf50;
+  --gray-7:	#388e3c;
+  --gray-8:	#2e7d32;
+  --gray-9:	#1b5e20;
   /* White set */
   --white-1:	rgba(255,255,255, 0.1);
   --white-2:	rgba(255,255,255, 0.2);
@@ -597,7 +597,7 @@ Width
 /* Menu Colors Styles*/
 [data-menu-styles=light] {
   --menu-bg: #fff;
-  --menu-prime-color: #536485;
+  --menu-prime-color: #2d7a4f;
   --menu-border-color: #f3f3f3;
 }
 [data-menu-styles=light][data-nav-layout=vertical] .app-sidebar .main-sidebar-header .header-logo .desktop-logo {
@@ -726,6 +726,50 @@ Width
   --menu-bg: var(--primary-color);
   --menu-prime-color: rgba(255, 255, 255, 0.6);
   --menu-border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Gradient Menu Style */
+[data-menu-styles=gradient] .app-sidebar {
+  --menu-bg: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --menu-prime-color: rgba(255, 255, 255, 0.7);
+  --menu-border-color: rgba(255, 255, 255, 0.15);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+[data-menu-styles=gradient][data-nav-layout=vertical] .app-sidebar .main-sidebar-header .header-logo .desktop-white {
+  display: block;
+}
+
+[data-menu-styles=gradient][data-nav-layout=vertical] .app-sidebar .main-sidebar-header .header-logo .desktop-logo,
+[data-menu-styles=gradient][data-nav-layout=vertical] .app-sidebar .main-sidebar-header .header-logo .desktop-dark,
+[data-menu-styles=gradient][data-nav-layout=vertical] .app-sidebar .main-sidebar-header .header-logo .toggle-dark,
+[data-menu-styles=gradient][data-nav-layout=vertical] .app-sidebar .main-sidebar-header .header-logo .toggle-logo, 
+[data-menu-styles=gradient][data-nav-layout=vertical] .app-sidebar .main-sidebar-header .header-logo .toggle-white {
+  display: none;
+}
+
+/* Gradient menu with overlay adjustments */
+[data-menu-styles=gradient][data-nav-layout=vertical][data-vertical-style=overlay][data-toggled=icon-overlay-close] .app-sidebar .main-sidebar-header .header-logo .toggle-white {
+  display: block;
+}
+
+[data-menu-styles=gradient][data-nav-layout=vertical][data-vertical-style=overlay][data-toggled=icon-overlay-close] .app-sidebar .main-sidebar-header .header-logo .desktop-logo,
+[data-menu-styles=gradient][data-nav-layout=vertical][data-vertical-style=overlay][data-toggled=icon-overlay-close] .app-sidebar .main-sidebar-header .header-logo .desktop-dark,
+[data-menu-styles=gradient][data-nav-layout=vertical][data-vertical-style=overlay][data-toggled=icon-overlay-close] .app-sidebar .main-sidebar-header .header-logo .toggle-dark,
+[data-menu-styles=gradient][data-nav-layout=vertical][data-vertical-style=overlay][data-toggled=icon-overlay-close] .app-sidebar .main-sidebar-header .header-logo .toggle-logo {
+  display: none;
+}
+
+[data-menu-styles=gradient][data-nav-layout=vertical][data-vertical-style=overlay][data-toggled=icon-overlay-close][data-icon-overlay=open] .app-sidebar .main-sidebar-header .header-logo .desktop-white {
+  display: block;
+}
+
+[data-menu-styles=gradient][data-nav-layout=vertical][data-vertical-style=overlay][data-toggled=icon-overlay-close][data-icon-overlay=open] .app-sidebar .main-sidebar-header .header-logo .desktop-logo,
+[data-menu-styles=gradient][data-nav-layout=vertical][data-vertical-style=overlay][data-toggled=icon-overlay-close][data-icon-overlay=open] .app-sidebar .main-sidebar-header .header-logo .desktop-dark,
+[data-menu-styles=gradient][data-nav-layout=vertical][data-vertical-style=overlay][data-toggled=icon-overlay-close][data-icon-overlay=open] .app-sidebar .main-sidebar-header .header-logo .toggle-dark,
+[data-menu-styles=gradient][data-nav-layout=vertical][data-vertical-style=overlay][data-toggled=icon-overlay-close][data-icon-overlay=open] .app-sidebar .main-sidebar-header .header-logo .toggle-white,
+[data-menu-styles=gradient][data-nav-layout=vertical][data-vertical-style=overlay][data-toggled=icon-overlay-close][data-icon-overlay=open] .app-sidebar .main-sidebar-header .header-logo .toggle-logo {
+  display: none;
 }
 [data-menu-styles=color][data-nav-layout=vertical] .app-sidebar .main-sidebar-header .header-logo .desktop-white {
   display: block;
@@ -33047,7 +33091,7 @@ a.tag-addon:hover {
 .crypto-card {
   position: relative;
   background-color: #fff;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg id='hexagons' fill='%23eaedf7' fill-opacity='0.4' fill-rule='nonzero'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg id='hexagons' fill='%23f1f8f5' fill-opacity='0.4' fill-rule='nonzero'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 .btn-default.active {

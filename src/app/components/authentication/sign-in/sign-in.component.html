@@ -20,19 +20,53 @@
                         <div class="row row-sm">
                             <div class="card-body mt-2 mb-2">
                                 <div class="clearfix"></div>
-                                <form>
+                                <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
                                     <h5 class="text-start mb-2">Signin to Your Account</h5>
                                     <p class="mb-4 text-muted fs-13 ms-0 text-start">Signin to create, discover and connect with the global community</p>
+                                    
+                                    <div *ngIf="errorMessage" class="alert alert-danger" role="alert">
+                                        {{ errorMessage }}
+                                    </div>
+
                                     <div class="form-group text-start">
-                                        <label class="form-label">Email</label>
-                                        <input class="form-control" placeholder="Enter your email" type="text">
+                                        <label class="form-label">Username</label>
+                                        <input 
+                                            class="form-control" 
+                                            placeholder="superadmin" 
+                                            type="text"
+                                            formControlName="username"
+                                            [class.is-invalid]="submitted && f['username'].errors">
+                                        <div *ngIf="submitted && f['username'].errors" class="invalid-feedback">
+                                            <div *ngIf="f['username'].errors['required']">Username is required</div>
+                                        </div>
                                     </div>
                                     <div class="form-group text-start">
                                         <label class="form-label">Password</label>
-                                        <input class="form-control" placeholder="Enter your password" type="password">
+                                        <input 
+                                            class="form-control" 
+                                            placeholder="admin123" 
+                                            type="password"
+                                            formControlName="password"
+                                            [class.is-invalid]="submitted && f['password'].errors">
+                                        <div *ngIf="submitted && f['password'].errors" class="invalid-feedback">
+                                            <div *ngIf="f['password'].errors['required']">Password is required</div>
+                                        </div>
                                     </div>
+
+                                    <!-- Test Credentials Info -->
+                                    <div class="alert alert-info mb-3" role="alert">
+                                        <strong>Test Credentials:</strong><br>
+                                        Super Admin: <code>superadmin / admin123</code><br>
+                                        Admin: <code>admin / admin123</code><br>
+                                        Inspector: <code>inspector / inspector123</code><br>
+                                        Client: <code>client / client123</code>
+                                    </div>
+
                                     <div class="d-grid">
-                                        <a routerLink="/dashboard" class="btn btn-primary">Sign In</a>
+                                        <button type="submit" class="btn btn-primary" [disabled]="loading">
+                                            <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
+                                            Sign In
+                                        </button>
                                     </div>
                                 </form>
                                 <div class="text-start mt-5 ms-0">

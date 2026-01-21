@@ -295,6 +295,20 @@
                 }
                 </spk-reusable-tables>
         </div>
+                <!-- Tickets horizontal bar chart (placed in shaded right section) -->
+                <div class="card custom-card">
+                        <div class="card-header border-bottom-0 pb-0 d-flex ps-3 ms-1">
+                                <div>
+                                        <label class="main-content-label mb-2 pt-2">Tickets by Status</label>
+                                        <span class="d-block fs-12 mb-2 text-muted">Current distribution of support tickets</span>
+                                </div>
+                        </div>
+                        <div class="card-body pt-2 mt-0">
+                                <div id="tickets-status-chart">
+                                        <spk-apex-charts [chartOptions]="ticketsBarOptions"></spk-apex-charts>
+                                </div>
+                        </div>
+                </div>
         <div class="card custom-card">
             <div class="card-body">
                 <div class="row row-sm">

@@ -1,4 +1,134 @@
 /* You can add global styles to this file, and also import other style files */
+
+/* ========== GLOBAL TEXT RENDERING OPTIMIZATION ========== */
+/* This ensures all text across the project appears crisp and clear (4K quality) */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-smooth: always;
+}
+
+html, body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Remove all text shadows that cause blur */
+body, body * {
+  text-shadow: none !important;
+}
+
+/* Ensure no filters cause text blur */
+p, span, h1, h2, h3, h4, h5, h6, a, button, label, input, textarea, select {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  filter: none !important;
+  text-shadow: none !important;
+}
+
+/* Fix form elements text clarity */
+.form-control, .form-select, input, textarea, select {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  color: inherit;
+}
+
+/* Fix button text clarity */
+button, .btn {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ========== TABLE TEXT RENDERING FIX ========== */
+/* Tables and their cells need special treatment for text clarity */
+table, tbody, thead, tfoot, tr, td, th {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+.table {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.table thead th,
+.table tbody td,
+.table tfoot td {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  color: inherit;
+  text-shadow: none !important;
+}
+
+.table-responsive {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== LIST & MENU ITEMS TEXT FIX ========== */
+.list-group-item, .nav-link, .dropdown-item,
+.menu-item, .sidebar-menu, .breadcrumb {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  text-shadow: none !important;
+}
+
+/* ========== CARD TEXT FIX ========== */
+.card, .card-title, .card-text, .card-body, .card-header {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  text-shadow: none !important;
+}
+
+/* ========== MODAL & DIALOG TEXT FIX ========== */
+.modal, .modal-title, .modal-body, .modal-content,
+.dialog, .mat-dialog-container {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  text-shadow: none !important;
+}
+
+/* ========== BADGE & LABEL TEXT FIX ========== */
+.badge, .label, .tag {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  text-shadow: none !important;
+}
+
+/* ========== TOOLTIP TEXT FIX ========== */
+.tooltip, .bs-tooltip-top, .bs-tooltip-bottom, .bs-tooltip-left, .bs-tooltip-right,
+.mat-tooltip, .ng-tooltip {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  text-shadow: none !important;
+  color: #fff;
+}
+
+/* ========== ALERT & NOTIFICATION TEXT FIX ========== */
+.alert, .notification, .toast {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  text-shadow: none !important;
+}
+
+/* ========== END TEXT RENDERING OPTIMIZATION ========== */
+
 @import "../public/assets/css/styles.css";
 // -- Icons Css --
 @import "../public/assets/css/icons.css";
@@ -27,6 +157,30 @@
 //ng2-nouislider
 @import "../node_modules/nouislider/dist/nouislider.css";
 @import '../node_modules/overlayscrollbars/styles/overlayscrollbars.css';
+
+// Ensure menubar/sidebar matches base theme (solid green)
+[data-menu-styles='gradient'] .app-sidebar {
+  --menu-bg: #1b5e20;
+  background: #1b5e20;
+}
+
+
+// Override Material theme colors with dark green
+.mat-mdc-button.mat-primary {
+  --mdc-theme-primary: #1b5e20 !important;
+}
+
+.mat-mdc-raised-button.mat-primary {
+  --mdc-theme-primary: #1b5e20 !important;
+}
+
+.mat-primary {
+  color: #1b5e20 !important;
+}
+
+.mat-accent {
+  color: #4caf50 !important;
+}
 
 app-spk-alerts:last-child .alert {
     margin-bottom: 0;
@@ -307,6 +461,17 @@ ngb-toast {
     margin-inline-start: 0 !important;
   }
 }
+
+/* Gradient Menu Support */
+body.gradient-menu {
+  --menu-styles: gradient;
+}
+
+/* Toggle between menu styles using body classes */
+body:not(.color-menu):not(.gradient-menu) html[data-menu-styles] {
+  --menu-styles: light;
+}
+
 @media (min-width: 992px) {
   .bg-img , [data-bg-img=bgimg1] , [data-bg-img=bgimg2] , [data-bg-img=bgimg3] , [data-bg-img=bgimg4] , [data-bg-img=bgimg5]  {
       &[data-nav-layout="vertical"][data-theme-mode="dark"][data-menu-styles="light"] {
@@ -429,4 +594,35 @@ ul.productdetails {
       }
     }
   }
+}
+/* Global Table Responsive Scrollbar Styles */
+.table-responsive {
+  overflow-x: auto !important;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.table-responsive::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.table-responsive > .table {
+  margin-bottom: 0;
+  white-space: nowrap;
 }

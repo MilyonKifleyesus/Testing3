@@ -716,7 +716,7 @@
 //menu-color start
 [data-menu-styles="color"] {
     .app-sidebar{
-        --menu-bg: #{variables.$primary};
+        --menu-bg: #1b5e20;
         --menu-prime-color: rgba(255, 255, 255, 0.6);
         --menu-border-color: rgba(255, 255, 255, 0.1);
 
@@ -835,19 +835,19 @@
 [data-menu-styles="gradient"] {
     
     .app-sidebar{
-    --menu-bg: linear-gradient(to left, #{variables.$primary} 0%, #3487d2 100%);
+    --menu-bg: #1b5e20;
     --menu-prime-color: rgba(255, 255, 255, 0.7);
     --menu-border-color: rgba(255, 255, 255, 0.1);
     }
 
     &[dir="rtl"] {
         .app-sidebar{
-            --menu-bg: linear-gradient(to right, #{variables.$primary} 0%, #3487d2 100%);
+            --menu-bg: #1b5e20;
         }
     }
 
     &[data-nav-layout="horizontal"] {
-        --menu-bg: linear-gradient(to left, #{variables.$primary} 0%, #3487d2 100%);
+        --menu-bg: #1b5e20;
     }
 
     .app-sidebar .main-sidebar-header {
@@ -871,7 +871,7 @@
         .app-sidebar {
             .shape1,
             .shape2 {
-                background-color: linear-gradient(to bottom, #{variables.$primary} 0%, #3487d2 100%) !important;
+                background-color: #1b5e20 !important;
             }
         }
 
@@ -1323,7 +1323,74 @@
     }
 }
 
-//header-gradient start
+//header-gradient end
+
+//header-green start (Custom Static Green Header)
+[data-header-styles="green"] {
+    .app-header{
+    --header-bg: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --header-border-color: rgba(255, 255, 255, 0.1);
+    --header-prime-color: rgba(255, 255, 255, 0.95);
+    }
+
+    &[data-nav-layout="horizontal"] {
+        @media (min-width:992px) {
+            .header-element .horizontal-logo .header-logo {
+                .desktop-white {
+                    display: block;
+                }
+
+                .desktop-logo,
+                .desktop-dark,
+                .toggle-dark,
+                .toggle-white,
+                .toggle-logo {
+                    display: none;
+                }
+            }
+        }
+    }
+
+    .main-header-container {
+        .header-link:hover,
+        .header-link.show {
+            .header-link-icon {
+                fill: variables.$white;
+            }
+        }
+
+        .header-link-icon:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+        .country-selector svg:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+        
+        .header-link {
+            color: rgba(255, 255, 255, 0.95);
+        }
+        
+        .form-control {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: white;
+            
+            &::placeholder {
+                color: rgba(255, 255, 255, 0.7);
+            }
+        }
+        
+        .btn-primary {
+            background-color: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
+            
+            &:hover {
+                background-color: rgba(255, 255, 255, 0.35);
+            }
+        }
+    }
+}
+//header-green end
 
 //header-transparent start
 [data-header-styles="transparent"] {

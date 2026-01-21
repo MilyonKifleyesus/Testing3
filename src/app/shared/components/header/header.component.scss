@@ -24,6 +24,36 @@
             color: #eee !important;
         }
     }
+
+    /* Header logo styling to fit images in div */
+    .header-logo {
+        display: flex;
+        align-items: center;
+        height: 100%;
+        padding: 0.5rem 0;
+
+        img {
+            height: 100%;
+            width: auto;
+            max-width: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .toggle-logo,
+        .toggle-dark,
+        .toggle-white {
+            max-height: 2.5rem;
+            height: auto;
+        }
+
+        .desktop-logo,
+        .desktop-dark,
+        .desktop-white {
+            max-height: 3rem;
+            height: auto;
+        }
+    }
 }
 
 ::ng-deep {

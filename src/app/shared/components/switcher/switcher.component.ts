@@ -42,7 +42,7 @@ export class SwitcherComponent {
 
     }
     if (theme == 'dark') {
-      this.appStateService.updateState({ theme, themeBackground: '', headerColor: 'dark', menuColor: 'dark' });
+      this.appStateService.updateState({ theme, themeBackground: '', headerColor: 'dark', menuColor: 'color' });
       let html = document.querySelector('html');
       html?.style.removeProperty('--body-bg-rgb');
       html?.style.removeProperty('--body-bg-rgb2');
@@ -169,7 +169,7 @@ private checkMenuElement(menuStyles: string) {
   updateBackground(themeBackground: any) {
     // console.log('Updating themeBackground to:', themeBackground);
     // this.localdata['themeBackground'] = themeBackground;
-    this.appStateService.updateState({ themeBackground, headerColor: 'dark', menuColor: 'dark',theme:'dark' });
+    this.appStateService.updateState({ themeBackground, headerColor: 'dark', menuColor: 'color',theme:'dark' });
  
   }
   updateBgImage(backgroundImage: string) {

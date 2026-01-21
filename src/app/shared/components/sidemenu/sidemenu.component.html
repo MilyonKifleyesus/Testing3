@@ -2,14 +2,11 @@
 <aside class="app-sidebar sticky" id="sidebar" [ngClass]="{ 'sticky-pin': scrolled }">
     <!-- Start::main-sidebar-header -->
     <div class="main-sidebar-header">
-      <a routerLink="/dashboard" class="header-logo">
-        <img src="./assets/images/brand-logos/desktop-white.png" class="desktop-white" alt="logo">
-        <img src="./assets/images/brand-logos/toggle-white.png" class="toggle-white" alt="logo">
-        <img src="./assets/images/brand-logos/desktop-logo.png" class="desktop-logo" alt="logo">
-        <img src="./assets/images/brand-logos/toggle-dark.png" class="toggle-dark" alt="logo">
-        <img src="./assets/images/brand-logos/toggle-logo.png" class="toggle-logo" alt="logo">
-        <img src="./assets/images/brand-logos/desktop-dark.png" class="desktop-dark" alt="logo">
-      </a>
+      <div class="logo-container">
+        <a routerLink="/dashboard" class="header-logo">
+          <img src="./assets/images/brand-logos/desktop-dark.png" class="desktop-dark" alt="logo">
+        </a>
+      </div>
     </div>
     <!-- End::main-sidebar-header -->
     <!-- <ngx-simplebar> -->

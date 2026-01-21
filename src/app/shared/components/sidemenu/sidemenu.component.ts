@@ -180,6 +180,7 @@ export class SidemenuComponent {
             if (item === targetObject) {
                 if (html.getAttribute('data-vertical-style') == 'doublemenu' && item.active && window.innerWidth > 992 && state) { return }
                 item.active = !item.active;
+                item.selected = item.active; // Set selected state when toggling
                 if (item.active) {
                     this.closeOtherMenus(menuData, item);
                 }
@@ -265,6 +266,7 @@ closeOtherMenus(menuData:Menu[], targetObject:Menu) {
     for (const item of menuData) {
         if (item !== targetObject) {
             item.active = false;
+            item.selected = false; // Also deselect other menus
             if (item.children && item.children.length > 0) {
                 this.closeOtherMenus(item.children, targetObject);
             }
