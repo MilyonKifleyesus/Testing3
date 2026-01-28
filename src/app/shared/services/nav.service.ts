@@ -332,6 +332,158 @@ export class NavService implements OnDestroy {
     }
   ];
 
+  // Client Menu Items
+  CLIENT_MENUITEMS: Menu[] = [
+    { headTitle: 'Client Portal' },
+    {
+      path: '/client/dashboard',
+      title: 'Dashboard',
+      icon: 'ti-dashboard',
+      type: 'link',
+      active: false,
+      selected: false
+    },
+    {
+      path: '/client/assets',
+      title: 'Asset Requests',
+      icon: 'ti-menu',
+      type: 'link',
+      active: false,
+    },
+    {
+      path: '/client/tickets',
+      title: 'Tickets',
+      icon: 'ti-ticket',
+      type: 'link',
+      active: false,
+    },
+    {
+      path: '/client/snags',
+      title: 'Snags',
+      icon: 'ti-flag',
+      type: 'link',
+      active: false,
+    },
+    {
+      path: '/client/projects',
+      title: 'Projects',
+      type: 'sub',
+      icon: 'ti-layout',
+      active: false,
+      children: [
+        {
+          path: '/client/projects/list',
+          title: 'Projects',
+          type: 'link',
+        },
+        {
+          path: '/client/projects/final-vehicle',
+          title: 'Final Vehicle',
+          type: 'link',
+        }
+      ]
+    },
+    {
+      path: '/client/stations',
+      title: 'STATIONS',
+      type: 'sub',
+      icon: 'ti-rocket',
+      active: false,
+      children: [
+        {
+          path: '/client/stations/list',
+          title: 'Station',
+          type: 'link',
+        },
+        {
+          path: '/client/stations/tracker',
+          title: 'Station Tracker',
+          type: 'link',
+        }
+      ]
+    },
+    {
+      path: '/client/vehicles',
+      title: 'Vehicles',
+      type: 'sub',
+      icon: 'ti-truck',
+      active: false,
+      children: [
+        {
+          path: '/client/vehicles/list',
+          title: 'Vehicles',
+          type: 'link',
+        },
+        {
+          path: '/client/vehicles/propulsion',
+          title: 'Propulsion',
+          type: 'link',
+        },
+        {
+          path: '/client/vehicles/mileage',
+          title: 'Mileage',
+          type: 'link',
+        }
+      ]
+    },
+    {
+      title: 'REPORTS',
+      type: 'sub',
+      icon: 'ti-panel',
+      active: false,
+      children: [
+        {
+          title: 'Ticket Reports',
+          type: 'sub',
+          children: [
+            {
+              path: '/client/reports/ticket-reports/daily',
+              title: 'Daily Reports',
+              type: 'link',
+            },
+            {
+              path: '/client/reports/ticket-reports/weekly',
+              title: 'Weekly Report',
+              type: 'link',
+            }
+          ]
+        },
+        {
+          title: 'Vehicle Reports',
+          type: 'sub',
+          children: [
+            {
+              path: '/client/reports/vehicle-reports/ticket-report',
+              title: 'Vehicle Ticket Report',
+              type: 'link',
+            },
+            {
+              path: '/client/reports/vehicle-reports/station-tracker',
+              title: 'Vehicle Station Tracker Report',
+              type: 'link',
+            },
+            {
+              path: '/client/reports/vehicle-reports/final-reports',
+              title: 'Vehicle Final Reports',
+              type: 'link',
+            }
+          ]
+        },
+        {
+          title: 'Administrative Reports',
+          type: 'sub',
+          children: [
+            {
+              path: '/client/reports',
+              title: 'All Reports',
+              type: 'link',
+            }
+          ]
+        }
+      ]
+    },
+  ];
+
   // Default/Original Menu Items
   MENUITEMS: Menu[] = [
     //title
@@ -873,7 +1025,7 @@ export class NavService implements OnDestroy {
       case 'inspector':
         return this.MENUITEMS; // Can be customized for inspector
       case 'client':
-        return this.MENUITEMS; // Can be customized for client
+        return this.CLIENT_MENUITEMS; // Custom menu for client
       default:
         return this.MENUITEMS;
     }

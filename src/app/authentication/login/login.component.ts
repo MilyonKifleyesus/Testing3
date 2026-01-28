@@ -80,24 +80,43 @@ export class LoginComponent {
     // this.disabled = "btn-loading"
     this.clearErrorMessage();
     if (this.validateForm(this.email, this.password)) {
-      this.authservice
-        .loginWithEmail(this.email, this.password)
-        .then(() => {
-          this.router.navigate(['/dashboard']);
+      // Use loginWithRole to properly set user role before navigation
+      this.authservice.loginWithRole(this.email, this.password).subscribe({
+        next: (user) => {
           console.clear();
-          this.toastr.success('login successful','spruha', {
+          // Navigate based on role
+          if (user.role === 'superadmin' || user.role === 'admin') {
+            this.router.navigate(['/admin/dashboard']);
+            this.toastr.success(`Login successful - ${user.role === 'superadmin' ? 'Super Admin' : 'Admin'}`, 'BusPulse', {
+              timeOut: 3000,
+              positionClass: 'toast-top-right',
+            });
+          } else if (user.role === 'client') {
+            this.router.navigate(['/client/dashboard']);
+            this.toastr.success('Login successful - Client', 'BusPulse', {
+              timeOut: 3000,
+              positionClass: 'toast-top-right',
+            });
+          } else if (user.role === 'inspector') {
+            this.router.navigate(['/dashboard']);
+            this.toastr.success('Login successful - Inspector', 'BusPulse', {
+              timeOut: 3000,
+              positionClass: 'toast-top-right',
+            });
+          }
+        },
+        error: (error) => {
+          this._error = error;
+          this.toastr.error('Invalid credentials', 'BusPulse', {
             timeOut: 3000,
             positionClass: 'toast-top-right',
           });
-        })
-        .catch((_error: any) => {
-          this._error = _error;
-          this.router.navigate(['/']);
-        });
+        }
+      });
      
     }
     else {
-      this.toastr.error('Invalid details','spruha', {
+      this.toastr.error('Invalid details','BusPulse', {
         timeOut: 3000,
         positionClass: 'toast-top-right',
       });
@@ -135,22 +154,41 @@ export class LoginComponent {
 
   Submit() {
     console.log(this.loginForm)
-    if (
-      this.loginForm.controls['username'].value === 'superadmin' &&
-      this.loginForm.controls['password'].value === 'admin123'
-    ) {
-      this.router.navigate(['/dashboard']);
-      this.toastr.success('login successful','spruha', {
-        timeOut: 3000,
-        positionClass: 'toast-top-right',
-      });
-    } else {
-      this.toastr.error('Invalid details','spruha', {
-        timeOut: 3000,
-        positionClass: 'toast-top-right',
-      });
-    }
-  
+    const username = this.loginForm.controls['username'].value;
+    const password = this.loginForm.controls['password'].value;
+    
+    // Use loginWithRole to properly set user role before navigation
+    this.authservice.loginWithRole(username, password).subscribe({
+      next: (user) => {
+        console.clear();
+        // Navigate based on role
+        if (user.role === 'superadmin' || user.role === 'admin') {
+          this.router.navigate(['/admin/dashboard']);
+          this.toastr.success(`Login successful - ${user.role === 'superadmin' ? 'Super Admin' : 'Admin'}`, 'BusPulse', {
+            timeOut: 3000,
+            positionClass: 'toast-top-right',
+          });
+        } else if (user.role === 'client') {
+          this.router.navigate(['/client/dashboard']);
+          this.toastr.success('Login successful - Client', 'BusPulse', {
+            timeOut: 3000,
+            positionClass: 'toast-top-right',
+          });
+        } else if (user.role === 'inspector') {
+          this.router.navigate(['/dashboard']);
+          this.toastr.success('Login successful - Inspector', 'BusPulse', {
+            timeOut: 3000,
+            positionClass: 'toast-top-right',
+          });
+        }
+      },
+      error: (error) => {
+        this.toastr.error('Invalid credentials', 'BusPulse', {
+          timeOut: 3000,
+          positionClass: 'toast-top-right',
+        });
+      }
+    });
   }
 
   public togglePassword() {

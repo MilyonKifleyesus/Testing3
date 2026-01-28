@@ -27,8 +27,15 @@ export const roleGuard: CanActivateFn = (route, state) => {
   const expectedRoles = route.data['roles'] as string[];
   
   if (expectedRoles && !authService.hasRole(expectedRoles)) {
-    // Role not authorized, redirect to dashboard
-    router.navigate(['/dashboard']);
+    // Role not authorized, redirect based on user's actual role
+    const userRole = authService.userRole;
+    if (userRole === 'superadmin' || userRole === 'admin') {
+      router.navigate(['/admin/dashboard']);
+    } else if (userRole === 'client') {
+      router.navigate(['/client/dashboard']);
+    } else {
+      router.navigate(['/dashboard']);
+    }
     return false;
   }
 

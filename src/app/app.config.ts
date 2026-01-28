@@ -1,4 +1,4 @@
-import { ApplicationConfig, importProvidersFrom } from '@angular/core';
+import { ApplicationConfig, importProvidersFrom, NgZone } from '@angular/core';
 import { RouterOutlet, provideRouter } from '@angular/router';
 import { BrowserAnimationsModule, provideAnimations } from '@angular/platform-browser/animations'
 import { BrowserModule } from '@angular/platform-browser'
@@ -63,7 +63,15 @@ export const appConfig: ApplicationConfig = {
       deps: [HttpClient]
     }
   })
-  )
+  ),
+  {
+    provide: 'ng2-img-max/MAX_WIDTH',
+    useValue: 20000
+  },
+  {
+    provide: 'ng.warnings.suppressImages',
+    useValue: true
+  }
 ]
 };
 

@@ -53,8 +53,12 @@ export class SignInComponent implements OnInit {
         this.navService.loadMenuByRole(user.role || 'admin');
         
         // Navigate based on role
-        if (user.role === 'superadmin') {
+        if (user.role === 'superadmin' || user.role === 'admin') {
           this.router.navigate(['/admin/dashboard']);
+        } else if (user.role === 'client') {
+          this.router.navigate(['/client/dashboard']);
+        } else if (user.role === 'inspector') {
+          this.router.navigate(['/dashboard']);
         } else {
           this.router.navigate(['/dashboard']);
         }

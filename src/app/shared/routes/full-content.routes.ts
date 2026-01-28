@@ -37,6 +37,8 @@ export const content: Routes = [
    {path:'', loadChildren : () => import('../../../app/components/Forms/form-editor/form-editor.routes').then(r => r.formeditorRoutingModule)},
    // Super Admin Routes
    {path:'admin', loadChildren : () => import('../../components/admin/admin.routes').then(r => r.adminRoutingModule)},
+   // Client Routes
+   {path:'client', loadChildren : () => import('../../components/client/client.routes').then(r => r.clientRoutingModule)},
 
 
 //    {
