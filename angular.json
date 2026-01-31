@@ -95,6 +95,7 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
             "hmr": false,
+            "liveReload": false,
             "proxyConfig": "proxy.conf.json"
           },
           "configurations": {

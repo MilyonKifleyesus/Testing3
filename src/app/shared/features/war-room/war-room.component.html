@@ -1,0 +1,141 @@
+<div class="war-room-container">
+  <!-- Main Content -->
+  <main class="war-room-main">
+    <!-- Map Area -->
+    <div class="war-room-map-area">
+      <div class="map-view-toggle card custom-card d-flex align-items-center gap-2 p-2">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Map view toggle">
+          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'subsidiary'"
+            [class.btn-outline-primary]="mapViewMode() !== 'subsidiary'" (click)="setMapViewMode('subsidiary')">
+            Subsidiary View
+          </button>
+          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'factory'"
+            [class.btn-outline-primary]="mapViewMode() !== 'factory'" (click)="setMapViewMode('factory')">
+            Factory View
+          </button>
+        </div>
+        <button type="button" class="btn btn-white btn-icon-text btn-sm map-filter-btn" (click)="toggleFiltersPanel()"
+          [attr.aria-label]="filtersPanelVisible() ? 'Close filters' : 'Open filters'"
+          [attr.aria-expanded]="filtersPanelVisible()">
+          <i class="fe fe-filter me-2 fs-14"></i> Filter
+          @if (activeFilterCount() > 0) {
+          <span class="badge bg-primary-transparent ms-1">{{ activeFilterCount() }}</span>
+          }
+        </button>
+      </div>
+      <div class="war-room-filters card custom-card" [class.open]="filtersPanelVisible()">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h6 class="main-content-label mb-0">Open Filters</h6>
+          <button type="button" class="btn-close" (click)="toggleFiltersPanel()" aria-label="Close filters"></button>
+        </div>
+        <div class="card-body">
+          <div class="filters-section">
+            <label class="form-label">Companies</label>
+            <div class="filters-options">
+              @for (option of parentCompanyOptions(); track option.id) {
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input"
+                  [checked]="filterDraft().parentCompanyIds.includes(option.id)"
+                  (change)="toggleParentCompany(option.id)" [id]="'parent-filter-' + option.id" />
+                <label class="form-check-label w-100 d-flex justify-content-between align-items-center"
+                  [for]="'parent-filter-' + option.id">
+                  <span>{{ option.name }}</span>
+                  <span class="badge bg-primary-transparent">{{ option.count }}</span>
+                </label>
+              </div>
+              }
+            </div>
+          </div>
+          <div class="filters-section">
+            <label class="form-label">Status</label>
+            <div class="filters-pill-group">
+              <button type="button" class="btn btn-sm" [class.btn-primary]="filterDraft().status === 'all'"
+                [class.btn-outline-primary]="filterDraft().status !== 'all'" (click)="setStatusFilter('all')">
+                All
+                <span class="badge bg-primary-transparent ms-2">{{ statusCounts().total }}</span>
+              </button>
+              <button type="button" class="btn btn-sm" [class.btn-primary]="filterDraft().status === 'active'"
+                [class.btn-outline-primary]="filterDraft().status !== 'active'" (click)="setStatusFilter('active')">
+                Active
+                <span class="badge bg-success-transparent ms-2">{{ statusCounts().active }}</span>
+              </button>
+              <button type="button" class="btn btn-sm" [class.btn-primary]="filterDraft().status === 'inactive'"
+                [class.btn-outline-primary]="filterDraft().status !== 'inactive'" (click)="setStatusFilter('inactive')">
+                Inactive
+                <span class="badge bg-secondary-transparent ms-2">{{ statusCounts().inactive }}</span>
+              </button>
+            </div>
+          </div>
+          <div class="filters-section">
+            <label class="form-label">Regions</label>
+            <div class="filters-options">
+              @for (region of availableRegions(); track region) {
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" [checked]="filterDraft().regions.includes(region)"
+                  (change)="toggleRegion(region)" [id]="'region-filter-' + region" />
+                <label class="form-check-label" [for]="'region-filter-' + region">{{ region }}</label>
+              </div>
+              }
+            </div>
+          </div>
+          <div class="filters-actions d-flex gap-2">
+            <button type="button" class="btn btn-primary flex-fill" (click)="applyFilters()">Apply Filters</button>
+            <button type="button" class="btn btn-outline-primary flex-fill" (click)="resetFilters()">Reset All</button>
+          </div>
+        </div>
+      </div>
+      <app-war-room-map [nodes]="filteredNodes()" [selectedEntity]="selectedEntity()"
+        [transitRoutes]="filteredTransitRoutes()" (nodeSelected)="onNodeSelected($event)"></app-war-room-map>
+      @if (addCompanyModalVisible()) {
+      <app-add-company-modal #addCompanyModalRef [isVisible]="true" [useMapPositioning]="true"
+        (companyAdded)="onCompanyAdded($event)" (close)="onAddCompanyModalClose()" />
+      }
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="war-room-sidebar" [class.expanded]="activityLogVisible() || hubStatusVisible()">
+      <!-- Activity Log Toggle Button -->
+      <button class="sidebar-toggle-btn activity-log-toggle bio-cell-toggle" [class.active]="activityLogVisible()"
+        (click)="toggleActivityLog()"
+        [attr.aria-label]="activityLogVisible() ? 'Hide activity log' : 'Show activity log'"
+        [attr.aria-expanded]="activityLogVisible()">
+        <span class="tactical-edge"></span>
+        <span class="toggle-icon" [class.expanded]="activityLogVisible()">▶</span>
+        <span class="toggle-text">{{ activityLogVisible() ? 'HIDE LOG' : 'SHOW LOG' }}</span>
+      </button>
+      @if (activityLogVisible()) {
+      <button type="button" class="sidebar-edit-toggle" [class.active]="activityLogEditMode()"
+        (click)="activityLogEditMode.set(!activityLogEditMode())"
+        [attr.aria-label]="activityLogEditMode() ? 'Switch to view mode' : 'Switch to edit mode'">
+        {{ activityLogEditMode() ? 'VIEW MODE' : 'EDIT MODE' }}
+      </button>
+      }
+
+      <!-- Activity Log Section -->
+      <div class="sidebar-section" [class.hidden]="!activityLogVisible()">
+        <app-war-room-activity-log [parentGroups]="filteredParentGroups()" [activityLogs]="filteredActivityLogs()"
+          [selectedEntity]="selectedEntity()" [editMode]="activityLogEditMode()" [mapViewMode]="mapViewMode()"
+          (selectionChange)="onEntitySelected($event)" (editModeChange)="activityLogEditMode.set($event)"
+          (factoryDetailsUpdated)="onFactoryDetailsUpdated($event)"
+          (subsidiaryDetailsUpdated)="onSubsidiaryDetailsUpdated($event)"
+          (subsidiaryDeleted)="onSubsidiaryDeleted($event)"
+          (factoryDeleted)="onFactoryDeleted($event)"></app-war-room-activity-log>
+      </div>
+
+      <!-- Hub Status Toggle Button -->
+      <button class="sidebar-toggle-btn hub-status-toggle bio-cell-toggle" [class.active]="hubStatusVisible()"
+        (click)="toggleHubStatus()" [attr.aria-label]="hubStatusVisible() ? 'Hide hub status' : 'Show hub status'"
+        [attr.aria-expanded]="hubStatusVisible()">
+        <span class="tactical-edge"></span>
+        <span class="toggle-icon" [class.expanded]="hubStatusVisible()">▶</span>
+        <span class="toggle-text">{{ hubStatusVisible() ? 'HIDE HUB' : 'SHOW HUB' }}</span>
+      </button>
+
+      <!-- Hub Status Section -->
+      <div class="sidebar-section" [class.hidden]="!hubStatusVisible()">
+        <app-war-room-hub-status [selectedSubsidiary]="selectedSubsidiary()"
+          (addCompanyRequested)="onAddCompanyRequested()"></app-war-room-hub-status>
+      </div>
+    </aside>
+  </main>
+</div>

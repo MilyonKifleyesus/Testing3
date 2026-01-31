@@ -167,7 +167,6 @@
                     </label>
                   </th>
                   <th (click)="sortTickets('ticketNumber')" style="cursor:pointer">Ticket # <span *ngIf="sortColumn === 'ticketNumber'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                  <th (click)="sortTickets('clientName')" style="cursor:pointer">Client <span *ngIf="sortColumn === 'clientName'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th (click)="sortTickets('projectName')" style="cursor:pointer">Project <span *ngIf="sortColumn === 'projectName'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th (click)="sortTickets('vehicleIdentifier')" style="cursor:pointer">Vehicle <span *ngIf="sortColumn === 'vehicleIdentifier'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th (click)="sortTickets('safetyCritical')" style="cursor:pointer">Safety Critical <span *ngIf="sortColumn === 'safetyCritical'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
@@ -193,7 +192,6 @@
                   <td>
                     <a href="javascript:void(0);" class="text-primary">{{ ticket.ticketNumber }}</a>
                   </td>
-                  <td>{{ ticket.clientName }}</td>
                   <td>{{ ticket.projectName }}</td>
                   <td>{{ ticket.vehicleIdentifier }}</td>
                   <td>
@@ -222,7 +220,7 @@
                   <td>{{ ticket.resolvedDate ? formatDate(ticket.resolvedDate) : '-' }}</td>
                 </tr>
                 <tr *ngIf="filteredTickets.length === 0">
-                  <td colspan="16" class="text-center py-5">
+                  <td colspan="15" class="text-center py-5">
                     <i class="ti-info-alt tx-48 text-muted mb-3"></i>
                     <p class="text-muted mb-0">No tickets found matching your criteria</p>
                   </td>

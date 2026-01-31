@@ -14,6 +14,8 @@ import { SharedOngoingProjects2ChartComponent } from '../../../shared/charts/sha
 import { SpkDashboardComponent } from '../../../@spk/reusable-dashboard/spk-dashboard/spk-dashboard.component';
 import { SpkReusableTablesComponent } from '../../../@spk/reusable-tables/spk-reusable-tables/spk-reusable-tables.component';
 import { CommonModule } from '@angular/common';
+// Milli made a change: add WarRoomComponent to dashboard imports.
+import { WarRoomComponent } from '../../../shared/features/war-room/war-room.component';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -31,7 +33,8 @@ import { CommonModule } from '@angular/common';
     SharedWebsiteDesignChartComponent,
     SharedTicketsBarChartComponent,
     SharedOngoingProjectsChartComponent,
-    SharedOngoingProjects2ChartComponent
+    SharedOngoingProjects2ChartComponent,
+    WarRoomComponent
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
