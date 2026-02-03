@@ -1,10 +1,6 @@
-// --- SECTION 1: IMPORTS & BLUEPRINTS ---
-// Line 1: Import Angular core tools. 'signal' stores data, 'computed' calculates data based on signals.
 import { Injectable, signal, computed, isDevMode } from '@angular/core';
-// Line 2: Import RxJS tools. 'Observable' is for data streams, 'of' creates a simple stream from a value.
 import { Observable, of, delay, throwError } from 'rxjs';
-// Lines 3-18: Import 'Interfaces' which are blueprints defining what our data objects (like a Node or Hub) must look like.
-import type {
+import {
   Node,
   Hub,
   ActivityLog,
@@ -24,44 +20,22 @@ import type {
 @Injectable({
   providedIn: 'root',
 })
-/**
- * WarRoomService - The "Brain" of the War Room Dashboard.
- * This service acts as the Central Command, managing all data flows, map markers,
- * and user interactions. It is designed to be the "Middle Man" between the data files
- * and the visual components.
- */
 export class WarRoomService {
-  // --- SECTION: INTERNAL MEMORY (Private State) ---
-  // Signals are like "batteries" that hold data and automatically notify the UI when changed.
-  // The leading underscore (_) indicates these are private and shouldn't be touched directly.
-
-  // Private storage for all parent companies (the big corporate entities)
+  // Signal-based state management 
   private _parentGroups = signal<ParentGroup[]>([]);
-  // Private storage for the lines connecting dots on the map (transit routes)
   private _transitRoutes = signal<TransitRoute[]>([]);
-  // Private storage for the list of events (e.g., "Package delivered")
   private _activityLogs = signal<ActivityLog[]>([]);
-  // Store for technical network stats like latency and uptime
   private _networkMetrics = signal<NetworkMetrics | null>(null);
-  // Store for how much data is flowing through the network
   private _networkThroughput = signal<NetworkThroughput | null>(null);
-  // Store for the colored grid overlay on the map (heatmap)
   private _geopoliticalHeatmap = signal<GeopoliticalHeatmap | null>(null);
-  // List of active satellites monitored by the system
   private _satelliteStatuses = signal<SatelliteStatus[]>([]);
-  // Remembers if we are zoomed into a factory, subsidiary, or looking at a parent
   private _mapViewMode = signal<MapViewMode>('parent');
-  // Remembers exactly which item is currently clicked/selected by the user
   private _selectedEntity = signal<FleetSelection | null>(null);
-  // Remembers which item the user's mouse is currently pointing at
   private _hoveredEntity = signal<FleetSelection | null>(null);
-  // Used to filter factories so you only see ones belonging to a specific company
   private _factoryFilterSubsidiaryId = signal<string | null>(null);
-  // Tells the map which ID and at what time it should center the camera
   private _panToEntity = signal<{ id: string; timestamp: number } | null>(null);
 
-  // --- SECTION: PUBLIC ACCESS (Readonly) ---
-  // These provide "Look but don't touch" access to the private signals above.
+  // Public readonly signals
   readonly parentGroups = this._parentGroups.asReadonly();
   readonly transitRoutes = this._transitRoutes.asReadonly();
   readonly activityLogs = this._activityLogs.asReadonly();
@@ -74,75 +48,42 @@ export class WarRoomService {
   readonly hoveredEntity = this._hoveredEntity.asReadonly();
   readonly panToEntity = this._panToEntity.asReadonly();
 
-  // --- SECTION: SMART VARIABLES (Computed) ---
-  // These variables "calculate" themselves. If what they watch changes, they update automatically.
-
-  /**
-   * subsidiaries: Pulls out every sub-company from all parent groups into one big list.
-   */
+  // Computed signals
   readonly subsidiaries = computed(() =>
     this._parentGroups().flatMap((group) => group.subsidiaries)
   );
 
-  /**
-   * factories: Pulls out every single factory from every sub-company.
-   */
   readonly factories = computed(() =>
     this.subsidiaries().flatMap((subsidiary) => subsidiary.factories)
   );
 
-  /**
-   * nodes: The Heart of the Map.
-   * This logic runs every time the view mode (zoom level) or selection changes.
-   */
   readonly nodes = computed(() => {
-    // 1. Get the current zoom level (parent, subsidiary, or factory)
     const viewMode = this._mapViewMode();
-    // 2. See which company/factory is currently selected
     const selection = this._selectedEntity();
-    // 3. See if we are filtering factories specifically for one company
     const factoryFilterSubsidiaryId = this._factoryFilterSubsidiaryId();
-    // 4. Call buildMapNodes to turn this raw data into icons for the map
     return this.buildMapNodes(viewMode, selection, factoryFilterSubsidiaryId);
   });
 
-  /**
-   * selectedParentGroup: Automatically finds the Parent Group object
-   * based on whatever dot is currently clicked on the map.
-   */
   readonly selectedParentGroup = computed(() => {
     const selection = this._selectedEntity();
-    // If nothing is selected, return null
     if (!selection) return null;
-    // If a parent is selected, use its ID. If a child (subsidiary/factory) is selected, find its parent's ID.
     const parentId = selection.level === 'parent' ? selection.id : selection.parentGroupId;
     if (!parentId) return null;
-    // Search our list for the matching parent group
     return this._parentGroups().find((group) => group.id === parentId) || null;
   });
 
-  /**
-   * selectedSubsidiary: Automatically finds the Subsidiary (regional) object
-   * that owns the factory or is directly selected.
-   */
   readonly selectedSubsidiary = computed(() => {
     const selection = this._selectedEntity();
     if (!selection) return null;
-    // If the selected dot is a subsidiary, find it in the list
     if (selection.level === 'subsidiary') {
       return this.subsidiaries().find((sub) => sub.id === selection.id) || null;
     }
-    // If the selected dot is a factory, find its owner (subsidiary)
     if (selection.level === 'factory' && selection.subsidiaryId) {
       return this.subsidiaries().find((sub) => sub.id === selection.subsidiaryId) || null;
     }
     return null;
   });
 
-  /**
-   * The constructor is the first thing that runs when the app starts.
-   * It immediately kicks off the data loading process.
-   */
   constructor() {
     void this.initializeData();
   }
@@ -189,34 +130,26 @@ export class WarRoomService {
   }
 
   /**
-   * initializeData: The "Startup Sequence."
-   * It reaches into the assets folder and loads everything the dashboard needs.
+   * Initialize data from mock data
    */
   private async initializeData(): Promise<void> {
-    // 1. Prepare a blank state in case the file loading fails
     const emptyState = this.getEmptyState();
 
     try {
-      // 2. REACH OUT TO FILE: This is the actual internet/file call
       const response = await this.fetchWithTimeout('/assets/data/war-room-data.json', { cache: 'no-store' });
-      // 3. Check if the connection worked
       if (!response.ok) {
         this.logWarn('Failed to load war room data. Using empty state.');
         this.applyState(emptyState);
         return;
       }
-      // 4. Parse the text from the file into a JSON object
       const data = await response.json();
-      // 5. Check if the data has the right "shape" (all required fields)
       if (!this.isValidWarRoomState(data)) {
         this.logWarn('Invalid war room data shape. Using empty state.');
         this.applyState(emptyState);
         return;
       }
-      // 6. SUCCESS: Load all that data into our signals (memory)
       this.applyState(data);
     } catch (error) {
-      // 7. ERROR: If something crashed, use the blank state
       this.logWarn('Failed to load war room data. Using empty state.', error);
       this.applyState(emptyState);
     }
@@ -285,31 +218,22 @@ export class WarRoomService {
     };
   }
 
-  /**
-   * buildMapNodes: This is the decision engine for the map's visual elements.
-   * Based on the view level (Parent, Subsidiary, or Factory), it chooses which dots to show.
-   */
   private buildMapNodes(
     viewMode: MapViewMode,
     selection: FleetSelection | null,
     factoryFilterSubsidiaryId: string | null
   ): Node[] {
-    // 1. Get the raw list of all parent groups
     const parentGroups = this._parentGroups();
-
-    // 2. IF PARENT MODE: Show one big dot per company group
     if (viewMode === 'parent') {
       return parentGroups.map((group) => this.createParentNode(group));
     }
 
-    // 3. IF SUBSIDIARY MODE: Show regional office dots
     if (viewMode === 'subsidiary') {
-      // 3a. If we are focused on a specific company, show its factories instead
       if (factoryFilterSubsidiaryId) {
         return this.factories()
           .filter((factory) =>
             factory.subsidiaryId === factoryFilterSubsidiaryId ||
-            factory.subsidiaryId === 'fleetzero' || // Always show FleetZero "ghost" assets
+            factory.subsidiaryId === 'fleetzero' ||
             factory.id === 'fleetzero'
           )
           .map((factory) => {
@@ -318,13 +242,10 @@ export class WarRoomService {
           });
       }
 
-      // 3b. Otherwise, just show the dots for the regional offices (subsidiaries)
       return this.subsidiaries().map((subsidiary) => this.createSubsidiaryNode(subsidiary));
     }
 
-    // 4. IF FACTORY MODE: Show every single building dot on the map
     let factories = this.factories();
-    // Filter if needed
     if (factoryFilterSubsidiaryId) {
       factories = factories.filter(
         (factory) =>
@@ -334,35 +255,28 @@ export class WarRoomService {
       );
     }
 
-    // Convert each factory object into a Map Node (dot)
     return factories.map((factory) => {
       const subsidiary = this.subsidiaries().find((sub) => sub.id === factory.subsidiaryId);
       return this.createFactoryNode(factory, subsidiary);
     });
   }
-  /**
-   * createParentNode: Turns a high-level "Parent Group" into a map icon.
-   */
+
   private createParentNode(group: ParentGroup): Node {
-    // 1. Gather all factories owned by this group
-    const factories = group.subsidiaries.flatMap((sub: SubsidiaryCompany) => sub.factories);
-    // 2. THE MATH: Since a Group covers a large area, we calculate the "average" middle point
-    // (center of gravity) of all its factories to decide where the icon goes.
+    const factories = group.subsidiaries.flatMap((sub) => sub.factories);
     const coordinates = this.computeCenterOfGravity(factories);
 
-    // 3. Construct a standard "Map Node" object
     return {
       id: group.id,
-      name: this.slugify(group.name), // e.g. "Global Corp" -> "global-corp"
+      name: this.slugify(group.name),
       company: group.name,
       companyId: group.id,
-      city: 'Global Operations', // Default label for high-level dots
+      city: 'Global Operations',
       description: group.description || `${group.name} command overview.`,
       logo: group.logo,
       country: '',
-      coordinates, // The calculated GPS location
-      type: 'Center', // Icon type
-      status: this.mapOperationalStatus(group.status), // ACTIVE or OFFLINE
+      coordinates,
+      type: 'Center',
+      status: this.mapOperationalStatus(group.status),
       isHub: true,
       hubCode: 'GRP',
       level: 'parent',
@@ -426,18 +340,12 @@ export class WarRoomService {
     return true;
   }
 
-  /**
-   * computeCenterOfGravity: Finding the "Average Location".
-   * If a company has assets spread across the world, this finds the mathematical middle point.
-   */
   private computeCenterOfGravity(factories: FactoryLocation[]): { latitude: number; longitude: number } {
-    // 1. Filter out any factories that don't have GPS coordinates (to avoid math errors)
     const validFactories = factories.filter((factory) => this.isValidCoordinates(factory.coordinates));
     if (validFactories.length === 0) {
-      return { latitude: NaN, longitude: NaN }; // Error state
+      return { latitude: NaN, longitude: NaN };
     }
 
-    // 2. We use Weighted Average (bigger factories pull the dot closer to them)
     const totalWeight = validFactories.reduce((sum, factory) => sum + (factory.assets || 1), 0);
     const weightedLat = validFactories.reduce(
       (sum, factory) => sum + factory.coordinates.latitude * (factory.assets || 1),
@@ -448,7 +356,6 @@ export class WarRoomService {
       0
     );
 
-    // 3. Return the Final Coordinate
     return {
       latitude: weightedLat / totalWeight,
       longitude: weightedLng / totalWeight,
@@ -460,9 +367,6 @@ export class WarRoomService {
     if (status === 'PAUSED') return 'OFFLINE';
     return 'ACTIVE';
   }
-
-  // --- SECTION: UTILITIES & HELPERS ---
-  // Small tools for ID generation, text smoothing (slugify), and mapping statuses.
 
   private slugify(value: string): string {
     return value
@@ -655,8 +559,7 @@ export class WarRoomService {
   }
 
   /**
-   * selectEntity: Sets which dot is currently clicked/highlighted in the "memory".
-   * This ripples through the app to update the sidebar and map focus.
+   * Select an entity in the hierarchy (parent, subsidiary, or factory)
    */
   selectEntity(selection: FleetSelection | null): void {
     if (!selection) {
@@ -705,8 +608,8 @@ export class WarRoomService {
   }
 
   /**
-   * addActivityLog: Appends a new event to the list.
-   * Keeps only the most recent 40 entries to ensure the app remains fast.
+   * Add a new activity log entry
+   * Keeps only the most recent entry per factory (limit to most recent 40 entries)
    */
   addActivityLog(log: ActivityLog): void {
     const currentLogs = this._activityLogs();
@@ -735,10 +638,6 @@ export class WarRoomService {
   addTransitRoute(route: TransitRoute): void {
     this._transitRoutes.update((current) => [route, ...current]);
   }
-
-  // --- SECTION: DATA UPDATES (CRUD) ---
-  // These functions allow you to change a name, location, or status of a dot
-  // and have it reflect everywhere instantly.
 
   /**
    * Update factory description and latest log entry
@@ -948,9 +847,6 @@ export class WarRoomService {
     }
   }
 
-  // --- SECTION: NETWORK & CHANNEL METRICS ---
-  // Manages the "Pulse" of the dashboard (encryption, latency, and throughput).
-
   /**
    * Update network metrics
    */
@@ -1012,20 +908,19 @@ export class WarRoomService {
   }
 
   /**
-   * getWarRoomState: Aggregates all current data into one single object.
-   * Useful for exports or for components that need a "Snapshot" of everything.
+   * Get complete war room state
    */
   getWarRoomState(): WarRoomState {
     const networkMetrics = this._networkMetrics();
     const networkThroughput = this._networkThroughput();
     const geopoliticalHeatmap = this._geopoliticalHeatmap();
 
-    // Line 1022: Return an object containing every piece of data currently in memory.
+    // Provide fallback values if signals are not initialized
     return {
-      nodes: this.nodes(), // All map dots
-      transitRoutes: this._transitRoutes(), // All map lines
-      activityLogs: this._activityLogs(), // All event logs
-      networkMetrics: networkMetrics || { // Safety fallback if data is missing
+      nodes: this.nodes(),
+      transitRoutes: this._transitRoutes(),
+      activityLogs: this._activityLogs(),
+      networkMetrics: networkMetrics || {
         dataFlowIntegrity: 0,
         fleetSyncRate: 0,
         networkLatency: 0,
@@ -1051,48 +946,56 @@ export class WarRoomService {
   }
 
   /**
-   * parseLocationInput: How "Tokyo" becomes [35.6, 139.6].
-   * This is used when a user manually adds a location.
+   * Parse location input (coordinates or address)
+   * Supports coordinate format: "latitude, longitude" or address search via geocoding API.
    */
   async parseLocationInput(input: string): Promise<{ latitude: number; longitude: number }> {
     const trimmed = input.trim();
     this.logDebug(`[WarRoomService] Parsing location input: "${trimmed}"`);
 
-    // Line 1060: Regex check. Does it look like coordinates (e.g. "45, -73")?
+    // Try to parse as coordinates (format: "lat, lng" or "lat,lng")
     const coordinateMatch = trimmed.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
     if (coordinateMatch) {
-      // Line 1062: Turn the text numbers into actual decimals
       const latitude = parseFloat(coordinateMatch[1]);
       const longitude = parseFloat(coordinateMatch[2]);
 
-      // Line 1066: Validate the Earth's boundaries
+      // Validate coordinate ranges
       if (latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180) {
         this.logDebug(`[WarRoomService] Parsed valid coordinates: ${latitude}, ${longitude}`);
         return { latitude, longitude };
       } else {
-        // Line 1073: Error out if the numbers are outside the world map
         this.logWarn(`[WarRoomService] Invalid coordinates range: ${latitude}, ${longitude}`);
+        // Fall through to try geocoding if it looks like coordinate pairs but invalid range? 
+        // Or just throw. Usually coordinates allow fallback to text search only if very weird.
         throw new Error('Invalid coordinates. Latitude must be between -90 and 90, longitude between -180 and 180');
       }
     }
 
-    // LINE 1078: GEODUCTION STRATEGY (If not numbers, search the Internet)
+    // Geocoding strategy
+    // Open-Meteo works best with simple "City, Country" or "City, State". 
+    // It sometimes struggles with full addresses or extra descriptions.
+
+    // 1. First attempt: Use the input as is
     try {
-      // Reach out to the global Geocoding API
       const result = await this.fetchGeocodingResult(trimmed);
       if (result) return result;
     } catch (e) {
       this.logWarn(`[WarRoomService] Geocoding attempt 1 failed:`, e);
     }
 
-    // LINE 1087: SECOND ATTEMPT - Handle "City, Region" combinations
+    // 2. Second attempt: Simplify input but check context
     if (trimmed.includes(',')) {
       const parts = trimmed.split(',');
       const simpleCity = parts[0].trim();
-      const context = parts.slice(1).join(' ').toLowerCase();
+      const context = parts.slice(1).join(' ').toLowerCase(); // e.g. "quebec" or "quebec canada"
+
+      this.logDebug(
+        `[WarRoomService] Retrying with simplified city: "${simpleCity}" and context: "${context}"`
+      );
 
       try {
-        // Search specifically for the city name and filter by the rest of the text
+        // We need to fetch multiple results for the city and filter by context
+        // Re-implementing fetch here to allow filtering access to all results
         const geocodeUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(simpleCity)}&count=10&language=en&format=json`;
         const response = await this.fetchWithTimeout(geocodeUrl, { cache: 'no-store' });
 
@@ -1100,16 +1003,23 @@ export class WarRoomService {
           const data = (await response.json()) as { results?: Array<{ latitude: number; longitude: number; name: string; admin1?: string; country?: string }> };
 
           if (data.results && data.results.length > 0) {
-            // Check if any results match the "Region/Country" context the user typed
+            // Filter for context matches in admin1 (region) or country
             const matches = data.results.filter(r => {
               const matchString = `${r.admin1 || ''} ${r.country || ''}`.toLowerCase();
+              // Check if any part of the context (e.g. "quebec") appears in the result's region/country
               return context.split(' ').some(term => term.length > 2 && matchString.includes(term.trim()));
             });
 
             if (matches.length > 0) {
+              this.logDebug(`[WarRoomService] Found context match:`, matches[0]);
               return { latitude: matches[0].latitude, longitude: matches[0].longitude };
             }
-            // Fallback to the first result if context matching failed
+
+            this.logWarn(
+              `[WarRoomService] Context "${context}" not found in results for "${simpleCity}". Falling back to first result.`
+            );
+            // If strictly matching context failed, we STILL default to the first result (legacy behavior) 
+            // or we could throw error. For now, let's stick to first result but warn.
             return { latitude: data.results[0].latitude, longitude: data.results[0].longitude };
           }
         }
@@ -1118,7 +1028,6 @@ export class WarRoomService {
       }
     }
 
-    // Line 1132: If everything failed, tell the user the location wasn't found
     this.logWarn(`[WarRoomService] Geocoding failed for all attempts for input: "${input}"`);
     throw new Error('No geocoding results found for location.');
   }
@@ -1146,21 +1055,19 @@ export class WarRoomService {
   }
 
   /**
-   * addSubsidiary: Adds a new regional company to the list.
+   * Add a new subsidiary under an existing parent group
    */
   addSubsidiary(subsidiary: SubsidiaryCompany): void {
     const groups = this._parentGroups();
-    // 1. Find the parent group this company belongs to
     const parentIndex = groups.findIndex((group) => group.id === subsidiary.parentGroupId);
 
-    // 2. Initialize metrics based on its factories
     const normalizedSubsidiary: SubsidiaryCompany = {
       ...subsidiary,
       metrics: this.computeMetricsFromFactories(subsidiary.factories),
     };
 
-    // 3. If parent group doesn't exist, create it (safety check)
     if (parentIndex === -1) {
+      console.warn(`Parent group ${subsidiary.parentGroupId} not found. Creating new parent group.`);
       const newParent: ParentGroup = {
         id: subsidiary.parentGroupId,
         name: subsidiary.parentGroupId.toUpperCase(),
@@ -1173,14 +1080,13 @@ export class WarRoomService {
     }
 
     const parent = groups[parentIndex];
-    // 4. Don't add if it already exists
     const existingIndex = parent.subsidiaries.findIndex((sub) => sub.id === subsidiary.id);
     if (existingIndex !== -1) {
+      console.warn(`Subsidiary ${subsidiary.id} already exists. Updating instead.`);
       this.updateSubsidiary(normalizedSubsidiary);
       return;
     }
 
-    // 5. SUCCESS: Add to the parent's list and update the master state
     const updatedSubsidiaries = [...parent.subsidiaries, normalizedSubsidiary];
     const updatedParent: ParentGroup = {
       ...parent,
@@ -1279,28 +1185,31 @@ export class WarRoomService {
   }
 
   /**
-   * updateFactory: Modifies info for a specific building dot on the map.
+   * Update an existing factory location
    */
   updateFactory(factory: FactoryLocation): void {
     const groups = this._parentGroups();
-    // 1. Locate the Group
     const parentIndex = groups.findIndex((group) => group.id === factory.parentGroupId);
-    if (parentIndex === -1) return;
+    if (parentIndex === -1) {
+      console.warn(`Parent group ${factory.parentGroupId} not found. Cannot update factory.`);
+      return;
+    }
 
     const parent = groups[parentIndex];
-    // 2. Locate the Subsidiary
     const subIndex = parent.subsidiaries.findIndex((sub) => sub.id === factory.subsidiaryId);
-    if (subIndex === -1) return;
+    if (subIndex === -1) {
+      console.warn(`Subsidiary ${factory.subsidiaryId} not found. Cannot update factory.`);
+      return;
+    }
 
     const subsidiary = parent.subsidiaries[subIndex];
-    // 3. Locate the Factory
     const factoryIndex = subsidiary.factories.findIndex((f) => f.id === factory.id);
     if (factoryIndex === -1) {
+      console.warn(`Factory ${factory.id} not found. Adding instead.`);
       this.addFactory(factory);
       return;
     }
 
-    // 4. SUCCESS: Update the factory and recalculate regional metrics
     const updatedFactories = [...subsidiary.factories];
     updatedFactories[factoryIndex] = factory;
 
@@ -1325,21 +1234,20 @@ export class WarRoomService {
   }
 
   /**
-   * generateSubsidiaryId: Creates a URL-safe ID for a company.
-   * e.g. "North America HQ" -> "north-america-hq-1678912345"
+   * Generate a unique subsidiary ID from subsidiary name
    */
   generateSubsidiaryId(subsidiaryName: string): string {
     const slug = subsidiaryName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    // Append timestamp to ensure uniqueness
+    // Append timestamp to ensure uniqueness (matching generateFactoryId behavior)
     const timestamp = Date.now();
     return `${slug}-${timestamp}`;
   }
 
   /**
-   * generateFactoryId: Ensures every building dot has a unique identifier.
+   * Generate a unique factory ID from factory name
    */
   generateFactoryId(factoryName: string): string {
     const slug = factoryName
@@ -1351,7 +1259,7 @@ export class WarRoomService {
   }
 
   /**
-   * generateCompanyId & generateNodeId: Legacy aliases for existing ID tools.
+   * Backwards-compatible aliases
    */
   generateCompanyId(companyName: string): string {
     return this.generateSubsidiaryId(companyName);

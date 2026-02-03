@@ -26,6 +26,74 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   // Outputs
   nodeSelected = output<WarRoomNode | undefined>();
 
+  // State
+  private mapInstance: any;
+  private isInitializing = true;
+  private destroyed = false;
+  private isFullscreen = false;
+  private isDragging = false;
+  private dragStartX = 0;
+  private dragStartY = 0;
+  private dragStartViewBoxX = 0;
+  private dragStartViewBoxY = 0;
+  private userHasZoomed = false;
+  private pendingZoomCompanyId: string | null = null;
+  private tooltipTimeoutId: any = null;
+  private tooltipClampRafId: number | null = null;
+  private sidebarExpanded = signal(true);
+  private lastUpdateTimestamp = 0;
+
+  // Caches and Observers
+  private geocodeCache = new Map<string, { latitude: number; longitude: number }>();
+  private geocodeInFlight = new Map<string, Promise<{ latitude: number; longitude: number }>>();
+  private viewBoxObserver: MutationObserver | null = null;
+  private labelsDirty = signal(0);
+  private tooltipAnchor: { node: WarRoomNode; markerIndex: number; logoSource: string | null; element: Element } | null = null;
+
+  // Signals
+  mapViewBox = signal<string>('0 0 950 550');
+  hoveredCompanyTooltip = signal<{
+    node: WarRoomNode;
+    displayName: string;
+    logoPath: string;
+    description: string;
+    position: { top: number; left: number };
+  } | null>(null);
+
+  // Bound Handlers
+  private boundFullscreenHandler: (() => void) | null = null;
+  private boundResizeHandler: (() => void) | null = null;
+  private boundWheelHandler: ((e: WheelEvent) => void) | null = null;
+  private boundPanSyncMouseDownHandler: ((e: MouseEvent) => void) | null = null;
+  private boundPanSyncMouseMoveHandler: (() => void) | null = null;
+  private boundPanSyncMouseUpHandler: (() => void) | null = null;
+  private boundDragMouseMoveHandler: ((e: MouseEvent) => void) | null = null;
+  private boundDragMouseUpHandler: ((e: MouseEvent) => void) | null = null;
+
+  // Color Schemes
+  private colorSchemes = {
+    dark: {
+      backgroundColor: '#1a1a1a',
+      regionFill: '#2d2d2d',
+      regionStroke: '#3d3d3d',
+      regionHoverFill: '#404040',
+      regionFillOpacity: 0.7,
+      markerFill: '#00ffcc',
+      markerStroke: '#ffffff',
+    },
+    light: {
+      backgroundColor: '#f5f5f5',
+      regionFill: '#e0e0e0',
+      regionStroke: '#d0d0d0',
+      regionHoverFill: '#d5d5d5',
+      regionFillOpacity: 0.8,
+      markerFill: '#00887a',
+      markerStroke: '#333333',
+    },
+  };
+
+  private currentTheme = signal<'light' | 'dark'>('dark');
+
   // Helper methods for template
   getSelectedNode(): WarRoomNode | undefined {
     const selectedId = this.selectedEntity()?.id;
@@ -517,30 +585,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       backgroundImage: ''
     }
   });
-  currentTheme = computed(() => (this.appState()?.theme || 'light') as 'light' | 'dark');
-
-  // Host binding for theme-aware CSS
-  @HostBinding('attr.data-theme-mode') get themeMode(): string {
-    return this.currentTheme();
-  }
-
-  // Color schemes for light and dark themes
-  private readonly colorSchemes = {
-    light: {
-      backgroundColor: '#f5f5f5',
-      regionFill: '#e0e0e0',
-      regionStroke: '#d0d0d0',
-      regionHoverFill: '#d5d5d5',
-      regionFillOpacity: 0.8,
-    },
-    dark: {
-      backgroundColor: '#1a1a1a',
-      regionFill: '#2d2d2d',
-      regionStroke: '#3d3d3d',
-      regionHoverFill: '#404040',
-      regionFillOpacity: 0.7,
-    }
-  };
   /*
   // Company descriptions - single source of truth
   private readonly companyDescriptions: Record<string, string> = {
@@ -557,69 +601,24 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   */
 
   // Private properties
-  private mapInstance: any = null;
   private scriptsLoaded = false;
-  private labelPositions = new Map<string, { x: number; y: number }>();
+  private zoomTimeoutId: any = null;
+  private updateMarkersTimeoutId: any = null;
   private updateLabelsRAFId: number | null = null;
-  private labelsUpdateDirty: boolean = false;
-  private mapReadyRetryInterval: ReturnType<typeof setInterval> | null = null;
-  private isFullscreen = false;
-  private destroyed = false;
+  private mapReadyRetryInterval: any = null;
   private labelObserver: MutationObserver | null = null;
   private nodeObserver: MutationObserver | null = null;
-  private viewBoxObserver: MutationObserver | null = null;
-  private boundFullscreenHandler: (() => void) | null = null;
-  private boundResizeHandler: (() => void) | null = null;
-  private boundWheelHandler: ((e: WheelEvent) => void) | null = null;
-  private boundPanSyncMouseDownHandler: ((e: MouseEvent) => void) | null = null;
-  private boundPanSyncMouseMoveHandler: ((e: MouseEvent) => void) | null = null;
-  private boundPanSyncMouseUpHandler: ((e: MouseEvent) => void) | null = null;
-  private boundDragMouseMoveHandler: ((e: MouseEvent) => void) | null = null;
-  private boundDragMouseUpHandler: ((e: MouseEvent) => void) | null = null;
-  private maintainFullWorldView: boolean = true; // Flag to maintain full world view by default
-  private zoomTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  private isDragging: boolean = false;
-  private dragStartX: number = 0;
-  private dragStartY: number = 0;
-  private dragStartViewBoxX: number = 0;
-  private dragStartViewBoxY: number = 0;
+  private lastNodesSignature: string | null = null;
+  private elementCache = new Map<string, Element | null>();
   private currentPopup: HTMLElement | null = null;
   private closePopupHandler: ((e: MouseEvent) => void) | null = null;
-  private closePopupTimer: ReturnType<typeof setTimeout> | null = null;
-  private updateMarkersTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  private lastNodesSignature: string | null = null;
+  private closePopupTimer: any = null;
+  private labelPositions = new Map<string, { x: number; y: number }>();
   private mapInitAttempts = 0;
   private readonly maxMapInitRetries = 10;
-  private readonly geocodeCache = new Map<string, { latitude: number; longitude: number }>();
-  private readonly geocodeInFlight = new Map<string, Promise<{ latitude: number; longitude: number }>>();
-
-  // Hover tooltip state
-  hoveredCompanyTooltip = signal<{
-    node: WarRoomNode;
-    displayName: string;
-    logoPath: string;
-    description: string;
-    position: { top: number; left: number };
-  } | null>(null);
-  private tooltipTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  private tooltipClampRafId: number | null = null;
-  private tooltipAnchor: {
-    node: WarRoomNode;
-    markerIndex: number;
-    logoSource: string | null;
-    element: Element;
-  } | null = null;
-  /** Cache for map elements to improve performance during drag/zoom */
-  private elementCache = new Map<string, Element | null>();
-  /** Queued company id to zoom to when map becomes ready (avoids "map not available" race). */
-  private pendingZoomCompanyId: string | null = null;
-  /** Track if user has manually zoomed (to prevent auto-reset) */
-  private userHasZoomed: boolean = false;
-  /** Flag to track initialization phase to ignore automated layout shifts */
-  private isInitializing: boolean = false;
+  private labelsUpdateDirty: boolean = false;
 
   // Signal for current  // SVG viewBox for responsive transit routes overlay
-  readonly mapViewBox = signal<string>('0 0 950 550');
 
   // Map transform for synchronizing transit routes overlay with internal map transforms
   readonly mapTransform = signal<string>('');
@@ -1150,7 +1149,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
     console.log('Map container dimensions:', rect.width, 'x', rect.height);
 
-      const nodes = this.getNodesWithValidCoordinates(this.nodes());
+    const nodes = this.getNodesWithValidCoordinates(this.nodes());
     if (nodes.length === 0) {
       console.warn('No nodes available for map initialization. Rendering map without markers.');
     }
@@ -1384,7 +1383,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
             }
 
             if (!this.destroyed && !this.pendingZoomCompanyId) {
-              this.resetToFullWorldView();
+              this.resetMapToFullWorldView();
             }
           }, 50);
 
@@ -1411,15 +1410,15 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
             // Only if no pending zoom is queued
             if (!pending) {
               // Call immediately and also after a delay to ensure it sticks
-              this.resetToFullWorldView();
+              this.resetMapToFullWorldView();
               setTimeout(() => {
                 if (!this.destroyed) {
-                  this.resetToFullWorldView();
+                  this.resetMapToFullWorldView();
                 }
               }, 500);
               setTimeout(() => {
                 if (!this.destroyed) {
-                  this.resetToFullWorldView();
+                  this.resetMapToFullWorldView();
                   // Initialization complete - allow user interactions to be tracked
                   this.isInitializing = false;
                   console.log('Map initialization complete - user interactions enabled');
@@ -2613,12 +2612,20 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     if (hoveredIndex >= 0) {
       const markerCircle = svg.querySelector(`circle[data-index="${hoveredIndex}"]`);
       const logoImage = svg.querySelector(`#company-logo-image-${hoveredIndex}`);
+      const badge = svg.querySelector(`g.company-badge[data-marker-index="${hoveredIndex}"]`);
+      const pinGroup = svg.querySelector(`#company-pin-group-${hoveredIndex}`);
 
       if (markerCircle) {
         markerCircle.classList.add('marker-temp-hover');
       }
       if (logoImage) {
         logoImage.classList.add('marker-temp-hover');
+      }
+      if (badge) {
+        badge.classList.add('marker-temp-hover');
+      }
+      if (pinGroup) {
+        pinGroup.classList.add('marker-temp-hover');
       }
     }
   }
@@ -2644,23 +2651,43 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
     const markers = svg.querySelectorAll('circle.jvm-marker, circle[data-index]');
     const marker = markers[nodeIndex] as SVGCircleElement;
+    const pinGroup = svg.querySelector(`#company-pin-group-${nodeIndex}`) as SVGGElement | null;
 
-    if (marker) {
+    if (pinGroup) {
+      // Immediate visual impact for high-fidelity pin
+      const originalTransform = pinGroup.getAttribute('transform') || '';
+      pinGroup.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+
+      // Brief scale up "pop" effect
+      const baseTransform = originalTransform.split(' scale')[0];
+      const currentScaleMatch = originalTransform.match(/scale\(([^)]+)\)/);
+      const currentScale = currentScaleMatch ? parseFloat(currentScaleMatch[1]) : 1;
+
+      pinGroup.setAttribute('transform', `${baseTransform} scale(${currentScale * 1.5})`);
+
+      setTimeout(() => {
+        pinGroup.setAttribute('transform', originalTransform);
+      }, 500);
+
+      console.log(`Highlighted pin for node: ${nodeId}`);
+    } else if (marker) {
       // Store original radius
       const originalRadius = marker.getAttribute('r') || '8';
 
-      // Add a pulsing animation or highlight effect
-      marker.style.transition = 'all 0.3s ease';
-      marker.setAttribute('r', '14'); // Make it larger temporarily
-      marker.setAttribute('stroke-width', '4'); // Thicker stroke
-      marker.setAttribute('stroke', '#02270B'); // Dark green stroke to match selected border
+      // Add a pulsing animation or highlight effect (Option B: Smooth Breathing)
+      marker.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)'; // Smooth ease
+      marker.setAttribute('r', '18'); // Softer pop
+      marker.setAttribute('stroke-width', '6'); // Slightly thinner impact
+      marker.setAttribute('fill', '#ffffff'); // Flash white for high contrast
+      marker.setAttribute('stroke', '#00FF41'); // Tactical green stroke
 
       // Reset after animation
       setTimeout(() => {
         marker.setAttribute('r', originalRadius);
         marker.setAttribute('stroke-width', '2');
         marker.setAttribute('stroke', '#ffffff');
-      }, 1500);
+        marker.setAttribute('fill', '#00FF41'); // Back to tactical green
+      }, 800);
 
       console.log(`Highlighted marker for node: ${nodeId}`);
     } else {
@@ -2722,11 +2749,32 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       }
 
       const label = markersGroup.querySelector(`text[data-marker-index="${index}"]`) as SVGTextElement | null;
+      const badge = markersGroup.querySelector(`g.company-badge[data-marker-index="${index}"]`) as SVGGElement | null;
+
       if (label) {
         if (isSelected) {
           label.setAttribute('data-selected', 'true');
         } else {
           label.removeAttribute('data-selected');
+        }
+      }
+
+      if (badge) {
+        if (isSelected) {
+          badge.setAttribute('data-selected', 'true');
+          badge.classList.add('selected-marker');
+        } else {
+          badge.removeAttribute('data-selected');
+          badge.classList.remove('selected-marker');
+        }
+      }
+
+      const pinGroup = markersGroup.querySelector(`#company-pin-group-${index}`) as SVGGElement | null;
+      if (pinGroup) {
+        if (isSelected) {
+          pinGroup.classList.add('selected-marker');
+        } else {
+          pinGroup.classList.remove('selected-marker');
         }
       }
     });
@@ -2992,10 +3040,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
    * Update positions of company logos and labels when viewport changes
    * Makes everything responsive to zoom
    */
-  /**
-   * Update positions of company logos and labels when viewport changes
-   * Makes everything responsive to zoom
-   */
   private updateCompanyLogosAndLabelsPositions(): void {
     const container = document.getElementById('war-room-map');
     if (!container) return;
@@ -3008,32 +3052,26 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
     if (markers.length === 0) return;
 
-    // Get current viewBox for zoom calculation
-    const viewBox = svg.getAttribute('viewBox');
+    const markersGroup = svg.querySelector('#jvm-markers-group') as SVGGElement;
+    if (!markersGroup) return;
 
-    // Calculate zoom factor
+    const logosGroup = markersGroup.querySelector('#jvm-logos-group') as SVGGElement | null;
+    if (!logosGroup) return;
+
+    const labelsGroup = svg.querySelector('#jvm-labels-group') as SVGGElement | null;
+
+    // Standardized zoom calculation in both methods for perfect alignment
+    const viewBox = svg.getAttribute('viewBox');
     let zoomFactor = 1;
     if (viewBox) {
       const parts = viewBox.split(' ').map(parseFloat);
       if (parts.length === 4) {
-        const viewBoxWidth = parts[2];
-        const viewBoxHeight = parts[3];
-        const baseWidth = 950;
-        const baseHeight = 550;
-
-        const widthRatio = baseWidth / viewBoxWidth;
-        const heightRatio = baseHeight / viewBoxHeight;
-        zoomFactor = (widthRatio + heightRatio) / 2;
+        zoomFactor = (950 / parts[2] + 550 / parts[3]) / 2;
         zoomFactor = Math.max(0.1, Math.min(10, zoomFactor));
       }
     }
 
-    const markersGroup = svg.querySelector('#jvm-markers-group') || svg;
-    const logosGroup = markersGroup.querySelector('#jvm-logos-group') || markersGroup;
-    const labelsGroup = markersGroup.querySelector('#jvm-labels-group') as SVGGElement | null;
-
     // Toggle labels visibility based on zoom factor
-    // Text labels should be hidden by default and only show when zoomed in significantly
     const LABEL_ZOOM_THRESHOLD = 2.5;
     if (labelsGroup) {
       const isVisible = zoomFactor >= LABEL_ZOOM_THRESHOLD;
@@ -3042,39 +3080,64 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       labelsGroup.style.transition = 'opacity 0.3s ease, visibility 0.3s ease';
     }
 
-    nodes.forEach((node, index) => {
-      // Find the marker for this node
-      let marker: Element | null = svg.querySelector(`circle[data-index="${index}"]`);
-      if (!marker && index < markers.length) {
-        marker = markers[index];
+    nodes.forEach((node) => {
+      // Find the correct marker index in the filtered coordinate-valid list
+      const markerIndex = this.getNodeIndex(node);
+      if (markerIndex < 0) return;
+
+      // Find the marker for this node using the synchronized markerIndex
+      let marker = svg.querySelector(`circle[data-index="${markerIndex}"]`) as SVGCircleElement | null;
+      if (!marker && markerIndex < markers.length) {
+        marker = markers[markerIndex] as SVGCircleElement;
       }
 
       if (!marker) return;
 
-      // Get marker attributes
-      const markerEl = marker as Element;
-      const cx = parseFloat(markerEl.getAttribute('cx') || '0');
-      const cy = parseFloat(markerEl.getAttribute('cy') || '0');
-      const r = parseFloat(markerEl.getAttribute('r') || '8');
+      const cx = parseFloat(marker.getAttribute('cx') || '0');
+      const cy = parseFloat(marker.getAttribute('cy') || '0');
+      const r = parseFloat(marker.getAttribute('r') || '8');
 
-      // Update logo image position
-      const logoImageId = `company-logo-image-${index}`;
+      // Update logo image position (legacy)
+      const logoImageId = `company-logo-image-${markerIndex}`;
       const logoImage = logosGroup.querySelector(`image[id="${logoImageId}"]`);
-
       if (logoImage) {
         const imageSize = this.getLogoImageSize(r, zoomFactor, this.getLogoSizeMultiplier(node));
-
         logoImage.setAttribute('x', (cx - imageSize / 2).toString());
         logoImage.setAttribute('y', (cy - imageSize / 2).toString());
         logoImage.setAttribute('width', imageSize.toString());
         logoImage.setAttribute('height', imageSize.toString());
       }
 
-      // Update badge container position if it exists
-      const badge = labelsGroup?.querySelector(`g.company-badge[data-marker-index="${index}"]`) as SVGGElement | null;
+      // --- NEW: Update High-Fidelity Pin Marker Position and Scale ---
+      const pinGroupId = `company-pin-group-${markerIndex}`;
+      const pinGroup = logosGroup.querySelector(`g[id="${pinGroupId}"]`) as SVGGElement | null;
+      if (pinGroup) {
+        const selected = this.selectedEntity();
+        const isSelected = selected && selected.id === node.id;
+
+        // Unified Scale Calculation: Keep pin size relatively stable but grow slightly on zoom
+        const scale = (1.5 / Math.pow(zoomFactor, 0.45));
+        pinGroup.setAttribute('transform', `translate(${cx}, ${cy}) scale(${scale})`);
+
+        // Relaxed LOD thresholds
+        pinGroup.classList.remove('lod-low', 'lod-medium', 'lod-high');
+        if (zoomFactor < 0.8) {
+          pinGroup.classList.add('lod-low');
+        } else if (zoomFactor < 2.0) {
+          pinGroup.classList.add('lod-medium');
+        } else {
+          pinGroup.classList.add('lod-high');
+        }
+
+        // Force full detail if selected
+        if (isSelected) {
+          pinGroup.classList.add('lod-high');
+        }
+      }
+
+      // Update badge container position if it exists (legacy)
+      const badge = labelsGroup?.querySelector(`g.company-badge[data-marker-index="${markerIndex}"]`) as SVGGElement | null;
       if (badge) {
-        const node = nodes[index];
-        const displayName = node ? this.getCompanyDisplayName(node) : '';
         const badgeWidth = parseFloat(badge.getAttribute('data-badge-width') || '120');
         const badgeHeight = parseFloat(badge.getAttribute('data-badge-height') || '24');
         const extraYOffset = 0;
@@ -3091,8 +3154,26 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Add company logos and labels to markers for specific companies
-   * Uses SVG pattern to integrate logo with circle marker
+   * Delete marker pins
+   */
+  private deletePinMarkers(): void {
+    const container = document.getElementById('war-room-map');
+    if (!container) return;
+
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+
+    const markersGroup = svg.querySelector('#jvm-markers-group');
+    if (!markersGroup) return;
+
+    const logosGroup = markersGroup.querySelector('#jvm-logos-group');
+    if (logosGroup) {
+      logosGroup.querySelectorAll('.pin-marker').forEach((pin) => pin.remove());
+    }
+  }
+
+  /**
+   * Add company logos and labels to the map
    */
   private addCompanyLogosAndLabels(): void {
     const container = document.getElementById('war-room-map');
@@ -3101,7 +3182,22 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const svg = container.querySelector('svg');
     if (!svg) return;
 
-    const nodes = this.nodes();
+    const nodes = this.getNodesWithValidCoordinates(this.nodes());
+    const markers = svg.querySelectorAll('circle.jvm-marker, circle[data-index], circle[class*="jvm-marker"]');
+
+    if (markers.length === 0) return;
+
+    // Use current scale from viewBox for initial positioning
+    const viewBox = svg.getAttribute('viewBox');
+    let zoomFactor = 1;
+    if (viewBox) {
+      const parts = viewBox.split(' ').map(parseFloat);
+      if (parts.length === 4) {
+        zoomFactor = (950 / parts[2] + 550 / parts[3]) / 2;
+        zoomFactor = Math.max(0.1, Math.min(10, zoomFactor));
+      }
+    }
+
     const markersGroup = svg.querySelector('#jvm-markers-group') as SVGGElement;
     if (!markersGroup) return;
 
@@ -3110,40 +3206,77 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     if (!labelsGroup) {
       labelsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       labelsGroup.setAttribute('id', 'jvm-labels-group');
-      // Initialize hidden for zoom-dependent visibility
       labelsGroup.style.opacity = '0';
       labelsGroup.style.visibility = 'hidden';
       labelsGroup.style.transition = 'opacity 0.3s ease, visibility 0.3s ease';
       markersGroup.appendChild(labelsGroup);
     }
 
+    // Ensure logos are nested under markers group to inherit the same transforms as markers
     let logosGroup = markersGroup.querySelector('#jvm-logos-group') as SVGGElement | null;
     if (!logosGroup) {
       logosGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       logosGroup.setAttribute('id', 'jvm-logos-group');
-      markersGroup.appendChild(logosGroup);
-    } else {
-      // Ensure logos render above labels
-      markersGroup.appendChild(logosGroup);
+      // Insert at the beginning so logos are behind marker highlight effects but visible
+      markersGroup.insertBefore(logosGroup, markersGroup.firstChild);
     }
 
-    // Get or create defs section for patterns
+    // --- CLEANUP: Remove orphaned pins ---
+    const currentNodeIds = new Set(nodes.map((n) => n.id));
+    logosGroup.querySelectorAll('.pin-marker').forEach((pin) => {
+      const nodeId = pin.getAttribute('data-node-id');
+      if (nodeId && !currentNodeIds.has(nodeId)) {
+        pin.remove();
+      }
+    });
+
+    // Get or create defs section for gradients/patterns
     let defs = svg.querySelector('defs') as SVGDefsElement;
     if (!defs) {
       defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
       svg.insertBefore(defs, svg.firstChild);
     }
 
+    // Ensure glossy gradient exists
+    if (!defs.querySelector('#pinGlossGradient')) {
+      const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+      gradient.setAttribute('id', 'pinGlossGradient');
+      gradient.setAttribute('x1', '0%');
+      gradient.setAttribute('y1', '0%');
+      gradient.setAttribute('x2', '0%');
+      gradient.setAttribute('y2', '100%');
+
+      const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      stop1.setAttribute('offset', '0%');
+      stop1.setAttribute('stop-color', 'rgba(255, 255, 255, 0.4)');
+      gradient.appendChild(stop1);
+
+      const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      stop2.setAttribute('offset', '50%');
+      stop2.setAttribute('stop-color', 'rgba(255, 255, 255, 0.05)');
+      gradient.appendChild(stop2);
+
+      const stop3 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      stop3.setAttribute('offset', '100%');
+      stop3.setAttribute('stop-color', 'transparent');
+      gradient.appendChild(stop3);
+
+      defs.appendChild(gradient);
+    }
+
     // Find nodes with logos
-    nodes.forEach((node, index) => {
+    nodes.forEach((node) => {
+      const markerIndex = this.getNodeIndex(node);
+      if (markerIndex < 0) return;
+
       const logoSource = this.getCompanyLogoSource(node);
 
       if (logoSource) {
         // Find the corresponding marker circle
         const markers = svg.querySelectorAll('circle.jvm-marker, circle[data-index]');
-        let marker = svg.querySelector(`circle[data-index="${index}"]`) as SVGCircleElement | null;
-        if (!marker && index < markers.length) {
-          marker = markers[index] as SVGCircleElement;
+        let marker = svg.querySelector(`circle[data-index="${markerIndex}"]`) as SVGCircleElement | null;
+        if (!marker && markerIndex < markers.length) {
+          marker = markers[markerIndex] as SVGCircleElement;
         }
 
         if (marker) {
@@ -3151,157 +3284,165 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
           const cy = parseFloat(marker.getAttribute('cy') || '0');
           const r = parseFloat(marker.getAttribute('r') || '8');
 
-          // Use image overlay instead of pattern - more reliable
-          const logoImageId = `company-logo-image-${index}`;
-          let logoImage = logosGroup.querySelector(`image[id="${logoImageId}"]`) as SVGImageElement;
-          if (!logoImage) {
-            logoImage = markersGroup.querySelector(`image[id="${logoImageId}"]`) as SVGImageElement;
+          // --- HIGH-FIDELITY PIN MARKER IMPLEMENTATION ---
+          const pinGroupId = `company-pin-group-${markerIndex}`;
+          let pinGroup = logosGroup.querySelector(`g[id="${pinGroupId}"]`) as SVGGElement | null;
+
+          if (!pinGroup) {
+            pinGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            pinGroup.setAttribute('id', pinGroupId);
+            pinGroup.setAttribute('class', 'pin-marker');
+            pinGroup.setAttribute('data-node-id', node.id);
+            pinGroup.setAttribute('data-marker-index', markerIndex.toString());
+            logosGroup.appendChild(pinGroup);
+
+            // 1. Halo (Pulsing background)
+            const halo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            halo.setAttribute('class', 'pin-halo');
+            halo.setAttribute('cx', '0');
+            halo.setAttribute('cy', '0');
+            halo.setAttribute('r', (r * 3.5).toString());
+            pinGroup.appendChild(halo);
+
+            // 2. Pin Body (Glossy black speech bubble)
+            const body = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            body.setAttribute('class', 'pin-body');
+            // Path for bubble with tail pointing down to center
+            const bubblePath = "M 0 0 L -8 -10 H -30 Q -35 -10 -35 -15 V -45 Q -35 -50 -30 -50 H 30 Q 35 -50 35 -45 V -15 Q 35 -10 30 -10 H 8 L 0 0 Z";
+            body.setAttribute('d', bubblePath);
+            pinGroup.appendChild(body);
+
+            // 3. Gloss layer
+            const gloss = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            gloss.setAttribute('class', 'pin-gloss');
+            gloss.setAttribute('d', "M -30 -50 H 30 Q 35 -50 35 -45 V -30 L -35 -30 V -45 Q -35 -50 -30 -50 Z");
+            gloss.setAttribute('fill', 'url(#pinGlossGradient)');
+            pinGroup.appendChild(gloss);
+
+            // 3. Logo Image
+            const pinLogo = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+            pinLogo.setAttribute('class', 'pin-logo');
+            pinLogo.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+            const imagePaths = this.getLogoImagePaths(logoSource);
+            pinLogo.setAttribute('href', imagePaths[0]);
+            pinLogo.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', imagePaths[0]);
+
+            pinLogo.addEventListener('error', () => {
+              pinLogo.setAttribute('href', '/assets/images/svgs/user.svg');
+            });
+            pinGroup.appendChild(pinLogo);
+
+            // 4. Pin Label (Company Name)
+            const pinLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            pinLabel.setAttribute('class', 'pin-label');
+            pinGroup.appendChild(pinLabel);
           }
 
-          if (!logoImage) {
-            // Create image element directly in markers group (overlay on circle)
-            logoImage = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-            logoImage.setAttribute('id', logoImageId);
-            logoImage.setAttribute('data-marker-index', index.toString());
-            logoImage.setAttribute('class', 'company-logo-image');
+          // Shared display name logic
+          let displayName = (node.company || node.name || 'Company').toUpperCase();
+          if (displayName.includes('NOVA')) displayName = 'NOVA BUS';
+          if (displayName.includes('KARZAN') || displayName.includes('KARSAN')) displayName = 'KARSAN';
 
-            // Calculate responsive image size based on current zoom
-            // Get zoom factor from viewBox if available - use same simplified calculation
-            const viewBox = svg.getAttribute('viewBox');
-            let zoomFactor = 1;
-            if (viewBox) {
-              const [vbX, vbY, vbWidth, vbHeight] = viewBox.split(' ').map(Number);
-              const baseWidth = 950; // Base map width
-              const baseHeight = 550; // Base map height
-
-              // Simplified zoom factor calculation (same as updateCompanyLogosAndLabelsPositions)
-              const widthRatio = baseWidth / vbWidth;
-              const heightRatio = baseHeight / vbHeight;
-              zoomFactor = (widthRatio + heightRatio) / 2;
+          // Shared Position and Size calculations
+          const viewBox = svg.getAttribute('viewBox');
+          let zoomFactor = 1;
+          if (viewBox) {
+            const parts = viewBox.split(' ').map(parseFloat);
+            if (parts.length === 4) {
+              zoomFactor = (950 / parts[2] + 550 / parts[3]) / 2;
               zoomFactor = Math.max(0.1, Math.min(10, zoomFactor));
             }
+          }
 
-            const imageSize = this.getLogoImageSize(r, zoomFactor, this.getLogoSizeMultiplier(node));
+          // Standardized scale calculation: Grow slightly on zoom but counteract map scale
+          const scale = (1.5 / Math.pow(zoomFactor, 0.45));
 
-            logoImage.setAttribute('x', (cx - imageSize / 2).toString());
-            logoImage.setAttribute('y', (cy - imageSize / 2).toString());
-            logoImage.setAttribute('width', imageSize.toString());
-            logoImage.setAttribute('height', imageSize.toString());
-            logoImage.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+          // Update Pin Body Shape (Responsive bubble)
+          const bubbleW = Math.max(40, displayName.length * 6 + 40);
+          const bubbleH = 32;
+          const bubbleR = 8;
+          const pinBody = pinGroup.querySelector('.pin-body') as SVGPathElement;
+          if (pinBody) {
+            // Speech bubble path: rounded rect with tail
+            const path = `M ${-bubbleW / 2} ${-bubbleH - 10} 
+                           a ${bubbleR} ${bubbleR} 0 0 1 ${bubbleR} ${-bubbleR} 
+                           h ${bubbleW - 2 * bubbleR} 
+                           a ${bubbleR} ${bubbleR} 0 0 1 ${bubbleR} ${bubbleR} 
+                           v ${bubbleH - 2 * bubbleR} 
+                           a ${bubbleR} ${bubbleR} 0 0 1 ${-bubbleR} ${bubbleR} 
+                           h ${-(bubbleW / 2 - bubbleR - 6)} 
+                           l -6 10 l -6 -10 
+                           h ${-(bubbleW / 2 - bubbleR - 6)} 
+                           a ${bubbleR} ${bubbleR} 0 0 1 ${-bubbleR} ${-bubbleR} 
+                           z`;
+            pinBody.setAttribute('d', path);
+          }
 
-            // Try different path formats
-            const imagePaths = this.getLogoImagePaths(logoSource);
+          // Update Logo Position
+          const pinLogo = pinGroup.querySelector('.pin-logo') as SVGImageElement;
+          if (pinLogo) {
+            const logoSize = 20;
+            pinLogo.setAttribute('x', (-bubbleW / 2 + 8).toString());
+            pinLogo.setAttribute('y', (-bubbleH - 4).toString());
+            pinLogo.setAttribute('width', logoSize.toString());
+            pinLogo.setAttribute('height', logoSize.toString());
+          }
 
-            // Set initial path - prefer relative path for better compatibility
-            const primaryPath = imagePaths[0]; // Use resolved primary path
-            logoImage.setAttribute('href', primaryPath);
-            // Also try xlink:href for older SVG compatibility
-            logoImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', primaryPath);
-            console.log(`[${node.company}] Setting logo image with path:`, primaryPath);
-            console.log(`[${node.company}] All fallback paths:`, imagePaths);
+          // Update Label
+          const pinLabel = pinGroup.querySelector('.pin-label') as SVGTextElement;
+          if (pinLabel) {
+            pinLabel.setAttribute('x', (-bubbleW / 2 + 32).toString());
+            pinLabel.setAttribute('y', (-bubbleH / 2 - 10).toString());
+            pinLabel.setAttribute('dominant-baseline', 'middle');
+            pinLabel.textContent = displayName;
+          }
 
-            // Add error handler to try fallback paths
-            let currentPathIndex = 0; // Start with the primary path index
-            let triedDefaultFallback = false;
-            const errorHandler = () => {
-              const currentHref = logoImage.getAttribute('href') || '';
-              console.warn(`[${node.company}] Logo failed to load from: ${currentHref}`);
+          // Apply transform to center pin on marker
+          pinGroup.setAttribute('transform', `translate(${cx}, ${cy}) scale(${scale})`);
 
-              if (imagePaths.length <= 1) {
-                if (!triedDefaultFallback) {
-                  triedDefaultFallback = true;
-                  const fallbackPath = '/assets/images/svgs/user.svg';
-                  console.warn(`[${node.company}] Falling back to default logo: ${fallbackPath}`);
-                  logoImage.setAttribute('href', fallbackPath);
-                  logoImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', fallbackPath);
-                  return;
-                }
-                console.error(`[${node.company}] Default logo fallback also failed.`);
-                return;
-              }
-
-              if (currentPathIndex < imagePaths.length - 1) {
-                currentPathIndex++;
-                const nextPath = imagePaths[currentPathIndex];
-                console.log(`[${node.company}] Trying fallback path ${currentPathIndex + 1}/${imagePaths.length}: ${nextPath}`);
-                logoImage.setAttribute('href', nextPath);
-                logoImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', nextPath);
-              } else {
-                console.error(`[${node.company}] Logo failed to load from all ${imagePaths.length} paths:`, imagePaths);
-                console.error(`[${node.company}] Please verify the logo source is valid:`, logoSource);
-                console.error(`[${node.company}] Check browser Network tab for 404 errors`);
-                console.error(`[${node.company}] Current window location:`, window.location.href);
-              }
-            };
-
-            logoImage.addEventListener('error', errorHandler);
-
-            // Add load handler to confirm success
-            logoImage.addEventListener('load', () => {
-              console.log(`âœ“ [${node.company}] Logo loaded successfully from:`, logoImage.getAttribute('href'));
-            }, { once: true });
-
-            // Insert image into the logos group so it appears above labels
-            logosGroup.appendChild(logoImage);
+          // Relaxed LOD thresholds
+          pinGroup.classList.remove('lod-low', 'lod-medium', 'lod-high');
+          if (zoomFactor < 0.8) {
+            pinGroup.classList.add('lod-low');
+          } else if (zoomFactor < 2.0) {
+            pinGroup.classList.add('lod-medium');
           } else {
-            // Update existing image position - make it responsive to zoom
-            const viewBox = svg.getAttribute('viewBox');
-            let zoomFactor = 1;
-            if (viewBox) {
-              const [vbX, vbY, vbWidth, vbHeight] = viewBox.split(' ').map(Number);
-              const svgRect = svg.getBoundingClientRect();
-              const baseWidth = 950;
-              const baseHeight = 550;
-              zoomFactor = Math.max(baseWidth / vbWidth, baseHeight / vbHeight);
-            }
-
-            const imageSize = this.getLogoImageSize(r, zoomFactor, this.getLogoSizeMultiplier(node));
-
-            logoImage.setAttribute('x', (cx - imageSize / 2).toString());
-            logoImage.setAttribute('y', (cy - imageSize / 2).toString());
-            logoImage.setAttribute('width', imageSize.toString());
-            logoImage.setAttribute('height', imageSize.toString());
-
-            if (logoImage.parentNode !== logosGroup) {
-              logosGroup.appendChild(logoImage);
-            }
+            pinGroup.classList.add('lod-high');
           }
 
-          // Ensure hover handlers are attached (for both new and existing logos)
-          if (logoImage && !logoImage.hasAttribute('data-hover-attached')) {
-            this.attachLogoHoverHandlers(logoImage, node, logoSource, index);
-            logoImage.setAttribute('data-hover-attached', 'true');
+          // Force full detail if selected
+          const selected = this.selectedEntity();
+          if (selected && selected.id === node.id) {
+            pinGroup.classList.add('lod-high');
           }
 
-          // Keep circle visible with stroke (logo will overlay it)
-          marker.setAttribute('fill', '#00FF41'); // Keep original fill as fallback
-          marker.setAttribute('fill-opacity', '0.3'); // Semi-transparent so logo shows through
-          marker.setAttribute('stroke', '#ffffff');
-          marker.setAttribute('stroke-width', '2');
-          marker.setAttribute('stroke-opacity', '0.8');
+          // Keep original marker circle visible as a base for the pin
+          marker.setAttribute('fill-opacity', '0.4');
+          marker.setAttribute('stroke-opacity', '0.5');
 
-          // Custom display names for specific companies
-          let displayName = node.company.toUpperCase();
-          if (node.company?.toLowerCase().includes('nova')) {
-            displayName = 'NOVA BUS';
+          // Attach click handlers to pin group for better UX
+          if (!pinGroup.hasAttribute('data-click-attached')) {
+            pinGroup.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.nodeSelected.emit(node);
+            });
+            pinGroup.setAttribute('data-click-attached', 'true');
           }
-          if (node.company?.toLowerCase().includes('karzan') || node.company?.toLowerCase().includes('karsan')) {
-            displayName = 'KARSAN';
-          }
-          if (node.company?.toLowerCase().includes('arboc') || node.company?.toLowerCase().includes('arbroc')) {
-            displayName = 'ARBOC';
-          }
-          // Badge container (logo + text) below marker
-          let badge = labelsGroup.querySelector(`g.company-badge[data-marker-index="${index}"]`) as SVGGElement | null;
+
+          // --- BADGE LOGIC (RESTORED INSIDE LOOP) ---
+          // Badge container (logo + text) below marker - now hidden but kept for LOD or legacy if needed
+          let badge = labelsGroup.querySelector(`g.company-badge[data-marker-index="${markerIndex}"]`) as SVGGElement | null;
           const badgeHeight = 24;
           const badgeWidth = Math.min(170, Math.max(90, displayName.length * 7 + 34));
           const extraYOffset = displayName.toUpperCase() === 'NOVA BUS' ? -12 : 0;
           const badgeX = cx - badgeWidth / 2;
           const badgeY = cy + r + 8 + extraYOffset;
+
           if (!badge) {
             badge = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             badge.setAttribute('class', 'company-badge');
-            badge.setAttribute('data-marker-index', index.toString());
+            badge.setAttribute('data-marker-index', markerIndex.toString());
             badge.setAttribute('data-company-name', displayName);
             badge.style.pointerEvents = 'all';
             labelsGroup.appendChild(badge);
@@ -3319,7 +3460,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
             badgeLogo.setAttribute('href', badgePrimaryPath);
             badgeLogo.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', badgePrimaryPath);
             badgeLogo.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-            // Fallback if SVG image fails to load
+
             let badgePathIndex = 0;
             badgeLogo.addEventListener('error', () => {
               if (badgePathIndex < badgePaths.length - 1) {
@@ -3371,6 +3512,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
             badgeText.textContent = displayName;
           }
 
+          // Legacy Tooltip Handlers for Badge
           if (!badge.hasAttribute('data-hover-handler')) {
             badge.setAttribute('data-hover-handler', 'true');
             const handleMouseEnter: EventListener = (event) => {
@@ -3405,6 +3547,9 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
               this.nodeSelected.emit(node);
             });
           }
+
+          // Note: Hide badge if we are using the new high-fidelity pin
+          badge.style.display = 'none';
         }
       }
     });
@@ -3614,7 +3759,9 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       const regionPaths = svg.querySelectorAll('#jvm-regions-group path') as NodeListOf<SVGPathElement>;
       regionPaths.forEach((pathElement) => {
         pathElement.setAttribute('fill', colors.regionFill);
-        pathElement.setAttribute('fill-opacity', colors.regionFillOpacity.toString());
+        if ('regionFillOpacity' in colors) {
+          pathElement.setAttribute('fill-opacity', colors.regionFillOpacity.toString());
+        }
         pathElement.setAttribute('stroke', colors.regionStroke);
       });
 
