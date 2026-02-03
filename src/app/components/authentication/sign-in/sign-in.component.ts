@@ -1,8 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import {
+  FormBuilder,
+  FormGroup,
+  Validators,
+  ReactiveFormsModule,
+} from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { AuthService } from '../../../shared/services/auth.service';
+import { AuthService, CurrentUser } from '../../../shared/services/auth.service';
 import { NavService } from '../../../shared/services/nav.service';
 
 @Component({
@@ -10,7 +15,7 @@ import { NavService } from '../../../shared/services/nav.service';
   standalone: true,
   imports: [RouterModule, ReactiveFormsModule, CommonModule],
   templateUrl: './sign-in.component.html',
-  styleUrl: './sign-in.component.scss'
+  styleUrl: './sign-in.component.scss',
 })
 export class SignInComponent implements OnInit {
   loginForm!: FormGroup;
@@ -22,13 +27,13 @@ export class SignInComponent implements OnInit {
     private formBuilder: FormBuilder,
     private authService: AuthService,
     private navService: NavService,
-    private router: Router
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
     this.loginForm = this.formBuilder.group({
-      username: ['superadmin', Validators.required],
-      password: ['admin123', Validators.required]
+      username: ['', Validators.required],
+      password: ['', Validators.required],
     });
   }
 
@@ -40,31 +45,27 @@ export class SignInComponent implements OnInit {
     this.submitted = true;
     this.errorMessage = '';
 
-    if (this.loginForm.invalid) {
-      return;
-    }
+    if (this.loginForm.invalid) return;
 
     this.loading = true;
     const { username, password } = this.loginForm.value;
 
     this.authService.loginWithRole(username, password).subscribe({
-      next: (user) => {
+      next: (user: CurrentUser) => {
         // Load menu based on user role
         this.navService.loadMenuByRole(user.role || 'admin');
         
         // Navigate based on role
-        if (user.role === 'superadmin' || user.role === 'admin') {
+        if (user.role === 'superadmin') {
           this.router.navigate(['/admin/dashboard']);
-        } else if (user.role === 'client') {
+        } else if (user.role === 'client' || user.role === 'user') {
           this.router.navigate(['/client/dashboard']);
-        } else if (user.role === 'inspector') {
-          this.router.navigate(['/dashboard']);
         } else {
           this.router.navigate(['/dashboard']);
         }
         this.loading = false;
       },
-      error: (error) => {
+      error: (error: any) => {
         this.errorMessage = error.message || 'Invalid username or password';
         this.loading = false;
       }
