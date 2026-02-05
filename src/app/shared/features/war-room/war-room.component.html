@@ -118,7 +118,8 @@
         </div>
       </div>
       <app-war-room-map [nodes]="filteredNodes()" [selectedEntity]="selectedEntity()"
-        [transitRoutes]="filteredTransitRoutes()" (nodeSelected)="onNodeSelected($event)"></app-war-room-map>
+        [transitRoutes]="filteredTransitRoutes()" [filterStatus]="filterApplied().status"
+        (nodeSelected)="onNodeSelected($event)"></app-war-room-map>
 
       @if (filteredNodes().length === 0) {
       <div
@@ -190,9 +191,8 @@
       <div class="sidebar-section" [class.hidden]="!activityLogVisible()">
         <app-war-room-activity-log [parentGroups]="filteredParentGroups()" [activityLogs]="filteredActivityLogs()"
           [selectedEntity]="selectedEntity()" [editMode]="activityLogEditMode()" [mapViewMode]="mapViewMode()"
-          [isBusy]="activityLogBusy()"
-          (selectionChange)="onEntitySelected($event)" (editModeChange)="activityLogEditMode.set($event)"
-          (factoryDetailsUpdated)="onFactoryDetailsUpdated($event)"
+          [isBusy]="activityLogBusy()" (selectionChange)="onEntitySelected($event)"
+          (editModeChange)="activityLogEditMode.set($event)" (factoryDetailsUpdated)="onFactoryDetailsUpdated($event)"
           (subsidiaryDetailsUpdated)="onSubsidiaryDetailsUpdated($event)"
           (batchUpdateRequested)="onBatchUpdateRequested($event)" (subsidiaryDeleted)="onSubsidiaryDeleted($event)"
           (factoryDeleted)="onFactoryDeleted($event)"></app-war-room-activity-log>

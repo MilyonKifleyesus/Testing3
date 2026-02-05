@@ -211,6 +211,7 @@ describe('WarRoomComponent Integration', () => {
         const testCompanyData: CompanyFormData = {
             companyName: 'Integration Test Corp',
             location: 'New York, USA',
+            status: 'ACTIVE',
             description: 'Test Description',
             subLocations: [
                 {
@@ -418,6 +419,36 @@ describe('WarRoomComponent Integration', () => {
             buildActivityLog(factoryB, subsidiaryA),
         ]);
         warRoomService.setMapViewMode('factory');
+
+        component.activityLogVisible.set(true);
+        fixture.detectChanges();
+
+        const expandButton = fixture.nativeElement.querySelector('.subsidiary-entry .btn-outline-secondary') as HTMLButtonElement;
+        if (expandButton) {
+            expandButton.click();
+            fixture.detectChanges();
+        }
+
+        const factoryEntry = fixture.nativeElement.querySelector('.factory-entry') as HTMLElement;
+        if (factoryEntry) {
+            factoryEntry.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+            fixture.detectChanges();
+        }
+
+        expect(warRoomService.selectedEntity()?.id).toBe(factoryA.id);
+
+        const selectedMarker = fixture.nativeElement.querySelector('.node-marker-wrapper.selected');
+        expect(selectedMarker).toBeTruthy();
+
+        const mapComponent = fixture.debugElement.query(By.directive(WarRoomMapComponent)).componentInstance as WarRoomMapComponent;
+        expect(mapComponent.projectedRoutes().some((entry) => entry.highlighted)).toBeTrue();
+
+        component.setMapViewMode('subsidiary');
+        fixture.detectChanges();
+        component.setMapViewMode('factory');
+        fixture.detectChanges();
+
+        expect(warRoomService.selectedEntity()).not.toBeNull();
     }));
 
     it('converts SVG viewBox coordinates to container pixel coordinates for overlays', () => {
@@ -429,7 +460,7 @@ describe('WarRoomComponent Integration', () => {
         mapDiv.id = 'war-room-map';
         // Mock getBoundingClientRect for container
         mapDiv.getBoundingClientRect = function () {
-            return { width: 800, height: 400, left: 0, top: 0, right: 800, bottom: 400, x: 0, y: 0, toJSON: () => {} } as DOMRect;
+            return { width: 800, height: 400, left: 0, top: 0, right: 800, bottom: 400, x: 0, y: 0, toJSON: () => { } } as DOMRect;
         };
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('viewBox', '0 0 1000 500');
@@ -440,7 +471,7 @@ describe('WarRoomComponent Integration', () => {
         circle.setAttribute('data-index', '0');
         // Stub getBoundingClientRect on the circle to simulate onscreen placement
         (circle as any).getBoundingClientRect = function () {
-            return { left: 300, top: 150, width: 10, height: 10, right: 310, bottom: 160, x: 300, y: 150, toJSON: () => {} } as DOMRect;
+            return { left: 300, top: 150, width: 10, height: 10, right: 310, bottom: 160, x: 300, y: 150, toJSON: () => { } } as DOMRect;
         };
 
         svg.appendChild(circle);
@@ -483,7 +514,7 @@ describe('WarRoomComponent Integration', () => {
         const mapDiv = document.createElement('div');
         mapDiv.id = 'war-room-map';
         mapDiv.getBoundingClientRect = function () {
-            return { width: 800, height: 400, left: 10, top: 20, right: 810, bottom: 420, x: 10, y: 20, toJSON: () => {} } as DOMRect;
+            return { width: 800, height: 400, left: 10, top: 20, right: 810, bottom: 420, x: 10, y: 20, toJSON: () => { } } as DOMRect;
         };
 
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -526,7 +557,7 @@ describe('WarRoomComponent Integration', () => {
         const mapDiv = document.createElement('div');
         mapDiv.id = 'war-room-map';
         mapDiv.getBoundingClientRect = function () {
-            return { width: 800, height: 400, left: 0, top: 0, right: 800, bottom: 400, x: 0, y: 0, toJSON: () => {} } as DOMRect;
+            return { width: 800, height: 400, left: 0, top: 0, right: 800, bottom: 400, x: 0, y: 0, toJSON: () => { } } as DOMRect;
         };
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('viewBox', '0 0 1000 500');
@@ -568,7 +599,7 @@ describe('WarRoomComponent Integration', () => {
         const mapDiv = document.createElement('div');
         mapDiv.id = 'war-room-map';
         mapDiv.getBoundingClientRect = function () {
-            return { width: 800, height: 400, left: 0, top: 0, right: 800, bottom: 400, x: 0, y: 0, toJSON: () => {} } as DOMRect;
+            return { width: 800, height: 400, left: 0, top: 0, right: 800, bottom: 400, x: 0, y: 0, toJSON: () => { } } as DOMRect;
         };
 
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -578,7 +609,7 @@ describe('WarRoomComponent Integration', () => {
         circle.setAttribute('class', 'jvm-marker');
         circle.setAttribute('data-index', '0');
         (circle as any).getBoundingClientRect = function () {
-            return { left: 300, top: 150, width: 10, height: 10, right: 310, bottom: 160, x: 300, y: 150, toJSON: () => {} } as DOMRect;
+            return { left: 300, top: 150, width: 10, height: 10, right: 310, bottom: 160, x: 300, y: 150, toJSON: () => { } } as DOMRect;
         };
 
         svg.appendChild(circle);
@@ -607,30 +638,5 @@ describe('WarRoomComponent Integration', () => {
         document.body.removeChild(mapDiv);
     });
 
-        component.activityLogVisible.set(true);
-        fixture.detectChanges();
 
-        const expandButton = fixture.nativeElement.querySelector('.subsidiary-entry .btn-outline-secondary') as HTMLButtonElement;
-        expandButton.click();
-        fixture.detectChanges();
-
-        const factoryEntry = fixture.nativeElement.querySelector('.factory-entry') as HTMLElement;
-        factoryEntry.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-        fixture.detectChanges();
-
-        expect(warRoomService.selectedEntity()?.id).toBe(factoryA.id);
-
-        const selectedMarker = fixture.nativeElement.querySelector('.node-marker-wrapper.selected');
-        expect(selectedMarker).toBeTruthy();
-
-        const mapComponent = fixture.debugElement.query(By.directive(WarRoomMapComponent)).componentInstance as WarRoomMapComponent;
-        expect(mapComponent.projectedRoutes().some((entry) => entry.highlighted)).toBeTrue();
-
-        component.setMapViewMode('subsidiary');
-        fixture.detectChanges();
-        component.setMapViewMode('factory');
-        fixture.detectChanges();
-
-        expect(warRoomService.selectedEntity()).not.toBeNull();
-    }));
 });

@@ -158,25 +158,23 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   readonly statusCounts = computed(() => {
     const filters = this.filterDraft();
-    const subsidiaries = this.subsidiaries().filter((subsidiary) => {
-      if (filters.parentCompanyIds.length > 0 && !filters.parentCompanyIds.includes(subsidiary.id)) {
-        return false;
-      }
-      if (filters.regions.length > 0) {
-        const regions = this.getRegionsForFactories(subsidiary.factories);
-        if (regions.size === 0) return false;
-        if (!filters.regions.some((region) => regions.has(region))) {
-          return false;
-        }
-      }
-      return true;
-    });
+    // Use the current view's nodes as the base to ensure counts match what is possible to see
+    const nodes = this.nodes();
 
-    const factories = this.factories().filter((factory) => {
-      if (filters.parentCompanyIds.length > 0 && !filters.parentCompanyIds.includes(factory.subsidiaryId)) {
+    // Apply granular filters (Companies, Regions) AND Status to determine the "universe" of items
+    const filteredByContext = nodes.filter((node) => {
+      // Special case: FleetZero command hub is always included in the universe? 
+      // Usually filters normally apply to it, but for counts it might skew?
+      // Let's treat it as a normal node for counting to be accurate to visual representation.
+
+      if (!this.matchesParentCompanyFilterForNode(node, filters.parentCompanyIds)) {
         return false;
       }
-      if (!this.matchesRegionsForFactory(factory, filters.regions)) {
+      if (!this.matchesRegionsForNode(node, filters.regions)) {
+        return false;
+      }
+      // NEW: Strictly filter counts by status as well, per user requirement
+      if (!this.matchesStatus(node.status, filters.status)) {
         return false;
       }
       return true;
@@ -184,23 +182,30 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
     let active = 0;
     let inactive = 0;
-    subsidiaries.forEach((subsidiary) => {
-      if (this.matchesOperationalStatus(subsidiary.status, 'active')) {
-        active += 1;
+
+    filteredByContext.forEach((node) => {
+      // Using matchesStatus logic: Active = anything NOT 'OFFLINE'
+      if (this.matchesStatus(node.status, 'active')) {
+        active++;
       } else {
-        inactive += 1;
-      }
-    });
-    factories.forEach((factory) => {
-      if (this.matchesStatus(factory.status, 'active')) {
-        active += 1;
-      } else {
-        inactive += 1;
+        inactive++;
       }
     });
 
+    const total = active + inactive;
+
+    console.log('[WarRoom] Status Counts (Dynamic Calculation):', {
+      viewMode: this.mapViewMode(),
+      filterStatus: filters.status,
+      totalItems: nodes.length,
+      filteredContext: filteredByContext.length,
+      active,
+      inactive,
+      totalStr: total
+    });
+
     return {
-      total: subsidiaries.length + factories.length,
+      total,
       active,
       inactive,
     };
@@ -209,7 +214,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly filteredNodes = computed(() => {
     const filters = this.filterApplied();
     const nodes = this.nodes();
-    return nodes.filter((node) => {
+    const result = nodes.filter((node) => {
       // Special case: FleetZero command hub is always visible
       if (node.id === 'fleetzero' || node.subsidiaryId === 'fleetzero' || node.name?.toLowerCase().includes('fleetzero')) {
         return true;
@@ -229,6 +234,14 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
       return true;
     });
+
+    console.log('[WarRoom] Filtered Result:', {
+      appliedFilter: filters.status,
+      originalCount: nodes.length,
+      resultCount: result.length
+    });
+
+    return result;
   });
 
   readonly filteredParentGroups = computed(() => {
@@ -1012,7 +1025,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       type SubLocationInput = NonNullable<CompanyFormData['subLocations']>[number];
       const mapSubLocationStatusToNode = (status?: SubLocationInput['status']): NodeStatus => {
         if (status === 'MAINTENANCE') return 'OFFLINE';
-        if (status === 'PAUSED') return 'ONLINE';
+        if (status === 'PAUSED') return 'OFFLINE';
         return 'ACTIVE';
       };
       const mapSubLocationStatusToLog = (status?: SubLocationInput['status']): ActivityStatus => {
@@ -1148,7 +1161,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
             longitude: -79.3832, // Toronto HQ Longitude
           },
           animated: true,
-          strokeColor: '#0ea5e9', // Blue connection for global sync
+          strokeColor: formData.status === 'ACTIVE' ? '#00C853' : '#D50000', // Green for active, Red for paused
           strokeWidth: 1.5,
         };
         this.warRoomService.addTransitRoute(fleetZeroRoute);
@@ -1162,7 +1175,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         city: city || 'Unknown',
         country,
         coordinates: { latitude: locationData.latitude, longitude: locationData.longitude },
-        status: 'ONLINE',
+        status: formData.status === 'ACTIVE' ? 'ONLINE' : 'OFFLINE',
         syncStability: 98,
         assets: 0,
         incidents: 0,
@@ -1222,24 +1235,25 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
         additionalFactories.push(subFactory);
 
-        // Create automatic connection from Sub-location to FleetZero HQ
-        if (Number.isFinite(subLocationCoords.latitude) && Number.isFinite(subLocationCoords.longitude)) {
+        // Create connection from Sub-location to Parent Hub (Main Location)
+        if (Number.isFinite(subLocationCoords.latitude) && Number.isFinite(subLocationCoords.longitude) &&
+          Number.isFinite(locationData.latitude) && Number.isFinite(locationData.longitude)) {
           const subLocationRoute: TransitRoute = {
-            id: `route-fleetzero-${subFactoryId}-${Date.now()}`,
+            id: `route-hub-${subFactoryId}-${Date.now()}`,
             from: subFactoryId,
-            to: 'fleetzero',
+            to: factoryId, // Connect to the main factory acting as the hub
             fromCoordinates: {
               latitude: subLocationCoords.latitude,
               longitude: subLocationCoords.longitude,
             },
             toCoordinates: {
-              latitude: 43.6532, // Toronto HQ Latitude
-              longitude: -79.3832, // Toronto HQ Longitude
+              latitude: locationData.latitude,
+              longitude: locationData.longitude,
             },
             animated: true,
             strokeColor: '#0ea5e9', // Blue connection
-            strokeWidth: 1.0, // Slightly thinner for sub-locations
-            dashArray: '5,5', // Dashed line for sub-locations
+            strokeWidth: 1.5,
+            dashArray: '3,3',
           };
           this.warRoomService.addTransitRoute(subLocationRoute);
         }
@@ -1271,7 +1285,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         id: subsidiaryId,
         parentGroupId,
         name: companyName.toUpperCase(),
-        status: 'ACTIVE',
+        status: formData.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED',
         metrics: { assetCount: 0, incidentCount: 0, syncStability: 98 },
         factories: [newFactory, ...additionalFactories],
         hubs: [

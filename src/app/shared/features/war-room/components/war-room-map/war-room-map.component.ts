@@ -1,4 +1,4 @@
-import { Component, input, output, AfterViewInit, OnDestroy, inject, effect, signal, computed, HostBinding } from '@angular/core';
+﻿import { Component, input, output, AfterViewInit, OnDestroy, inject, effect, signal, computed, HostBinding } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Node as WarRoomNode, FleetSelection, TransitRoute } from '../../../../../shared/models/war-room.interface';
 import { WarRoomService } from '../../../../../shared/services/war-room.service';
@@ -22,6 +22,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   nodes = input<WarRoomNode[]>([]);
   selectedEntity = input<FleetSelection | null>(null);
   transitRoutes = input<TransitRoute[]>([]);
+  filterStatus = input<'all' | 'active' | 'inactive'>('all');
 
   // Outputs
   nodeSelected = output<WarRoomNode | undefined>();
@@ -59,6 +60,9 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     description: string;
     position: { top: number; left: number };
   } | null>(null);
+
+  // Milli: Add the tooltipFlipped signal here
+  tooltipFlipped = signal<boolean>(false);
 
   // Bound Handlers
   private boundFullscreenHandler: (() => void) | null = null;
@@ -109,6 +113,26 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   getSelectedNodeCity(): string {
     return this.getSelectedNode()?.city || '';
+  }
+
+  // Debug helper methods
+  getContainerDimensions(): string {
+    const container = document.getElementById('war-room-map');
+    if (!container) return 'N/A';
+    const rect = container.getBoundingClientRect();
+    return `${Math.round(rect.width)}x${Math.round(rect.height)}`;
+  }
+
+  getAspectRatio(): string {
+    const container = document.getElementById('war-room-map');
+    if (!container) return 'N/A';
+    const rect = container.getBoundingClientRect();
+    if (!rect.height) return 'N/A';
+    return (rect.width / rect.height).toFixed(2);
+  }
+
+  getUserHasZoomed(): boolean {
+    return this.userHasZoomed;
   }
 
   private getCompanyLogoSource(node: WarRoomNode): string | null {
@@ -373,6 +397,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     this.tooltipClampRafId = requestAnimationFrame(() => {
       this.tooltipClampRafId = null;
       this.clampTooltipToBounds();
+      // Milli: Delete the line below to fix the infinite loop
+      this.refreshTooltipPosition();
     });
   }
 
@@ -587,8 +613,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     'karsan': `Karsan is a leading Turkish commercial vehicle manufacturer with over 58 years of industry experience. We specialize in innovative public transportation solutions, including electric buses like the e-JEST and e-ATAK, as well as hydrogen-powered and autonomous vehicles. As Turkey's only independent multi-brand vehicle manufacturer, we manage the entire value chain from R&D to after-sales service. Our state-of-the-art manufacturing facilities in Bursa can produce up to 20,000 vehicles annually.`,
     'arbroc': `ARBOC Specialty Vehicles is North America's pioneer and industry leader in low-floor cutaway bus technology, founded in 2008 and based in Middlebury, Indiana. With 5,000+ buses produced and a 70% market share in Canada and the US, they specialize in fully accessible paratransit, transit, and shuttle vehicles that exceed federal fuel economy and accessibility standards.`,
     'tam': `TAM-Europe is a leading bus and commercial vehicle manufacturer founded in 1947 and based in Maribor, Slovenia. With over 77 years of experience, they specialize in airport buses (VivAir with 40% global market share), electric city buses, and coaches serving markets globally, with strong commitment to product efficiency and environmental sustainability.`,
-    'nfl': `New Flyer is North America's largest transit bus manufacturer, founded in 1930 and headquartered in Winnipeg, Manitoba. Operating under parent company NFI Group, they offer the advanced Xcelsior family of buses including battery-electric (Xcelsior CHARGE NGâ„¢), hydrogen fuel cell (Xcelsior CHARGE FCâ„¢), and hybrid options, with 35,000+ buses in service globally and 265+ million zero-emission miles traveled.`,
-    'new flyer': `New Flyer is North America's largest transit bus manufacturer, founded in 1930 and headquartered in Winnipeg, Manitoba. Operating under parent company NFI Group, they offer the advanced Xcelsior family of buses including battery-electric (Xcelsior CHARGE NGâ„¢), hydrogen fuel cell (Xcelsior CHARGE FCâ„¢), and hybrid options, with 35,000+ buses in service globally and 265+ million zero-emission miles traveled.`,
+    'nfl': `New Flyer is North America's largest transit bus manufacturer, founded in 1930 and headquartered in Winnipeg, Manitoba. Operating under parent company NFI Group, they offer the advanced Xcelsior family of buses including battery-electric (Xcelsior CHARGE NGÃ¢â€žÂ¢), hydrogen fuel cell (Xcelsior CHARGE FCÃ¢â€žÂ¢), and hybrid options, with 35,000+ buses in service globally and 265+ million zero-emission miles traveled.`,
+    'new flyer': `New Flyer is North America's largest transit bus manufacturer, founded in 1930 and headquartered in Winnipeg, Manitoba. Operating under parent company NFI Group, they offer the advanced Xcelsior family of buses including battery-electric (Xcelsior CHARGE NGÃ¢â€žÂ¢), hydrogen fuel cell (Xcelsior CHARGE FCÃ¢â€žÂ¢), and hybrid options, with 35,000+ buses in service globally and 265+ million zero-emission miles traveled.`,
     'nova': `Nova Bus is Canada's leading transit bus manufacturer, founded in 1993 and based in Saint-Eustache, Quebec. As part of the Volvo Group, they deliver innovative mobility solutions including the 100% electric LFSe+ bus with dual charging options, CNG, diesel-electric hybrid, and conventional vehicles, supporting transit agencies across North America with proven expertise and industry-leading parts and service support.`,
     'nova bus': `Nova Bus is Canada's leading transit bus manufacturer, founded in 1993 and based in Saint-Eustache, Quebec. As part of the Volvo Group, they deliver innovative mobility solutions including the 100% electric LFSe+ bus with dual charging options, CNG, diesel-electric hybrid, and conventional vehicles, supporting transit agencies across North America with proven expertise and industry-leading parts and service support.`
   };
@@ -602,6 +628,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   private mapReadyRetryInterval: any = null;
   private labelObserver: MutationObserver | null = null;
   private nodeObserver: MutationObserver | null = null;
+  private resizeObserver: ResizeObserver | null = null;
   private lastNodesSignature: string | null = null;
   private elementCache = new Map<string, Element | null>();
   private currentPopup: HTMLElement | null = null;
@@ -623,6 +650,21 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   // Signal for marker SVG coordinates to ensure perfect alignment
   private markerCoordinates = signal<Map<string, { x: number; y: number }>>(new Map());
+
+  // Computed properties for dynamic coloring
+  readonly routeStroke = computed(() => {
+    const status = this.filterStatus();
+    if (status === 'active') return '#00C853';
+    if (status === 'inactive') return '#D50000';
+    return 'url(#path-gradient)';
+  });
+
+  readonly routeFill = computed(() => {
+    const status = this.filterStatus();
+    if (status === 'active') return '#00C853';
+    if (status === 'inactive') return '#D50000';
+    return '#0ea5e9';
+  });
 
   constructor() {
     // Effect to zoom to selected company location when it changes
@@ -813,7 +855,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         fromLabel: fromNode ? fromNode.city || fromNode.name : route.from,
         toLabel: toNode ? toNode.city || toNode.name : route.to,
         path: this.createCurvedPath(start, end),
-        strokeColor: route.strokeColor || '#0ea5e9',
+        strokeColor: route.strokeColor,
         strokeWidth: route.strokeWidth || 1.5,
         dashArray: route.dashArray,
         animated: route.animated !== false,
@@ -901,7 +943,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Create a curved SVG path between two points using quadratic Bézier curve
+   * Create a curved SVG path between two points using quadratic BÃ©zier curve
    * Matches React inspiration with a fixed arc height (hump)
    */
   private createCurvedPath(start: { x: number; y: number } | null, end: { x: number; y: number } | null): string {
@@ -914,13 +956,14 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     // We use a minimum to avoid negative or awkward flips, but target ~50
     const midY = Math.min(start.y, end.y) - 50;
 
-    // Return quadratic Bézier curve path
+    // Return quadratic BÃ©zier curve path
     return `M ${start.x} ${start.y} Q ${midX} ${midY} ${end.x} ${end.y}`;
   }
 
   ngAfterViewInit(): void {
     // Wait for view to be fully initialized
     setTimeout(() => {
+      this.setupContainerResizeObserver();
       this.loadScripts()
         .then(() => {
           this.initializeMap();
@@ -990,6 +1033,10 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       window.removeEventListener('resize', this.boundResizeHandler);
       this.boundResizeHandler = null;
     }
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
     if (this.boundPanSyncMouseDownHandler) {
       const container = document.getElementById('war-room-map');
       if (container) {
@@ -1025,6 +1072,43 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       this.exitFullscreen();
     }
     this.mapInstance = null;
+  }
+
+  private setupContainerResizeObserver(): void {
+    const container = document.getElementById('war-room-map');
+    if (!container) return;
+
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
+
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.destroyed) return;
+
+      // When container size changes, update SVG responsiveness
+      this.ensureSvgResponsive();
+
+      // Also trigger map library updateSize if available
+      if (this.mapInstance && typeof (this.mapInstance as any).updateSize === 'function') {
+        (this.mapInstance as any).updateSize();
+      }
+
+      // Update markers and tooltips
+      this.updateLabelPositions();
+      this.refreshTooltipPosition();
+
+      // If we haven't zoomed, ensure full world view is maintained
+      if (!this.userHasZoomed && !this.pendingZoomCompanyId) {
+        this.resetMapToFullWorldView();
+      }
+    });
+
+    this.resizeObserver.observe(container);
+    // Also observe the parent map area for layout changes
+    const mapArea = container.closest('.war-room-map-area');
+    if (mapArea) {
+      this.resizeObserver.observe(mapArea);
+    }
   }
 
   private loadScripts(): Promise<void> {
@@ -1245,7 +1329,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
           backgroundColor: colors.backgroundColor,
           // Enable scroll zoom
           zoomOnScroll: true, // Enable scroll zoom
-          zoomMin: 1, // Minimum zoom level (full world view)
+          zoomMin: 1.0, // Minimum zoom level (allow more zoom out for large screens)
           zoomMax: 15, // Maximum zoom level
           // Enable pan/drag functionality
           panOnDrag: true, // Enable dragging to pan the map
@@ -1279,6 +1363,12 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
           },
           // Use custom tooltip only (prevents duplicate tooltips)
           showTooltip: false,
+          // Disable default marker labels (we use custom pin labels)
+          labels: {
+            markers: {
+              render: () => '' // Return empty string to prevent label rendering
+            }
+          },
         };
 
         // Add tooltip handler
@@ -1310,7 +1400,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
           this.nodeSelected.emit(node);
         };
 
-        // Add event handlers for zoom/pan to update label positions
+        // onViewportChange: Handle zoom/pan events to update label positions
         mapConfig.onViewportChange = () => {
           // Mark that user has interacted with the map (zoomed/panned)
           // Only if we're not in the initialization phase where many automatic layout shifts happen
@@ -1330,8 +1420,11 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
           requestAnimationFrame(() => {
             this.updateCompanyLogosAndLabelsPositions();
             this.updateSelectedMarkerStyles();
-            // Re-apply logos and labels in case they were lost
-            this.addCompanyLogosAndLabels();
+            // Re-apply logos and labels IN CASE they were lost (e.g. library cleared DOM)
+            // BUT: Calling this in a loop causes ghosting artifacts if the library didn't actually clear them.
+            // Optimized: Only call update positions. The elements should persist.
+            // If elements disappear, we need a better check than blind re-adding.
+            // this.addCompanyLogosAndLabels(); 
           });
         };
 
@@ -2074,8 +2167,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         this.updateLabelPositions();
         // Also update company logos and labels to ensure they stick to circles and are responsive
         this.updateCompanyLogosAndLabelsPositions();
-        // Re-apply logos to ensure they're always positioned correctly
-        this.addCompanyLogosAndLabels();
+        // this.addCompanyLogosAndLabels(); // Removed to prevent ghosting
         this.labelsUpdateDirty = false;
       }
 
@@ -2132,7 +2224,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         if (this.labelsUpdateDirty || this.isDragging) {
           this.updateLabelPositions();
           this.updateCompanyLogosAndLabelsPositions();
-          this.addCompanyLogosAndLabels();
+          // this.addCompanyLogosAndLabels(); // Removed to prevent ghosting
+
           this.refreshTooltipPosition();
           this.labelsUpdateDirty = false;
         }
@@ -2491,9 +2584,9 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
    * @param latitude - Latitude coordinate
    * @param longitude - Longitude coordinate
    * @param scale - Zoom scale (higher = more zoomed in, typically 1-15)
-   *                ðŸ”§ ZOOM LEVEL ADJUSTMENT: Change default value (5) here to adjust default zoom
+   *                Ã°Å¸â€Â§ ZOOM LEVEL ADJUSTMENT: Change default value (5) here to adjust default zoom
    *                
-   *                ðŸ“Š ZOOM SCALE GUIDE - Try these values:
+   *                Ã°Å¸â€œÅ  ZOOM SCALE GUIDE - Try these values:
    *                ============================================
    *                Scale 1  = 1x zoom      (2^0)   - Very wide view, see entire world
    *                Scale 2  = 2x zoom      (2^1)   - Wide view, see continents
@@ -2511,7 +2604,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
    *                Scale 14 = 8192x zoom   (2^13)  - Maximum practical zoom
    *                Scale 15 = 16384x zoom  (2^14)  - Maximum zoom (may be too close)
    *                
-   *                ðŸ’¡ RECOMMENDED VALUES:
+   *                Ã°Å¸â€™Â¡ RECOMMENDED VALUES:
    *                - For activity log clicks: 10-12 (good balance)
    *                - For marker clicks: 10-12 (shows marker clearly)
    *                - For smooth experience: 8-10 (less jarring)
@@ -2552,7 +2645,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
           lng: longitude,
           scale: scale,
         });
-        console.log(`âœ“ Zoomed to location: ${latitude}, ${longitude} at scale ${scale}`);
+        console.log(`Ã¢Å“â€œ Zoomed to location: ${latitude}, ${longitude} at scale ${scale}`);
         setTimeout(() => this.updateLabelPositions(), 500);
         return;
       }
@@ -2565,7 +2658,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
           latLng: [latitude, longitude],
           scale: scale,
         });
-        console.log(`âœ“ Zoomed to location using focusOn: ${latitude}, ${longitude} at scale ${scale}`);
+        console.log(`Ã¢Å“â€œ Zoomed to location using focusOn: ${latitude}, ${longitude} at scale ${scale}`);
         setTimeout(() => this.updateLabelPositions(), 500);
         return;
       }
@@ -2577,7 +2670,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         if (typeof this.mapInstance.setZoom === 'function') {
           this.mapInstance.setZoom(scale);
         }
-        console.log(`âœ“ Zoomed to location using setCenter: ${latitude}, ${longitude}`);
+        console.log(`Ã¢Å“â€œ Zoomed to location using setCenter: ${latitude}, ${longitude}`);
         setTimeout(() => this.updateLabelPositions(), 500);
         return;
       }
@@ -2659,7 +2752,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
               const markerY = parseFloat(marker.getAttribute('cy') || '0');
 
               // Calculate zoom factor (scale 12 = very high zoom, scale 1 = low zoom)
-              // ðŸ”§ ZOOM LEVEL ADJUSTMENT: The zoom factor is calculated as 2^(scale-1)
+              // Ã°Å¸â€Â§ ZOOM LEVEL ADJUSTMENT: The zoom factor is calculated as 2^(scale-1)
               // See zoomToLocation() method documentation above for full zoom scale guide
               const zoomFactor = Math.pow(2, scale - 1);
               const newWidth = currentWidth / zoomFactor;
@@ -2672,7 +2765,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
               // Apply smooth transition
               svg.style.transition = 'viewBox 0.5s ease-in-out';
               svg.setAttribute('viewBox', `${newX} ${newY} ${newWidth} ${newHeight}`);
-              console.log(`âœ“ Zoomed using viewBox manipulation to marker at (${markerX}, ${markerY}): ${latitude}, ${longitude}`);
+              console.log(`Ã¢Å“â€œ Zoomed using viewBox manipulation to marker at (${markerX}, ${markerY}): ${latitude}, ${longitude}`);
               setTimeout(() => {
                 this.updateLabelPositions();
                 svg.style.transition = ''; // Remove transition after animation
@@ -2696,7 +2789,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
           svg.style.transition = 'viewBox 0.5s ease-in-out';
           svg.setAttribute('viewBox', `${newX} ${newY} ${newWidth} ${newHeight}`);
-          console.log(`âœ“ Zoomed using Mercator projection: ${latitude}, ${longitude}`);
+          console.log(`Ã¢Å“â€œ Zoomed using Mercator projection: ${latitude}, ${longitude}`);
           setTimeout(() => {
             this.updateLabelPositions();
             svg.style.transition = '';
@@ -3451,6 +3544,14 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
           // --- HIGH-FIDELITY PIN MARKER IMPLEMENTATION ---
           const pinGroupId = `company-pin-group-${markerIndex}`;
+
+          // Deduplicate: If multiple pins exist with this ID, remove them all to start fresh
+          const existingPins = logosGroup.querySelectorAll(`g[id="${pinGroupId}"]`);
+          if (existingPins.length > 1) {
+            console.warn(`Found ${existingPins.length} duplicate pins for ${pinGroupId}, cleaning up...`);
+            existingPins.forEach(pin => pin.remove());
+          }
+
           let pinGroup = logosGroup.querySelector(`g[id="${pinGroupId}"]`) as SVGGElement | null;
 
           if (!pinGroup) {
@@ -4143,24 +4244,32 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const baseWidth = 950;
     const baseHeight = 550;
     const rect = container.getBoundingClientRect();
+
+    console.log('🔍 [DEBUG] getResponsiveWorldViewBox called:', {
+      containerWidth: rect.width,
+      containerHeight: rect.height,
+      baseWidth,
+      baseHeight
+    });
+
     if (!rect.width || !rect.height) {
+      console.warn('⚠️ [DEBUG] Container has no dimensions, using base viewBox');
       return `0 0 ${baseWidth} ${baseHeight}`;
     }
 
-    const containerAspect = rect.width / rect.height;
-    const mapAspect = baseWidth / baseHeight;
-    let viewWidth = baseWidth;
-    let viewHeight = baseHeight;
+    // FIX: Always return the base viewBox to show the full world map
+    // Let CSS preserveAspectRatio="xMidYMid meet" handle the responsiveness
+    // This ensures the entire map is always visible regardless of container size
+    const result = `0 0 ${baseWidth} ${baseHeight}`;
 
-    if (containerAspect > mapAspect) {
-      viewWidth = baseHeight * containerAspect;
-    } else if (containerAspect < mapAspect) {
-      viewHeight = baseWidth / containerAspect;
-    }
+    console.log('✅ [DEBUG] Using fixed base viewBox for full world visibility:', {
+      result,
+      containerAspect: (rect.width / rect.height).toFixed(2),
+      mapAspect: (baseWidth / baseHeight).toFixed(2),
+      note: 'ViewBox no longer expands - full map always visible'
+    });
 
-    const viewX = (baseWidth - viewWidth) / 2;
-    const viewY = (baseHeight - viewHeight) / 2;
-    return `${viewX} ${viewY} ${viewWidth} ${viewHeight}`;
+    return result;
   }
 
   /**

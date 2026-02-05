@@ -15,16 +15,6 @@
       [attr.aria-busy]="refreshing() || isBusy()" #logList>
       @for (group of parentGroups(); track group.id) {
       <div class="hierarchy-group" [attr.data-entity-id]="'parent:' + group.id">
-        <div class="hierarchy-group-header p-2 border-bottom d-flex align-items-center justify-content-between"
-          [class.active]="isSelected('parent', group.id)" (click)="onParentClick(group)"
-          (mouseenter)="onParentHover(group, true)" (mouseleave)="onParentHover(group, false)"
-          (focus)="onParentHover(group, true)" (blur)="onParentHover(group, false)" role="button" tabindex="0">
-          <div class="d-flex align-items-center gap-2">
-            <span class="entry-kind opacity-50">GROUP</span>
-            <span class="fw-bold text-uppercase">{{ group.name }}</span>
-          </div>
-          <span class="badge bg-secondary-transparent">{{ group.subsidiaries.length }} SUBS</span>
-        </div>
         @for (subsidiary of group.subsidiaries; track subsidiary.id) {
         <div class="log-entry subsidiary-entry list-group-item list-group-item-action flex-column"
           [class.active]="isSelected('subsidiary', subsidiary.id)"
@@ -38,8 +28,8 @@
           (focus)="onSubsidiaryHover(subsidiary, true)" (blur)="onSubsidiaryHover(subsidiary, false)"
           (keydown.enter)="editMode() ? startEditSubsidiary(subsidiary) : onSubsidiaryClick(subsidiary)"
           (keydown.space)="$event.preventDefault(); editMode() ? startEditSubsidiary(subsidiary) : onSubsidiaryClick(subsidiary)"
-          [attr.data-entity-id]="'subsidiary:' + subsidiary.id" [attr.aria-selected]="isSelected('subsidiary', subsidiary.id)"
-          tabindex="0" role="button">
+          [attr.data-entity-id]="'subsidiary:' + subsidiary.id"
+          [attr.aria-selected]="isSelected('subsidiary', subsidiary.id)" tabindex="0" role="button">
           <div class="log-entry-header d-flex justify-content-between align-items-start gap-2">
             <div class="d-flex align-items-center gap-2 flex-wrap">
               <span class="entry-kind">Subsidiary</span>
@@ -156,8 +146,8 @@
           (focus)="onFactoryHover(factory, true)" (blur)="onFactoryHover(factory, false)"
           (keydown.enter)="editMode() ? startEditFactory(factory) : onFactoryClick(factory)"
           (keydown.space)="$event.preventDefault(); editMode() ? startEditFactory(factory) : onFactoryClick(factory)"
-          [attr.data-entity-id]="'factory:' + factory.id" [attr.aria-selected]="isSelected('factory', factory.id)" tabindex="0"
-          role="button">
+          [attr.data-entity-id]="'factory:' + factory.id" [attr.aria-selected]="isSelected('factory', factory.id)"
+          tabindex="0" role="button">
           <div class="log-entry-header d-flex justify-content-between align-items-start gap-2">
             <div class="d-flex align-items-center gap-2 flex-wrap">
               <span class="entry-kind">Factory</span>

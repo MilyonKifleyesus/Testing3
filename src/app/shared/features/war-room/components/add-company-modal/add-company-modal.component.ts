@@ -10,6 +10,7 @@ export interface CompanyFormData {
   location: string;
   sourceCompanyName?: string;
   sourceLocation?: string;
+  status: 'ACTIVE' | 'PAUSED';
   description?: string;
   logo?: string | ArrayBuffer | null;
   logoFile?: File;
@@ -47,6 +48,7 @@ export class AddCompanyModalComponent implements OnDestroy {
   // Form data
   companyName = signal<string>('');
   location = signal<string>('');
+  companyStatus = signal<'ACTIVE' | 'PAUSED'>('ACTIVE');
   sourceCompanyName = signal<string>('');
   sourceLocation = signal<string>('');
   description = signal<string>('');
@@ -287,6 +289,7 @@ export class AddCompanyModalComponent implements OnDestroy {
         location: locationValue,
         sourceCompanyName: this.sourceCompanyName().trim(),
         sourceLocation: this.sourceLocation().trim(),
+        status: this.companyStatus(),
         description: this.description().trim() || undefined,
         logo: this.logoPreview(),
         logoFile: this.logoFile() || undefined,
@@ -313,6 +316,7 @@ export class AddCompanyModalComponent implements OnDestroy {
   private resetForm(): void {
     this.companyName.set('');
     this.location.set('');
+    this.companyStatus.set('ACTIVE');
     this.sourceCompanyName.set('');
     this.sourceLocation.set('');
     this.description.set('');
@@ -438,6 +442,7 @@ export class AddCompanyModalComponent implements OnDestroy {
     this.description.set(
       'STATUS: ACTIVE + INACTIVE // LOCATION: SAINT-EUSTACHE, QUEBEC // MIXED-SCHEDULE BUILDOUT'
     );
+    this.companyStatus.set('ACTIVE');
     this.resetSubLocationForm();
   }
 
