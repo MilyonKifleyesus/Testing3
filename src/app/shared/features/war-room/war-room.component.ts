@@ -173,10 +173,8 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       if (!this.matchesRegionsForNode(node, filters.regions)) {
         return false;
       }
-      // NEW: Strictly filter counts by status as well, per user requirement
-      if (!this.matchesStatus(node.status, filters.status)) {
-        return false;
-      }
+      // FIX: Do NOT filter by status here. Counts should represent the current context
+      // (company/region filters only) so the All/Active/Inactive pills stay consistent.
       return true;
     });
 
