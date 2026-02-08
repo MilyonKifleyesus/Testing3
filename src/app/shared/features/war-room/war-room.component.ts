@@ -45,6 +45,7 @@ const createDefaultFilters = (): WarRoomFilters => ({
 })
 export class WarRoomComponent implements OnInit, OnDestroy {
   private readonly STORAGE_KEY = 'war-room-filters-v1';
+  private readonly MAP_EXPANDED_CLASS = 'war-room-map-expanded';
   private lastFocusedElement: HTMLElement | null = null;
   // Inject services
   private warRoomService = inject(WarRoomService);
@@ -66,16 +67,14 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   // Screen reader announcement message
   readonly announcementMessage = signal<string>('');
 
-  // Activity log visibility - hidden by default
-  readonly activityLogVisible = signal<boolean>(false);
+  // Overlay panel + expand state
+  readonly panelVisible = signal<boolean>(false);
+  readonly activePanel = signal<'log' | 'hub'>('log');
+  readonly mapExpanded = signal<boolean>(false);
+
+  // Activity log visibility - hidden by default (edit mode only)
   readonly activityLogEditMode = signal<boolean>(false);
   readonly activityLogBusy = signal<boolean>(false);
-
-  // Hub status visibility - hidden by default
-  readonly hubStatusVisible = signal<boolean>(false);
-
-  // Sidebar collapse state
-  readonly sidebarCollapsed = signal<boolean>(false);
 
   // Add company modal (over map)
   readonly addCompanyModalVisible = signal<boolean>(false);
@@ -463,6 +462,8 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       clearTimeout(this.zoomTimeoutId);
       this.zoomTimeoutId = null;
     }
+
+    document.body?.classList.remove(this.MAP_EXPANDED_CLASS);
   }
 
   /**
@@ -484,8 +485,8 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.warRoomService.setFactoryFilterSubsidiaryId(null);
     }
 
-    // Show activity log when clicking activity log
-    this.activityLogVisible.set(true);
+    // Show activity log panel when clicking activity log
+    this.showPanel('log');
 
     // Zoom is handled by the effect() when the selected entity changes
     // This prevents double-zooming and race conditions
@@ -495,38 +496,34 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Toggle activity log visibility
+   * Toggle overlay panels
    */
-  toggleActivityLog(): void {
-    if (this.sidebarCollapsed()) {
-      this.sidebarCollapsed.set(false);
+  togglePanels(): void {
+    const next = !this.panelVisible();
+    this.panelVisible.set(next);
+    if (next) {
+      this.announce(this.activePanel() === 'log' ? 'Activity log opened.' : 'Hub status opened.');
+    } else {
+      this.announce('Panels hidden.');
     }
-    this.activityLogVisible.update(visible => !visible);
-    this.announce(this.activityLogVisible() ? 'Activity log opened.' : 'Activity log hidden.');
   }
 
-  /**
-   * Toggle hub status visibility
-   */
-  toggleHubStatus(): void {
-    if (this.sidebarCollapsed()) {
-      this.sidebarCollapsed.set(false);
-    }
-    this.hubStatusVisible.update(visible => !visible);
-    this.announce(this.hubStatusVisible() ? 'Hub status opened.' : 'Hub status hidden.');
+  showPanel(panel: 'log' | 'hub'): void {
+    this.activePanel.set(panel);
+    this.panelVisible.set(true);
+    this.announce(panel === 'log' ? 'Activity log opened.' : 'Hub status opened.');
   }
 
-  toggleSidebarCollapsed(): void {
-    this.sidebarCollapsed.update((collapsed) => {
-      const next = !collapsed;
-      if (next) {
-        this.activityLogVisible.set(false);
-        this.hubStatusVisible.set(false);
-        this.activityLogEditMode.set(false);
-      }
-      return next;
-    });
-    this.announce(this.sidebarCollapsed() ? 'Sidebar collapsed.' : 'Sidebar expanded.');
+  toggleMapExpanded(): void {
+    const next = !this.mapExpanded();
+    this.mapExpanded.set(next);
+    document.body?.classList.toggle(this.MAP_EXPANDED_CLASS, next);
+    if (next) {
+      this.panelVisible.set(false);
+      this.announce('Map expanded.');
+    } else {
+      this.announce('Map returned to standard view.');
+    }
   }
 
   onSaveChanges(): void {
@@ -999,7 +996,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     const active = document.activeElement;
     this.lastFocusedElement = active instanceof HTMLElement ? active : null;
     this.addCompanyModalVisible.set(true);
-    this.hubStatusVisible.set(true);
+    this.showPanel('hub');
     this.announce('Add Company modal opened.');
   }
 
@@ -1344,7 +1341,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.warRoomService.setMapViewMode('factory');
       this.warRoomService.selectEntity({ level: 'factory', id: factoryId, parentGroupId, subsidiaryId, factoryId });
       this.warRoomService.requestPanToEntity(factoryId);
-      this.activityLogVisible.set(true);
+      this.showPanel('log');
 
       this.announce('Company ' + formData.companyName + ' added successfully.');
 

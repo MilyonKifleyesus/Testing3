@@ -48,6 +48,16 @@ export class WarRoomHubStatusComponent {
     return status === 'OFFLINE' ? 'INACTIVE' : status;
   }
 
+  getHubStatusIcon(status: HubStatus): string {
+    if (status === 'OFFLINE') {
+      return 'report';
+    }
+    if (status === 'OPTIMAL' || status === 'ONLINE' || status === 'ACTIVE') {
+      return 'check_circle';
+    }
+    return 'hourglass_empty';
+  }
+
   /**
    * Handle add company click – request modal (handled by war-room, modal over map)
    */

@@ -639,3 +639,87 @@ ul.productdetails {
 .maplibregl-ctrl-icon {
   filter: invert(1);
 }
+
+
+// ---- War Room Compact Nav Overrides ----
+:root {
+  --nav-compact-width: 4.5rem;
+}
+
+@media (max-width: 991.98px) {
+  [data-nav-layout="vertical"] {
+    .app-sidebar {
+      width: var(--nav-compact-width) !important;
+      transform: translateX(0) !important;
+    }
+
+    .app-sidebar .side-menu__label,
+    .app-sidebar .side-menu__angle,
+    .app-sidebar .slide__category {
+      display: none !important;
+    }
+
+    .app-sidebar .side-menu__icon {
+      margin-inline-end: 0 !important;
+    }
+
+    .app-sidebar .side-menu__item {
+      justify-content: center;
+      text-align: center;
+    }
+
+    .app-sidebar .main-sidebar-header {
+      width: var(--nav-compact-width) !important;
+    }
+
+    .app-header {
+      padding-inline-start: var(--nav-compact-width) !important;
+    }
+
+    .app-content {
+      margin-inline-start: var(--nav-compact-width) !important;
+    }
+  }
+
+  [data-nav-layout="vertical"][data-toggled="close"] .app-sidebar,
+  [data-nav-layout="vertical"][data-toggled="open"] .app-sidebar {
+    transform: translateX(0) !important;
+  }
+}
+
+body.war-room-map-expanded {
+  [data-nav-layout="vertical"] {
+    .app-sidebar {
+      width: var(--nav-compact-width) !important;
+      transform: translateX(0) !important;
+    }
+
+    .app-sidebar .side-menu__label,
+    .app-sidebar .side-menu__angle,
+    .app-sidebar .slide__category {
+      display: none !important;
+    }
+
+    .app-sidebar .side-menu__icon {
+      margin-inline-end: 0 !important;
+    }
+
+    .app-sidebar .side-menu__item {
+      justify-content: center;
+      text-align: center;
+    }
+
+    .app-header {
+      padding-inline-start: var(--nav-compact-width) !important;
+    }
+
+    .app-content {
+      margin-inline-start: var(--nav-compact-width) !important;
+    }
+  }
+
+  [data-nav-layout="vertical"][data-toggled="close"] .app-sidebar,
+  [data-nav-layout="vertical"][data-toggled="open"] .app-sidebar {
+    transform: translateX(0) !important;
+  }
+}

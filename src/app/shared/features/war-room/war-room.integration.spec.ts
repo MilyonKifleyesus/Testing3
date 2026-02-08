@@ -445,7 +445,7 @@ describe('WarRoomComponent Integration', () => {
         ]);
         warRoomService.setMapViewMode('factory');
 
-        component.activityLogVisible.set(true);
+        component.showPanel('log');
         fixture.detectChanges();
 
         const expandButton = fixture.nativeElement.querySelector('.subsidiary-entry .btn-outline-secondary') as HTMLButtonElement;

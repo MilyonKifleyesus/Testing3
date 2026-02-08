@@ -5,16 +5,16 @@
 
   <div class="hub-status-grid">
     @for (hub of hubs(); track hub.id) {
-      <div class="hub-status-card" [class]="getHubBorderClass(hub.status)">
-        <p class="hub-code" [style.color]="getHubAccentColor(hub.status)">
-          {{ hub.code }}
-        </p>
-        <p class="hub-status-value" [style.color]="getHubAccentColor(hub.status)">
-          {{ getHubStatusLabel(hub.status) }}
-        </p>
-        <p class="hub-capacity" [style.color]="getHubAccentColor(hub.status)">
-          {{ hub.capacity }}
-        </p>
+      <div class="hub-status-card" [class]="getHubBorderClass(hub.status)"
+        [style.--hub-accent]="getHubAccentColor(hub.status)">
+        <p class="hub-code">{{ hub.code }}</p>
+        <div class="hub-status-row">
+          <span class="material-symbols-outlined hub-status-icon" aria-hidden="true">
+            {{ getHubStatusIcon(hub.status) }}
+          </span>
+          <span class="hub-status-label">{{ getHubStatusLabel(hub.status) }}</span>
+        </div>
+        <p class="hub-capacity">{{ hub.capacity }}</p>
       </div>
     }
   </div>

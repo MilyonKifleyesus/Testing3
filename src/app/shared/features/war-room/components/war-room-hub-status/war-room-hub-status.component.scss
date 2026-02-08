@@ -18,7 +18,7 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: $zinc-600;
+  color: var(--cm-muted);
   margin: 0;
 }
 
@@ -30,31 +30,34 @@
 }
 
 .hub-status-card {
-  // Card structure matching website's .card.custom-card
+  --hub-accent: var(--cm-primary);
   position: relative;
   padding: 0.625rem 0.75rem;
   border-radius: 0.688rem;
-  border: 1px solid transparent;
-  background-color: var(--custom-white, #ffffff);
-  box-shadow: 0 10px 30px 0 var(--primary005, rgba(98, 89, 202, 0.05));
+  border: 1px solid var(--cm-border);
+  background-color: var(--cm-panel);
+  box-shadow: var(--cm-shadow-soft);
   margin-block-end: 0;
   width: 100%;
   transition: box-shadow 0.3s ease, background 0.3s ease, border-color 0.3s ease;
-  color: var(--default-text-color, #1d212f);
+  color: var(--cm-text);
 
   &.border-tactical-green {
-    border-color: $tactical-green;
-    box-shadow: 0 10px 30px 0 rgba(0, 255, 65, 0.15);
+    --hub-accent: #00ff41;
+    border-color: var(--hub-accent);
+    box-shadow: 0 10px 30px 0 rgba(0, 255, 65, 0.12);
   }
 
   &.border-critical-red {
-    border-color: #ef4444;
-    box-shadow: 0 10px 30px 0 rgba(239, 68, 68, 0.2);
+    --hub-accent: #ef4444;
+    border-color: var(--hub-accent);
+    box-shadow: 0 10px 30px 0 rgba(239, 68, 68, 0.18);
   }
 
   &.border-zinc-700 {
-    border-color: $zinc-700;
-    box-shadow: 0 10px 30px 0 rgba(63, 63, 70, 0.15);
+    --hub-accent: $zinc-700;
+    border-color: var(--hub-accent);
+    box-shadow: 0 10px 30px 0 rgba(63, 63, 70, 0.12);
   }
 }
 
@@ -64,16 +67,27 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   margin: 0 0 0.2rem 0;
-  color: var(--default-text-color, #1d212f);
+  color: var(--cm-text);
 }
 
-.hub-status-value {
+.hub-status-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.25rem 0;
+}
+
+.hub-status-icon {
+  font-size: 1rem;
+  color: var(--hub-accent);
+}
+
+.hub-status-label {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.2;
-  margin: 0 0 0.2rem 0;
-  color: var(--default-text-color, #1d212f);
+  color: var(--cm-text);
 }
 
 .hub-capacity {
@@ -82,15 +96,15 @@
   font-weight: 500;
   letter-spacing: 0.02em;
   margin: 0;
-  color: var(--text-muted, #8f8fb1);
+  color: var(--cm-muted);
 }
 
 .quantum-chart-container {
   // Card structure matching website's .card.custom-card
   border-radius: 0.688rem;
   border: 0;
-  background-color: var(--custom-white, #ffffff);
-  box-shadow: 0 10px 30px 0 var(--primary005, rgba(98, 89, 202, 0.05));
+  background-color: var(--cm-panel);
+  box-shadow: var(--cm-shadow-soft);
   position: relative;
   margin-block-end: 1.25rem;
   width: 100%;
@@ -98,7 +112,7 @@
   
   // Card body padding matching website
   padding: 1.563rem;
-  color: var(--default-text-color, #1d212f);
+  color: var(--cm-text);
 }
 
 .quantum-chart-title {
@@ -108,7 +122,7 @@
   font-size: 0.875rem;
   font-weight: 800;
   text-transform: uppercase;
-  color: var(--default-text-color, #1d212f);
+  color: var(--cm-text);
   margin: 0 0 1rem 0;
   transition: color 0.25s ease;
   font-family: 'JetBrains Mono', monospace;
@@ -151,7 +165,7 @@
   justify-content: space-between;
   font-size: 0.813rem;
   font-weight: 400;
-  color: var(--text-muted, #8f8fb1);
+  color: var(--cm-muted);
   margin-top: 0.5rem;
   font-family: 'JetBrains Mono', monospace;
   letter-spacing: 0.05em;

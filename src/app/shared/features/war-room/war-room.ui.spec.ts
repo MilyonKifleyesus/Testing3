@@ -273,7 +273,7 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
       factories.flatMap((factory, index) => Array.from({ length: 3 }).map((_, logIndex) => buildLog(factory, subsidiary, index + logIndex)))
     );
 
-    component.activityLogVisible.set(true);
+    component.showPanel('log');
     component.filterApplied.set({
       parentCompanyIds: ['sub-1', 'sub-2'],
       status: 'active',
@@ -314,8 +314,7 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
     serviceAny._activityLogs.set([buildLog(factoryA, subsidiary, 0)]);
     warRoomService.setMapViewMode('factory');
 
-    component.activityLogVisible.set(true);
-    component.hubStatusVisible.set(true);
+    component.showPanel('log');
     fixture.detectChanges();
 
     const announcer = fixture.nativeElement.querySelector('.visually-hidden[aria-live="polite"]');
