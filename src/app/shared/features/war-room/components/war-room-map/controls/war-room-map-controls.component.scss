@@ -1,0 +1,54 @@
+.map-controls {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  z-index: 40;
+}
+
+.map-control-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(0, 255, 65, 0.35);
+  background: rgba(8, 12, 16, 0.72);
+  color: #e2e8f0;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+
+  &:hover {
+    background: rgba(0, 255, 65, 0.18);
+    color: #f8fff9;
+    border-color: rgba(0, 255, 65, 0.7);
+    box-shadow: 0 0 0 1px rgba(0, 255, 65, 0.25), 0 10px 20px rgba(0, 0, 0, 0.45);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0) scale(0.97);
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(0, 255, 65, 0.9);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(0, 255, 65, 0.2);
+  }
+}
+
+.zoom-in-btn,
+.zoom-out-btn {
+  font-size: 1rem;
+}
+
+.fullscreen-btn .fullscreen-icon {
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-block;
+  line-height: 1;
+  letter-spacing: 0.06em;
+}

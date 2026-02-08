@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
@@ -29,9 +30,9 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 
 // Accessibility: Focus states
 :focus-visible {
-  outline: 2px solid $tactical-green !important;
+  outline: 2px solid var(--cm-primary, #00FF41) !important;
   outline-offset: 2px !important;
-  box-shadow: 0 0 0 4px rgba(0, 255, 65, 0.2) !important;
+  box-shadow: 0 0 0 4px rgba(0, 255, 65, 0.25) !important;
 }
 
 .btn-reset {
@@ -52,10 +53,39 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   min-height: 0;
   height: 100vh;
   max-height: 100vh;
-  font-family: 'Roboto Condensed', sans-serif;
-  background-color: $war-gray;
-  color: $black;
-  text-transform: uppercase;
+  font-family: 'Geist', 'Plus Jakarta Sans', sans-serif;
+  background-color: var(--cm-bg);
+  color: var(--cm-text);
+  text-transform: none;
+  color-scheme: dark;
+  --cm-bg: #04070a;
+  --cm-panel: rgba(8, 12, 16, 0.74);
+  --cm-panel-strong: rgba(8, 12, 16, 0.92);
+  --cm-border: rgba(148, 163, 184, 0.18);
+  --cm-border-strong: rgba(0, 255, 65, 0.5);
+  --cm-text: #e2e8f0;
+  --cm-muted: rgba(226, 232, 240, 0.6);
+  --cm-primary: #00ff41;
+  --cm-primary-soft: rgba(0, 255, 65, 0.12);
+  --cm-accent: #f59e0b;
+  --cm-danger: #ef4444;
+  --cm-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  --cm-shadow-soft: 0 8px 18px rgba(0, 0, 0, 0.35);
+  --cm-radius: 12px;
+  --cm-radius-sm: 8px;
+  --primary-rgb: 0, 255, 65;
+  --primary-bg-color: #00ff41;
+  --primary01: rgba(0, 255, 65, 0.08);
+  --primary02: rgba(0, 255, 65, 0.18);
+  --primary05: rgba(0, 255, 65, 0.35);
+  --default-background: #04070a;
+  --custom-white: rgba(8, 12, 16, 0.92);
+  --text-muted: rgba(226, 232, 240, 0.6);
+  --default-border: rgba(148, 163, 184, 0.24);
+  --gray-4: rgba(226, 232, 240, 0.35);
+  --gray-5: rgba(226, 232, 240, 0.55);
+  --menu-bg: rgba(8, 12, 16, 0.92);
+  --menu-border-color: rgba(148, 163, 184, 0.2);
   overflow: hidden;
   width: 100%;
   max-width: 100vw;
@@ -93,7 +123,11 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   z-index: 35;
   display: inline-flex;
   align-items: center;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  background: var(--cm-panel);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius);
+  box-shadow: var(--cm-shadow);
   width: fit-content;
   max-width: calc(100% - 3.5rem);
 }
@@ -101,11 +135,27 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 .map-view-btn {
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border-width: 2px;
+  border-width: 1px;
+  color: var(--cm-muted);
+  border-color: transparent;
+  background: transparent;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(148, 163, 184, 0.3);
+    color: #f8fff9;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(0, 255, 65, 0.9);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(0, 255, 65, 0.2);
+  }
 
   &[aria-checked="true"]::before {
     content: '✓';
@@ -115,19 +165,40 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   }
 
   &[aria-checked="true"] {
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.15);
+    color: #f8fff9;
+    background: rgba(0, 255, 65, 0.16);
+    border-color: var(--cm-border-strong);
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.18);
   }
 }
 
 .map-filter-btn {
   position: relative;
   white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  background: rgba(8, 12, 16, 0.7);
+  border: 1px solid var(--cm-border);
+  color: var(--cm-text);
 
   &.btn-primary-transparent {
-    background-color: var(--primary01, rgba(27, 67, 50, 0.1));
-    border-color: var(--primary05, rgba(45, 106, 79, 0.5));
-    color: var(--primary-bg-color, #1B4332);
-    font-weight: 600;
+    background-color: rgba(0, 255, 65, 0.12);
+    border-color: var(--cm-border-strong);
+    color: #f8fff9;
+    font-weight: 700;
+  }
+
+  &:hover {
+    background-color: rgba(0, 255, 65, 0.12);
+    border-color: rgba(0, 255, 65, 0.6);
+    color: #f8fff9;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(0, 255, 65, 0.9);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(0, 255, 65, 0.2);
   }
 }
 
@@ -146,21 +217,81 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   width: 290px;
   display: none;
   z-index: 34;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  background: var(--cm-panel-strong);
+  border: 1px solid var(--cm-border);
+  box-shadow: var(--cm-shadow);
+  border-radius: var(--cm-radius);
 
   &.open {
     display: block;
+  }
+
+  .card-header {
+    background: rgba(6, 10, 14, 0.85);
+    border-bottom: 1px solid rgba(0, 255, 65, 0.18);
+    color: var(--cm-text);
+  }
+
+  .card-body {
+    color: var(--cm-text);
+  }
+
+  .btn-close {
+    filter: invert(1);
+    opacity: 0.7;
+
+    &:hover {
+      opacity: 1;
+    }
   }
 }
 
 .filters-section {
   margin-bottom: 0.85rem;
+
+  .form-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cm-muted);
+  }
 }
 
 .filters-options {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+
+  .form-check-label {
+    color: var(--cm-text);
+  }
+
+  .form-check-input {
+    accent-color: var(--cm-primary);
+  }
+}
+
+.filters-actions {
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .btn-primary {
+    background: rgba(0, 255, 65, 0.2);
+    border-color: rgba(0, 255, 65, 0.6);
+    color: #f8fff9;
+  }
+
+  .btn-outline-primary {
+    background: transparent;
+    border-color: rgba(0, 255, 65, 0.35);
+    color: var(--cm-primary);
+  }
 }
 
 .filters-pill-group {
@@ -168,9 +299,23 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   gap: 0.5rem;
   flex-wrap: wrap;
 
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-width: 1px;
+    border-color: var(--cm-border);
+    background: rgba(8, 12, 16, 0.6);
+    color: var(--cm-muted);
+  }
+
   .btn[aria-pressed="true"] {
-    border-width: 2px;
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.15);
+    border-width: 1px;
+    background: rgba(0, 255, 65, 0.16);
+    border-color: var(--cm-border-strong);
+    color: #f8fff9;
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.2);
   }
 
   .btn[aria-pressed="true"]::before {
@@ -183,7 +328,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 
 .filters-options {
   .form-check-input:checked {
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.2);
   }
 }
 
@@ -204,8 +349,10 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   min-height: 0;
   max-height: 100%;
   align-self: stretch;
-  background: var(--menu-bg, #ffffff);
-  border-inline-end: 1px solid var(--menu-border-color, #e8e8f7);
+  background: var(--cm-panel-strong);
+  border-inline-end: 1px solid var(--cm-border);
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 40px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
   z-index: 40;
@@ -215,7 +362,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   max-height: 100%;
   flex-shrink: 0;
   transition: all 0.25s ease;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Geist', 'Plus Jakarta Sans', sans-serif;
   padding: 0.75rem;
 
   &.expanded {
@@ -259,23 +406,23 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   }
 
   &::-webkit-scrollbar-thumb {
-    background: var(--gray-4, #8f8fb7);
+    background: rgba(148, 163, 184, 0.35);
     border-radius: 0.3rem;
     transition: background 0.3s ease;
 
     &:hover {
-      background: var(--gray-5, #717196);
+      background: rgba(148, 163, 184, 0.6);
     }
   }
 
   scrollbar-width: thin;
-  scrollbar-color: var(--gray-4, #8f8fb7) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
 }
 
 .sidebar-collapse-btn {
-  border: 1px solid var(--primary02, rgba(27, 67, 50, 0.12));
-  background: var(--custom-white, #ffffff);
-  color: var(--gray-4, #71717a);
+  border: 1px solid var(--cm-border);
+  background: var(--cm-panel);
+  color: var(--cm-muted);
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
   font-weight: 600;
@@ -289,17 +436,20 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   gap: 0.5rem;
   margin-bottom: 0.6rem;
   transition: all 0.2s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(10px);
 
   &:hover {
-    color: rgb(var(--primary-rgb));
-    border-color: rgb(var(--primary-rgb));
-    background: rgba(var(--primary-rgb), 0.08);
+    color: var(--cm-primary);
+    border-color: var(--cm-border-strong);
+    background: rgba(0, 255, 65, 0.12);
+    box-shadow: 0 0 0 1px rgba(0, 255, 65, 0.2), 0 6px 14px rgba(0, 0, 0, 0.35);
   }
 
   &:focus-visible {
-    outline: 2px solid rgba(var(--primary-rgb), 0.9);
+    outline: 2px solid rgba(0, 255, 65, 0.9);
     outline-offset: 2px;
-    box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.2);
+    box-shadow: 0 0 0 3px rgba(0, 255, 65, 0.2);
   }
 
   .collapse-text {
@@ -318,11 +468,11 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   padding: 0.5rem 0.85rem;
   box-shadow: none;
   font-weight: 400;
-  color: var(--gray-4, #71717a);
+  color: var(--cm-text);
 
   // Layout and positioning
-  background: var(--custom-white, #ffffff);
-  border: 1px solid var(--primary02, rgba(27, 67, 50, 0.12));
+  background: var(--cm-panel);
+  border: 1px solid var(--cm-border);
   min-height: 44px;
   font-family: 'JetBrains Mono', monospace;
   cursor: pointer;
@@ -335,6 +485,8 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   top: 0;
   overflow: hidden;
   user-select: none;
+  box-shadow: var(--cm-shadow-soft);
+  backdrop-filter: blur(10px);
 
   .tactical-edge {
     position: absolute;
@@ -350,37 +502,41 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 
   // Hover state matching website button structure
   &:hover {
-    background-color: rgba(var(--primary-rgb), 0.1) !important;
-    border-color: rgb(var(--primary-rgb)) !important;
-    color: rgb(var(--primary-rgb)) !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    background-color: rgba(0, 255, 65, 0.12) !important;
+    border-color: rgba(0, 255, 65, 0.6) !important;
+    color: #f8fff9 !important;
+    box-shadow: 0 0 0 1px rgba(0, 255, 65, 0.2), 0 10px 24px rgba(0, 0, 0, 0.45);
     transform: translateY(-1px);
   }
 
   // Active state matching website button structure
   &:active,
   &:focus {
-    background-color: rgb(var(--primary-rgb)) !important;
-    border-color: rgb(var(--primary-rgb)) !important;
-    color: #fff !important;
-    box-shadow: none;
+    background-color: rgba(0, 255, 65, 0.22) !important;
+    border-color: rgba(0, 255, 65, 0.7) !important;
+    color: #f8fff9 !important;
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.2);
     outline: 0;
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.5), var(--cm-shadow-soft);
   }
 
   // Active class state (when button is toggled on)
   &.active {
-    background-color: rgb(var(--primary-rgb)) !important;
-    border-color: rgb(var(--primary-rgb)) !important;
-    color: #fff !important;
-    box-shadow: 0 0.25rem 1rem rgba(var(--primary-rgb), 0.5);
+    background: linear-gradient(135deg, rgba(0, 255, 65, 0.24), rgba(0, 255, 65, 0.08)) !important;
+    border-color: rgba(0, 255, 65, 0.65) !important;
+    color: #f8fff9 !important;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 
     .tactical-edge {
       display: block;
-      background: $tactical-green;
+      background: var(--cm-primary);
     }
 
     .toggle-icon {
-      color: $tactical-green;
+      color: var(--cm-primary);
     }
 
     .toggle-text {
@@ -389,17 +545,17 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
     }
 
     &:hover {
-      background-color: rgba(var(--primary-rgb), 0.9) !important;
-      border-color: rgb(var(--primary-rgb)) !important;
-      color: #fff !important;
-      box-shadow: 0 0.25rem 1rem rgba(var(--primary-rgb), 0.6);
+      background-color: rgba(0, 255, 65, 0.28) !important;
+      border-color: rgba(0, 255, 65, 0.75) !important;
+      color: #ffffff !important;
+      box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.5);
       transform: translateY(-2px);
     }
 
     &:focus {
-      background-color: rgb(var(--primary-rgb)) !important;
-      border-color: rgb(var(--primary-rgb)) !important;
-      box-shadow: 0 0.25rem 1rem rgba(var(--primary-rgb), 0.5);
+      background-color: rgba(0, 255, 65, 0.3) !important;
+      border-color: rgba(0, 255, 65, 0.75) !important;
+      box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.45);
     }
   }
 
@@ -422,7 +578,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   }
 
   .toggle-text {
-    font-size: 0.875rem;
+    font-size: 0.8rem;
     font-weight: 400;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -443,9 +599,9 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 }
 
 .sidebar-edit-toggle {
-  border: 1px solid var(--default-border, #e8e8f7);
-  background: var(--custom-white, #ffffff);
-  color: var(--text-muted, #8f8fb1);
+  border: 1px solid var(--cm-border);
+  background: var(--cm-panel);
+  color: var(--cm-muted);
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
   font-weight: 700;
@@ -457,16 +613,39 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   transition: all 0.2s ease;
   margin-bottom: 0.75rem;
   width: 100%;
+  box-shadow: var(--cm-shadow-soft);
+  backdrop-filter: blur(10px);
 
   &:hover {
-    color: rgb(var(--primary-rgb));
-    border-color: rgb(var(--primary-rgb));
+    color: var(--cm-primary);
+    border-color: var(--cm-border-strong);
   }
 
   &.active {
-    background: rgb(var(--primary-rgb));
+    background: rgba(0, 255, 65, 0.22);
     color: #ffffff;
-    border-color: rgb(var(--primary-rgb));
+    border-color: rgba(0, 255, 65, 0.7);
+  }
+}
+
+.sidebar-edit-actions {
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .btn-success {
+    background: rgba(0, 255, 65, 0.18);
+    border-color: rgba(0, 255, 65, 0.6);
+    color: #f8fff9;
+  }
+
+  .btn-light {
+    background: rgba(148, 163, 184, 0.15);
+    border-color: rgba(148, 163, 184, 0.4);
+    color: var(--cm-text);
   }
 }
 
@@ -686,15 +865,20 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 0.35rem;
+  background: rgba(5, 10, 14, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: var(--cm-radius);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--cm-shadow-soft);
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
 
   &::-webkit-scrollbar {
     height: 6px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(148, 163, 184, 0.35);
     border-radius: 999px;
   }
 
@@ -709,9 +893,12 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
     padding: 0.4rem 0.75rem !important;
     font-size: 0.75rem;
     letter-spacing: 0.05em;
+    background: rgba(0, 255, 65, 0.12) !important;
+    border: 1px solid rgba(0, 255, 65, 0.35) !important;
+    color: #f2fff6 !important;
 
     &:hover {
-      background-color: rgba(var(--primary-rgb), 0.15) !important;
+      background-color: rgba(0, 255, 65, 0.2) !important;
     }
 
     .cursor-pointer {
@@ -723,6 +910,14 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
         opacity: 1;
       }
     }
+  }
+
+  .text-muted {
+    color: var(--cm-muted) !important;
+  }
+
+  .btn-link {
+    color: var(--cm-danger) !important;
   }
 
   @media (max-width: 991.98px) {

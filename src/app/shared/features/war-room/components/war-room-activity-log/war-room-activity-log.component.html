@@ -15,6 +15,40 @@
       [attr.aria-busy]="refreshing() || isBusy()" #logList>
       @for (group of parentGroups(); track group.id) {
       <div class="hierarchy-group" [attr.data-entity-id]="'parent:' + group.id">
+        <div class="hierarchy-group-header">
+          <div class="group-title">
+            <span class="entry-kind">Group</span>
+            <span class="group-name">{{ group.name }}</span>
+          </div>
+          <div class="group-status">
+            <span class="status-icon material-symbols-outlined"
+              [class.status-active]="getStatusClass(group.status) === 'status-active'"
+              [class.status-warning]="getStatusClass(group.status) === 'status-warning'"
+              [class.status-paused]="getStatusClass(group.status) === 'status-paused'" aria-hidden="true">
+              {{ getStatusIcon(group.status) }}
+            </span>
+            <span class="badge log-status"
+              [class.bg-success-transparent]="getStatusClass(group.status) === 'status-active'"
+              [class.bg-warning-transparent]="getStatusClass(group.status) === 'status-warning'"
+              [class.bg-secondary-transparent]="getStatusClass(group.status) === 'status-paused'">
+              {{ formatStatusLabel(group.status) }}
+            </span>
+          </div>
+          <div class="group-metrics">
+            <span class="metric-chip">
+              <span class="metric-label">Assets</span>
+              <span class="metric-value">{{ group.metrics.assetCount }}</span>
+            </span>
+            <span class="metric-chip">
+              <span class="metric-label">Incidents</span>
+              <span class="metric-value">{{ group.metrics.incidentCount }}</span>
+            </span>
+            <span class="metric-chip">
+              <span class="metric-label">Sync</span>
+              <span class="metric-value">{{ group.metrics.syncStability }}%</span>
+            </span>
+          </div>
+        </div>
         @for (subsidiary of group.subsidiaries; track subsidiary.id) {
         <div class="log-entry subsidiary-entry list-group-item list-group-item-action flex-column"
           [class.active]="isSelected('subsidiary', subsidiary.id)"
@@ -30,9 +64,10 @@
           (keydown.space)="$event.preventDefault(); editMode() ? startEditSubsidiary(subsidiary) : onSubsidiaryClick(subsidiary)"
           [attr.data-entity-id]="'subsidiary:' + subsidiary.id"
           [attr.aria-selected]="isSelected('subsidiary', subsidiary.id)" tabindex="0" role="button">
-          <div class="log-entry-header d-flex justify-content-between align-items-start gap-2">
-            <div class="d-flex align-items-center gap-2 flex-wrap">
+          <div class="log-entry-top log-entry-header">
+            <div class="log-entry-title d-flex align-items-center gap-2 flex-wrap">
               <span class="entry-kind">Subsidiary</span>
+              <span class="entry-kind parent-kind">Parent</span>
               @if (subsidiary.logo) {
               <img [src]="subsidiary.logo" alt="Subsidiary logo" class="company-logo" />
               }
@@ -65,7 +100,7 @@
               <span class="fw-semibold text-uppercase">{{ subsidiary.name }}</span>
               }
             </div>
-            <div class="log-header-actions d-flex align-items-center gap-2">
+            <div class="log-entry-actions log-header-actions d-flex align-items-center gap-2">
               @if (editMode()) {
               <button type="button" class="btn btn-sm btn-outline-primary"
                 (click)="startEditSubsidiary(subsidiary); $event.stopPropagation()" aria-label="Edit company details">
@@ -83,57 +118,74 @@
               </button>
             </div>
           </div>
-          <div class="log-entry-row">
-            @if (editMode() && isEditingSubsidiary(subsidiary.id)) {
-            <span class="log-entry-label">Location</span>
-            <input type="text" class="form-control form-control-sm"
-              [value]="subsidiaryDrafts().get(subsidiary.id)?.location"
-              (input)="onSubsidiaryLocationInput($event, subsidiary.id)" (click)="$event.stopPropagation()"
-              placeholder="City, Country" />
-            } @else {
-            <div class="icon-value-row">
-              <span class="material-symbols-outlined" aria-hidden="true">location_on</span>
-              <span class="icon-value-text">{{ getSubsidiaryDisplayLocation(subsidiary) }}</span>
+          <div class="log-entry-meta">
+            <div class="log-entry-row">
+              <span class="log-entry-label">Location</span>
+              @if (editMode() && isEditingSubsidiary(subsidiary.id)) {
+              <input type="text" class="form-control form-control-sm"
+                [value]="subsidiaryDrafts().get(subsidiary.id)?.location"
+                (input)="onSubsidiaryLocationInput($event, subsidiary.id)" (click)="$event.stopPropagation()"
+                placeholder="City, Country" />
+              } @else {
+              <div class="icon-value-row">
+                <span class="material-symbols-outlined" aria-hidden="true">location_on</span>
+                <span class="icon-value-text">{{ getSubsidiaryDisplayLocation(subsidiary) }}</span>
+              </div>
+              }
             </div>
-            }
+            <div class="log-entry-row hierarchy-summary">
+              <span class="log-entry-label">Contains</span>
+              <span class="log-entry-value">{{ subsidiary.factories.length }} Sub-locations</span>
+            </div>
           </div>
-          <div class="log-entry-row">
-            <span class="log-entry-label">Notes</span>
-            @if (editMode() && isEditingSubsidiary(subsidiary.id)) {
-            <textarea class="form-control form-control-sm" [value]="subsidiaryDrafts().get(subsidiary.id)?.description"
-              (input)="onSubsidiaryDescriptionInput($event, subsidiary.id)" rows="2"
-              (click)="$event.stopPropagation()"></textarea>
-            <div class="log-edit-actions mt-2">
-              <button type="button" class="btn btn-sm btn-success"
-                (click)="saveSubsidiaryDetails(subsidiary.id); $event.stopPropagation()">
-                Save
-              </button>
-              <button type="button" class="btn btn-sm btn-light"
-                (click)="cancelEditSubsidiary(); $event.stopPropagation()">
-                Cancel
-              </button>
+          <div class="log-entry-notes">
+            <div class="log-entry-row">
+              <span class="log-entry-label">Notes</span>
+              @if (editMode() && isEditingSubsidiary(subsidiary.id)) {
+              <div class="log-edit-controls flex-grow-1" (click)="$event.stopPropagation()">
+                <textarea class="form-control form-control-sm"
+                  [value]="subsidiaryDrafts().get(subsidiary.id)?.description"
+                  (input)="onSubsidiaryDescriptionInput($event, subsidiary.id)" rows="2"></textarea>
+                <div class="log-edit-actions mt-2">
+                  <button type="button" class="btn btn-sm btn-success"
+                    (click)="saveSubsidiaryDetails(subsidiary.id); $event.stopPropagation()">
+                    Save
+                  </button>
+                  <button type="button" class="btn btn-sm btn-light"
+                    (click)="cancelEditSubsidiary(); $event.stopPropagation()">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+              } @else {
+              <span class="log-entry-value text-muted">{{ subsidiary.description || 'No description' }}</span>
+              }
             </div>
-            } @else {
-            <span class="log-entry-value text-muted">{{ subsidiary.description || 'No description' }}</span>
-            }
           </div>
           <div class="log-entry-metrics icon-metrics">
             <span class="metric-item">
               <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
+              <span class="metric-label">Factories</span>
               <span class="metric-value">{{ subsidiary.factories.length }}</span>
             </span>
             <span class="metric-item">
               <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+              <span class="metric-label">Assets</span>
               <span class="metric-value">{{ subsidiary.metrics.assetCount }}</span>
             </span>
             <span class="metric-item">
               <span class="material-symbols-outlined" aria-hidden="true">sync</span>
+              <span class="metric-label">Sync</span>
               <span class="metric-value">{{ subsidiary.metrics.syncStability }}%</span>
             </span>
           </div>
         </div>
 
         @if (isSubsidiaryExpanded(subsidiary.id)) {
+        <div class="factory-list-header">
+          <span class="factory-list-title">Factories / Sub-locations</span>
+          <span class="factory-list-count">{{ subsidiary.factories.length }}</span>
+        </div>
         @for (factory of getVisibleFactories(subsidiary); track factory.id) {
         <div class="log-entry factory-entry list-group-item list-group-item-action flex-column"
           [class.active]="isSelected('factory', factory.id)"
@@ -148,8 +200,8 @@
           (keydown.space)="$event.preventDefault(); editMode() ? startEditFactory(factory) : onFactoryClick(factory)"
           [attr.data-entity-id]="'factory:' + factory.id" [attr.aria-selected]="isSelected('factory', factory.id)"
           tabindex="0" role="button">
-          <div class="log-entry-header d-flex justify-content-between align-items-start gap-2">
-            <div class="d-flex align-items-center gap-2 flex-wrap">
+          <div class="log-entry-top log-entry-header">
+            <div class="log-entry-title d-flex align-items-center gap-2 flex-wrap">
               <span class="entry-kind">Factory</span>
               <span class="entry-kind sublocation-kind">Sub-location</span>
               @if (factory.logo) {
@@ -183,10 +235,7 @@
               <span class="fw-semibold text-uppercase">{{ factory.name }}</span>
               }
             </div>
-            <div class="log-header-actions d-flex align-items-center gap-2">
-              @if (getLatestLog(factory.id); as latestLog) {
-              <small class="text-muted fs-12">{{ formatTimestamp(latestLog.timestamp) }}</small>
-              }
+            <div class="log-entry-actions log-header-actions d-flex align-items-center gap-2">
               @if (editMode()) {
               <button type="button" class="btn btn-sm btn-outline-primary"
                 (click)="startEditFactory(factory); $event.stopPropagation()" aria-label="Edit factory details">
@@ -199,37 +248,48 @@
               }
             </div>
           </div>
-          <div class="log-entry-row">
-            @if (editMode() && isEditingFactory(factory.id)) {
-            <span class="log-entry-label">Location</span>
-            <input type="text" class="form-control form-control-sm" [value]="factoryDrafts().get(factory.id)?.location"
-              (input)="onLocationInput($event, factory.id)" (click)="$event.stopPropagation()"
-              placeholder="City, Country" />
-            } @else {
-            <div class="icon-value-row" [class.muted]="!shouldShowFactoryLocation(factory, subsidiary)">
-              <span class="material-symbols-outlined" aria-hidden="true">
-                {{ shouldShowFactoryLocation(factory, subsidiary) ? 'location_on' : 'link' }}
-              </span>
-              <span class="icon-value-text">{{ getFactoryLocationLabel(factory, subsidiary) }}</span>
+          <div class="log-entry-meta has-timestamp">
+            <div class="log-entry-row">
+              <span class="log-entry-label">Location</span>
+              @if (editMode() && isEditingFactory(factory.id)) {
+              <input type="text" class="form-control form-control-sm" [value]="factoryDrafts().get(factory.id)?.location"
+                (input)="onLocationInput($event, factory.id)" (click)="$event.stopPropagation()"
+                placeholder="City, Country" />
+              } @else {
+              <div class="icon-value-row" [class.muted]="!shouldShowFactoryLocation(factory, subsidiary)">
+                <span class="material-symbols-outlined" aria-hidden="true">
+                  {{ shouldShowFactoryLocation(factory, subsidiary) ? 'location_on' : 'link' }}
+                </span>
+                <span class="icon-value-text">{{ getFactoryLocationLabel(factory, subsidiary) }}</span>
+              </div>
+              }
+            </div>
+            @if (getLatestLog(factory.id); as latestLog) {
+            <div class="log-entry-row log-entry-timestamp">
+              <span class="log-entry-label">Last Log</span>
+              <span class="log-entry-value text-muted">{{ formatTimestamp(latestLog.timestamp) }}</span>
             </div>
             }
           </div>
           <div class="log-entry-metrics icon-metrics">
             <span class="metric-item">
               <span class="material-symbols-outlined" aria-hidden="true">sync</span>
+              <span class="metric-label">Sync</span>
               <span class="metric-value">{{ factory.syncStability }}%</span>
             </span>
             <span class="metric-item">
               <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+              <span class="metric-label">Assets</span>
               <span class="metric-value">{{ factory.assets }}</span>
             </span>
             <span class="metric-item">
               <span class="material-symbols-outlined" aria-hidden="true">report</span>
+              <span class="metric-label">Incidents</span>
               <span class="metric-value">{{ factory.incidents }}</span>
             </span>
           </div>
           @if (getLatestLog(factory.id); as factoryLog) {
-          <div class="mt-2 pt-2 border-top">
+          <div class="log-entry-notes">
             <div class="log-entry-row">
               <span class="log-entry-label">Log</span>
               @if (editMode() && isEditingFactory(factory.id)) {
