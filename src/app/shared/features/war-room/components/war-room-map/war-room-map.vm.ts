@@ -13,7 +13,7 @@ export interface MarkerVm {
     isHovered: boolean;
     isHub: boolean;
     isHQ: boolean;
-    statusKey: 'online' | 'maintenance' | 'offline';
+    statusKey: 'online' | 'offline';
     statusColor: string;
     statusGlow: string;
     statusIconPath: string;

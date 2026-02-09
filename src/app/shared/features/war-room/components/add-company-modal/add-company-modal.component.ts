@@ -10,7 +10,7 @@ export interface CompanyFormData {
   location: string;
   sourceCompanyName?: string;
   sourceLocation?: string;
-  status: 'ACTIVE' | 'PAUSED';
+  status: 'ACTIVE' | 'INACTIVE';
   description?: string;
   logo?: string | ArrayBuffer | null;
   logoFile?: File;
@@ -20,7 +20,7 @@ export interface CompanyFormData {
 export interface SubLocationFormData {
   name: string;
   location: string;
-  status: 'ACTIVE' | 'PAUSED' | 'MAINTENANCE';
+  status: 'ACTIVE' | 'INACTIVE';
 }
 
 @Component({
@@ -48,7 +48,7 @@ export class AddCompanyModalComponent implements OnDestroy {
   // Form data
   companyName = signal<string>('');
   location = signal<string>('');
-  companyStatus = signal<'ACTIVE' | 'PAUSED'>('ACTIVE');
+  companyStatus = signal<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   sourceCompanyName = signal<string>('');
   sourceLocation = signal<string>('');
   description = signal<string>('');
@@ -413,7 +413,7 @@ export class AddCompanyModalComponent implements OnDestroy {
       return;
     }
 
-    const status: SubLocationFormData['status'] = this.subLocationIsActive() ? 'ACTIVE' : 'PAUSED';
+    const status: SubLocationFormData['status'] = this.subLocationIsActive() ? 'ACTIVE' : 'INACTIVE';
     const newLocation: SubLocationFormData = {
       name: this.subLocationName().trim(),
       location: this.subLocationLocation().trim(),
@@ -431,7 +431,7 @@ export class AddCompanyModalComponent implements OnDestroy {
   toggleSubLocationStatus(index: number, checked: boolean): void {
     this.subLocations.update((current) =>
       current.map((item, i) =>
-        i === index ? { ...item, status: checked ? 'ACTIVE' : 'PAUSED' } : item
+        i === index ? { ...item, status: checked ? 'ACTIVE' : 'INACTIVE' } : item
       )
     );
   }
@@ -453,9 +453,7 @@ export class AddCompanyModalComponent implements OnDestroy {
   }
 
   getSubLocationStatusClass(status: SubLocationFormData['status']): string {
-    if (status === 'ACTIVE') return 'status-active';
-    if (status === 'PAUSED') return 'status-paused';
-    return 'status-maintenance';
+    return status === 'ACTIVE' ? 'status-active' : 'status-inactive';
   }
 
   getSubLocationStatusLabel(status: SubLocationFormData['status']): string {

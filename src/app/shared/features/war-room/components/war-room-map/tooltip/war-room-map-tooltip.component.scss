@@ -108,17 +108,12 @@
     }
 
     .tooltip-status-pill.status-offline,
-    .tooltip-status-pill.status-inactive {
+    .tooltip-status-pill.status-inactive,
+    .tooltip-status-pill.status-maintenance,
+    .tooltip-status-pill.status-paused {
       background: rgba(239, 68, 68, 0.9);
       border-color: rgba(239, 68, 68, 0.7);
       color: #fff5f5;
-    }
-
-    .tooltip-status-pill.status-maintenance,
-    .tooltip-status-pill.status-paused {
-      background: rgba(245, 158, 11, 0.9);
-      border-color: rgba(245, 158, 11, 0.7);
-      color: #2b1903;
     }
   }
 

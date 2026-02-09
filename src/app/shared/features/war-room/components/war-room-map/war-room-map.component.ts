@@ -76,7 +76,17 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   private readonly LOD_LOGO_ONLY_THRESHOLD = 1.2;
   private readonly LOD_FULL_DETAIL_THRESHOLD = 2.5;
-  private readonly MARKER_BASE_SCALE = 1.25;
+
+  // ----- Marker size tuning (adjust these to change how big markers are) -----
+  /** Overall marker size. Bigger number = bigger markers (e.g. 1.25). Smaller = smaller (e.g. 0.75). */
+  private readonly MARKER_BASE_SCALE = 0.56;
+  /** How much marker size reacts to zoom. 0 = same size at all zoom; 0.1 = mild; 0.2 = strong. */
+  private readonly MARKER_ZOOM_SENSITIVITY = 0.1;
+  /** Zoom divisor. Bigger (e.g. 5) = markers grow less when zooming out; smaller (e.g. 3) = grow more. */
+  private readonly MARKER_ZOOM_DIVISOR = 5;
+  /** Extra scale for HQ node markers (e.g. 1.25 = 25% bigger). */
+  private readonly MARKER_HQ_FACTOR = 1.25;
+  // --------------------------------------------------------------------------
 
   // Caches
   private geocodeCache = new Map<string, { latitude: number; longitude: number }>();
@@ -635,8 +645,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const zoomFactor = this.getZoomFactor(zoom);
     const lod = this.getPinLodState(zoomFactor, isSelected);
 
-    const adaptiveFactor = 1 + (zoomFactor - 1) * 0.1;
-    const hqFactor = isHQ ? 1.25 : 1.0;
+    const adaptiveFactor = 1 + (zoomFactor - 1) * this.MARKER_ZOOM_SENSITIVITY;
+    const hqFactor = isHQ ? this.MARKER_HQ_FACTOR : 1.0;
     const invZoom = 1 / zoomFactor;
     const scaleRaw = (adaptiveFactor * hqFactor) * invZoom * this.MARKER_BASE_SCALE;
     const scale = Number.isFinite(scaleRaw) ? Number(scaleRaw.toFixed(4)) : 1;
@@ -645,23 +655,12 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     // We just need to align the SVG content so the "tip" is at (0,0).
     // The previous implementation used screen coordinates (sx, sy) which caused double-translation.
     const pinTransform = '';
-    const status = (node.status || '').toUpperCase();
-    let statusKey: 'online' | 'maintenance' | 'offline' = 'online';
-    let statusColor = '#00FF41';
-    let statusGlow = 'rgba(0, 255, 65, 0.45)';
-    let statusIconPath = 'M 5,13 L 10,18 L 19,7';
-
-    if (status === 'OFFLINE' || status === 'INACTIVE') {
-      statusKey = 'offline';
-      statusColor = '#ef4444';
-      statusGlow = 'rgba(239, 68, 68, 0.45)';
-      statusIconPath = 'M 6,6 L 18,18 M 18,6 L 6,18';
-    } else if (status === 'MAINTENANCE' || status === 'PAUSED') {
-      statusKey = 'maintenance';
-      statusColor = '#f59e0b';
-      statusGlow = 'rgba(245, 158, 11, 0.45)';
-      statusIconPath = 'M 12,4 L 22,20 H 2 Z';
-    }
+    const status = (node.status || '').toUpperCase().trim();
+    const isActive = status === 'ACTIVE' || status === 'ONLINE' || status === 'OPTIMAL';
+    const statusKey: 'online' | 'offline' = isActive ? 'online' : 'offline';
+    const statusColor = isActive ? '#00FF41' : '#ef4444';
+    const statusGlow = isActive ? 'rgba(0, 255, 65, 0.45)' : 'rgba(239, 68, 68, 0.45)';
+    const statusIconPath = isActive ? 'M 5,13 L 10,18 L 19,7' : 'M 6,6 L 18,18 M 18,6 L 6,18';
 
 
     return {
@@ -691,7 +690,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   }
 
   private getZoomFactor(zoom: number): number {
-    return Math.max(0.5, zoom / 4);
+    return Math.max(0.5, zoom / this.MARKER_ZOOM_DIVISOR);
   }
 
   private getPinLodState(

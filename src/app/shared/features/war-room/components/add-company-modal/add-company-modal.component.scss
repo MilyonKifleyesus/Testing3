@@ -763,14 +763,9 @@ $bp-desktop: 1199.98px;
   background: #16A34A;
 }
 
-.status-paused {
-  color: #F97316;
-  background: #F97316;
-}
-
-.status-maintenance {
-  color: #EAB308;
-  background: #EAB308;
+.status-inactive {
+  color: #ef4444;
+  background: #ef4444;
 }
 
 .sub-location-actions {
@@ -846,9 +841,8 @@ $bp-desktop: 1199.98px;
   background: none;
 }
 
-.sub-location-status-label.status-paused,
-.sub-location-status-label.status-maintenance {
-  color: #94A3B8;
+.sub-location-status-label.status-inactive {
+  color: #ef4444;
   background: none;
 }
 

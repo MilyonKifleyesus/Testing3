@@ -23,14 +23,12 @@
           <div class="group-status">
             <span class="status-icon material-symbols-outlined"
               [class.status-active]="getStatusClass(group.status) === 'status-active'"
-              [class.status-warning]="getStatusClass(group.status) === 'status-warning'"
-              [class.status-paused]="getStatusClass(group.status) === 'status-paused'" aria-hidden="true">
+              [class.status-inactive]="getStatusClass(group.status) === 'status-inactive'" aria-hidden="true">
               {{ getStatusIcon(group.status) }}
             </span>
             <span class="badge log-status"
               [class.bg-success-transparent]="getStatusClass(group.status) === 'status-active'"
-              [class.bg-warning-transparent]="getStatusClass(group.status) === 'status-warning'"
-              [class.bg-secondary-transparent]="getStatusClass(group.status) === 'status-paused'">
+              [class.bg-danger-transparent]="getStatusClass(group.status) === 'status-inactive'">
               {{ formatStatusLabel(group.status) }}
             </span>
           </div>
@@ -54,8 +52,7 @@
           [class.active]="isSelected('subsidiary', subsidiary.id)"
           [class.editing]="editMode() && isEditingSubsidiary(subsidiary.id)"
           [class.status-active]="getStatusClass(subsidiary.status) === 'status-active'"
-          [class.status-warning]="getStatusClass(subsidiary.status) === 'status-warning'"
-          [class.status-paused]="getStatusClass(subsidiary.status) === 'status-paused'"
+          [class.status-inactive]="getStatusClass(subsidiary.status) === 'status-inactive'"
           [class.has-logo]="!!subsidiary.logo"
           (click)="editMode() ? startEditSubsidiary(subsidiary) : onSubsidiaryClick(subsidiary)"
           (mouseenter)="onSubsidiaryHover(subsidiary, true)" (mouseleave)="onSubsidiaryHover(subsidiary, false)"
@@ -73,14 +70,12 @@
               }
               <span class="status-icon material-symbols-outlined"
                 [class.status-active]="getStatusClass(subsidiary.status) === 'status-active'"
-                [class.status-warning]="getStatusClass(subsidiary.status) === 'status-warning'"
-                [class.status-paused]="getStatusClass(subsidiary.status) === 'status-paused'" aria-hidden="true">
+                [class.status-inactive]="getStatusClass(subsidiary.status) === 'status-inactive'" aria-hidden="true">
                 {{ getStatusIcon(subsidiary.status) }}
               </span>
               <span class="badge log-status"
                 [class.bg-success-transparent]="getStatusClass(subsidiary.status) === 'status-active'"
-                [class.bg-warning-transparent]="getStatusClass(subsidiary.status) === 'status-warning'"
-                [class.bg-secondary-transparent]="getStatusClass(subsidiary.status) === 'status-paused'">
+                [class.bg-danger-transparent]="getStatusClass(subsidiary.status) === 'status-inactive'">
                 {{ formatStatusLabel(subsidiary.status) }}
               </span>
               @if (editMode() && isEditingSubsidiary(subsidiary.id)) {
@@ -191,8 +186,7 @@
           [class.active]="isSelected('factory', factory.id)"
           [class.editing]="editMode() && isEditingFactory(factory.id)"
           [class.status-active]="getStatusClass(factory.status) === 'status-active'"
-          [class.status-warning]="getStatusClass(factory.status) === 'status-warning'"
-          [class.status-paused]="getStatusClass(factory.status) === 'status-paused'" [class.has-logo]="!!factory.logo"
+          [class.status-inactive]="getStatusClass(factory.status) === 'status-inactive'" [class.has-logo]="!!factory.logo"
           (click)="editMode() ? startEditFactory(factory) : onFactoryClick(factory)"
           (mouseenter)="onFactoryHover(factory, true)" (mouseleave)="onFactoryHover(factory, false)"
           (focus)="onFactoryHover(factory, true)" (blur)="onFactoryHover(factory, false)"
@@ -209,14 +203,12 @@
               }
               <span class="status-icon material-symbols-outlined"
                 [class.status-active]="getStatusClass(factory.status) === 'status-active'"
-                [class.status-warning]="getStatusClass(factory.status) === 'status-warning'"
-                [class.status-paused]="getStatusClass(factory.status) === 'status-paused'" aria-hidden="true">
+                [class.status-inactive]="getStatusClass(factory.status) === 'status-inactive'" aria-hidden="true">
                 {{ getStatusIcon(factory.status) }}
               </span>
               <span class="badge log-status"
                 [class.bg-success-transparent]="getStatusClass(factory.status) === 'status-active'"
-                [class.bg-warning-transparent]="getStatusClass(factory.status) === 'status-warning'"
-                [class.bg-secondary-transparent]="getStatusClass(factory.status) === 'status-paused'">
+                [class.bg-danger-transparent]="getStatusClass(factory.status) === 'status-inactive'">
                 {{ formatStatusLabel(factory.status) }}
               </span>
               @if (editMode() && isEditingFactory(factory.id)) {

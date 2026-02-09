@@ -12,18 +12,23 @@
   pointer-events: none;
 }
 
+/* Position + anchor via template transform so center (60,90) is at project(x,y). No left/top to avoid zoom drift. */
 .marker-container {
   position: absolute;
-  transform: translate(-50%, -50%);
+  left: 0;
+  top: 0;
+  width: 120px;
+  height: 180px;
   pointer-events: auto;
   cursor: pointer;
 
   .marker-contents-wrapper {
     position: absolute;
-    width: 0;
-    height: 0;
+    left: 0;
+    top: 0;
+    width: 120px;
+    height: 180px;
     pointer-events: none;
-    transform: translate(-50%, -50%);
   }
 
   .marker-svg-root {

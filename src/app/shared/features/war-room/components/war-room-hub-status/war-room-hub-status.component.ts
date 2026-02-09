@@ -21,41 +21,25 @@ export class WarRoomHubStatusComponent {
     return this.selectedSubsidiary()?.quantumChart || null;
   });
 
-  /**
-   * Get hub border class
-   */
-  getHubBorderClass(status: HubStatus): string {
-    if (status === 'OFFLINE') {
-      return 'border-critical-red';
-    }
+  /** Two states: active (OPTIMAL/ONLINE/ACTIVE) vs inactive (OFFLINE). */
+  private isActiveHub(status: HubStatus): boolean {
+    return status === 'OPTIMAL' || status === 'ONLINE' || status === 'ACTIVE';
+  }
 
-    return status === 'OPTIMAL' || status === 'ONLINE' || status === 'ACTIVE'
-      ? 'border-tactical-green'
-      : 'border-zinc-700';
+  getHubBorderClass(status: HubStatus): string {
+    return this.isActiveHub(status) ? 'border-tactical-green' : 'border-critical-red';
   }
 
   getHubAccentColor(status: HubStatus): string {
-    if (status === 'OFFLINE') {
-      return '#ef4444';
-    }
-
-    return status === 'OPTIMAL' || status === 'ONLINE' || status === 'ACTIVE'
-      ? '#00FF41'
-      : '#3f3f46';
+    return this.isActiveHub(status) ? '#00FF41' : '#ef4444';
   }
 
   getHubStatusLabel(status: HubStatus): string {
-    return status === 'OFFLINE' ? 'INACTIVE' : status;
+    return this.isActiveHub(status) ? 'ACTIVE' : 'INACTIVE';
   }
 
   getHubStatusIcon(status: HubStatus): string {
-    if (status === 'OFFLINE') {
-      return 'report';
-    }
-    if (status === 'OPTIMAL' || status === 'ONLINE' || status === 'ACTIVE') {
-      return 'check_circle';
-    }
-    return 'hourglass_empty';
+    return this.isActiveHub(status) ? 'check_circle' : 'report';
   }
 
   /**

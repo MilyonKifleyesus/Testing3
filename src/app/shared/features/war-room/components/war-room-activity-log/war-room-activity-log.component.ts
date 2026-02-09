@@ -494,17 +494,13 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
 
   getStatusClass(status: string): string {
     const normalized = status.trim().toUpperCase();
-    if (normalized === 'ACTIVE' || normalized === 'ONLINE') return 'status-active';
-    if (normalized === 'WARNING' || normalized === 'MAINTENANCE') return 'status-warning';
-    if (normalized === 'PAUSED' || normalized === 'OFFLINE' || normalized === 'INACTIVE') return 'status-paused';
-    return 'status-info';
+    if (normalized === 'ACTIVE' || normalized === 'ONLINE' || normalized === 'OPTIMAL') return 'status-active';
+    return 'status-inactive';
   }
 
   formatStatusLabel(status: string): string {
     const normalized = status.trim().toUpperCase();
-    if (normalized === 'ACTIVE' || normalized === 'ONLINE' || normalized === 'OPTIMAL') {
-      return 'ACTIVE';
-    }
+    if (normalized === 'ACTIVE' || normalized === 'ONLINE' || normalized === 'OPTIMAL') return 'ACTIVE';
     return 'INACTIVE';
   }
 
@@ -514,13 +510,8 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
 
   getStatusIcon(status: string): string {
     const normalized = status.trim().toUpperCase();
-    if (normalized === 'ACTIVE' || normalized === 'ONLINE' || normalized === 'OPTIMAL') {
-      return 'check_circle';
-    }
-    if (normalized === 'WARNING' || normalized === 'MAINTENANCE') {
-      return 'error';
-    }
-    return 'pause_circle';
+    if (normalized === 'ACTIVE' || normalized === 'ONLINE' || normalized === 'OPTIMAL') return 'check_circle';
+    return 'cancel';
   }
 
   private warRoomService = inject(WarRoomService);

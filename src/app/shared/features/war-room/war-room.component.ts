@@ -840,20 +840,22 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     this.warRoomService.deleteFactory(factoryId);
   }
 
+  /** Single source of truth: active = ACTIVE/ONLINE/OPTIMAL only; everything else is inactive. */
+  private isActiveStatus(status: string | undefined): boolean {
+    if (!status) return false;
+    const s = String(status).toUpperCase().trim();
+    return s === 'ACTIVE' || s === 'ONLINE' || s === 'OPTIMAL';
+  }
+
   private matchesStatus(status: NodeStatus | undefined, filter: FilterStatus): boolean {
     if (filter === 'all') return true;
-    if (!status) return false;
-    const s = status.toUpperCase();
-    // Consider Online, Optimal, Active as active. Offline and potentially Inactive/Paused as inactive.
-    const isActive = s !== 'OFFLINE' && s !== 'INACTIVE' && s !== 'PAUSED';
+    const isActive = this.isActiveStatus(status);
     return filter === 'active' ? isActive : !isActive;
   }
 
   private matchesOperationalStatus(status: string | undefined, filter: FilterStatus): boolean {
     if (filter === 'all') return true;
-    if (!status) return false;
-    const s = status.toUpperCase();
-    const isActive = s !== 'OFFLINE' && s !== 'INACTIVE' && s !== 'PAUSED';
+    const isActive = this.isActiveStatus(status);
     return filter === 'active' ? isActive : !isActive;
   }
 
@@ -1308,7 +1310,8 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   }
 
   private mapSubLocationStatusToNode(status?: string): NodeStatus {
-    if (status === 'MAINTENANCE' || status === 'PAUSED') return 'OFFLINE';
+    const s = status?.toUpperCase().trim();
+    if (s === 'MAINTENANCE' || s === 'PAUSED' || s === 'INACTIVE' || s === 'OFFLINE') return 'OFFLINE';
     return 'ACTIVE';
   }
 
