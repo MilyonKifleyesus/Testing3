@@ -15,38 +15,6 @@
       [attr.aria-busy]="refreshing() || isBusy()" #logList>
       @for (group of parentGroups(); track group.id) {
       <div class="hierarchy-group" [attr.data-entity-id]="'parent:' + group.id">
-        <div class="hierarchy-group-header">
-          <div class="group-title">
-            <span class="entry-kind">Group</span>
-            <span class="group-name">{{ group.name }}</span>
-          </div>
-          <div class="group-status">
-            <span class="status-icon material-symbols-outlined"
-              [class.status-active]="getStatusClass(group.status) === 'status-active'"
-              [class.status-inactive]="getStatusClass(group.status) === 'status-inactive'" aria-hidden="true">
-              {{ getStatusIcon(group.status) }}
-            </span>
-            <span class="badge log-status"
-              [class.bg-success-transparent]="getStatusClass(group.status) === 'status-active'"
-              [class.bg-danger-transparent]="getStatusClass(group.status) === 'status-inactive'">
-              {{ formatStatusLabel(group.status) }}
-            </span>
-          </div>
-          <div class="group-metrics">
-            <span class="metric-chip">
-              <span class="metric-label">Assets</span>
-              <span class="metric-value">{{ group.metrics.assetCount }}</span>
-            </span>
-            <span class="metric-chip">
-              <span class="metric-label">Incidents</span>
-              <span class="metric-value">{{ group.metrics.incidentCount }}</span>
-            </span>
-            <span class="metric-chip">
-              <span class="metric-label">Sync</span>
-              <span class="metric-value">{{ group.metrics.syncStability }}%</span>
-            </span>
-          </div>
-        </div>
         @for (subsidiary of group.subsidiaries; track subsidiary.id) {
         <div class="log-entry subsidiary-entry list-group-item list-group-item-action flex-column"
           [class.active]="isSelected('subsidiary', subsidiary.id)"

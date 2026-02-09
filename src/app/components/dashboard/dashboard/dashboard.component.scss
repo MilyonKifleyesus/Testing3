@@ -1,13 +1,13 @@
-// War Room wrapper - removes Bootstrap constraints
+// War Room wrapper - removes Bootstrap constraints and white space
 .war-room-wrapper {
-  margin: 0 -15px;  // Negative margin to counteract container-fluid padding
+  margin: -0.5rem -15px 0 -15px;  // Pull up and counteract container-fluid padding
   padding: 0;
-  width: calc(100% + 30px);  // Compensate for negative margins
+  width: calc(100% + 30px);
   display: block;
   position: relative;
   overflow: hidden;
+  min-height: calc(100vh - 52px);
 
-  // Remove any potential Bootstrap row/col padding/margins
   app-war-room {
     display: block;
     width: 100%;

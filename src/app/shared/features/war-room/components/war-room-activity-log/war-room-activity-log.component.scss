@@ -307,54 +307,6 @@
   position: relative;
 }
 
-.hierarchy-group-header {
-  border-radius: 0.85rem;
-  background: rgba(6, 10, 14, 0.9);
-  border: 1px solid var(--cm-border);
-  padding: 0.75rem 0.85rem;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.45rem;
-  box-shadow: var(--cm-shadow-soft);
-
-  .group-title {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .group-name {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--cm-text);
-  }
-
-  .group-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-
-  .group-metrics {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-  }
-
-  .metric-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.2rem 0.5rem;
-    border-radius: 999px;
-    background: rgba(0, 255, 65, 0.08);
-    border: 1px solid rgba(0, 255, 65, 0.25);
-    font-size: 0.7rem;
-    font-family: 'JetBrains Mono', monospace;
-  }
-}
-
 .factory-list-header {
   margin: 0.2rem 0 0.4rem 1.25rem;
   padding: 0.35rem 0.6rem;

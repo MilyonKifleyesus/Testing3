@@ -69,13 +69,22 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   private readonly defaultView = {
     center: [0, 0] as [number, number],
-    zoom: 1,
+    zoom: 2.3,
     pitch: 45,
     bearing: 0,
   };
 
+  /** Current map zoom level (0.5–14) for slider binding. */
+  readonly currentZoomLevel = signal(1.8);
+
   private readonly LOD_LOGO_ONLY_THRESHOLD = 1.2;
   private readonly LOD_FULL_DETAIL_THRESHOLD = 2.5;
+
+  /** Map style URLs by theme (Carto basemaps). */
+  private readonly MAP_STYLE = {
+    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  } as const;
 
   // ----- Marker size tuning (adjust these to change how big markers are) -----
   /** Overall marker size. Bigger number = bigger markers (e.g. 1.25). Smaller = smaller (e.g. 0.75). */
@@ -169,6 +178,20 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       void status;
       if (this.mapInstance && this.mapLoaded && !this.destroyed) {
         this.scheduleOverlayUpdate(false);
+      }
+    });
+
+    effect(() => {
+      const theme = this.currentTheme();
+      void theme;
+      if (this.mapInstance && this.mapLoaded && !this.destroyed) {
+        const styleUrl = this.getMapStyleUrl(this.currentTheme());
+        this.mapInstance.setStyle(styleUrl);
+        const onStyleLoad = () => {
+          this.mapInstance?.off('style.load', onStyleLoad);
+          if (!this.destroyed) this.scheduleOverlayUpdate(false);
+        };
+        this.mapInstance.once('style.load', onStyleLoad);
       }
     });
 
@@ -481,6 +504,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
     this.mapInstance.on('zoom', () => {
       if (!this.mapLoaded) return;
+      this.currentZoomLevel.set(this.mapInstance!.getZoom());
       this.scheduleOverlayUpdate(false);
     });
 
@@ -495,15 +519,23 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  private getMapStyleUrl(theme: 'light' | 'dark'): string {
+    return this.MAP_STYLE[theme];
+  }
+
   private createMap(container: HTMLElement): MapLibreMap {
-    return new maplibregl.Map({
+    const map = new maplibregl.Map({
       container,
-      style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      style: this.getMapStyleUrl(this.currentTheme()),
       center: this.defaultView.center,
       zoom: this.defaultView.zoom,
       pitch: this.defaultView.pitch,
       bearing: this.defaultView.bearing,
+      minZoom: 0.5,
+      maxZoom: 14,
     });
+    this.currentZoomLevel.set(this.defaultView.zoom);
+    return map;
   }
 
   private setupResizeObserver(): void {
@@ -782,6 +814,15 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   zoomOut(): void {
     if (this.mapInstance) {
       this.mapInstance.zoomOut();
+    }
+  }
+
+  /** Set map zoom to a specific level (e.g. from slider). */
+  setZoomTo(level: number): void {
+    if (this.mapInstance) {
+      const clamped = Math.max(0.5, Math.min(14, level));
+      this.currentZoomLevel.set(clamped);
+      this.mapInstance.zoomTo(clamped);
     }
   }
 
