@@ -21,8 +21,6 @@ export interface RouteVm {
   styleUrls: ['./war-room-map-routes.component.scss'],
 })
 export class WarRoomMapRoutesComponent {
-  viewBox = input<string>('0 0 950 550');
-  mapTransform = input<string>('');
   routes = input<RouteVm[]>([]);
   routeStroke = input<string>('#0ea5e9');
   routeFill = input<string>('#0ea5e9');

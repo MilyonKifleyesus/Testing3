@@ -2,7 +2,22 @@
   "status": "commited",
   "type": "frontend",
   "scope": "codebase",
-  "localEndpoint": "http://localhost:4200/admin/dashboard",
-  "loginUser": "superadmin",
-  "loginPassword": "admin123"
+  "localEndpoint": "http://localhost:4200/dashboard",
+  "loginUser": "Testing",
+  "loginPassword": "123456",
+  "executionArgs": {
+    "projectName": "Testing2-main",
+    "projectPath": "c:\\Users\\Owner\\Downloads\\Testing2-main (1)\\Testing2-main",
+    "testIds": [
+      "TC001",
+      "TC002",
+      "TC003"
+    ],
+    "additionalInstruction": "Focus EXCLUSIVELY on zooming in and out on the map. Verify that the markers (white circles/logos) DO NOT move relative to the map background (like city names or landmasses on the dark map). Previously they would 'drift' slightly when zooming; the fix should keep them locked. Perform at least 3 levels of zoom in and zoom out.",
+    "envs": {
+      "API_KEY": "sk-user-jGSGjwxGLkjOgBXzT8W60shrfQMG5crY_s4_lY2waSVQKIPjx0qG9C4ddSo85gFuFOsuCNMuj64fxOv53easFh-ujjuY8qTGRMIMcf_ZjZazipzEwG3yf4i0heewUEpCwF4"
+    }
+  },
+  "serverPort": 62460,
+  "proxy": "http://cd3b1807-4a77-4ec3-8fc6-ece8cc7741e9:dmYcAiB7xlsqZG06I9pwb6jCqpMrmZIx@tun.testsprite.com:8080"
 }

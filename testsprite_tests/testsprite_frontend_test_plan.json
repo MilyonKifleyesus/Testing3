@@ -1,0 +1,348 @@
+[
+  {
+    "id": "TC001",
+    "title": "Verify markers remain fixed after multiple zoom-in actions",
+    "description": "Ensure that map markers and their logos remain precisely aligned to their geographic locations after performing multiple successive zoom-in actions on the War Room map.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the War Room map view."
+      },
+      {
+        "type": "action",
+        "description": "Note the initial position coordinates of all visible markers and logos."
+      },
+      {
+        "type": "action",
+        "description": "Perform zoom-in operation multiple times using the map controls."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that each marker and logo remains exactly fixed on their initial geographic coordinates with no visible drift."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Verify markers remain fixed after multiple zoom-out actions",
+    "description": "Ensure that map markers and their logos remain precisely aligned to their geographic locations after multiple successive zoom-out changes on the War Room map.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the War Room map view."
+      },
+      {
+        "type": "action",
+        "description": "Record initial marker and logo geographic positions."
+      },
+      {
+        "type": "action",
+        "description": "Perform zoom-out operation multiple times using the map controls."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that markers and logos stay fixed on their initial geographic points without any visible positional drift."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Verify marker stability after zoom-in then zoom-out cycle",
+    "description": "Ensure that after zooming in multiple levels and then zooming out back to the original zoom level, map markers and logos return precisely to their original geographic coordinates without cumulative drift.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open War Room map and note initial coordinates of markers and logos."
+      },
+      {
+        "type": "action",
+        "description": "Perform multiple zoom-in operations until a higher zoom level is reached."
+      },
+      {
+        "type": "action",
+        "description": "Perform zoom-out operations to return to the initial zoom level."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that markers and logos are at the exactly same geographic coordinates as initially recorded, with no cumulative drift."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Verify multiple markers and logos maintain stable geographic positions simultaneously",
+    "description": "Validate that when multiple company markers and their logos are visible together on the War Room map, all remain fixed at their geographic points through zoom-in and zoom-out operations without individual positional errors.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Load War Room map with multiple subsidiary markers and logos visible."
+      },
+      {
+        "type": "action",
+        "description": "Record initial geographic positions of all visible markers and logos."
+      },
+      {
+        "type": "action",
+        "description": "Perform zoom-in and zoom-out operations multiple times."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that all markers and logos remain correctly aligned on their original geographic locations with no visible drift or misalignment."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Add new subsidiary via Add Company modal and verify marker placement",
+    "description": "Verify that when a new subsidiary is added through the Add Company modal form, its marker and logo appear correctly on the War Room map at the specified geographic location without positional errors.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open the Add Company modal from the War Room dashboard."
+      },
+      {
+        "type": "action",
+        "description": "Fill in the subsidiary details including exact geographic coordinates."
+      },
+      {
+        "type": "action",
+        "description": "Submit the form to add the new subsidiary."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that a new marker and logo appear on the map at the correct geographic location."
+      },
+      {
+        "type": "action",
+        "description": "Perform zoom-in and zoom-out operations."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure the newly added marker and logo remain stable and correctly aligned during zoom operations."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Verify transit routes are visually aligned with markers after zooming",
+    "description": "Ensure that curved transit route paths between markers on the War Room map maintain proper alignment and remain connected to their respective markers correctly during zoom-in and zoom-out operations.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Load the War Room map with at least two connected markers that show transit routes between them."
+      },
+      {
+        "type": "assertion",
+        "description": "Record initial alignment of routes beginning and ending at marker positions."
+      },
+      {
+        "type": "action",
+        "description": "Perform multiple zoom-in and zoom-out operations using the map controls."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that transit routes remain visually connected and aligned correctly without detaching or drifting from markers."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Verify map fullscreen control functionality",
+    "description": "Test that the fullscreen toggle on the War Room map activates and deactivates fullscreen mode correctly without affecting marker and logo stability.",
+    "category": "functional",
+    "priority": "Low",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the War Room map."
+      },
+      {
+        "type": "action",
+        "description": "Click the fullscreen control to enter fullscreen mode."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the map expands to fullscreen and markers/logos remain fixed at their geographic positions."
+      },
+      {
+        "type": "action",
+        "description": "Click the fullscreen control again to exit fullscreen mode."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that the map returns to default size and markers and logos remain correctly positioned."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Verify activity log updates after marker addition",
+    "description": "Confirm that adding a new subsidiary marker causes the Activity Log panel to update dynamically with a new entry reflecting the addition event.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open Add Company modal and add a new subsidiary."
+      },
+      {
+        "type": "action",
+        "description": "Submit the form and observe the War Room map update."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the Activity Log panel contains a new entry corresponding to the subsidiary addition event."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Verify Hub Status panel displays accurate metrics",
+    "description": "Validate that the Hub Status panel correctly shows metrics for active hubs and updates in real time during War Room map interaction.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access the War Room dashboard with the Hub Status panel visible."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that hub metrics such as active hub counts and status indicators are displayed and accurate."
+      },
+      {
+        "type": "action",
+        "description": "Add or remove subsidiaries or simulate hub status changes."
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm that the Hub Status panel updates in real time to reflect these changes."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Validate map projection math service maintains coordinate accuracy during zoom",
+    "description": "Test the backend map math service that calculates geographic projections and marker positions to ensure coordinate accuracy and stability during zoom level changes.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Feed geographic points representing markers to the map math projection service."
+      },
+      {
+        "type": "action",
+        "description": "Perform coordinate transformation calculations for multiple zoom levels."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that the output coordinates for markers remain consistent with no cumulative errors or drift across zoom levels."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Verify error handling when adding a company with invalid coordinates",
+    "description": "Validate that the Add Company modal form properly handles invalid or out-of-range geographic coordinates with appropriate error messages and prevents invalid marker placement.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open Add Company modal."
+      },
+      {
+        "type": "action",
+        "description": "Input invalid geographic coordinates (e.g., latitude > 90 or longitude < -180)."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to submit the form."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that the form displays a validation error for invalid coordinates and prevents submission."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Verify Region Filtering Accuracy",
+    "description": "Ensure that selecting 'North America' region filter only shows nodes mapping to North America (Canada, USA, Mexico) and hides others.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open filters panel and select 'North America' region."
+      },
+      {
+        "type": "action",
+        "description": "Click 'Apply Filters'."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify map shows markers for Canada/USA/Mexico nodes and hides 'Turkey' or 'Germany' nodes."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Verify Status Filtering (Active/Inactive)",
+    "description": "Ensure that switching between 'Active' and 'Inactive' status pills correctly filters markers on the map instantly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Click the 'Active' status pill."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify only markers with status 'Active/Online/Optimal' are visible."
+      },
+      {
+        "type": "action",
+        "description": "Click the 'Inactive' status pill."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify only markers with status 'Offline/Inactive' are visible."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Verify Company Filtering",
+    "description": "Ensure that selecting a specific subsidiary in the filters panel correctly limits map markers to that company's factories.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open filters panel and select a specific company checkbox."
+      },
+      {
+        "type": "action",
+        "description": "Click 'Apply Filters'."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify only markers belonging to the selected company are displayed on the map."
+      }
+    ]
+  }
+]

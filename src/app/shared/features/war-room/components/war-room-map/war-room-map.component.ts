@@ -9,8 +9,9 @@ import { WarRoomMapControlsComponent } from './controls/war-room-map-controls.co
 import { WarRoomMapTooltipComponent, TooltipVm } from './tooltip/war-room-map-tooltip.component';
 import { WarRoomMapMathService } from './services/war-room-map-math.service';
 import { WarRoomMapAssetsService } from './services/war-room-map-assets.service';
-import { WarRoomMapMarkersComponent, MarkerVm } from './markers/war-room-map-markers.component';
+import { MarkerVm } from './war-room-map.vm';
 import { WarRoomMapRoutesComponent, RouteVm } from './routes/war-room-map-routes.component';
+import { WarRoomMapMarkersComponent } from './markers/war-room-map-markers.component';
 
 interface RouteFeatureProperties {
   strokeWidth: number;
@@ -39,8 +40,8 @@ interface RouteFeatureCollection {
     CommonModule,
     WarRoomMapControlsComponent,
     WarRoomMapTooltipComponent,
-    WarRoomMapMarkersComponent,
     WarRoomMapRoutesComponent,
+    WarRoomMapMarkersComponent,
   ],
   templateUrl: './war-room-map.component.html',
   styleUrls: ['./war-room-map.component.scss'],
@@ -86,11 +87,9 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   readonly fullscreenState = signal<boolean>(false);
   private readonly hoveredNode = signal<WarRoomNode | null>(null);
   private readonly pinnedNodeId = signal<string | null>(null);
-  private readonly containerRect = signal<DOMRect | null>(null);
-  private readonly markerPixelCoordinates = signal<Map<string, { x: number; y: number }>>(new Map());
+  readonly containerRect = signal<DOMRect | null>(null);
+  readonly markerPixelCoordinates = signal<Map<string, { x: number; y: number }>>(new Map());
   private readonly logoFailureVersion = signal(0);
-  readonly mapViewBox = signal<string>('0 0 950 550');
-  readonly mapTransform = signal<string>('');
   readonly markersVm = signal<MarkerVm[]>([]);
   readonly routesVm = signal<RouteVm[]>([]);
   readonly routeStroke = computed(() => this.getRouteColor());
@@ -455,7 +454,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     this.mapInstance.on('load', () => {
       if (this.destroyed) return;
       this.mapLoaded = true;
-      this.updateViewBoxFromContainer();
+      this.updateContainerRect();
       this.scheduleOverlayUpdate(true);
 
       const pending = this.pendingZoomEntityId;
@@ -475,7 +474,12 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       this.scheduleOverlayUpdate(false);
     });
 
-    this.mapInstance.on('render', () => {
+    this.mapInstance.on('moveend', () => {
+      if (!this.mapLoaded) return;
+      this.scheduleOverlayUpdate(false);
+    });
+
+    this.mapInstance.on('idle', () => {
       if (!this.mapLoaded) return;
       this.scheduleOverlayUpdate(false);
     });
@@ -498,9 +502,15 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
     this.resizeObserver = new ResizeObserver(() => {
       if (this.destroyed || !this.mapInstance) return;
+      // Resize map first, then update overlays
       this.mapInstance.resize();
-      this.updateViewBoxFromContainer();
-      this.scheduleOverlayUpdate(false);
+      // Use setTimeout to ensure map has finished resizing
+      setTimeout(() => {
+        if (!this.destroyed) {
+          this.updateContainerRect();
+          this.scheduleOverlayUpdate(false);
+        }
+      }, 50);
     });
 
     this.resizeObserver.observe(container);
@@ -519,66 +529,45 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     document.addEventListener('fullscreenchange', handler);
   }
 
-  private updateViewBoxFromContainer(): void {
+  private updateContainerRect(): void {
     if (!this.mapInstance) return;
     const container = this.mapInstance.getContainer();
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const width = Math.max(1, rect.width);
-    const height = Math.max(1, rect.height);
-    const widthText = Number.isFinite(width) ? width.toFixed(2) : '1';
-    const heightText = Number.isFinite(height) ? height.toFixed(2) : '1';
-    this.mapViewBox.set(`0 0 ${widthText} ${heightText}`);
-    this.containerRect.set(rect);
-    this.updateMapTransform(container, rect);
+    if (container) {
+      this.containerRect.set(container.getBoundingClientRect());
+    }
   }
 
-  private updateMapTransform(container: HTMLElement, containerRect?: DOMRect): void {
-    if (!this.mapInstance) return;
-    const canvas = this.mapInstance.getCanvas();
-    if (!canvas) {
-      this.mapTransform.set('');
-      return;
-    }
-    const cRect = containerRect ?? container.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
-    const dx = canvasRect.left - cRect.left;
-    const dy = canvasRect.top - cRect.top;
-    if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1) {
-      this.mapTransform.set('');
-      return;
-    }
-    this.mapTransform.set(`translate(${dx.toFixed(2)} ${dy.toFixed(2)})`);
-  }
-
-  private async syncOverlays(ensureCoords: boolean): Promise<void> {
+  private async syncOverlays(ensureCoords = false): Promise<void> {
     if (!this.mapInstance || !this.mapLoaded || this.destroyed) return;
-
-    this.updateViewBoxFromContainer();
+    // Defensive check for initialization state (rare but possible in some test/mock scenarios)
+    if (!this.routesVm || !this.markersVm) return;
 
     const allNodes = this.nodes();
+    const zoom = this.mapInstance.getZoom();
+
     if (ensureCoords) {
       await this.ensureNodeCoordinates(allNodes);
     }
 
     const nodes = this.getNodesWithValidCoordinates(allNodes);
+
     const selected = this.selectedEntity();
     const hovered = this.warRoomService.hoveredEntity();
-    const zoom = this.mapInstance.getZoom();
     const baseUrl = window.location.origin;
 
     const markerPixels = new Map<string, { x: number; y: number }>();
     const markers: MarkerVm[] = [];
 
     nodes.forEach((node) => {
-      const point = this.mapInstance!.project([node.coordinates.longitude, node.coordinates.latitude]);
+      const displayCoords = this.getEffectiveCoordinates(node, nodes);
+      const point = this.mapInstance!.project([displayCoords.longitude, displayCoords.latitude]);
       markerPixels.set(node.id, { x: point.x, y: point.y });
-      markers.push(this.buildMarkerVm(node, zoom, selected, hovered, baseUrl, point.x, point.y));
+      const vm = this.buildMarkerVm(node, zoom, selected, hovered, baseUrl, point.x, point.y, displayCoords);
+      markers.push(vm);
     });
 
     this.markerPixelCoordinates.set(markerPixels);
     this.markersVm.set(markers);
-
     const featureCollection = this.buildRouteFeatures(nodes);
     const routes: RouteVm[] = [];
 
@@ -613,7 +602,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     hovered: FleetSelection | null,
     baseUrl: string,
     x: number,
-    y: number
+    y: number,
+    displayCoordinates?: { longitude: number; latitude: number }
   ): MarkerVm {
     let displayName = this.getCompanyDisplayName(node).toUpperCase();
     if (displayName.includes('NOVA')) displayName = 'NOVA BUS';
@@ -648,9 +638,14 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const adaptiveFactor = 1 + (zoomFactor - 1) * 0.1;
     const hqFactor = isHQ ? 1.25 : 1.0;
     const invZoom = 1 / zoomFactor;
-    const scale = (adaptiveFactor * hqFactor) * invZoom * this.MARKER_BASE_SCALE;
+    const scaleRaw = (adaptiveFactor * hqFactor) * invZoom * this.MARKER_BASE_SCALE;
+    const scale = Number.isFinite(scaleRaw) ? Number(scaleRaw.toFixed(4)) : 1;
 
-    const status = (node.status || 'ACTIVE').toUpperCase();
+    // Fixed alignment: Native markers are already positioned at the coordinate.
+    // We just need to align the SVG content so the "tip" is at (0,0).
+    // The previous implementation used screen coordinates (sx, sy) which caused double-translation.
+    const pinTransform = '';
+    const status = (node.status || '').toUpperCase();
     let statusKey: 'online' | 'maintenance' | 'offline' = 'online';
     let statusColor = '#00FF41';
     let statusGlow = 'rgba(0, 255, 65, 0.45)';
@@ -667,6 +662,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       statusGlow = 'rgba(245, 158, 11, 0.45)';
       statusIconPath = 'M 12,4 L 22,20 H 2 Z';
     }
+
 
     return {
       id: node.id,
@@ -687,9 +683,10 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       statusIconPath,
       lodClass: lod.lodClass,
       isPinned,
-      pinTransform: `translate(${x} ${y})`,
+      pinTransform,
       pinScale: scale,
       showPinLabel: true,
+      displayCoordinates,
     };
   }
 
@@ -821,6 +818,49 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   private isHub(node: WarRoomNode): boolean {
     return node.type === 'Hub' || node.isHub === true;
+  }
+
+  /** Returns true if the node is the route endpoint identified by endpointId (route.from or route.to). */
+  private nodeMatchesEndpointId(node: WarRoomNode, endpointId: string, nodes: WarRoomNode[]): boolean {
+    const nid = endpointId.toLowerCase();
+    if (node.id === endpointId || node.factoryId === endpointId || node.subsidiaryId === endpointId || node.parentGroupId === endpointId) {
+      return true;
+    }
+    const factory = this.warRoomService.factories().find(f => f.id === endpointId);
+    if (factory && (node.id === factory.subsidiaryId || node.id === factory.parentGroupId)) {
+      return true;
+    }
+    if ((nid.includes('fleetzero') || nid.includes('fleet-zero')) && (node.id === 'fleetzero' || (node.name && node.name.toLowerCase().includes('fleetzero')))) {
+      return true;
+    }
+    if (endpointId.startsWith('source-')) {
+      const baseId = endpointId.replace('source-', '');
+      if (node.id === baseId || node.factoryId === baseId || node.subsidiaryId === baseId) {
+        return true;
+      }
+      const baseFactory = this.warRoomService.factories().find(f => f.id === baseId);
+      if (baseFactory && (node.id === baseFactory.subsidiaryId || node.id === baseFactory.parentGroupId)) {
+        return true;
+      }
+    }
+    return (!!node.name && node.name.toLowerCase() === nid) || (!!node.company && node.company.toLowerCase().includes(nid));
+  }
+
+  /** Coordinates to use for marker position; prefer route endpoint coords when node is a route endpoint so marker aligns with the line. */
+  private getEffectiveCoordinates(node: WarRoomNode, nodes: WarRoomNode[]): { longitude: number; latitude: number } {
+    const routes = this.transitRoutes();
+    if (!routes?.length) {
+      return node.coordinates;
+    }
+    for (const route of routes) {
+      if (this.nodeMatchesEndpointId(node, route.from, nodes) && this.isValidCoordinates(route.fromCoordinates)) {
+        return { longitude: route.fromCoordinates.longitude, latitude: route.fromCoordinates.latitude };
+      }
+      if (this.nodeMatchesEndpointId(node, route.to, nodes) && this.isValidCoordinates(route.toCoordinates)) {
+        return { longitude: route.toCoordinates.longitude, latitude: route.toCoordinates.latitude };
+      }
+    }
+    return node.coordinates;
   }
 
   private buildRouteFeatures(nodes: WarRoomNode[]): RouteFeatureCollection {
@@ -990,4 +1030,5 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       statusClass,
     };
   });
+
 }

@@ -1,83 +1,95 @@
-<svg class="markers-overlay" [attr.viewBox]="viewBox()" preserveAspectRatio="none" aria-hidden="true">
-  <defs>
-    <radialGradient id="marker-gloss" cx="30%" cy="30%" r="70%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
-      <stop offset="60%" stop-color="#ffffff" stop-opacity="0.12" />
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
-    </radialGradient>
-    <linearGradient id="marker-ring-sheen" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
-    </linearGradient>
-    <clipPath id="marker-logo-clip" clipPathUnits="userSpaceOnUse">
-      <circle cx="0" cy="0" r="9.5" />
-    </clipPath>
-  </defs>
-
-  <g [attr.transform]="mapTransform()">
-    @for (marker of markers(); track marker.id) {
-    <g class="marker-group" [attr.transform]="marker.pinTransform" [class.selected]="marker.isSelected"
-      [class.hovered]="marker.isHovered" [class.hq]="marker.isHQ" [class.hub]="marker.isHub"
-      [class.pinned]="marker.isPinned"
-      [class.lod-low]="marker.lodClass === 'lod-low'" [class.lod-medium]="marker.lodClass === 'lod-medium'"
-      [class.lod-high]="marker.lodClass === 'lod-high'" [class.status-online]="marker.statusKey === 'online'"
-      [class.status-maintenance]="marker.statusKey === 'maintenance'" [class.status-offline]="marker.statusKey === 'offline'"
-      [style.--status-color]="marker.statusColor" [style.--status-glow]="marker.statusGlow"
-      (mouseenter)="onMarkerEnter(marker)" (mouseleave)="onMarkerLeave()" (click)="onMarkerClick(marker); $event.stopPropagation()">
-
-      <g class="marker-scale" [attr.transform]="'scale(' + marker.pinScale + ')'">
-        <!-- Low LOD Dot -->
-        <g class="marker-dot-group">
-          <circle class="marker-dot-ring" cx="0" cy="0" r="6.5"></circle>
-          <circle class="marker-dot-core" cx="0" cy="0" r="3.5"></circle>
-        </g>
-
-        <!-- Full Marker -->
-        <g class="marker-shell">
-          @if (marker.statusKey === 'online') {
-          <circle class="marker-pulse" cx="0" cy="0" r="20"></circle>
-          }
-          <circle class="marker-halo" cx="0" cy="0" r="22"></circle>
-          <circle class="marker-ring" cx="0" cy="0" r="16"></circle>
-          <circle class="marker-sheen" cx="0" cy="0" r="16"></circle>
-          <circle class="marker-ring-inner" cx="0" cy="0" r="13.5"></circle>
-          <circle class="marker-core" cx="0" cy="0" r="11"></circle>
-          <circle class="marker-gloss" cx="0" cy="0" r="11"></circle>
-
-          <g class="marker-logo" clip-path="url(#marker-logo-clip)">
-            @if (marker.hasLogo) {
-            <image class="marker-logo-image" [attr.href]="marker.logoPath" x="-9.5" y="-9.5" width="19" height="19"
-              preserveAspectRatio="xMidYMid slice" (error)="onLogoError(marker)"></image>
-            } @else {
-            <text class="marker-initials" text-anchor="middle" dominant-baseline="central">{{ marker.initials }}</text>
-            }
-          </g>
-
-          <g class="marker-status" transform="translate(12, 12)">
-            <circle class="marker-status-shell" r="7"></circle>
-            <circle class="marker-status-core" r="5.6"></circle>
-            <g transform="scale(0.32) translate(-12, -12)">
-              <path class="marker-status-icon" [attr.d]="marker.statusIconPath"></path>
+<div class="markers-overlay">
+  @for (m of markers(); track m.id) {
+    <div
+      class="marker-container marker-group {{ m.lodClass }} {{ m.statusKey }}"
+      [class.selected]="m.isSelected"
+      [class.hovered]="m.isHovered"
+      [class.hq]="m.isHQ"
+      [class.hub]="m.isHub"
+      [class.pinned]="m.isPinned"
+      [style.--status-color]="m.statusColor"
+      [style.--status-glow]="m.statusGlow"
+      [style.left.px]="getPosition(m.id).x"
+      [style.top.px]="getPosition(m.id).y"
+      (click)="onMarkerClick(m.node); $event.preventDefault(); $event.stopPropagation()"
+      (mouseenter)="onMarkerHover(m.node)"
+      (mouseleave)="onMarkerHover(null)"
+    >
+      <svg width="0" height="0" style="position: absolute">
+        <defs>
+          <radialGradient [id]="'marker-gloss-' + m.id" cx="30%" cy="30%" r="70%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+            <stop offset="60%" stop-color="#ffffff" stop-opacity="0.12" />
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+          </radialGradient>
+          <linearGradient [id]="'marker-ring-sheen-' + m.id" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="marker-contents-wrapper">
+        <svg viewBox="-30 -45 60 90" width="120" height="180" class="marker-svg-root" preserveAspectRatio="xMidYMid meet">
+          <g class="marker-scale" [attr.transform]="'scale(' + m.pinScale + ')'">
+            <g class="marker-dot-group">
+              <circle class="marker-dot-ring" cx="0" cy="0" r="6.5" fill="rgba(8, 12, 16, 0.75)" [attr.stroke]="m.statusColor" stroke-width="1.5"></circle>
+              <circle class="marker-dot-core" cx="0" cy="0" r="3.5" [attr.fill]="m.statusColor"></circle>
+            </g>
+            <g class="marker-shell">
+              @if (m.statusKey === 'online') {
+                <circle class="marker-pulse" cx="0" cy="0" r="20"></circle>
+              }
+              <circle class="marker-halo" cx="0" cy="0" r="22"></circle>
+              <circle class="marker-ring" cx="0" cy="0" r="16"></circle>
+              <circle class="marker-sheen" cx="0" cy="0" r="16" [attr.fill]="'url(#marker-ring-sheen-' + m.id + ')'"></circle>
+              <circle class="marker-ring-inner" cx="0" cy="0" r="13.5"></circle>
+              <circle class="marker-core" cx="0" cy="0" r="11"></circle>
+              <circle class="marker-gloss" cx="0" cy="0" r="11" [attr.fill]="'url(#marker-gloss-' + m.id + ')'"></circle>
+              <g class="marker-logo">
+                <defs>
+                  <clipPath [id]="'logo-clip-' + m.id">
+                    <circle cx="0" cy="0" r="9.5" />
+                  </clipPath>
+                </defs>
+                @if (m.hasLogo) {
+                  <image
+                    class="marker-logo-image"
+                    [attr.href]="m.logoPath"
+                    x="-9.5"
+                    y="-9.5"
+                    width="19"
+                    height="19"
+                    [attr.clip-path]="'url(#logo-clip-' + m.id + ')'"
+                    preserveAspectRatio="xMidYMid slice"
+                    (error)="onLogoError(m.node, m.logoPath)"
+                  />
+                } @else {
+                  <text class="marker-initials" text-anchor="middle" dominant-baseline="central" y="0.5">{{ m.initials }}</text>
+                }
+              </g>
+              <g class="marker-status" transform="translate(12, 12)">
+                <circle class="marker-status-shell" r="7"></circle>
+                <circle class="marker-status-core" r="5.6"></circle>
+                <g transform="scale(0.32) translate(-12, -12)">
+                  <path class="marker-status-icon" [attr.d]="m.statusIconPath"></path>
+                </g>
+              </g>
+              <g class="marker-pin-indicator" transform="translate(-14, 12)">
+                <circle class="pin-ring" r="4.6"></circle>
+                <circle class="pin-core" r="2.2"></circle>
+              </g>
             </g>
           </g>
-
-          <g class="marker-pin-indicator" transform="translate(-14, 12)">
-            <circle class="pin-ring" r="4.6"></circle>
-            <circle class="pin-core" r="2.2"></circle>
-          </g>
-        </g>
-      </g>
-
-      <!-- Tactical Tooltip (Label) -->
-      @if (marker.showPinLabel) {
-      <g class="marker-tag" transform="translate(0, -34)">
-        <rect rx="6" ry="6" x="-60" y="-26" width="120" height="26" class="tag-bg"></rect>
-        <path class="tag-notch" d="M -6 -2 L 0 6 L 6 -2 Z"></path>
-        <text text-anchor="middle" y="-14" class="tag-title">{{ marker.shortName }}</text>
-        <text text-anchor="middle" y="-4" class="tag-sub">{{ marker.subLabel }}</text>
-      </g>
-      }
-    </g>
-    }
-  </g>
-</svg>
+          @if (m.showPinLabel) {
+            <g class="marker-tag" transform="translate(0, -34)">
+              <rect rx="6" ry="6" x="-60" y="-26" width="120" height="26" class="tag-bg"></rect>
+              <path class="tag-notch" d="M -6 -2 L 0 6 L 6 -2 Z"></path>
+              <text text-anchor="middle" y="-14" class="tag-title">{{ m.shortName }}</text>
+              <text text-anchor="middle" y="-4" class="tag-sub">{{ m.subLabel }}</text>
+            </g>
+          }
+        </svg>
+      </div>
+    </div>
+  }
+</div>

@@ -1,5 +1,5 @@
 <div class="transit-routes-overlay">
-  <svg preserveAspectRatio="none" [attr.viewBox]="viewBox()" aria-hidden="true">
+  <svg aria-hidden="true">
     <defs>
       <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
         <feMorphology operator="dilate" radius="0.4" in="SourceGraphic" result="morphed" />
@@ -22,7 +22,7 @@
       </linearGradient>
     </defs>
 
-    <g id="transit-routes-layer" [attr.transform]="mapTransform()">
+    <g id="transit-routes-layer">
       @for (route of routes(); track route.id) {
       <g class="transit-route-group" [style.--route-index]="route.index">
         <path [attr.d]="route.path" class="route-path animated-route" [class.highlighted]="route.highlighted"

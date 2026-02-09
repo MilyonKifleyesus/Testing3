@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { WarRoomMapMarkersComponent, MarkerVm } from './war-room-map-markers.component';
-import { Node as WarRoomNode } from '../../../../../../shared/models/war-room.interface';
+import { WarRoomMapMarkersComponent } from './war-room-map-markers.component';
+import { MarkerVm } from '../war-room-map.vm';
+import { Node as WarRoomNode } from '../../../../../models/war-room.interface';
 
 describe('WarRoomMapMarkersComponent', () => {
   let fixture: ComponentFixture<WarRoomMapMarkersComponent>;
@@ -49,17 +50,23 @@ describe('WarRoomMapMarkersComponent', () => {
     fixture = TestBed.createComponent(WarRoomMapMarkersComponent);
   });
 
-  it('applies LOD class to logo pins', () => {
+  it('applies LOD class to marker containers', () => {
+    const pixelMap = new Map<string, { x: number; y: number }>();
+    pixelMap.set('node-1', { x: 100, y: 200 });
     fixture.componentRef.setInput('markers', [buildMarker({ lodClass: 'lod-medium' })]);
+    fixture.componentRef.setInput('pixelCoordinates', pixelMap);
     fixture.detectChanges();
 
-    const pin = fixture.nativeElement.querySelector('.marker-group') as SVGGElement | null;
+    const pin = fixture.nativeElement.querySelector('.marker-group') as HTMLElement | null;
     expect(pin).toBeTruthy();
     expect(pin?.classList.contains('lod-medium')).toBeTrue();
   });
 
   it('renders fallback marker when logo is missing', () => {
+    const pixelMap = new Map<string, { x: number; y: number }>();
+    pixelMap.set('node-1', { x: 100, y: 200 });
     fixture.componentRef.setInput('markers', [buildMarker({ hasLogo: false })]);
+    fixture.componentRef.setInput('pixelCoordinates', pixelMap);
     fixture.detectChanges();
 
     const fallback = fixture.nativeElement.querySelector('.marker-initials') as SVGTextElement | null;
@@ -67,10 +74,32 @@ describe('WarRoomMapMarkersComponent', () => {
   });
 
   it('adds pinned class when marker is pinned', () => {
+    const pixelMap = new Map<string, { x: number; y: number }>();
+    pixelMap.set('node-1', { x: 100, y: 200 });
     fixture.componentRef.setInput('markers', [buildMarker({ isPinned: true })]);
+    fixture.componentRef.setInput('pixelCoordinates', pixelMap);
     fixture.detectChanges();
 
-    const pin = fixture.nativeElement.querySelector('.marker-group') as SVGGElement | null;
+    const pin = fixture.nativeElement.querySelector('.marker-group') as HTMLElement | null;
     expect(pin?.classList.contains('pinned')).toBeTrue();
+  });
+
+  it('uses clipPath for marker logo so logo does not drift on zoom', () => {
+    const pixelMap = new Map<string, { x: number; y: number }>();
+    pixelMap.set('node-1', { x: 100, y: 200 });
+    fixture.componentRef.setInput('markers', [buildMarker({})]);
+    fixture.componentRef.setInput('pixelCoordinates', pixelMap);
+    fixture.detectChanges();
+
+    const clipPath = fixture.nativeElement.querySelector('#logo-clip-node-1') as SVGClipPathElement | null;
+    expect(clipPath).toBeTruthy();
+    const circle = clipPath?.querySelector('circle');
+    expect(circle).toBeTruthy();
+    expect(circle?.getAttribute('cx')).toBe('0');
+    expect(circle?.getAttribute('cy')).toBe('0');
+    expect(circle?.getAttribute('r')).toBe('9.5');
+
+    const markerLogo = fixture.nativeElement.querySelector('.marker-logo') as SVGGElement | null;
+    expect(markerLogo).toBeTruthy();
   });
 });

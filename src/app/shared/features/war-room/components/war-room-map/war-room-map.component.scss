@@ -4,7 +4,6 @@
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 0;
   overflow: hidden;
 }
 
@@ -12,12 +11,8 @@
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 0;
-  max-height: 100%; // Ensure it doesn't exceed parent
   overflow: hidden;
   background-color: var(--war-map-bg, #1a1a1a);
-  display: flex;
-  flex-direction: column;
 
   // Set CSS variables for theme-aware fullscreen
   &[data-theme-mode="light"] {
@@ -125,15 +120,8 @@
   position: absolute;
   inset: 0;
   z-index: 10;
-  min-height: 0;
-  height: 100%;
-  max-height: 100%; // Ensure it doesn't exceed parent
-  overflow: hidden; // Changed from visible to hidden to prevent map from being cut off
+  overflow: hidden;
   background-color: #1a1a1a;
-  display: flex;
-  flex-direction: column;
-  align-items: center; // Center content horizontally
-  justify-content: center; // Center content vertically
 
   // Theme-aware background
   [data-theme-mode="light"] & {
@@ -148,21 +136,17 @@
 #war-room-map {
   width: 100%;
   height: 100%;
-  min-height: 0;
-  max-height: 100%; // Ensure it doesn't exceed parent
   position: relative;
   background-color: #1a1a1a;
   border-radius: 0.35rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center; // Center content horizontally
-  justify-content: center; // Center content vertically
   visibility: visible !important;
   opacity: 1 !important;
   box-sizing: border-box;
-  overflow: hidden; // Ensure map doesn't overflow container
-  // Allow map to fill the available height without cropping
-  aspect-ratio: auto;
+  overflow: hidden;
+
+  canvas {
+    z-index: 0;
+  }
 
   // Theme-aware background
   [data-theme-mode="light"] & {
@@ -173,79 +157,6 @@
     background-color: #1a1a1a;
   }
 
-
-  // Marker popup (shown on click)
-  .marker-popup {
-    position: absolute;
-    z-index: 2000;
-    background-color: rgba(26, 26, 26, 0.98);
-    border: 2px solid #00FF41;
-    border-radius: 8px;
-    padding: 0;
-    min-width: 300px;
-    max-width: 400px;
-    box-shadow: 0 4px 20px rgba(0, 255, 65, 0.3);
-    pointer-events: auto;
-    animation: popupFadeIn 0.2s ease-out;
-
-    .marker-popup-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 16px;
-      border-bottom: 1px solid rgba(0, 255, 65, 0.3);
-      background-color: rgba(0, 255, 65, 0.1);
-
-      .marker-popup-title {
-        margin: 0;
-        font-size: 16px;
-        font-weight: 600;
-        color: #00FF41;
-        flex: 1;
-      }
-
-      .marker-popup-close {
-        background: none;
-        border: none;
-        color: #00FF41;
-        font-size: 24px;
-        line-height: 1;
-        cursor: pointer;
-        padding: 0;
-        width: 24px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: color 0.2s;
-
-        &:hover {
-          color: #ffffff;
-        }
-      }
-    }
-
-    .marker-popup-body {
-      padding: 16px;
-
-      .marker-popup-location {
-        margin-bottom: 12px;
-        font-size: 14px;
-        color: #ffffff;
-
-        strong {
-          color: #00FF41;
-        }
-      }
-
-      .marker-popup-description {
-        font-size: 13px;
-        line-height: 1.6;
-        color: #e0e0e0;
-        margin-top: 12px;
-      }
-    }
-  }
 
   // Transit routes overlay styling
   .transit-routes-overlay {
@@ -298,87 +209,6 @@
 
     to {
       stroke-dashoffset: -30;
-    }
-  }
-
-  @keyframes popupFadeIn {
-    from {
-      opacity: 0;
-      transform: translate(-50%, -90%) scale(0.95);
-    }
-
-    to {
-      opacity: 1;
-      transform: translate(-50%, -100%) scale(1);
-    }
-  }
-
-  @keyframes markerPulse {
-    0% {
-      stroke-width: 3;
-      stroke-opacity: 0.9;
-      filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.7));
-    }
-
-    50% {
-      stroke-width: 12;
-      stroke-opacity: 0.2;
-      filter: drop-shadow(0 0 30px rgba(0, 255, 65, 0.9));
-    }
-
-    100% {
-      stroke-width: 3;
-      stroke-opacity: 0.9;
-      filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.7));
-    }
-  }
-
-  // Theme-aware popup styles
-  [data-theme-mode="light"] & .marker-popup {
-    background-color: rgba(255, 255, 255, 0.98);
-    border-color: #00FF41;
-
-    .marker-popup-header {
-      background-color: rgba(0, 255, 65, 0.1);
-      border-bottom-color: rgba(0, 255, 65, 0.3);
-    }
-
-    .marker-popup-body {
-      .marker-popup-location {
-        color: #333333;
-      }
-
-      .marker-popup-description {
-        color: #555555;
-      }
-    }
-  }
-
-  .custom-marker-tooltip {
-    position: absolute;
-    z-index: 10000 !important;
-    pointer-events: none;
-    display: none;
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity 0.1s ease-in-out;
-
-    &.visible {
-      display: block !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-    }
-
-    div {
-      background-color: rgba(26, 26, 26, 0.98) !important;
-      border: 1px solid #00FF41 !important;
-      border-radius: 4px;
-      padding: 12px;
-      max-width: 350px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-      color: #ffffff;
-      font-family: Arial, sans-serif;
-      line-height: 1.5;
     }
   }
 
@@ -442,109 +272,6 @@
   line-height: 1;
 }
 
-.node-markers-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  pointer-events: none; // Allow clicks to pass through to SVG markers below
-}
-
-.node-marker-wrapper {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  pointer-events: none; // Allow clicks to pass through to SVG markers
-
-  // Only the label should be clickable, not the marker area
-  .glass-tag {
-    pointer-events: auto; // Label can be clicked
-  }
-
-  &.selected {
-    .node-marker {
-      transform: scale(1.5);
-      box-shadow: 0 0 15px $tactical-green;
-    }
-
-    .glass-tag {
-      border-color: $tactical-green;
-    }
-  }
-
-  &.hub {
-    .node-marker {
-      background-color: $war-gray;
-      border-color: $tactical-green;
-    }
-  }
-}
-
-.node-marker {
-  width: 0.75rem;
-  height: 0.75rem;
-  background-color: $tactical-green;
-  border: 2px solid $war-gray;
-  position: absolute;
-  transform: translate(-50%, -50%);
-  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-  transition: all 0.2s ease;
-  pointer-events: none; // Don't block clicks to SVG markers below
-
-  &.hub-marker {
-    background-color: $war-gray;
-    border-color: $tactical-green;
-  }
-}
-
-.glass-tag {
-  display: none !important;
-}
-
-// Transit Routes Overlay - SVG layer for animated connection lines
-.transit-routes-overlay {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 15; // Above map but below markers (20)
-  pointer-events: none; // Allow clicks to pass through to map
-
-  // Ensure SVG scales with map
-  svg {
-    width: 100%;
-    height: 100%;
-  }
-
-  // Route path styling
-  .route-path {
-    pointer-events: none;
-    opacity: 0.9;
-  }
-
-  // Animated traveling dot
-  .route-dot {
-    pointer-events: none;
-    filter: drop-shadow(0 0 4px currentColor);
-  }
-
-  // Endpoint circles
-  .route-endpoint {
-    pointer-events: none;
-
-    .endpoint-core {
-      filter: drop-shadow(0 0 3px currentColor);
-    }
-
-    .endpoint-pulse {
-      pointer-events: none;
-    }
-  }
-
-  // Transit route group
-  .transit-route {
-    pointer-events: none;
-  }
-}
-
 // Transit line animations (handled by SVG in map)
 .transit-line {
   stroke: $tactical-green;
@@ -572,16 +299,7 @@
 
 // -------- Responsive: map container & SVG --------
 @media (max-width: 575.98px) {
-  .war-room-map-container {
-    min-height: 0;
-  }
-
-  .map-container {
-    min-height: 0;
-  }
-
   #war-room-map {
-    min-height: 0;
     border-radius: 0.2rem;
   }
 
@@ -619,156 +337,15 @@
 }
 
 @media (min-width: 576px) and (max-width: 991.98px) {
-  .war-room-map-container {
-    min-height: 0;
-  }
-
-  .map-container {
-    min-height: 0;
-  }
-
-  #war-room-map {
-    min-height: 0;
-  }
+  // Base styles already handle height properly
 }
 
 @media (min-width: 992px) {
-  .war-room-map-container {
-    min-height: 0;
-  }
-
-  .map-container {
-    min-height: 0;
-  }
-
-  #war-room-map {
-    min-height: 0;
-  }
+  // Base styles already handle height properly
 }
 
 @media (min-width: 1200px) {
-  .war-room-map-container {
-    min-height: 0;
-  }
-
-  .map-container {
-    min-height: 0;
-  }
-
-  #war-room-map {
-    min-height: 0;
-  }
-}
-
-// Popup Overlay
-.map-popup-overlay {
-  position: absolute;
-  z-index: 1000;
-  transform: translate(-50%, -100%);
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
-  pointer-events: auto;
-
-  .popup-content {
-    background: rgba(10, 20, 15, 0.95);
-    backdrop-filter: blur(8px);
-    border: 1px solid #00FF41;
-    border-radius: 4px;
-    padding: 0;
-    min-width: 220px;
-    overflow: hidden;
-  }
-
-  .popup-header {
-    background: rgba(0, 255, 65, 0.1);
-    border-bottom: 1px solid rgba(0, 255, 65, 0.3);
-    padding: 8px 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    .popup-title {
-      font-weight: 700;
-      color: #00FF41;
-      font-size: 0.85rem;
-      letter-spacing: 0.5px;
-    }
-
-    .popup-close {
-      background: none;
-      border: none;
-      color: #00FF41;
-      font-size: 1.2rem;
-      line-height: 1;
-      cursor: pointer;
-      opacity: 0.7;
-
-      &:hover {
-        opacity: 1;
-      }
-    }
-  }
-
-  .popup-body {
-    padding: 12px;
-  }
-
-  .popup-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: 0.8rem;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
-
-    .popup-label {
-      color: #b0b0b0;
-      font-size: 0.7rem;
-    }
-
-    .popup-value {
-      color: #fff;
-      font-weight: 600;
-
-      &.status-online {
-        color: #00FF41;
-      }
-    }
-  }
-
-  .popup-actions {
-    margin-top: 12px;
-    text-align: center;
-
-    .popup-action-btn {
-      background: rgba(0, 255, 65, 0.1);
-      border: 1px solid #00FF41;
-      color: #00FF41;
-      font-size: 0.7rem;
-      padding: 4px 12px;
-      border-radius: 2px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      width: 100%;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-
-      &:hover {
-        background: #00FF41;
-        color: #000;
-      }
-    }
-  }
-
-  .popup-arrow {
-    width: 0;
-    height: 0;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-top: 8px solid #00FF41;
-    margin: 0 auto;
-  }
+  // Base styles already handle height properly
 }
 
 // Milli: larger tooltip sizing so text is readable and full content fits.
@@ -1073,3 +650,5 @@
     height: 100% !important;
   }
 }
+
+// Marker styles live in war-room-map-markers.component.scss

@@ -2,26 +2,19 @@
   <!-- Grid Overlay -->
   <div class="grid-overlay"></div>
 
-  <!-- Map Container -->
+  <!-- Map Container: overlays inside #war-room-map so (0,0) matches MapLibre project() – stops marker/logo drift on zoom -->
   <div class="map-container" (click)="clearPinned()">
-    <div id="war-room-map"></div>
-
-    <app-war-room-map-routes
-      [viewBox]="mapViewBox()"
-      [mapTransform]="mapTransform()"
-      [routes]="routesVm()"
-      [routeStroke]="routeStroke()"
-      [routeFill]="routeFill()">
-    </app-war-room-map-routes>
-
-    <app-war-room-map-markers
-      [viewBox]="mapViewBox()"
-      [mapTransform]="mapTransform()"
-      [markers]="markersVm()"
-      (markerSelected)="handleMarkerClick($event)"
-      (markerHovered)="onMarkerHovered($event)"
-      (markerLogoError)="onMarkerLogoError($event)">
-    </app-war-room-map-markers>
+    <div id="war-room-map" class="war-room-map-inner">
+      <app-war-room-map-routes [routes]="routesVm()" [routeStroke]="routeStroke()" [routeFill]="routeFill()">
+      </app-war-room-map-routes>
+      <app-war-room-map-markers
+        [markers]="markersVm()"
+        [pixelCoordinates]="markerPixelCoordinates()"
+        (markerClick)="handleMarkerClick($event)"
+        (markerHover)="onMarkerHovered($event)"
+        (logoError)="onMarkerLogoError($event)">
+      </app-war-room-map-markers>
+    </div>
 
     <app-war-room-map-controls [fullscreen]="fullscreenState()" (zoomIn)="zoomIn()" (zoomOut)="zoomOut()"
       (toggleFullscreen)="toggleFullscreen()"></app-war-room-map-controls>

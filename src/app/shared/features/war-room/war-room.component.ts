@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, signal, inject, viewChild, effect, comput
 import { CommonModule } from '@angular/common';
 import { WarRoomService } from '../../../shared/services/war-room.service';
 import { WarRoomRealtimeService } from '../../../shared/services/war-room-realtime.service';
-import { Node, ActivityLog, FleetSelection, MapViewMode, SubsidiaryCompany, FactoryLocation, NodeStatus, ActivityStatus, TransitRoute } from '../../../shared/models/war-room.interface';
+import { Node, ActivityLog, ParentGroup, FleetSelection, MapViewMode, SubsidiaryCompany, FactoryLocation, NodeStatus, ActivityStatus, TransitRoute } from '../../../shared/models/war-room.interface';
 import { WarRoomMapComponent } from './components/war-room-map/war-room-map.component';
 import { WarRoomActivityLogComponent } from './components/war-room-activity-log/war-room-activity-log.component';
 import { WarRoomHubStatusComponent } from './components/war-room-hub-status/war-room-hub-status.component';
@@ -109,6 +109,17 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     return preferredOrder.filter((region) => regionSet.has(region));
   });
 
+  private readonly nodeLookup = computed(() => {
+    const nodeMap = new Map<string, Node>();
+    this.nodes().forEach(node => {
+      nodeMap.set(node.id, node);
+      if (node.factoryId) nodeMap.set(node.factoryId, node);
+      if (node.subsidiaryId) nodeMap.set(node.subsidiaryId, node);
+      if (node.parentGroupId) nodeMap.set(node.parentGroupId, node);
+    });
+    return nodeMap;
+  });
+
   readonly activeFilterCount = computed(() => {
     const filters = this.filterApplied();
     let count = filters.parentCompanyIds.length + filters.regions.length;
@@ -157,31 +168,17 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   readonly statusCounts = computed(() => {
     const filters = this.filterDraft();
-    // Use the current view's nodes as the base to ensure counts match what is possible to see
     const nodes = this.nodes();
-
-    // Apply granular filters (Companies, Regions) AND Status to determine the "universe" of items
-    const filteredByContext = nodes.filter((node) => {
-      // Special case: FleetZero command hub is always included in the universe? 
-      // Usually filters normally apply to it, but for counts it might skew?
-      // Let's treat it as a normal node for counting to be accurate to visual representation.
-
-      if (!this.matchesParentCompanyFilterForNode(node, filters.parentCompanyIds)) {
-        return false;
-      }
-      if (!this.matchesRegionsForNode(node, filters.regions)) {
-        return false;
-      }
-      // FIX: Do NOT filter by status here. Counts should represent the current context
-      // (company/region filters only) so the All/Active/Inactive pills stay consistent.
-      return true;
-    });
 
     let active = 0;
     let inactive = 0;
 
-    filteredByContext.forEach((node) => {
-      // Using matchesStatus logic: Active = anything NOT 'OFFLINE'
+    nodes.forEach((node) => {
+      // 1. Check Context (Company/Region only)
+      if (!this.matchesParentCompanyFilterForNode(node, filters.parentCompanyIds)) return;
+      if (!this.matchesRegionsForNode(node, filters.regions)) return;
+
+      // 2. Count based on Status
       if (this.matchesStatus(node.status, 'active')) {
         active++;
       } else {
@@ -189,20 +186,8 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       }
     });
 
-    const total = active + inactive;
-
-    console.log('[WarRoom] Status Counts (Dynamic Calculation):', {
-      viewMode: this.mapViewMode(),
-      filterStatus: filters.status,
-      totalItems: nodes.length,
-      filteredContext: filteredByContext.length,
-      active,
-      inactive,
-      totalStr: total
-    });
-
     return {
-      total,
+      total: active + inactive,
       active,
       inactive,
     };
@@ -211,53 +196,99 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly filteredNodes = computed(() => {
     const filters = this.filterApplied();
     const nodes = this.nodes();
+    const viewMode = this.mapViewMode();
+
+    console.log('[WarRoom] --- Filtering Nodes ---');
+    console.log('[WarRoom] Current Mode:', viewMode);
+    console.log('[WarRoom] Applied Filters:', {
+      companies: filters.parentCompanyIds,
+      regions: filters.regions,
+      status: filters.status
+    });
+
     const result = nodes.filter((node) => {
-      // Special case: FleetZero command hub is always visible
-      if (node.id === 'fleetzero' || node.subsidiaryId === 'fleetzero' || node.name?.toLowerCase().includes('fleetzero')) {
-        return true;
-      }
+      const companyMatch = this.matchesParentCompanyFilterForNode(node, filters.parentCompanyIds);
+      const statusMatch = this.matchesStatus(node.status, filters.status);
+      const regionMatch = this.matchesRegionsForNode(node, filters.regions);
 
-      if (!this.matchesParentCompanyFilterForNode(node, filters.parentCompanyIds)) {
-        return false;
-      }
+      const isVisible = companyMatch && statusMatch && regionMatch;
 
-      if (!this.matchesStatus(node.status, filters.status)) {
-        return false;
-      }
+      // Small tactical log for single items if needed (disabled by default for noise)
+      // if (!isVisible) console.log(`[WarRoom] Hidden: ${node.name} (Level: ${node.level}, CompanyMatch: ${companyMatch}, StatusMatch: ${statusMatch}, RegionMatch: ${regionMatch})`);
 
-      if (!this.matchesRegionsForNode(node, filters.regions)) {
-        return false;
-      }
-
-      return true;
+      return isVisible;
     });
 
-    console.log('[WarRoom] Filtered Result:', {
-      appliedFilter: filters.status,
-      originalCount: nodes.length,
-      resultCount: result.length
+    console.log('[WarRoom] Result:', {
+      in: nodes.length,
+      out: result.length,
+      hidden: nodes.length - result.length
     });
+    console.log('[WarRoom] -----------------------');
 
     return result;
   });
 
   readonly filteredParentGroups = computed(() => {
     const filters = this.filterApplied();
-    return this.parentGroups().filter((group) => {
-      if (!this.matchesParentCompanyFilterForGroup(group, filters.parentCompanyIds)) {
-        return false;
-      }
+    const parentGroups = this.parentGroups();
 
-      if (!this.matchesOperationalStatus(group.status, filters.status)) {
-        return false;
-      }
+    return parentGroups
+      .map((group) => {
+        // Deep clone or construct filtered group
+        const filteredSubsidiaries = group.subsidiaries
+          .map((sub) => {
+            const filteredFactories = sub.factories.filter((f) => {
+              const statusMatch = this.matchesStatus(f.status, filters.status);
+              const regionMatch = this.matchesRegionsForFactory(f, filters.regions);
+              const companyMatch = this.matchesParentCompanyFilterForNode({
+                id: f.id,
+                subsidiaryId: f.subsidiaryId,
+                parentGroupId: f.parentGroupId,
+                level: 'factory'
+              } as any, filters.parentCompanyIds);
+              return statusMatch && regionMatch && companyMatch;
+            });
 
-      if (!this.matchesRegionsForParentGroup(group, filters.regions)) {
-        return false;
-      }
+            if (filteredFactories.length === 0) {
+              // If no factories match, check if the subsidiary itself matches status/company
+              // Note: Region filtering for subsidiary is based on its factories
+              const statusMatch = this.matchesOperationalStatus(sub.status, filters.status);
+              const companyMatch = this.matchesParentCompanyFilterForNode({
+                id: sub.id,
+                subsidiaryId: sub.id,
+                parentGroupId: sub.parentGroupId,
+                level: 'subsidiary'
+              } as any, filters.parentCompanyIds);
 
-      return true;
-    });
+              if (statusMatch && companyMatch && filters.regions.length === 0) {
+                return { ...sub, factories: [] };
+              }
+              return null;
+            }
+
+            return { ...sub, factories: filteredFactories };
+          })
+          .filter((sub): sub is SubsidiaryCompany => sub !== null);
+
+        if (filteredSubsidiaries.length === 0) {
+          // Check if parent itself matches if no children match
+          const statusMatch = this.matchesOperationalStatus(group.status, filters.status);
+          const companyMatch = this.matchesParentCompanyFilterForNode({
+            id: group.id,
+            parentGroupId: group.id,
+            level: 'parent'
+          } as any, filters.parentCompanyIds);
+
+          if (statusMatch && companyMatch && filters.regions.length === 0) {
+            return { ...group, subsidiaries: [] };
+          }
+          return null;
+        }
+
+        return { ...group, subsidiaries: filteredSubsidiaries };
+      })
+      .filter((group): group is ParentGroup => group !== null);
   });
 
   readonly filteredActivityLogs = computed(() => {
@@ -306,27 +337,24 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       // 2. Find Nodes (Level-agnostic resolution)
       const findNode = (id: string) => {
         const nid = id.toLowerCase();
-        // 1. Exact match in current nodes
-        const directMatch = allNodes.find(n =>
-          n.id === id || n.factoryId === id || n.subsidiaryId === id || n.parentGroupId === id
-        );
-        if (directMatch) return directMatch;
+        // 1. Direct lookup in pre-indexed map
+        const match = this.nodeLookup().get(id);
+        if (match) return match;
 
         // 2. Resolve Factory ID to Subsidiary/Parent nodes if we are in a higher-level view
-        // Check if ID is a factory
         const factory = this.factories().find(f => f.id === id);
         if (factory) {
-          return allNodes.find(n => n.id === factory.subsidiaryId || n.id === factory.parentGroupId);
+          return this.nodeLookup().get(factory.subsidiaryId) || this.nodeLookup().get(factory.parentGroupId);
         }
 
-        // 3. Handle 'source-' and 'fleetzero' strings
+        // 3. Handle 'fleetzero'
         if (nid.includes('fleetzero') || nid.includes('fleet-zero')) {
-          return allNodes.find(n => n.id === 'fleetzero' || (n.name && n.name.toLowerCase().includes('fleetzero')));
+          return this.nodes().find(n => n.id === 'fleetzero' || (n.name && n.name.toLowerCase().includes('fleetzero')));
         }
 
         if (id.startsWith('source-')) {
           const baseId = id.replace('source-', '');
-          return allNodes.find(n => n.id === baseId || n.factoryId === baseId || n.subsidiaryId === baseId);
+          return this.nodeLookup().get(baseId);
         }
 
         return undefined;
@@ -664,14 +692,26 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   }
 
   setStatusFilter(status: FilterStatus): void {
+    // 1. Update draft for UI consistency
     this.filterDraft.update((filters) => ({ ...filters, status }));
+
+    // 2. APPLY INSTANTLY for status pills (standard UX expectation)
+    this.filterApplied.set({
+      ...this.filterApplied(),
+      status
+    });
+
+    console.log(`[WarRoom] Status filter changed to: ${status} [Applied Instantly]`);
   }
 
   applyFilters(): void {
+    const draft = this.filterDraft();
+    console.log('[WarRoom] Applying Filters:', draft);
+
     this.filterApplied.set({
-      parentCompanyIds: [...this.filterDraft().parentCompanyIds],
-      status: this.filterDraft().status,
-      regions: [...this.filterDraft().regions],
+      parentCompanyIds: [...draft.parentCompanyIds],
+      status: draft.status,
+      regions: [...draft.regions],
     });
     this.filtersPanelVisible.set(false);
     this.announce('Filters applied. ' + this.activeFilterCount() + ' filters active.');
@@ -803,14 +843,18 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   private matchesStatus(status: NodeStatus | undefined, filter: FilterStatus): boolean {
     if (filter === 'all') return true;
     if (!status) return false;
-    const isActive = status !== 'OFFLINE';
+    const s = status.toUpperCase();
+    // Consider Online, Optimal, Active as active. Offline and potentially Inactive/Paused as inactive.
+    const isActive = s !== 'OFFLINE' && s !== 'INACTIVE' && s !== 'PAUSED';
     return filter === 'active' ? isActive : !isActive;
   }
 
-  private matchesOperationalStatus(status: string, filter: FilterStatus): boolean {
+  private matchesOperationalStatus(status: string | undefined, filter: FilterStatus): boolean {
     if (filter === 'all') return true;
-    if (filter === 'active') return status === 'ACTIVE';
-    return status !== 'ACTIVE';
+    if (!status) return false;
+    const s = status.toUpperCase();
+    const isActive = s !== 'OFFLINE' && s !== 'INACTIVE' && s !== 'PAUSED';
+    return filter === 'active' ? isActive : !isActive;
   }
 
   private matchesRegionsForNode(node: Node, selectedRegions: string[]): boolean {
@@ -836,18 +880,40 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   private matchesParentCompanyFilterForNode(node: Node, selectedCompanyIds: string[]): boolean {
     if (selectedCompanyIds.length === 0) return true;
-    if (node.level === 'subsidiary') {
-      return !!node.subsidiaryId && selectedCompanyIds.includes(node.subsidiaryId);
+
+    // Direct match (matches any level if the ID itself is selected)
+    const nodeId = node.id;
+    const subsidiaryId = node.subsidiaryId;
+    const parentGroupId = node.parentGroupId || node.companyId;
+
+    if (
+      selectedCompanyIds.includes(nodeId) ||
+      (subsidiaryId && selectedCompanyIds.includes(subsidiaryId)) ||
+      (parentGroupId && selectedCompanyIds.includes(parentGroupId))
+    ) {
+      return true;
     }
-    if (node.level === 'factory') {
-      return !!node.subsidiaryId && selectedCompanyIds.includes(node.subsidiaryId);
-    }
+
+    // Downward hierarchical match for Parent level nodes
     if (node.level === 'parent') {
-      const parentId = node.parentGroupId || node.companyId;
-      if (!parentId) return false;
-      const group = this.parentGroups().find((item) => item.id === parentId);
-      return group ? group.subsidiaries.some((sub) => selectedCompanyIds.includes(sub.id)) : false;
+      const gId = node.parentGroupId || node.companyId;
+      const group = this.parentGroups().find(g => g.id === gId);
+      if (group) {
+        // If any of this group's subsidiaries are selected, the parent node should stay.
+        return group.subsidiaries.some(sub => selectedCompanyIds.includes(sub.id));
+      }
     }
+
+    // Downward hierarchical match for Subsidiary level nodes (if we were filtering by factory)
+    // Currently users only select subsidiaries, but for robustness:
+    if (node.level === 'subsidiary') {
+      const sId = node.subsidiaryId || node.id;
+      const sub = this.subsidiaries().find(s => s.id === sId);
+      if (sub) {
+        return sub.factories.some(f => selectedCompanyIds.includes(f.id));
+      }
+    }
+
     return false;
   }
 
@@ -862,22 +928,27 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   }
 
   private getRegionsForNode(node: Node): Set<string> {
-    if (node.level === 'factory' && node.factoryId) {
-      const factory = this.factories().find((item) => item.id === node.factoryId);
-      return factory ? this.getRegionsForFactories([factory]) : new Set();
+    // 1. Direct Region Mapping for Leaf Nodes (Factory/Individual)
+    if (node.level === 'factory') {
+      const region = this.getRegionForCountry(node.country || node.city);
+      return region ? new Set([region]) : new Set();
     }
 
-    if (node.level === 'subsidiary' && node.subsidiaryId) {
-      const subsidiary = this.subsidiaries().find((item) => item.id === node.subsidiaryId);
+    // 2. Aggregate Mapping for Subsidiaries
+    if (node.level === 'subsidiary' && (node.subsidiaryId || node.id)) {
+      const sId = node.subsidiaryId || node.id;
+      const subsidiary = this.subsidiaries().find((item) => item.id === sId);
       return subsidiary ? this.getRegionsForFactories(subsidiary.factories) : new Set();
     }
 
+    // 3. Aggregate Mapping for Parent Groups
     if (node.level === 'parent') {
-      const parentGroupId = node.parentGroupId || node.companyId;
+      const parentGroupId = node.parentGroupId || node.id;
       const group = this.parentGroups().find((item) => item.id === parentGroupId);
       return group ? this.getRegionsForFactories(group.subsidiaries.flatMap((sub) => sub.factories)) : new Set();
     }
 
+    // Fallback
     const region = this.getRegionForCountry(node.country || node.city);
     return region ? new Set([region]) : new Set();
   }
@@ -899,94 +970,49 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   private getRegionForCountry(value?: string): string | null {
     if (!value) return null;
-    const normalized = value.toLowerCase();
+    const normalized = value.toLowerCase().trim();
 
-    const northAmerica = [
-      'canada',
-      'united states',
-      'usa',
-      'u.s.',
-      'us',
-      'mexico',
-    ];
-    if (northAmerica.some((token) => normalized.includes(token))) {
-      return 'North America';
-    }
+    // Helper for precise word-boundary matching to avoid "us" matching "austria"
+    const matchesToken = (text: string, tokens: string[]): boolean => {
+      // 1. Exact match
+      if (tokens.includes(text)) return true;
+
+      // 2. Match after comma (e.g. "Toronto, Canada")
+      const lastPart = text.split(',').pop()?.trim();
+      if (lastPart && tokens.includes(lastPart)) return true;
+
+      // 3. Substring with word boundaries (for "United States of America")
+      return tokens.some(token => {
+        if (token.length < 3) return text === token || lastPart === token; // strict for short tokens like "us", "uk"
+        return text.includes(token);
+      });
+    };
+
+    const northAmerica = ['canada', 'united states', 'usa', 'u.s.a.', 'us', 'u.s.', 'mexico', 'toronto', 'quebec', 'montreal', 'winnipeg', 'alabama', 'florida', 'ontario'];
+    if (matchesToken(normalized, northAmerica)) return 'North America';
 
     const europe = [
-      'france',
-      'turkey',
-      'germany',
-      'italy',
-      'spain',
-      'sweden',
-      'norway',
-      'finland',
-      'united kingdom',
-      'uk',
-      'england',
-      'scotland',
-      'wales',
-      'ireland',
-      'netherlands',
-      'belgium',
-      'poland',
-      'czech',
-      'austria',
-      'switzerland',
-      'romania',
-      'greece',
-      'portugal',
+      'france', 'turkey', 'germany', 'italy', 'spain', 'sweden', 'norway', 'finland',
+      'united kingdom', 'uk', 'england', 'scotland', 'wales', 'ireland', 'netherlands',
+      'belgium', 'poland', 'czech', 'austria', 'switzerland', 'romania', 'greece', 'portugal',
+      'istanbul', 'le mans', 'london', 'berlin', 'paris', 'madrid', 'rome'
     ];
-    if (europe.some((token) => normalized.includes(token))) {
-      return 'Europe';
-    }
+    if (matchesToken(normalized, europe)) return 'Europe';
 
     const asiaPacific = [
-      'china',
-      'japan',
-      'korea',
-      'south korea',
-      'north korea',
-      'india',
-      'singapore',
-      'malaysia',
-      'indonesia',
-      'philippines',
-      'vietnam',
-      'thailand',
-      'australia',
-      'new zealand',
-      'taiwan',
-      'hong kong',
+      'china', 'japan', 'korea', 'south korea', 'north korea', 'india', 'singapore', 'malaysia',
+      'indonesia', 'philippines', 'vietnam', 'thailand', 'australia', 'new zealand', 'taiwan', 'hong kong',
+      'beijing', 'shanghai', 'tokyo', 'seoul', 'mumbai', 'delhi', 'sydney'
     ];
-    if (asiaPacific.some((token) => normalized.includes(token))) {
-      return 'Asia Pacific';
-    }
+    if (matchesToken(normalized, asiaPacific)) return 'Asia Pacific';
 
     const latam = [
-      'brazil',
-      'argentina',
-      'chile',
-      'colombia',
-      'peru',
-      'ecuador',
-      'venezuela',
-      'uruguay',
-      'paraguay',
-      'bolivia',
-      'guatemala',
-      'honduras',
-      'el salvador',
-      'nicaragua',
-      'costa rica',
-      'panama',
-      'dominican',
-      'puerto rico',
+      'brazil', 'argentina', 'chile', 'colombia', 'peru', 'ecuador', 'venezuela', 'uruguay',
+      'paraguay', 'bolivia', 'guatemala', 'honduras', 'el salvador', 'nicaragua', 'costa rica',
+      'panama', 'dominican', 'puerto rico', 'mexico',
+      'sao paulo', 'rio de janeiro', 'buenos aires', 'lima', 'bogota'
     ];
-    if (latam.some((token) => normalized.includes(token))) {
-      return 'LATAM';
-    }
+    if (matchesToken(normalized, latam)) return 'LATAM';
 
     return null;
   }
@@ -1017,151 +1043,72 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
     try {
       this.addCompanyInFlight = true;
-      type SubLocationInput = NonNullable<CompanyFormData['subLocations']>[number];
-      const mapSubLocationStatusToNode = (status?: SubLocationInput['status']): NodeStatus => {
-        if (status === 'MAINTENANCE') return 'OFFLINE';
-        if (status === 'PAUSED') return 'OFFLINE';
-        return 'ACTIVE';
-      };
-      const mapSubLocationStatusToLog = (status?: SubLocationInput['status']): ActivityStatus => {
-        if (status === 'MAINTENANCE') return 'WARNING';
-        if (status === 'PAUSED') return 'INFO';
-        return 'ACTIVE';
-      };
-      const parseLocationParts = (locationInput: string): { city: string; country?: string; fullLocation: string } => {
-        const parts = locationInput
-          .split(',')
-          .map((part) => part.trim())
-          .filter(Boolean);
-        const city = parts[0] || locationInput.trim();
-        const country = parts.length > 1 ? parts.slice(1).join(', ') : undefined;
-        return { city: city || 'Unknown', country, fullLocation: locationInput.trim() };
-      };
-      const isCoordinateInput = (value: string): boolean => {
-        return /^-?\d+\.?\d*\s*,\s*-?\d+\.?\d*$/.test(value.trim());
-      };
-      const clampCoordinate = (value: number, min: number, max: number): number => {
-        return Math.min(max, Math.max(min, value));
-      };
-      const buildFallbackCoordinates = (
-        seed: string,
-        base: { latitude: number; longitude: number } | null,
-        index: number
-      ): { latitude: number; longitude: number } => {
-        const offsets = [
-          { lat: 0.35, lng: 0.2 },
-          { lat: -0.28, lng: 0.24 },
-          { lat: 0.22, lng: -0.3 },
-          { lat: -0.2, lng: -0.22 },
-          { lat: 0.4, lng: -0.05 },
-        ];
-        if (base) {
-          const step = offsets[index % offsets.length];
-          const scale = 1 + Math.floor(index / offsets.length) * 0.35;
-          const latitude = clampCoordinate(base.latitude + step.lat * scale, -85, 85);
-          const longitude = clampCoordinate(base.longitude + step.lng * scale, -180, 180);
-          return { latitude, longitude };
-        }
-        const hash = seed.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-        const latitude = clampCoordinate(((hash * 37) % 140) - 70, -85, 85);
-        const longitude = clampCoordinate(((hash * 91) % 320) - 160, -180, 180);
-        return { latitude, longitude };
-      };
 
-      let locationData: { latitude: number; longitude: number } | null = null;
-      const mainLocationIsCoords = isCoordinateInput(formData.location);
-      try {
-        locationData = await this.warRoomService.parseLocationInput(formData.location);
-      } catch (error) {
-        console.warn('Failed to parse primary location. Using placeholder coordinates.', error);
-        locationData = { latitude: 0, longitude: 0 };
+      // 1. Parallel Location Parsing
+      const locationPromises: Promise<{ id: string, coords: { latitude: number, longitude: number } | null }>[] = [
+        this.warRoomService.parseLocationInput(formData.location).then(c => ({ id: 'main', coords: c })),
+      ];
+
+      if (formData.sourceLocation?.trim()) {
+        locationPromises.push(this.warRoomService.parseLocationInput(formData.sourceLocation).then(c => ({ id: 'source', coords: c })));
       }
-      if (!locationData || !Number.isFinite(locationData.latitude) || !Number.isFinite(locationData.longitude)) {
-        console.warn('Primary location coordinates invalid. Using placeholder coordinates.');
-        locationData = { latitude: 0, longitude: 0 };
+
+      const subLocations = (formData.subLocations ?? []).filter(sl => sl.name?.trim() && sl.location?.trim());
+      subLocations.forEach((sl, idx) => {
+        locationPromises.push(this.warRoomService.parseLocationInput(sl.location).then(c => ({ id: `sub-${idx}`, coords: c })));
+      });
+
+      const parsedLocations = await Promise.all(locationPromises);
+      const locationMap = new Map(parsedLocations.map(l => [l.id, l.coords]));
+
+      // 2. Main Location Logic
+      let locationData = locationMap.get('main') || { latitude: 0, longitude: 0 };
+      if ((locationData.latitude === 0 && locationData.longitude === 0) && !this.isCoordinateInput(formData.location)) {
+        locationData = this.buildFallbackCoordinates(formData.location, null, 0);
       }
-      if (locationData.latitude === 0 && locationData.longitude === 0 && !mainLocationIsCoords) {
-        locationData = buildFallbackCoordinates(formData.location, null, 0);
-      }
-      const parentGroupId =
-        this.selectedEntity()?.parentGroupId ||
+
+      const parentGroupId = this.selectedEntity()?.parentGroupId ||
         (this.selectedEntity()?.level === 'parent' ? this.selectedEntity()?.id : null) ||
-        this.parentGroups()[0]?.id ||
-        'global-group';
+        this.parentGroups()[0]?.id || 'global-group';
 
       const companyName = formData.companyName.trim();
       const subsidiaryId = this.warRoomService.generateSubsidiaryId(companyName);
       const factoryId = this.warRoomService.generateFactoryId(`${companyName}-${formData.location}`);
 
-      const { city, country, fullLocation } = parseLocationParts(formData.location);
+      const { city, country, fullLocation } = this.parseLocationParts(formData.location);
       const hubCode = this.generateHubCode(companyName);
       const logoValue = typeof formData.logo === 'string' ? formData.logo : undefined;
 
-      // Parse source company location if provided
-      let sourceLocationData: { latitude: number; longitude: number } | null = null;
-      if (formData.sourceLocation?.trim()) {
-        try {
-          sourceLocationData = await this.warRoomService.parseLocationInput(formData.sourceLocation);
-        } catch (error) {
-          console.warn('Failed to parse source location. Using placeholder coordinates.', error);
-          sourceLocationData = { latitude: 0, longitude: 0 };
-        }
-        if (!sourceLocationData || !Number.isFinite(sourceLocationData.latitude) || !Number.isFinite(sourceLocationData.longitude)) {
-          console.warn('Source location coordinates invalid. Using placeholder coordinates.');
-          sourceLocationData = { latitude: 0, longitude: 0 };
-        }
-      }
-
-      // Create transit route from source company to target company
-      const canCreateSourceRoute =
-        sourceLocationData &&
-        Number.isFinite(sourceLocationData.latitude) &&
-        Number.isFinite(sourceLocationData.longitude) &&
-        Number.isFinite(locationData.latitude) &&
-        Number.isFinite(locationData.longitude);
-
-      if (canCreateSourceRoute) {
-        const transitRoute: TransitRoute = {
+      // 3. Transit Routes
+      const sourceLocationData = locationMap.get('source');
+      if (sourceLocationData && this.isValidCoordinates(sourceLocationData)) {
+        this.warRoomService.addTransitRoute({
           id: `route-src-${factoryId}-${Date.now()}`,
-          from: `source-${factoryId}`, // Use consistent identifier for external source
+          from: `source-${factoryId}`,
           to: factoryId,
-          fromCoordinates: {
-            latitude: sourceLocationData!.latitude,
-            longitude: sourceLocationData!.longitude,
-          },
-          toCoordinates: {
-            latitude: locationData.latitude,
-            longitude: locationData.longitude,
-          },
+          fromCoordinates: sourceLocationData,
+          toCoordinates: locationData,
           animated: true,
           strokeColor: '#6ee755',
           strokeWidth: 2,
-        };
-
-        this.warRoomService.addTransitRoute(transitRoute);
+        });
       }
 
-      // Always create an automatic connection to FleetZero HQ
-      if (Number.isFinite(locationData.latitude) && Number.isFinite(locationData.longitude)) {
-        const fleetZeroRoute: TransitRoute = {
+      // FleetZero HQ Connection
+      if (this.isValidCoordinates(locationData)) {
+        this.warRoomService.addTransitRoute({
           id: `route-fleetzero-${factoryId}-${Date.now()}`,
           from: factoryId,
-          to: 'fleetzero', // Targets the fleetzero hub
-          fromCoordinates: {
-            latitude: locationData.latitude,
-            longitude: locationData.longitude,
-          },
-          toCoordinates: {
-            latitude: 43.6532, // Toronto HQ Latitude
-            longitude: -79.3832, // Toronto HQ Longitude
-          },
+          to: 'fleetzero',
+          fromCoordinates: locationData,
+          toCoordinates: { latitude: 43.6532, longitude: -79.3832 },
           animated: true,
-          strokeColor: formData.status === 'ACTIVE' ? '#00C853' : '#D50000', // Green for active, Red for paused
+          strokeColor: formData.status === 'ACTIVE' ? '#00C853' : '#D50000',
           strokeWidth: 1.5,
-        };
-        this.warRoomService.addTransitRoute(fleetZeroRoute);
+        });
       }
 
+      // 4. Factory and Sub-locations
       const newFactory: FactoryLocation = {
         id: factoryId,
         parentGroupId,
@@ -1169,7 +1116,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         name: `${companyName} - ${city}`,
         city: city || 'Unknown',
         country,
-        coordinates: { latitude: locationData.latitude, longitude: locationData.longitude },
+        coordinates: locationData,
         status: formData.status === 'ACTIVE' ? 'ONLINE' : 'OFFLINE',
         syncStability: 98,
         assets: 0,
@@ -1178,39 +1125,19 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         logo: logoValue,
       };
 
-      const subLocationEntries: SubLocationInput[] = (formData.subLocations ?? [])
-        .map((location) => ({
-          name: location.name?.trim() || '',
-          location: location.location?.trim() || '',
-          status: location.status,
-        }))
-        .filter((location) => location.name.length > 0 && location.location.length > 0);
-
       const additionalFactories: FactoryLocation[] = [];
       const additionalLogs: ActivityLog[] = [];
 
-      for (const [index, subLocation] of subLocationEntries.entries()) {
-        let subLocationCoords: { latitude: number; longitude: number } = { latitude: 0, longitude: 0 };
-        const subLocationIsCoords = isCoordinateInput(subLocation.location);
-        try {
-          subLocationCoords = await this.warRoomService.parseLocationInput(subLocation.location);
-        } catch (error) {
-          console.warn(`Failed to parse sub-location "${subLocation.location}". Using placeholder coordinates.`, error);
-        }
-        if (subLocationCoords.latitude === 0 && subLocationCoords.longitude === 0 && !subLocationIsCoords) {
-          subLocationCoords = buildFallbackCoordinates(
-            subLocation.location,
-            locationData ? { latitude: locationData.latitude, longitude: locationData.longitude } : null,
-            index
-          );
+      for (const [index, subLocation] of subLocations.entries()) {
+        let subCoords = locationMap.get(`sub-${index}`) || { latitude: 0, longitude: 0 };
+        if (subCoords.latitude === 0 && subCoords.longitude === 0 && !this.isCoordinateInput(subLocation.location)) {
+          subCoords = this.buildFallbackCoordinates(subLocation.location, locationData, index);
         }
 
-        const { city: subCity, country: subCountry, fullLocation: subFullLocation } = parseLocationParts(subLocation.location);
-        const subFactoryId = this.warRoomService.generateFactoryId(
-          `${companyName}-${subLocation.name}-${subLocation.location}`
-        );
+        const { city: subCity, country: subCountry, fullLocation: subFullLocation } = this.parseLocationParts(subLocation.location);
+        const subFactoryId = this.warRoomService.generateFactoryId(`${companyName}-${subLocation.name}-${subLocation.location}`);
         const factoryName = subLocation.name || `${companyName} - ${subCity}`;
-        const factoryStatus = mapSubLocationStatusToNode(subLocation.status);
+        const factoryStatus = this.mapSubLocationStatusToNode(subLocation.status);
 
         const subFactory: FactoryLocation = {
           id: subFactoryId,
@@ -1219,9 +1146,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
           name: factoryName,
           city: subCity || 'Unknown',
           country: subCountry,
-          coordinates: subLocationCoords,
+          coordinates: subCoords,
           status: factoryStatus,
-          syncStability: factoryStatus === 'OFFLINE' ? 72 : factoryStatus === 'ONLINE' ? 88 : 96,
+          syncStability: factoryStatus === 'OFFLINE' ? 72 : 96,
           assets: 0,
           incidents: 0,
           description: formData.description?.trim() || undefined,
@@ -1230,44 +1157,28 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
         additionalFactories.push(subFactory);
 
-        // Create connection from Sub-location to Parent Hub (Main Location)
-        if (Number.isFinite(subLocationCoords.latitude) && Number.isFinite(subLocationCoords.longitude) &&
-          Number.isFinite(locationData.latitude) && Number.isFinite(locationData.longitude)) {
-          const subLocationRoute: TransitRoute = {
+        // Connection to Hub
+        if (this.isValidCoordinates(subCoords) && this.isValidCoordinates(locationData)) {
+          this.warRoomService.addTransitRoute({
             id: `route-hub-${subFactoryId}-${Date.now()}`,
             from: subFactoryId,
-            to: factoryId, // Connect to the main factory acting as the hub
-            fromCoordinates: {
-              latitude: subLocationCoords.latitude,
-              longitude: subLocationCoords.longitude,
-            },
-            toCoordinates: {
-              latitude: locationData.latitude,
-              longitude: locationData.longitude,
-            },
+            to: factoryId,
+            fromCoordinates: subCoords,
+            toCoordinates: locationData,
             animated: true,
-            strokeColor: '#0ea5e9', // Blue connection
+            strokeColor: '#0ea5e9',
             strokeWidth: 1.5,
             dashArray: '3,3',
-          };
-          this.warRoomService.addTransitRoute(subLocationRoute);
+          });
         }
 
-        const logStatus = mapSubLocationStatusToLog(subLocation.status);
-        const logTitle = `${companyName.toUpperCase()} | ${factoryName.toUpperCase()}`;
-        const logDescription =
-          logStatus === 'WARNING'
-            ? 'SUB-LOCATION MAINTENANCE // CREW DISPATCHED'
-            : logStatus === 'INFO'
-              ? 'SUB-LOCATION PAUSED // STANDBY MODE'
-              : 'SUB-LOCATION ONLINE // SYNC CONFIRMED';
-
+        const logStatus = this.mapSubLocationStatusToLog(subLocation.status);
         additionalLogs.push({
           id: `log-${subFactoryId}`,
           timestamp: new Date(),
           status: logStatus,
-          title: logTitle,
-          description: logDescription,
+          title: `${companyName.toUpperCase()} | ${factoryName.toUpperCase()}`,
+          description: logStatus === 'WARNING' ? 'MAINTENANCE // DISPATCHED' : 'SYSTEM ONLINE',
           parentGroupId,
           subsidiaryId,
           factoryId: subFactoryId,
@@ -1276,6 +1187,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         });
       }
 
+      // 5. Finalize Subsidiary
       const newSubsidiary: SubsidiaryCompany = {
         id: subsidiaryId,
         parentGroupId,
@@ -1283,19 +1195,17 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         status: formData.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED',
         metrics: { assetCount: 0, incidentCount: 0, syncStability: 98 },
         factories: [newFactory, ...additionalFactories],
-        hubs: [
-          {
-            id: `hub-${subsidiaryId}-${Date.now()}`,
-            code: hubCode,
-            companyId: subsidiaryId,
-            companyName: companyName.toUpperCase(),
-            status: 'ONLINE',
-            capacity: '100% CAP',
-            capacityPercentage: 100,
-            statusColor: 'text-tactical-green',
-            capColor: 'text-tactical-green',
-          },
-        ],
+        hubs: [{
+          id: `hub-${subsidiaryId}-${Date.now()}`,
+          code: hubCode,
+          companyId: subsidiaryId,
+          companyName: companyName.toUpperCase(),
+          status: 'ONLINE',
+          capacity: '100% CAP',
+          capacityPercentage: 100,
+          statusColor: 'text-tactical-green',
+          capColor: 'text-tactical-green',
+        }],
         quantumChart: { dataPoints: [85, 88, 90, 92, 89, 91], highlightedIndex: 3 },
         logo: logoValue,
         description: formData.description?.trim() || undefined,
@@ -1303,26 +1213,22 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       };
 
       this.warRoomService.addSubsidiary(newSubsidiary);
-
-      const activityLog: ActivityLog = {
+      this.warRoomService.addActivityLog({
         id: `log-${factoryId}`,
         timestamp: new Date(),
         status: 'ACTIVE',
         title: `${companyName.toUpperCase()} | ${city.toUpperCase()}`,
-        description: formData.description?.trim() || 'SYSTEM REGISTERED // FACTORY INITIALIZED',
+        description: formData.description?.trim() || 'SYSTEM INITIALIZED',
         parentGroupId,
         subsidiaryId,
         factoryId,
         location: fullLocation,
         logo: logoValue,
-      };
+      });
+      additionalLogs.forEach(log => this.warRoomService.addActivityLog(log));
 
-      this.warRoomService.addActivityLog(activityLog);
-      additionalLogs.forEach((log) => this.warRoomService.addActivityLog(log));
-
-      // Ensure filters don't hide the newly added locations.
-      this.filterDraft.set(createDefaultFilters());
-      this.filterApplied.set(createDefaultFilters());
+      // Reset filters to show new data
+      this.resetFilters();
       this.warRoomService.setFactoryFilterSubsidiaryId(null);
 
       // Signal success to modal
@@ -1385,5 +1291,47 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     if (element && element.isConnected && typeof element.focus === 'function') {
       setTimeout(() => element.focus(), 0);
     }
+  }
+
+  // --- Private Helpers ---
+
+  private isValidCoordinates(coords?: { latitude: number; longitude: number } | null): coords is { latitude: number; longitude: number } {
+    return !!coords && Number.isFinite(coords.latitude) && Number.isFinite(coords.longitude) && (coords.latitude !== 0 || coords.longitude !== 0);
+  }
+
+  private isCoordinateInput(value: string): boolean {
+    return /^-?\d+\.?\d*\s*,\s*-?\d+\.?\d*$/.test(value.trim());
+  }
+
+  private clampCoordinate(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  private mapSubLocationStatusToNode(status?: string): NodeStatus {
+    if (status === 'MAINTENANCE' || status === 'PAUSED') return 'OFFLINE';
+    return 'ACTIVE';
+  }
+
+  private mapSubLocationStatusToLog(status?: string): ActivityStatus {
+    if (status === 'MAINTENANCE') return 'WARNING';
+    if (status === 'PAUSED') return 'INFO';
+    return 'ACTIVE';
+  }
+
+  private buildFallbackCoordinates(seed: string, base: { latitude: number; longitude: number } | null, index: number): { latitude: number; longitude: number } {
+    const offsets = [{ lat: 0.35, lng: 0.2 }, { lat: -0.28, lng: 0.24 }, { lat: 0.22, lng: -0.3 }, { lat: -0.2, lng: -0.22 }, { lat: 0.4, lng: -0.05 }];
+    if (base) {
+      const step = offsets[index % offsets.length];
+      const scale = 1 + Math.floor(index / offsets.length) * 0.35;
+      return {
+        latitude: this.clampCoordinate(base.latitude + step.lat * scale, -85, 85),
+        longitude: this.clampCoordinate(base.longitude + step.lng * scale, -180, 180)
+      };
+    }
+    const hash = seed.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    return {
+      latitude: this.clampCoordinate(((hash * 37) % 140) - 70, -85, 85),
+      longitude: this.clampCoordinate(((hash * 91) % 320) - 160, -180, 180)
+    };
   }
 }
