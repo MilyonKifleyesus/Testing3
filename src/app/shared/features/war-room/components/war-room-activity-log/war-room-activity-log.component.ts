@@ -494,13 +494,13 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
 
   getStatusClass(status: string): string {
     const normalized = status.trim().toUpperCase();
-    if (normalized === 'ACTIVE' || normalized === 'ONLINE' || normalized === 'OPTIMAL') return 'status-active';
+    if (normalized === 'ACTIVE') return 'status-active';
     return 'status-inactive';
   }
 
   formatStatusLabel(status: string): string {
     const normalized = status.trim().toUpperCase();
-    if (normalized === 'ACTIVE' || normalized === 'ONLINE' || normalized === 'OPTIMAL') return 'ACTIVE';
+    if (normalized === 'ACTIVE') return 'ACTIVE';
     return 'INACTIVE';
   }
 
@@ -510,7 +510,7 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
 
   getStatusIcon(status: string): string {
     const normalized = status.trim().toUpperCase();
-    if (normalized === 'ACTIVE' || normalized === 'ONLINE' || normalized === 'OPTIMAL') return 'check_circle';
+    if (normalized === 'ACTIVE') return 'check_circle';
     return 'cancel';
   }
 

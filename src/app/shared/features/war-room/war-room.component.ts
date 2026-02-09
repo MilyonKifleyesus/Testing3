@@ -208,7 +208,8 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
     const result = nodes.filter((node) => {
       const companyMatch = this.matchesParentCompanyFilterForNode(node, filters.parentCompanyIds);
-      const statusMatch = this.matchesStatus(node.status, filters.status);
+      const isFleetZero = node.id === 'fleetzero' || node.subsidiaryId === 'fleetzero';
+      const statusMatch = isFleetZero || this.matchesStatus(node.status, filters.status);
       const regionMatch = this.matchesRegionsForNode(node, filters.regions);
 
       const isVisible = companyMatch && statusMatch && regionMatch;
@@ -315,9 +316,6 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly filteredTransitRoutes = computed(() => {
     const routes = this.transitRoutes();
     const nodes = this.filteredNodes();
-    const allNodes = this.nodes();
-    const selected = this.selectedEntity();
-
     const filteredNodeIds = new Set(nodes.map(n => n.id));
 
     const isValidCoordinates = (coords?: { latitude: number; longitude: number } | null): boolean => {
@@ -327,88 +325,52 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       return true;
     };
 
+    const lookup = this.nodeLookup();
+    const findNode = (id: string): Node | undefined => {
+      const nid = (id ?? '').toLowerCase();
+      const match = lookup.get(id) ?? lookup.get(nid);
+      if (match) return match;
+
+      const factory = this.factories().find(f => f.id === id || (f.id && f.id.toLowerCase() === nid));
+      if (factory) {
+        return lookup.get(factory.subsidiaryId) ?? lookup.get(factory.parentGroupId);
+      }
+
+      if (nid.includes('fleetzero') || nid.includes('fleet-zero')) {
+        return this.nodes().find(n =>
+          n.id === 'fleetzero' ||
+          n.subsidiaryId === 'fleetzero' ||
+          (n.name != null && n.name.toLowerCase().includes('fleetzero'))
+        );
+      }
+
+      if (id.startsWith('source-')) {
+        return lookup.get(id.replace('source-', ''));
+      }
+
+      return undefined;
+    };
+
     return routes.reduce<TransitRoute[]>((acc, route) => {
-      // 1. Resolve System Status
-      const fromIsExternal = route.from.startsWith('source-');
-      const toIsExternal = route.to.startsWith('source-');
-      const fromIsFleetZero = route.from.toLowerCase().includes('fleetzero') || route.from.toLowerCase().includes('fleet-zero');
-      const toIsFleetZero = route.to.toLowerCase().includes('fleetzero') || route.to.toLowerCase().includes('fleet-zero');
+      const fromNode = findNode(route.from);
+      const toNode = findNode(route.to);
 
-      // 2. Find Nodes (Level-agnostic resolution)
-      const findNode = (id: string) => {
-        const nid = id.toLowerCase();
-        // 1. Direct lookup in pre-indexed map
-        const match = this.nodeLookup().get(id);
-        if (match) return match;
-
-        // 2. Resolve Factory ID to Subsidiary/Parent nodes if we are in a higher-level view
-        const factory = this.factories().find(f => f.id === id);
-        if (factory) {
-          return this.nodeLookup().get(factory.subsidiaryId) || this.nodeLookup().get(factory.parentGroupId);
-        }
-
-        // 3. Handle 'fleetzero'
-        if (nid.includes('fleetzero') || nid.includes('fleet-zero')) {
-          return this.nodes().find(n => n.id === 'fleetzero' || (n.name && n.name.toLowerCase().includes('fleetzero')));
-        }
-
-        if (id.startsWith('source-')) {
-          const baseId = id.replace('source-', '');
-          return this.nodeLookup().get(baseId);
-        }
-
-        return undefined;
-      };
-
-      const fromNode = fromIsExternal || fromIsFleetZero ? null : findNode(route.from);
-      const toNode = toIsExternal || toIsFleetZero ? null : findNode(route.to);
-
-      const fromCoordinates = fromIsExternal || fromIsFleetZero ? route.fromCoordinates : fromNode?.coordinates;
-      const toCoordinates = toIsExternal || toIsFleetZero ? route.toCoordinates : toNode?.coordinates;
+      const fromCoordinates = fromNode?.coordinates ?? route.fromCoordinates;
+      const toCoordinates = toNode?.coordinates ?? route.toCoordinates;
 
       if (!isValidCoordinates(fromCoordinates) || !isValidCoordinates(toCoordinates)) {
         return acc;
       }
 
-      // 3. General Visibility Filter
-      // A route is visible if BOTH ends are "active" (either system endpoints or visible nodes)
-      const fromVisible = fromIsExternal || fromIsFleetZero || (fromNode && filteredNodeIds.has(fromNode.id));
-      const toVisible = toIsExternal || toIsFleetZero || (toNode && filteredNodeIds.has(toNode.id));
-      const passesGeneralFilter = fromVisible && toVisible;
+      // FleetZero is global – neither active nor inactive; always visible for route endpoints.
+      const isFleetZero = (node: Node | undefined) =>
+        node != null && (node.id === 'fleetzero' || node.subsidiaryId === 'fleetzero');
+      const isEndpointVisible = (node: Node | undefined) =>
+        node != null && (filteredNodeIds.has(node.id) || isFleetZero(node));
 
-      // 4. Selection Focus Mode (Optional refinement)
-      if (selected) {
-        const selId = selected.id;
-        const selSubId = selected.subsidiaryId;
-        const selParentId = selected.parentGroupId;
+      const bothEndpointsVisible = isEndpointVisible(fromNode) && isEndpointVisible(toNode);
 
-        const matchesEndpoint = (node: any, endpointId: string) => {
-          const eid = endpointId.toLowerCase();
-          const sid = selId.toLowerCase();
-
-          // Direct ID match
-          if (endpointId === selId || endpointId === selSubId || endpointId === selParentId) return true;
-          // Handle source- prefix for selection
-          if (endpointId === `source-${selId}` || endpointId === `source-${selSubId}`) return true;
-
-          // Logic for system nodes (FleetZero)
-          if (eid.includes('fleetzero') && (sid.includes('fleetzero') || selSubId?.toLowerCase().includes('fleetzero'))) return true;
-
-          if (!node) return false;
-
-          // Hierarchy matching
-          return node.id === selId || node.subsidiaryId === selId || node.parentGroupId === selId || node.factoryId === selId ||
-            (!!selSubId && (node.subsidiaryId === selSubId || node.id === selSubId)) ||
-            (!!selParentId && (node.parentGroupId === selParentId || node.id === selParentId)) ||
-            (node.id === endpointId); // Final fallback
-        };
-
-        const isTargeted = matchesEndpoint(fromNode, route.from) || matchesEndpoint(toNode, route.to);
-        const shouldInclude = isTargeted || passesGeneralFilter;
-        if (!shouldInclude) return acc;
-      } else if (!passesGeneralFilter) {
-        return acc;
-      }
+      if (!bothEndpointsVisible) return acc;
 
       acc.push({
         ...route,
@@ -840,11 +802,10 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     this.warRoomService.deleteFactory(factoryId);
   }
 
-  /** Single source of truth: active = ACTIVE/ONLINE/OPTIMAL only; everything else is inactive. */
+  /** Single source of truth: only ACTIVE is active; everything else is inactive. */
   private isActiveStatus(status: string | undefined): boolean {
     if (!status) return false;
-    const s = String(status).toUpperCase().trim();
-    return s === 'ACTIVE' || s === 'ONLINE' || s === 'OPTIMAL';
+    return String(status).toUpperCase().trim() === 'ACTIVE';
   }
 
   private matchesStatus(status: NodeStatus | undefined, filter: FilterStatus): boolean {
@@ -1119,7 +1080,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         city: city || 'Unknown',
         country,
         coordinates: locationData,
-        status: formData.status === 'ACTIVE' ? 'ONLINE' : 'OFFLINE',
+        status: formData.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
         syncStability: 98,
         assets: 0,
         incidents: 0,
@@ -1150,7 +1111,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
           country: subCountry,
           coordinates: subCoords,
           status: factoryStatus,
-          syncStability: factoryStatus === 'OFFLINE' ? 72 : 96,
+          syncStability: factoryStatus === 'INACTIVE' ? 72 : 96,
           assets: 0,
           incidents: 0,
           description: formData.description?.trim() || undefined,
@@ -1180,7 +1141,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
           timestamp: new Date(),
           status: logStatus,
           title: `${companyName.toUpperCase()} | ${factoryName.toUpperCase()}`,
-          description: logStatus === 'WARNING' ? 'MAINTENANCE // DISPATCHED' : 'SYSTEM ONLINE',
+          description: logStatus === 'WARNING' ? 'INACTIVE // DISPATCHED' : 'ACTIVE',
           parentGroupId,
           subsidiaryId,
           factoryId: subFactoryId,
@@ -1194,7 +1155,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         id: subsidiaryId,
         parentGroupId,
         name: companyName.toUpperCase(),
-        status: formData.status === 'ACTIVE' ? 'ACTIVE' : 'PAUSED',
+        status: formData.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
         metrics: { assetCount: 0, incidentCount: 0, syncStability: 98 },
         factories: [newFactory, ...additionalFactories],
         hubs: [{
@@ -1202,7 +1163,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
           code: hubCode,
           companyId: subsidiaryId,
           companyName: companyName.toUpperCase(),
-          status: 'ONLINE',
+          status: 'ACTIVE',
           capacity: '100% CAP',
           capacityPercentage: 100,
           statusColor: 'text-tactical-green',
@@ -1311,14 +1272,12 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   private mapSubLocationStatusToNode(status?: string): NodeStatus {
     const s = status?.toUpperCase().trim();
-    if (s === 'MAINTENANCE' || s === 'PAUSED' || s === 'INACTIVE' || s === 'OFFLINE') return 'OFFLINE';
-    return 'ACTIVE';
+    return s === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE';
   }
 
   private mapSubLocationStatusToLog(status?: string): ActivityStatus {
-    if (status === 'MAINTENANCE') return 'WARNING';
-    if (status === 'PAUSED') return 'INFO';
-    return 'ACTIVE';
+    const s = status?.toUpperCase().trim();
+    return s === 'ACTIVE' ? 'ACTIVE' : 'INFO';
   }
 
   private buildFallbackCoordinates(seed: string, base: { latitude: number; longitude: number } | null, index: number): { latitude: number; longitude: number } {

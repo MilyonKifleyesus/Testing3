@@ -63,7 +63,7 @@
           [attr.aria-selected]="isSelected('subsidiary', subsidiary.id)" tabindex="0" role="button">
           <div class="log-entry-top log-entry-header">
             <div class="log-entry-title d-flex align-items-center gap-2 flex-wrap">
-              <span class="entry-kind">Subsidiary</span>
+              <span class="entry-kind">Factory</span>
               <span class="entry-kind parent-kind">Parent</span>
               @if (subsidiary.logo) {
               <img [src]="subsidiary.logo" alt="Subsidiary logo" class="company-logo" />
@@ -84,7 +84,7 @@
                 (change)="onSubsidiaryStatusChange($event, subsidiary.id)" (click)="$event.stopPropagation()"
                 aria-label="Update subsidiary status">
                 <option value="ACTIVE">Active</option>
-                <option value="PAUSED">Inactive</option>
+                <option value="INACTIVE">Inactive</option>
               </select>
               }
               @if (editMode() && isEditingSubsidiary(subsidiary.id)) {
@@ -196,7 +196,7 @@
           tabindex="0" role="button">
           <div class="log-entry-top log-entry-header">
             <div class="log-entry-title d-flex align-items-center gap-2 flex-wrap">
-              <span class="entry-kind">Factory</span>
+              <span class="entry-kind">Subsidiary</span>
               <span class="entry-kind sublocation-kind">Sub-location</span>
               @if (factory.logo) {
               <img [src]="factory.logo" alt="Factory logo" class="company-logo" />
@@ -216,7 +216,7 @@
                 [value]="factoryDrafts().get(factory.id)?.status" (change)="onFactoryStatusChange($event, factory.id)"
                 (click)="$event.stopPropagation()" aria-label="Update factory status">
                 <option value="ACTIVE">Active</option>
-                <option value="OFFLINE">Inactive</option>
+                <option value="INACTIVE">Inactive</option>
               </select>
               }
               @if (editMode() && isEditingFactory(factory.id)) {

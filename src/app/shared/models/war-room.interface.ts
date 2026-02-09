@@ -5,17 +5,17 @@
 
 // Node Types
 export type NodeType = 'Hub' | 'Facility' | 'Center' | 'Terminal';
-export type NodeStatus = 'OPTIMAL' | 'ONLINE' | 'ACTIVE' | 'OFFLINE';
+export type NodeStatus = 'ACTIVE' | 'INACTIVE';
 
 // Fleet hierarchy levels
 export type FleetLevel = 'parent' | 'subsidiary' | 'factory';
 export type MapViewMode = FleetLevel;
 
 // Operational status for parent/subsidiary entities
-export type OperationalStatus = 'ACTIVE' | 'PAUSED' | 'MAINTENANCE';
+export type OperationalStatus = 'ACTIVE' | 'INACTIVE';
 
 // Hub Status Types
-export type HubStatus = 'OPTIMAL' | 'ONLINE' | 'ACTIVE' | 'OFFLINE';
+export type HubStatus = 'ACTIVE' | 'INACTIVE';
 
 // Activity Log Status Types
 export type ActivityStatus = 'ACTIVE' | 'INFO' | 'WARNING' | 'ERROR';

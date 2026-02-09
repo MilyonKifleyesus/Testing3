@@ -164,7 +164,7 @@ describe('WarRoomComponent Integration', () => {
                     code: id.substring(0, 3).toUpperCase(),
                     companyId: id,
                     companyName: id.toUpperCase(),
-                    status: 'ONLINE',
+                    status: 'ACTIVE',
                     capacity: '100% CAP',
                     capacityPercentage: 100,
                     statusColor: 'text-ok',

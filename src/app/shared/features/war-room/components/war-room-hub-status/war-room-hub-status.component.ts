@@ -21,9 +21,9 @@ export class WarRoomHubStatusComponent {
     return this.selectedSubsidiary()?.quantumChart || null;
   });
 
-  /** Two states: active (OPTIMAL/ONLINE/ACTIVE) vs inactive (OFFLINE). */
+  /** Two states: active (ACTIVE) vs inactive (INACTIVE). */
   private isActiveHub(status: HubStatus): boolean {
-    return status === 'OPTIMAL' || status === 'ONLINE' || status === 'ACTIVE';
+    return status === 'ACTIVE';
   }
 
   getHubBorderClass(status: HubStatus): string {

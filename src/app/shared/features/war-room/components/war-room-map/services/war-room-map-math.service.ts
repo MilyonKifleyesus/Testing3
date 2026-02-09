@@ -74,11 +74,25 @@ export class WarRoomMapMathService {
     return { x: viewBox.x + x * scaleX, y: viewBox.y + y * scaleY };
   }
 
+  /**
+   * Format a number for use in SVG path d attribute.
+   * Avoids scientific notation (e.g. 1e-16) which some SVG parsers reject.
+   */
+  private toPathNumber(n: number): string {
+    if (!Number.isFinite(n)) return '0';
+    const s = String(n);
+    if (s.includes('e') || s.includes('E')) {
+      const fixed = n.toFixed(20);
+      return fixed.replace(/\.?0+$/, '') || '0';
+    }
+    return s;
+  }
+
   createCurvedPath(start: { x: number; y: number } | null, end: { x: number; y: number } | null): string {
     if (!start || !end) return '';
     const midX = (start.x + end.x) / 2;
     const midY = Math.min(start.y, end.y) - 50;
-    return `M ${start.x} ${start.y} Q ${midX} ${midY} ${end.x} ${end.y}`;
+    return `M ${this.toPathNumber(start.x)} ${this.toPathNumber(start.y)} Q ${this.toPathNumber(midX)} ${this.toPathNumber(midY)} ${this.toPathNumber(end.x)} ${this.toPathNumber(end.y)}`;
   }
 
   svgPointToContainerPixels(

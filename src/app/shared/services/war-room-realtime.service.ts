@@ -111,7 +111,7 @@ export class WarRoomRealtimeService implements OnDestroy {
     const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
 
     const descriptions = [
-      'SYSTEM OPTIMAL',
+      'SYSTEM ACTIVE',
       'SYNC SUCCESS',
       'OPERATIONAL',
       'CONNECTED',

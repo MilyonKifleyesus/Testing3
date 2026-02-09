@@ -656,7 +656,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     // The previous implementation used screen coordinates (sx, sy) which caused double-translation.
     const pinTransform = '';
     const status = (node.status || '').toUpperCase().trim();
-    const isActive = status === 'ACTIVE' || status === 'ONLINE' || status === 'OPTIMAL';
+    const isActive = status === 'ACTIVE';
     const statusKey: 'online' | 'offline' = isActive ? 'online' : 'offline';
     const statusColor = isActive ? '#00FF41' : '#ef4444';
     const statusGlow = isActive ? 'rgba(0, 255, 65, 0.45)' : 'rgba(239, 68, 68, 0.45)';

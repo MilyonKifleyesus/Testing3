@@ -363,9 +363,8 @@ export class WarRoomService {
   }
 
   private mapOperationalStatus(status: string): Node['status'] {
-    if (status === 'MAINTENANCE') return 'OFFLINE';
-    if (status === 'PAUSED') return 'OFFLINE';
-    return 'ACTIVE';
+    const s = String(status).toUpperCase().trim();
+    return s === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE';
   }
 
   private slugify(value: string): string {

@@ -114,7 +114,7 @@ const newFlyerFactories: FactoryLocation[] = [
     city: 'Winnipeg',
     country: 'Canada',
     coordinates: { latitude: 49.8951, longitude: -97.1384 },
-    status: 'ONLINE',
+    status: 'ACTIVE',
     syncStability: 98.1,
     assets: 220,
     incidents: 2,
@@ -144,7 +144,7 @@ const newFlyerFactories: FactoryLocation[] = [
     city: 'St. Cloud, Minnesota',
     country: 'United States',
     coordinates: { latitude: 45.5579, longitude: -94.1632 },
-    status: 'ONLINE',
+    status: 'ACTIVE',
     syncStability: 95.6,
     assets: 120,
     incidents: 2,
@@ -159,7 +159,7 @@ const newFlyerFactories: FactoryLocation[] = [
     city: 'Anniston, Alabama',
     country: 'United States',
     coordinates: { latitude: 33.6598, longitude: -85.8316 },
-    status: 'ONLINE',
+    status: 'ACTIVE',
     syncStability: 97.2,
     assets: 160,
     incidents: 2,
@@ -192,7 +192,7 @@ const novaFactories: FactoryLocation[] = [
     city: 'Saint-Francois-du-Lac, Quebec',
     country: 'Canada',
     coordinates: { latitude: 46.0, longitude: -72.95 },
-    status: 'ONLINE',
+    status: 'ACTIVE',
     syncStability: 95.2,
     assets: 90,
     incidents: 1,
@@ -210,7 +210,7 @@ const mciFactories: FactoryLocation[] = [
     city: 'Des Plaines, Illinois',
     country: 'United States',
     coordinates: { latitude: 42.0334, longitude: -87.8834 },
-    status: 'ONLINE',
+    status: 'ACTIVE',
     syncStability: 95.1,
     assets: 80,
     incidents: 1,
@@ -224,7 +224,7 @@ const mciFactories: FactoryLocation[] = [
     city: 'Monterrey, Nuevo Leon',
     country: 'Mexico',
     coordinates: { latitude: 25.6866, longitude: -100.3161 },
-    status: 'OFFLINE',
+    status: 'INACTIVE',
     syncStability: 84.0,
     assets: 60,
     incidents: 4,
@@ -241,7 +241,7 @@ const prevostFactories: FactoryLocation[] = [
     city: 'Sainte-Claire, Quebec',
     country: 'Canada',
     coordinates: { latitude: 46.69, longitude: -70.84 },
-    status: 'ONLINE',
+    status: 'ACTIVE',
     syncStability: 96.3,
     assets: 110,
     incidents: 1,
@@ -258,7 +258,7 @@ const arbocFactories: FactoryLocation[] = [
     city: 'Middlebury, Indiana',
     country: 'United States',
     coordinates: { latitude: 41.6753, longitude: -85.7064 },
-    status: 'ONLINE',
+    status: 'ACTIVE',
     syncStability: 97.3,
     assets: 120,
     incidents: 2,
@@ -291,7 +291,7 @@ const encFactories: FactoryLocation[] = [
     city: 'Riverside, California',
     country: 'United States',
     coordinates: { latitude: 33.9806, longitude: -117.3755 },
-    status: 'ONLINE',
+    status: 'ACTIVE',
     syncStability: 96.2,
     assets: 95,
     incidents: 2,
@@ -322,7 +322,7 @@ const tamFactories: FactoryLocation[] = [
     city: 'Ankara',
     country: 'Turkey',
     coordinates: { latitude: 39.9334, longitude: 32.8597 },
-    status: 'OFFLINE',
+    status: 'INACTIVE',
     syncStability: 82.4,
     assets: 75,
     incidents: 4,
@@ -340,7 +340,7 @@ const karsanFactories: FactoryLocation[] = [
     city: 'Bursa, Bursa Province',
     country: 'Turkey',
     coordinates: { latitude: 40.195, longitude: 29.06 },
-    status: 'ONLINE',
+    status: 'ACTIVE',
     syncStability: 97.0,
     assets: 210,
     incidents: 3,
@@ -358,7 +358,7 @@ const temsaFactories: FactoryLocation[] = [
     city: 'Adana, Adana Province',
     country: 'Turkey',
     coordinates: { latitude: 37.0, longitude: 35.3213 },
-    status: 'ONLINE',
+    status: 'ACTIVE',
     syncStability: 95.8,
     assets: 140,
     incidents: 2,
@@ -388,7 +388,7 @@ const createSubsidiary = (options: {
   id: string;
   parentGroupId: string;
   name: string;
-  status: 'ACTIVE' | 'PAUSED' | 'MAINTENANCE';
+  status: 'ACTIVE' | 'INACTIVE';
   factories: FactoryLocation[];
   hubs: Hub[];
   quantumChart: { dataPoints: number[]; highlightedIndex?: number };
@@ -421,7 +421,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
         code: 'WPG',
         companyId: SUBSIDIARY_IDS.NEW_FLYER,
         companyName: 'New Flyer',
-        status: 'ONLINE',
+        status: 'ACTIVE',
         capacity: '92% CAP',
         capacityPercentage: 92,
         statusColor: 'text-tactical-green',
@@ -443,7 +443,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
         code: 'STE',
         companyId: SUBSIDIARY_IDS.NOVA,
         companyName: 'Nova Bus',
-        status: 'ONLINE',
+        status: 'ACTIVE',
         capacity: '81% CAP',
         capacityPercentage: 81,
         statusColor: 'text-tactical-green',
@@ -457,7 +457,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
     id: SUBSIDIARY_IDS.MCI,
     parentGroupId: PARENT_GROUP_IDS.NAMG,
     name: 'MCI',
-    status: 'PAUSED',
+    status: 'INACTIVE',
     factories: mciFactories,
     hubs: [
       {
@@ -465,7 +465,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
         code: 'DPL',
         companyId: SUBSIDIARY_IDS.MCI,
         companyName: 'MCI',
-        status: 'ONLINE',
+        status: 'ACTIVE',
         capacity: '62% CAP',
         capacityPercentage: 62,
         statusColor: 'text-zinc-800',
@@ -486,7 +486,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
         code: 'STC',
         companyId: SUBSIDIARY_IDS.PREVOST,
         companyName: 'Prevost',
-        status: 'ONLINE',
+        status: 'ACTIVE',
         capacity: '76% CAP',
         capacityPercentage: 76,
         statusColor: 'text-tactical-green',
@@ -507,7 +507,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
         code: 'IND',
         companyId: SUBSIDIARY_IDS.ARBOC,
         companyName: 'ARBOC',
-        status: 'ONLINE',
+        status: 'ACTIVE',
         capacity: '84% CAP',
         capacityPercentage: 84,
         statusColor: 'text-tactical-green',
@@ -529,7 +529,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
         code: 'RIV',
         companyId: SUBSIDIARY_IDS.ENC,
         companyName: 'ENC',
-        status: 'ONLINE',
+        status: 'ACTIVE',
         capacity: '73% CAP',
         capacityPercentage: 73,
         statusColor: 'text-tactical-green',
@@ -542,7 +542,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
     id: SUBSIDIARY_IDS.TAM,
     parentGroupId: PARENT_GROUP_IDS.TMG,
     name: 'TAM',
-    status: 'PAUSED',
+    status: 'INACTIVE',
     factories: tamFactories,
     hubs: [
       {
@@ -550,7 +550,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
         code: 'TRK',
         companyId: SUBSIDIARY_IDS.TAM,
         companyName: 'TAM',
-        status: 'OFFLINE',
+        status: 'INACTIVE',
         capacity: '41% CAP',
         capacityPercentage: 41,
         statusColor: 'text-zinc-800',
@@ -572,7 +572,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
         code: 'BRU',
         companyId: SUBSIDIARY_IDS.KARSAN,
         companyName: 'Karsan',
-        status: 'ONLINE',
+        status: 'ACTIVE',
         capacity: '71% CAP',
         capacityPercentage: 71,
         statusColor: 'text-tactical-green',
@@ -594,7 +594,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
         code: 'ADN',
         companyId: SUBSIDIARY_IDS.TEMSA,
         companyName: 'TEMSA',
-        status: 'ONLINE',
+        status: 'ACTIVE',
         capacity: '79% CAP',
         capacityPercentage: 79,
         statusColor: 'text-tactical-green',
@@ -615,7 +615,7 @@ export const mockSubsidiaries: SubsidiaryCompany[] = [
         code: 'YYZ',
         companyId: SUBSIDIARY_IDS.FLEETZERO,
         companyName: 'FleetZero',
-        status: 'ONLINE',
+        status: 'ACTIVE',
         capacity: '95% CAP',
         capacityPercentage: 95,
         statusColor: 'text-tactical-green',
@@ -724,13 +724,9 @@ const buildActivityLogs = (): ActivityLog[] => {
   for (const subsidiary of mockSubsidiaries) {
     for (const factory of subsidiary.factories) {
       const status: ActivityStatus =
-        factory.status === 'OFFLINE' ? 'WARNING' : factory.status === 'ACTIVE' ? 'ACTIVE' : 'INFO';
+        factory.status === 'INACTIVE' ? 'INFO' : factory.status === 'ACTIVE' ? 'ACTIVE' : 'INFO';
       const description =
-        status === 'WARNING'
-          ? 'MAINTENANCE WINDOW // LINE PAUSED'
-          : status === 'ACTIVE'
-            ? 'SYNC ACTIVE // PRODUCTION RAMPING'
-            : 'SYSTEM STABLE // TELEMETRY GREEN';
+        status === 'ACTIVE' ? 'SYNC ACTIVE // PRODUCTION RAMPING' : 'SYSTEM STABLE // TELEMETRY GREEN';
       const timestamp = new Date(base - index * 4 * 60 * 1000).toISOString();
       logs.push(createLogForFactory(factory.id, timestamp, status, description));
       index += 1;
@@ -805,6 +801,17 @@ export const mockTransitRoutes: TransitRoute[] = [
     toCoordinates: FLEET_ZERO_COORDS,
     animated: true,
     strokeColor: '#00FF41',
+    strokeWidth: 2,
+  },
+  // Inactive subsidiary routes (visible when filtering by INACTIVE)
+  {
+    id: 'route-mci-to-tam',
+    from: FACTORY_IDS.MCI_MONTERREY,
+    to: FACTORY_IDS.TAM_TURKEY,
+    fromCoordinates: { latitude: 25.6866, longitude: -100.3161 },
+    toCoordinates: { latitude: 39.9334, longitude: 32.8597 },
+    animated: true,
+    strokeColor: '#ef4444',
     strokeWidth: 2,
   },
 ];

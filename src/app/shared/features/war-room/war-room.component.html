@@ -4,48 +4,50 @@
   <main class="war-room-main">
     <!-- Map Area -->
     <div class="war-room-map-area">
-      @if (activeFilters().length > 0) {
-      <div class="active-filters-bar d-flex flex-wrap align-items-center gap-2 mb-3">
-        <span class="text-muted fs-12 fw-medium text-uppercase me-1">Active Filters:</span>
-        @for (filter of activeFilters(); track filter.value) {
-        <span
-          class="badge bg-primary-transparent text-primary d-flex align-items-center gap-2 px-3 py-2 rounded-pill border border-primary-transparent">
-          {{ filter.label }}
-          <button class="btn-unstyled cursor-pointer ms-1 fs-12" (click)="removeFilter(filter)"
-            [attr.aria-label]="'Remove ' + filter.label + ' filter'">
-            <i class="fe fe-x" aria-hidden="true"></i>
-          </button>
-        </span>
-        }
-        <button class="btn btn-link btn-sm text-danger text-uppercase fs-11 fw-bold p-0 ms-2"
-          (click)="clearAllFilters()" aria-label="Clear all active filters">
-          Clear All
-        </button>
-      </div>
-      }
-
-      <div class="map-view-toggle card custom-card d-flex align-items-center gap-2 p-2">
-        <div class="btn-group btn-group-sm" role="radiogroup" aria-label="Map view mode selection">
-          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'subsidiary'"
-            [class.btn-outline-primary]="mapViewMode() !== 'subsidiary'" (click)="setMapViewMode('subsidiary')"
-            role="radio" [attr.aria-checked]="mapViewMode() === 'subsidiary'" aria-label="Switch to subsidiary view">
-            Subsidiary View
-          </button>
-          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'factory'"
-            [class.btn-outline-primary]="mapViewMode() !== 'factory'" (click)="setMapViewMode('factory')" role="radio"
-            [attr.aria-checked]="mapViewMode() === 'factory'" aria-label="Switch to factory view">
-            Factory View
+      <!-- Single toolbar: view toggle + active filters in one compact strip -->
+      <div class="war-room-map-toolbar" role="toolbar" aria-label="Map view and filters">
+        <div class="map-view-toggle card custom-card d-flex align-items-center gap-2 p-2">
+          <div class="btn-group btn-group-sm" role="radiogroup" aria-label="Map view mode selection">
+            <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'subsidiary'"
+              [class.btn-outline-primary]="mapViewMode() !== 'subsidiary'" (click)="setMapViewMode('subsidiary')"
+              role="radio" [attr.aria-checked]="mapViewMode() === 'subsidiary'" aria-label="Switch to subsidiary view">
+              Subsidiary View
+            </button>
+            <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'factory'"
+              [class.btn-outline-primary]="mapViewMode() !== 'factory'" (click)="setMapViewMode('factory')" role="radio"
+              [attr.aria-checked]="mapViewMode() === 'factory'" aria-label="Switch to factory view">
+              Factory View
+            </button>
+          </div>
+          <button type="button" class="btn btn-white btn-icon-text btn-sm map-filter-btn" (click)="toggleFiltersPanel()"
+            [class.btn-primary-transparent]="filtersPanelVisible()"
+            [attr.aria-label]="(filtersPanelVisible() ? 'Close' : 'Open') + ' filters' + (activeFilterCount() > 0 ? ' (' + activeFilterCount() + ' active)' : '')"
+            [attr.aria-expanded]="filtersPanelVisible()">
+            <i class="fe fe-filter me-2 fs-14" aria-hidden="true"></i> Filter
+            @if (activeFilterCount() > 0) {
+            <span class="badge bg-primary-transparent ms-1" aria-hidden="true">{{ activeFilterCount() }}</span>
+            }
           </button>
         </div>
-        <button type="button" class="btn btn-white btn-icon-text btn-sm map-filter-btn" (click)="toggleFiltersPanel()"
-          [class.btn-primary-transparent]="filtersPanelVisible()"
-          [attr.aria-label]="(filtersPanelVisible() ? 'Close' : 'Open') + ' filters' + (activeFilterCount() > 0 ? ' (' + activeFilterCount() + ' active)' : '')"
-          [attr.aria-expanded]="filtersPanelVisible()">
-          <i class="fe fe-filter me-2 fs-14" aria-hidden="true"></i> Filter
-          @if (activeFilterCount() > 0) {
-          <span class="badge bg-primary-transparent ms-1" aria-hidden="true">{{ activeFilterCount() }}</span>
+        @if (activeFilters().length > 0) {
+        <div class="active-filters-bar d-flex flex-wrap align-items-center gap-2">
+          <span class="text-muted fs-12 fw-medium text-uppercase me-1">Active Filters:</span>
+          @for (filter of activeFilters(); track filter.value) {
+          <span
+            class="badge bg-primary-transparent text-primary d-flex align-items-center gap-2 px-3 py-2 rounded-pill border border-primary-transparent">
+            {{ filter.label }}
+            <button class="btn-unstyled cursor-pointer ms-1 fs-12" (click)="removeFilter(filter)"
+              [attr.aria-label]="'Remove ' + filter.label + ' filter'">
+              <i class="fe fe-x" aria-hidden="true"></i>
+            </button>
+          </span>
           }
-        </button>
+          <button class="btn btn-link btn-sm text-danger text-uppercase fs-11 fw-bold p-0 ms-2"
+            (click)="clearAllFilters()" aria-label="Clear all active filters">
+            Clear All
+          </button>
+        </div>
+        }
       </div>
 
       <div class="map-action-bar" role="group" aria-label="Map panels and layout controls">
