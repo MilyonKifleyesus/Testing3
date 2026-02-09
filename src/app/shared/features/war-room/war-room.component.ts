@@ -167,7 +167,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   });
 
   readonly statusCounts = computed(() => {
-    const filters = this.filterDraft();
+    const filters = this.filterApplied();
     const nodes = this.nodes();
 
     let active = 0;
@@ -637,7 +637,10 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       } else {
         nextIds.add(parentGroupId);
       }
-      return { ...filters, parentCompanyIds: Array.from(nextIds) };
+      const next = { ...filters, parentCompanyIds: Array.from(nextIds) };
+      // Apply company filter immediately so map and counts update without clicking Apply
+      this.filterApplied.set({ ...this.filterApplied(), parentCompanyIds: next.parentCompanyIds });
+      return next;
     });
   }
 
@@ -649,7 +652,10 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       } else {
         nextRegions.add(region);
       }
-      return { ...filters, regions: Array.from(nextRegions) };
+      const next = { ...filters, regions: Array.from(nextRegions) };
+      // Apply region filter immediately so map and counts update without clicking Apply
+      this.filterApplied.set({ ...this.filterApplied(), regions: next.regions });
+      return next;
     });
   }
 
@@ -958,14 +964,14 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       'france', 'turkey', 'germany', 'italy', 'spain', 'sweden', 'norway', 'finland',
       'united kingdom', 'uk', 'england', 'scotland', 'wales', 'ireland', 'netherlands',
       'belgium', 'poland', 'czech', 'austria', 'switzerland', 'romania', 'greece', 'portugal',
-      'istanbul', 'le mans', 'london', 'berlin', 'paris', 'madrid', 'rome'
+      'istanbul', 'bursa', 'adana', 'ankara', 'le mans', 'london', 'berlin', 'paris', 'madrid', 'rome'
     ];
     if (matchesToken(normalized, europe)) return 'Europe';
 
     const asiaPacific = [
       'china', 'japan', 'korea', 'south korea', 'north korea', 'india', 'singapore', 'malaysia',
       'indonesia', 'philippines', 'vietnam', 'thailand', 'australia', 'new zealand', 'taiwan', 'hong kong',
-      'beijing', 'shanghai', 'tokyo', 'seoul', 'mumbai', 'delhi', 'sydney'
+      'beijing', 'shanghai', 'zhengzhou', 'tokyo', 'seoul', 'mumbai', 'delhi', 'sydney'
     ];
     if (matchesToken(normalized, asiaPacific)) return 'Asia Pacific';
 
@@ -973,7 +979,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       'brazil', 'argentina', 'chile', 'colombia', 'peru', 'ecuador', 'venezuela', 'uruguay',
       'paraguay', 'bolivia', 'guatemala', 'honduras', 'el salvador', 'nicaragua', 'costa rica',
       'panama', 'dominican', 'puerto rico', 'mexico',
-      'sao paulo', 'rio de janeiro', 'buenos aires', 'lima', 'bogota'
+      'sao paulo', 'rio de janeiro', 'caxias do sul', 'buenos aires', 'lima', 'bogota'
     ];
     if (matchesToken(normalized, latam)) return 'LATAM';
 

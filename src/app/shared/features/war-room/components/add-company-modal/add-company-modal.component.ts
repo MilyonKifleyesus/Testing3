@@ -66,6 +66,7 @@ export class AddCompanyModalComponent implements OnDestroy {
   // Form state
   // Async UI state required by UX spec (kept local to the modal).
   loading = signal<boolean>(false);
+  private closeAfterSuccessTimerId: ReturnType<typeof setTimeout> | null = null;
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
   submissionState = signal<'IDLE' | 'SUBMITTING' | 'SUCCESS' | 'ERROR'>('IDLE');
@@ -92,6 +93,10 @@ export class AddCompanyModalComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.closeAfterSuccessTimerId !== null) {
+      clearTimeout(this.closeAfterSuccessTimerId);
+      this.closeAfterSuccessTimerId = null;
+    }
     const element = this.elementRef.nativeElement;
     if (element.parentNode === document.body) {
       this.renderer.removeChild(document.body, element);
@@ -381,7 +386,11 @@ export class AddCompanyModalComponent implements OnDestroy {
    * Called by parent when processing is complete
    */
   closeAfterSuccess(): void {
-    setTimeout(() => {
+    if (this.closeAfterSuccessTimerId !== null) {
+      clearTimeout(this.closeAfterSuccessTimerId);
+    }
+    this.closeAfterSuccessTimerId = setTimeout(() => {
+      this.closeAfterSuccessTimerId = null;
       this.onClose();
     }, 2000); // Give user time to see the success message
   }
