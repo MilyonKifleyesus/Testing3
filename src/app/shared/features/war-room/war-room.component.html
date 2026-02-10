@@ -85,7 +85,13 @@
         </div>
         <div class="card-body">
           <div class="filters-section">
-            <label class="form-label">Companies</label>
+            <button type="button" class="filter-section-header" (click)="toggleFilterSection('companies')"
+              [attr.aria-expanded]="expandedFilterSection() === 'companies'">
+              <span class="form-label">Companies</span>
+              <span class="filter-summary">{{ filterDraft().parentCompanyIds.length ? filterDraft().parentCompanyIds.length + ' selected' : 'All' }}</span>
+              <i class="fe fe-chevron-down filter-chevron" [class.expanded]="expandedFilterSection() === 'companies'"></i>
+            </button>
+            @if (expandedFilterSection() === 'companies') {
             <div class="filters-options">
               @for (option of parentCompanyOptions(); track option.id) {
               <div class="form-check">
@@ -100,39 +106,79 @@
               </div>
               }
             </div>
+            }
           </div>
           <div class="filters-section">
-            <label class="form-label" for="filter-client">Client</label>
-            <select id="filter-client" class="form-select form-select-sm"
-              [value]="filterDraft().clientId" (change)="setClientFilter($any($event.target).value)"
-              aria-label="Filter by client">
-              <option value="all">All Clients</option>
-              @for (c of clientsSignal(); track c.id) {
-              <option [value]="c.id">{{ c.name }}</option>
+            <button type="button" class="filter-section-header" (click)="toggleFilterSection('client')"
+              [attr.aria-expanded]="expandedFilterSection() === 'client'">
+              <span class="form-label">Client</span>
+              <span class="filter-summary">{{ filterDraft().clientIds.length ? filterDraft().clientIds.length + ' selected' : 'All Clients' }}</span>
+              <i class="fe fe-chevron-down filter-chevron" [class.expanded]="expandedFilterSection() === 'client'"></i>
+            </button>
+            @if (expandedFilterSection() === 'client') {
+            <div class="filters-options">
+              @for (opt of clientOptionsSignal(); track opt.id) {
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input"
+                  [checked]="filterDraft().clientIds.includes(opt.id)"
+                  (change)="toggleClient(opt.id)" [id]="'client-filter-' + opt.id" />
+                <label class="form-check-label w-100 d-flex justify-content-between align-items-center"
+                  [for]="'client-filter-' + opt.id">
+                  <span>{{ opt.name }}</span>
+                  <span class="badge bg-primary-transparent">{{ opt.count }}</span>
+                </label>
+              </div>
               }
-            </select>
+            </div>
+            }
           </div>
           <div class="filters-section">
-            <label class="form-label" for="filter-manufacturer">Manufacturer</label>
-            <select id="filter-manufacturer" class="form-select form-select-sm"
-              [value]="filterDraft().manufacturerId" (change)="setManufacturerFilter($any($event.target).value)"
-              aria-label="Filter by manufacturer">
-              <option value="all">All Manufacturers</option>
-              @for (m of manufacturersSignal(); track m) {
-              <option [value]="m">{{ m }}</option>
+            <button type="button" class="filter-section-header" (click)="toggleFilterSection('manufacturer')"
+              [attr.aria-expanded]="expandedFilterSection() === 'manufacturer'">
+              <span class="form-label">Manufacturer</span>
+              <span class="filter-summary">{{ filterDraft().manufacturerIds.length ? filterDraft().manufacturerIds.length + ' selected' : 'All Manufacturers' }}</span>
+              <i class="fe fe-chevron-down filter-chevron" [class.expanded]="expandedFilterSection() === 'manufacturer'"></i>
+            </button>
+            @if (expandedFilterSection() === 'manufacturer') {
+            <div class="filters-options">
+              @for (opt of manufacturerOptionsSignal(); track opt.id) {
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input"
+                  [checked]="filterDraft().manufacturerIds.includes(opt.id)"
+                  (change)="toggleManufacturer(opt.id)" [id]="'manufacturer-filter-' + opt.id" />
+                <label class="form-check-label w-100 d-flex justify-content-between align-items-center"
+                  [for]="'manufacturer-filter-' + opt.id">
+                  <span>{{ opt.name }}</span>
+                  <span class="badge bg-primary-transparent">{{ opt.count }}</span>
+                </label>
+              </div>
               }
-            </select>
+            </div>
+            }
           </div>
           <div class="filters-section">
-            <label class="form-label" for="filter-project-type">Project Type</label>
-            <select id="filter-project-type" class="form-select form-select-sm"
-              [value]="filterDraft().projectType" (change)="setProjectTypeFilter($any($event.target).value)"
-              aria-label="Filter by project type">
-              <option value="all">All project types</option>
-              @for (pt of projectTypesSignal(); track pt) {
-              <option [value]="pt">{{ pt }}</option>
+            <button type="button" class="filter-section-header" (click)="toggleFilterSection('projectType')"
+              [attr.aria-expanded]="expandedFilterSection() === 'projectType'">
+              <span class="form-label">Project Type</span>
+              <span class="filter-summary">{{ filterDraft().projectTypeIds.length ? filterDraft().projectTypeIds.length + ' selected' : 'All project types' }}</span>
+              <i class="fe fe-chevron-down filter-chevron" [class.expanded]="expandedFilterSection() === 'projectType'"></i>
+            </button>
+            @if (expandedFilterSection() === 'projectType') {
+            <div class="filters-options">
+              @for (opt of projectTypeOptionsSignal(); track opt.id) {
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input"
+                  [checked]="filterDraft().projectTypeIds.includes(opt.id)"
+                  (change)="toggleProjectType(opt.id)" [id]="'project-type-filter-' + opt.id" />
+                <label class="form-check-label w-100 d-flex justify-content-between align-items-center"
+                  [for]="'project-type-filter-' + opt.id">
+                  <span>{{ opt.name }}</span>
+                  <span class="badge bg-primary-transparent">{{ opt.count }}</span>
+                </label>
+              </div>
               }
-            </select>
+            </div>
+            }
           </div>
           <div class="filters-section">
             <label class="form-label" id="status-filter-label">Status</label>
@@ -197,8 +243,8 @@
 
       @if (!tacticalMode()) {
       <div class="war-room-project-hud-wrapper">
-        <app-war-room-project-hud [clientId]="filterApplied().clientId" [manufacturerId]="filterApplied().manufacturerId"
-          [projectType]="filterApplied().projectType" [selectedProjectId]="selectedProjectId()"
+        <app-war-room-project-hud [clientIds]="filterApplied().clientIds" [manufacturerIds]="filterApplied().manufacturerIds"
+          [projectTypeIds]="filterApplied().projectTypeIds" [selectedProjectId]="selectedProjectId()"
           (projectSelected)="onProjectHudSelected($event)" />
       </div>
       @if (selectedProjectId() || selectedEntity()) {

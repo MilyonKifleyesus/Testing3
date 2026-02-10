@@ -8,6 +8,16 @@ export interface ProjectFilters {
   projectType?: string; // assessmentType value
   manufacturer?: string; // Project.manufacturer e.g. Nova Bus, New Flyer, ARBOC
   status?: Project['status'];
+  /** Array filters (multi-select). Take precedence when non-empty. */
+  clientIds?: string[];
+  manufacturerIds?: string[];
+  projectTypeIds?: string[];
+}
+
+export interface FilterOptionWithCount {
+  id: string;
+  name: string;
+  count: number;
 }
 
 export interface ProjectCounts {
@@ -36,14 +46,21 @@ export class ProjectService {
 
   getProjects(filters?: ProjectFilters): Observable<Project[]> {
     let result = [...this.projects];
-    if (filters?.clientId && filters.clientId !== 'all') {
+    // Array filters take precedence when non-empty
+    if (filters?.clientIds?.length) {
+      result = result.filter((p) => filters.clientIds!.includes(p.clientId));
+    } else if (filters?.clientId && filters.clientId !== 'all') {
       result = result.filter((p) => p.clientId === filters.clientId);
     }
-    if (filters?.projectType && filters.projectType !== 'all') {
-      result = result.filter((p) => p.assessmentType === filters!.projectType);
-    }
-    if (filters?.manufacturer && filters.manufacturer !== 'all') {
+    if (filters?.manufacturerIds?.length) {
+      result = result.filter((p) => p.manufacturer && filters.manufacturerIds!.includes(p.manufacturer));
+    } else if (filters?.manufacturer && filters.manufacturer !== 'all') {
       result = result.filter((p) => p.manufacturer === filters!.manufacturer);
+    }
+    if (filters?.projectTypeIds?.length) {
+      result = result.filter((p) => p.assessmentType && filters.projectTypeIds!.includes(p.assessmentType));
+    } else if (filters?.projectType && filters.projectType !== 'all') {
+      result = result.filter((p) => p.assessmentType === filters!.projectType);
     }
     if (filters?.status) {
       result = result.filter((p) => p.status === filters.status);
@@ -88,6 +105,57 @@ export class ProjectService {
   getManufacturers(): Observable<string[]> {
     return this.getProjects({}).pipe(
       map((projects) => [...new Set(projects.map((p) => p.manufacturer).filter((v): v is string => !!v))].sort())
+    );
+  }
+
+  getClientOptionsWithCounts(): Observable<FilterOptionWithCount[]> {
+    return this.getProjects({}).pipe(
+      map((projects) => {
+        const byId = new Map<string, { name: string; count: number }>();
+        for (const p of projects) {
+          if (!p.clientId) continue;
+          const existing = byId.get(p.clientId);
+          const name = p.clientName ?? p.clientId;
+          if (existing) {
+            existing.count++;
+          } else {
+            byId.set(p.clientId, { name, count: 1 });
+          }
+        }
+        return Array.from(byId.entries())
+          .map(([id, { name, count }]) => ({ id, name, count }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+      })
+    );
+  }
+
+  getManufacturerOptionsWithCounts(): Observable<FilterOptionWithCount[]> {
+    return this.getProjects({}).pipe(
+      map((projects) => {
+        const byId = new Map<string, number>();
+        for (const p of projects) {
+          if (!p.manufacturer) continue;
+          byId.set(p.manufacturer, (byId.get(p.manufacturer) ?? 0) + 1);
+        }
+        return Array.from(byId.entries())
+          .map(([id, count]) => ({ id, name: id, count }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+      })
+    );
+  }
+
+  getProjectTypeOptionsWithCounts(): Observable<FilterOptionWithCount[]> {
+    return this.getProjects({}).pipe(
+      map((projects) => {
+        const byId = new Map<string, number>();
+        for (const p of projects) {
+          if (!p.assessmentType) continue;
+          byId.set(p.assessmentType, (byId.get(p.assessmentType) ?? 0) + 1);
+        }
+        return Array.from(byId.entries())
+          .map(([id, count]) => ({ id, name: id, count }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+      })
     );
   }
 

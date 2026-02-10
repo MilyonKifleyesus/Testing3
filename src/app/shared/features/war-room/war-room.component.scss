@@ -392,6 +392,53 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   }
 }
 
+.filter-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  margin-bottom: 0.35rem;
+  background: rgba(0, 255, 65, 0.12);
+  border: 1px solid rgba(0, 255, 65, 0.35);
+  border-radius: var(--cm-radius-sm, 8px);
+  color: var(--cm-text);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: rgba(0, 255, 65, 0.18);
+    border-color: rgba(0, 255, 65, 0.5);
+  }
+
+  .form-label {
+    margin: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cm-muted);
+  }
+
+  .filter-summary {
+    font-size: 0.75rem;
+    color: var(--cm-muted);
+    margin-left: auto;
+    margin-right: 0.5rem;
+  }
+
+  .filter-chevron {
+    font-size: 0.65rem;
+    color: var(--cm-muted);
+    transition: transform 0.2s ease;
+
+    &.expanded {
+      transform: rotate(180deg);
+    }
+  }
+}
+
 .filters-options {
   display: flex;
   flex-direction: column;

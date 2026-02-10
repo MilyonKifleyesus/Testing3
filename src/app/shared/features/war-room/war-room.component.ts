@@ -30,18 +30,18 @@ interface WarRoomFilters {
   parentCompanyIds: string[];
   status: FilterStatus;
   regions: string[];
-  clientId: string;
-  manufacturerId: string;
-  projectType: string;
+  clientIds: string[];
+  manufacturerIds: string[];
+  projectTypeIds: string[];
 }
 
 const createDefaultFilters = (): WarRoomFilters => ({
   parentCompanyIds: [],
   status: 'all',
   regions: [],
-  clientId: 'all',
-  manufacturerId: 'all',
-  projectType: 'all',
+  clientIds: [],
+  manufacturerIds: [],
+  projectTypeIds: [],
 });
 
 @Component({
@@ -75,6 +75,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly clientsSignal = toSignal(this.clientService.getClients(), { initialValue: [] });
   readonly projectTypesSignal = toSignal(this.projectService.getProjectTypes(), { initialValue: [] });
   readonly manufacturersSignal = toSignal(this.projectService.getManufacturers(), { initialValue: [] });
+  readonly clientOptionsSignal = toSignal(this.projectService.getClientOptionsWithCounts(), { initialValue: [] });
+  readonly manufacturerOptionsSignal = toSignal(this.projectService.getManufacturerOptionsWithCounts(), { initialValue: [] });
+  readonly projectTypeOptionsSignal = toSignal(this.projectService.getProjectTypeOptionsWithCounts(), { initialValue: [] });
   readonly projectRoutes = signal<ProjectRoute[]>([]);
   readonly selectedProjectId = signal<string | null>(null);
 
@@ -109,6 +112,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly filtersPanelVisible = signal<boolean>(false);
   readonly filterDraft = signal<WarRoomFilters>(createDefaultFilters());
   readonly filterApplied = signal<WarRoomFilters>(createDefaultFilters());
+  readonly expandedFilterSection = signal<'companies' | 'client' | 'manufacturer' | 'projectType' | null>(null);
 
   // Tactical mode: map-only view with bottom-center view toggle
   readonly tacticalMode = signal<boolean>(false);
@@ -178,9 +182,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     const filters = this.filterApplied();
     let count = filters.parentCompanyIds.length + filters.regions.length;
     if (filters.status !== 'all') count += 1;
-    if (filters.clientId !== 'all') count += 1;
-    if (filters.manufacturerId !== 'all') count += 1;
-    if (filters.projectType !== 'all') count += 1;
+    count += filters.clientIds.length + filters.manufacturerIds.length + filters.projectTypeIds.length;
     return count;
   });
 
@@ -218,23 +220,23 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       });
     });
 
-    // Client
-    if (filters.clientId !== 'all') {
-      const clients = this.clientsSignal();
-      const client = clients.find((c) => c.id === filters.clientId);
-      const name = client ? client.name : filters.clientId;
-      items.push({ type: 'client', label: `Client: ${name}`, value: filters.clientId });
-    }
+    // Clients
+    const clients = this.clientsSignal();
+    filters.clientIds.forEach(id => {
+      const client = clients.find((c) => c.id === id);
+      const name = client ? client.name : id;
+      items.push({ type: 'client', label: `Client: ${name}`, value: id });
+    });
 
-    // Manufacturer
-    if (filters.manufacturerId !== 'all') {
-      items.push({ type: 'manufacturer', label: `Manufacturer: ${filters.manufacturerId}`, value: filters.manufacturerId });
-    }
+    // Manufacturers
+    filters.manufacturerIds.forEach(id => {
+      items.push({ type: 'manufacturer', label: `Manufacturer: ${id}`, value: id });
+    });
 
-    // Project Type
-    if (filters.projectType !== 'all') {
-      items.push({ type: 'projectType', label: `Project Type: ${filters.projectType}`, value: filters.projectType });
-    }
+    // Project Types
+    filters.projectTypeIds.forEach(id => {
+      items.push({ type: 'projectType', label: `Project Type: ${id}`, value: id });
+    });
 
     return items;
   });
@@ -270,11 +272,20 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     const filters = this.filterApplied();
     const nodes = this.nodesWithClients();
     const viewMode = this.mapViewMode();
+    const routes = this.projectRoutes();
+    const projectFiltersActive =
+      filters.clientIds.length > 0 || filters.manufacturerIds.length > 0 || filters.projectTypeIds.length > 0;
+    const routeTargetIds = projectFiltersActive ? new Set(routes.map((r) => r.toNodeId)) : null;
 
     const result = nodes.filter((node) => {
       // Client nodes (from project routes) always visible in factory view
       if (node.level === 'client') {
         return viewMode === 'factory';
+      }
+
+      // When project filters are active, only show factory nodes that appear in filtered project routes
+      if (routeTargetIds && !routeTargetIds.has(node.id)) {
+        return false;
       }
 
       const companyMatch = this.matchesParentCompanyFilterForNode(node, filters.parentCompanyIds);
@@ -500,9 +511,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         factories.map((f) => [f.id, { latitude: f.coordinates.latitude, longitude: f.coordinates.longitude }])
       );
       const projectFilters = {
-        clientId: filters.clientId !== 'all' ? filters.clientId : undefined,
-        projectType: filters.projectType !== 'all' ? filters.projectType : undefined,
-        manufacturer: filters.manufacturerId !== 'all' ? filters.manufacturerId : undefined,
+        clientIds: filters.clientIds.length ? filters.clientIds : undefined,
+        manufacturerIds: filters.manufacturerIds.length ? filters.manufacturerIds : undefined,
+        projectTypeIds: filters.projectTypeIds.length ? filters.projectTypeIds : undefined,
       };
       const sub = this.projectService
         .getProjectsForMap(clientCoords, factoryCoords, projectFilters)
@@ -518,9 +529,19 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       try {
         const defaults = createDefaultFilters();
         const parsed = { ...defaults, ...JSON.parse(saved) };
-        parsed.clientId = parsed.clientId ?? 'all';
-        parsed.manufacturerId = parsed.manufacturerId ?? 'all';
-        parsed.projectType = parsed.projectType ?? 'all';
+        // Migrate legacy single-string filters to arrays
+        if (parsed.clientIds == null && parsed.clientId != null) {
+          parsed.clientIds = parsed.clientId === 'all' ? [] : [parsed.clientId];
+        }
+        if (parsed.manufacturerIds == null && parsed.manufacturerId != null) {
+          parsed.manufacturerIds = parsed.manufacturerId === 'all' ? [] : [parsed.manufacturerId];
+        }
+        if (parsed.projectTypeIds == null && parsed.projectType != null) {
+          parsed.projectTypeIds = parsed.projectType === 'all' ? [] : [parsed.projectType];
+        }
+        parsed.clientIds = parsed.clientIds ?? [];
+        parsed.manufacturerIds = parsed.manufacturerIds ?? [];
+        parsed.projectTypeIds = parsed.projectTypeIds ?? [];
         this.filterApplied.set(parsed);
         this.filterDraft.set(parsed);
       } catch (e) {
@@ -714,12 +735,17 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         parentCompanyIds: [...applied.parentCompanyIds],
         status: applied.status,
         regions: [...applied.regions],
-        clientId: applied.clientId ?? 'all',
-        manufacturerId: applied.manufacturerId ?? 'all',
-        projectType: applied.projectType ?? 'all',
+        clientIds: [...applied.clientIds],
+        manufacturerIds: [...applied.manufacturerIds],
+        projectTypeIds: [...applied.projectTypeIds],
       });
     }
     this.filtersPanelVisible.set(!wasOpen);
+  }
+
+  toggleFilterSection(section: 'companies' | 'client' | 'manufacturer' | 'projectType'): void {
+    const current = this.expandedFilterSection();
+    this.expandedFilterSection.set(current === section ? null : section);
   }
 
   toggleParentCompany(parentGroupId: string): void {
@@ -773,24 +799,45 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       parentCompanyIds: [...draft.parentCompanyIds],
       status: draft.status,
       regions: [...draft.regions],
-      clientId: draft.clientId ?? 'all',
-      manufacturerId: draft.manufacturerId ?? 'all',
-      projectType: draft.projectType ?? 'all',
+      clientIds: [...draft.clientIds],
+      manufacturerIds: [...draft.manufacturerIds],
+      projectTypeIds: [...draft.projectTypeIds],
     });
     this.filtersPanelVisible.set(false);
     this.announce('Filters applied. ' + this.activeFilterCount() + ' filters active.');
   }
 
-  setClientFilter(value: string): void {
-    this.filterDraft.update((f) => ({ ...f, clientId: value }));
+  toggleClient(clientId: string): void {
+    this.filterDraft.update((filters) => {
+      const nextIds = new Set(filters.clientIds);
+      if (nextIds.has(clientId)) nextIds.delete(clientId);
+      else nextIds.add(clientId);
+      const next = { ...filters, clientIds: Array.from(nextIds) };
+      this.filterApplied.set({ ...this.filterApplied(), clientIds: next.clientIds });
+      return next;
+    });
   }
 
-  setManufacturerFilter(value: string): void {
-    this.filterDraft.update((f) => ({ ...f, manufacturerId: value }));
+  toggleManufacturer(manufacturerId: string): void {
+    this.filterDraft.update((filters) => {
+      const nextIds = new Set(filters.manufacturerIds);
+      if (nextIds.has(manufacturerId)) nextIds.delete(manufacturerId);
+      else nextIds.add(manufacturerId);
+      const next = { ...filters, manufacturerIds: Array.from(nextIds) };
+      this.filterApplied.set({ ...this.filterApplied(), manufacturerIds: next.manufacturerIds });
+      return next;
+    });
   }
 
-  setProjectTypeFilter(value: string): void {
-    this.filterDraft.update((f) => ({ ...f, projectType: value }));
+  toggleProjectType(projectTypeId: string): void {
+    this.filterDraft.update((filters) => {
+      const nextIds = new Set(filters.projectTypeIds);
+      if (nextIds.has(projectTypeId)) nextIds.delete(projectTypeId);
+      else nextIds.add(projectTypeId);
+      const next = { ...filters, projectTypeIds: Array.from(nextIds) };
+      this.filterApplied.set({ ...this.filterApplied(), projectTypeIds: next.projectTypeIds });
+      return next;
+    });
   }
 
   resetFilters(): void {
@@ -810,11 +857,11 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     if (item.type === 'status') {
       next.status = 'all';
     } else if (item.type === 'client') {
-      next.clientId = 'all';
+      next.clientIds = next.clientIds.filter((id) => id !== item.value);
     } else if (item.type === 'manufacturer') {
-      next.manufacturerId = 'all';
+      next.manufacturerIds = next.manufacturerIds.filter((id) => id !== item.value);
     } else if (item.type === 'projectType') {
-      next.projectType = 'all';
+      next.projectTypeIds = next.projectTypeIds.filter((id) => id !== item.value);
     } else if (item.type === 'region') {
       next.regions = next.regions.filter(r => r !== item.value);
     } else if (item.type === 'company') {

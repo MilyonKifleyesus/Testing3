@@ -16,14 +16,14 @@ export class WarRoomProjectHudComponent {
   /** Optional: pre-filtered projects. If not set, fetches from ProjectService */
   projectsInput = input<Project[] | null>(null);
 
-  /** Filter by client ID */
-  clientId = input<string>('all');
+  /** Filter by client IDs */
+  clientIds = input<string[]>([]);
 
-  /** Filter by manufacturer (Project.manufacturer) */
-  manufacturerId = input<string>('all');
+  /** Filter by manufacturers (Project.manufacturer) */
+  manufacturerIds = input<string[]>([]);
 
-  /** Filter by project type (assessmentType) */
-  projectType = input<string>('all');
+  /** Filter by project types (assessmentType) */
+  projectTypeIds = input<string[]>([]);
 
   /** Project ID to highlight (from map/HUD sync) */
   selectedProjectId = input<string | null>(null);
@@ -49,13 +49,13 @@ export class WarRoomProjectHudComponent {
 
   constructor() {
     effect(() => {
-      const clientId = this.clientId();
-      const manufacturerId = this.manufacturerId();
-      const projectType = this.projectType();
+      const clientIds = this.clientIds();
+      const manufacturerIds = this.manufacturerIds();
+      const projectTypeIds = this.projectTypeIds();
       const filters = {
-        clientId: clientId !== 'all' ? clientId : undefined,
-        manufacturer: manufacturerId !== 'all' ? manufacturerId : undefined,
-        projectType: projectType !== 'all' ? projectType : undefined,
+        clientIds: clientIds.length ? clientIds : undefined,
+        manufacturerIds: manufacturerIds.length ? manufacturerIds : undefined,
+        projectTypeIds: projectTypeIds.length ? projectTypeIds : undefined,
       };
       const sub = this.projectService.getProjects(filters).subscribe((list) => this.projects.set(list));
       return () => sub.unsubscribe();
