@@ -6,6 +6,7 @@ import { ProjectRoute } from '../models/war-room.interface';
 export interface ProjectFilters {
   clientId?: string;
   projectType?: string; // assessmentType value
+  manufacturer?: string; // Project.manufacturer e.g. Nova Bus, New Flyer, ARBOC
   status?: Project['status'];
 }
 
@@ -41,6 +42,9 @@ export class ProjectService {
     if (filters?.projectType && filters.projectType !== 'all') {
       result = result.filter((p) => p.assessmentType === filters!.projectType);
     }
+    if (filters?.manufacturer && filters.manufacturer !== 'all') {
+      result = result.filter((p) => p.manufacturer === filters!.manufacturer);
+    }
     if (filters?.status) {
       result = result.filter((p) => p.status === filters.status);
     }
@@ -75,12 +79,28 @@ export class ProjectService {
     );
   }
 
+  getProjectTypes(): Observable<string[]> {
+    return this.getProjects({}).pipe(
+      map((projects) => [...new Set(projects.map((p) => p.assessmentType).filter((v): v is string => !!v))].sort())
+    );
+  }
+
+  getManufacturers(): Observable<string[]> {
+    return this.getProjects({}).pipe(
+      map((projects) => [...new Set(projects.map((p) => p.manufacturer).filter((v): v is string => !!v))].sort())
+    );
+  }
+
   /**
    * Returns projects with resolved coordinates for map route drawing.
    * Resolves client coords from ClientService, factory coords from War Room FactoryLocation.
    */
-  getProjectsForMap(clientCoordinates: Map<string, { latitude: number; longitude: number }>, factoryCoordinates: Map<string, { latitude: number; longitude: number }>): Observable<ProjectRoute[]> {
-    return this.getProjects({}).pipe(
+  getProjectsForMap(
+    clientCoordinates: Map<string, { latitude: number; longitude: number }>,
+    factoryCoordinates: Map<string, { latitude: number; longitude: number }>,
+    filters?: ProjectFilters
+  ): Observable<ProjectRoute[]> {
+    return this.getProjects(filters ?? {}).pipe(
       map((projects) => {
         const routes: ProjectRoute[] = [];
         for (const p of projects) {

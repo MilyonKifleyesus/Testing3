@@ -1,4 +1,4 @@
-import { Component, signal, computed, inject, input, output } from '@angular/core';
+import { Component, signal, computed, inject, input, output, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Project } from '../../../../models/project.model';
 import { ProjectService } from '../../../../services/project.service';
@@ -15,6 +15,15 @@ export class WarRoomProjectHudComponent {
 
   /** Optional: pre-filtered projects. If not set, fetches from ProjectService */
   projectsInput = input<Project[] | null>(null);
+
+  /** Filter by client ID */
+  clientId = input<string>('all');
+
+  /** Filter by manufacturer (Project.manufacturer) */
+  manufacturerId = input<string>('all');
+
+  /** Filter by project type (assessmentType) */
+  projectType = input<string>('all');
 
   /** Project ID to highlight (from map/HUD sync) */
   selectedProjectId = input<string | null>(null);
@@ -39,11 +48,18 @@ export class WarRoomProjectHudComponent {
   });
 
   constructor() {
-    this.loadProjects();
-  }
-
-  private loadProjects(): void {
-    this.projectService.getProjects({}).subscribe((list) => this.projects.set(list));
+    effect(() => {
+      const clientId = this.clientId();
+      const manufacturerId = this.manufacturerId();
+      const projectType = this.projectType();
+      const filters = {
+        clientId: clientId !== 'all' ? clientId : undefined,
+        manufacturer: manufacturerId !== 'all' ? manufacturerId : undefined,
+        projectType: projectType !== 'all' ? projectType : undefined,
+      };
+      const sub = this.projectService.getProjects(filters).subscribe((list) => this.projects.set(list));
+      return () => sub.unsubscribe();
+    });
   }
 
   toggleCollapsed(): void {

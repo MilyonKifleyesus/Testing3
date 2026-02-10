@@ -21,7 +21,7 @@ import { OperationalStatus } from '../../../shared/models/war-room.interface';
 type FilterStatus = 'all' | 'active' | 'inactive';
 
 export interface ActiveFilterItem {
-  type: 'status' | 'region' | 'company';
+  type: 'status' | 'region' | 'company' | 'client' | 'manufacturer' | 'projectType';
   label: string;
   value: string;
 }
@@ -30,12 +30,18 @@ interface WarRoomFilters {
   parentCompanyIds: string[];
   status: FilterStatus;
   regions: string[];
+  clientId: string;
+  manufacturerId: string;
+  projectType: string;
 }
 
 const createDefaultFilters = (): WarRoomFilters => ({
   parentCompanyIds: [],
   status: 'all',
   regions: [],
+  clientId: 'all',
+  manufacturerId: 'all',
+  projectType: 'all',
 });
 
 @Component({
@@ -66,7 +72,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   private companyLocationService = inject(CompanyLocationService);
   private toastr = inject(ToastrService);
 
-  private readonly clientsSignal = toSignal(this.clientService.getClients(), { initialValue: [] });
+  readonly clientsSignal = toSignal(this.clientService.getClients(), { initialValue: [] });
+  readonly projectTypesSignal = toSignal(this.projectService.getProjectTypes(), { initialValue: [] });
+  readonly manufacturersSignal = toSignal(this.projectService.getManufacturers(), { initialValue: [] });
   readonly projectRoutes = signal<ProjectRoute[]>([]);
   readonly selectedProjectId = signal<string | null>(null);
 
@@ -169,9 +177,10 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly activeFilterCount = computed(() => {
     const filters = this.filterApplied();
     let count = filters.parentCompanyIds.length + filters.regions.length;
-    if (filters.status !== 'all') {
-      count += 1;
-    }
+    if (filters.status !== 'all') count += 1;
+    if (filters.clientId !== 'all') count += 1;
+    if (filters.manufacturerId !== 'all') count += 1;
+    if (filters.projectType !== 'all') count += 1;
     return count;
   });
 
@@ -208,6 +217,24 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         value: id
       });
     });
+
+    // Client
+    if (filters.clientId !== 'all') {
+      const clients = this.clientsSignal();
+      const client = clients.find((c) => c.id === filters.clientId);
+      const name = client ? client.name : filters.clientId;
+      items.push({ type: 'client', label: `Client: ${name}`, value: filters.clientId });
+    }
+
+    // Manufacturer
+    if (filters.manufacturerId !== 'all') {
+      items.push({ type: 'manufacturer', label: `Manufacturer: ${filters.manufacturerId}`, value: filters.manufacturerId });
+    }
+
+    // Project Type
+    if (filters.projectType !== 'all') {
+      items.push({ type: 'projectType', label: `Project Type: ${filters.projectType}`, value: filters.projectType });
+    }
 
     return items;
   });
@@ -459,6 +486,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     effect(() => {
       const clients = this.clientsSignal();
       const factories = this.factories();
+      const filters = this.filterApplied();
       if (!clients?.length || !factories?.length) {
         this.projectRoutes.set([]);
         return;
@@ -471,19 +499,28 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       const factoryCoords = new Map(
         factories.map((f) => [f.id, { latitude: f.coordinates.latitude, longitude: f.coordinates.longitude }])
       );
+      const projectFilters = {
+        clientId: filters.clientId !== 'all' ? filters.clientId : undefined,
+        projectType: filters.projectType !== 'all' ? filters.projectType : undefined,
+        manufacturer: filters.manufacturerId !== 'all' ? filters.manufacturerId : undefined,
+      };
       const sub = this.projectService
-        .getProjectsForMap(clientCoords, factoryCoords)
+        .getProjectsForMap(clientCoords, factoryCoords, projectFilters)
         .subscribe((routes) => this.projectRoutes.set(routes));
       return () => sub.unsubscribe();
     });
   }
 
   ngOnInit(): void {
-    // Load persisted filters
+    // Load persisted filters (merge with defaults for backward compatibility)
     const saved = localStorage.getItem(this.STORAGE_KEY);
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
+        const defaults = createDefaultFilters();
+        const parsed = { ...defaults, ...JSON.parse(saved) };
+        parsed.clientId = parsed.clientId ?? 'all';
+        parsed.manufacturerId = parsed.manufacturerId ?? 'all';
+        parsed.projectType = parsed.projectType ?? 'all';
         this.filterApplied.set(parsed);
         this.filterDraft.set(parsed);
       } catch (e) {
@@ -672,10 +709,14 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   toggleFiltersPanel(): void {
     const wasOpen = this.filtersPanelVisible();
     if (!wasOpen) {
+      const applied = this.filterApplied();
       this.filterDraft.set({
-        parentCompanyIds: [...this.filterApplied().parentCompanyIds],
-        status: this.filterApplied().status,
-        regions: [...this.filterApplied().regions],
+        parentCompanyIds: [...applied.parentCompanyIds],
+        status: applied.status,
+        regions: [...applied.regions],
+        clientId: applied.clientId ?? 'all',
+        manufacturerId: applied.manufacturerId ?? 'all',
+        projectType: applied.projectType ?? 'all',
       });
     }
     this.filtersPanelVisible.set(!wasOpen);
@@ -732,9 +773,24 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       parentCompanyIds: [...draft.parentCompanyIds],
       status: draft.status,
       regions: [...draft.regions],
+      clientId: draft.clientId ?? 'all',
+      manufacturerId: draft.manufacturerId ?? 'all',
+      projectType: draft.projectType ?? 'all',
     });
     this.filtersPanelVisible.set(false);
     this.announce('Filters applied. ' + this.activeFilterCount() + ' filters active.');
+  }
+
+  setClientFilter(value: string): void {
+    this.filterDraft.update((f) => ({ ...f, clientId: value }));
+  }
+
+  setManufacturerFilter(value: string): void {
+    this.filterDraft.update((f) => ({ ...f, manufacturerId: value }));
+  }
+
+  setProjectTypeFilter(value: string): void {
+    this.filterDraft.update((f) => ({ ...f, projectType: value }));
   }
 
   resetFilters(): void {
@@ -753,6 +809,12 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
     if (item.type === 'status') {
       next.status = 'all';
+    } else if (item.type === 'client') {
+      next.clientId = 'all';
+    } else if (item.type === 'manufacturer') {
+      next.manufacturerId = 'all';
+    } else if (item.type === 'projectType') {
+      next.projectType = 'all';
     } else if (item.type === 'region') {
       next.regions = next.regions.filter(r => r !== item.value);
     } else if (item.type === 'company') {
