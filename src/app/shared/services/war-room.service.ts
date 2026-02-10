@@ -404,6 +404,10 @@ export class WarRoomService {
       };
     }
 
+    if (selection.level === 'client') {
+      return { level: 'client', id: selection.id };
+    }
+
     return null;
   }
 
@@ -575,8 +579,9 @@ export class WarRoomService {
 
     if (normalized) {
       const currentViewMode = this._mapViewMode();
-      if (!(normalized.level === 'factory' && currentViewMode === 'subsidiary')) {
-        this._mapViewMode.set(normalized.level);
+      const validViewModes: MapViewMode[] = ['parent', 'subsidiary', 'factory'];
+      if (validViewModes.includes(normalized.level as MapViewMode) && !(normalized.level === 'factory' && currentViewMode === 'subsidiary')) {
+        this._mapViewMode.set(normalized.level as MapViewMode);
       }
     }
   }
@@ -1246,7 +1251,7 @@ export class WarRoomService {
   }
 
   /**
-   * Generate a unique factory ID from factory name
+   * Generate a unique factory ID from factory name (legacy format with timestamp)
    */
   generateFactoryId(factoryName: string): string {
     const slug = factoryName
@@ -1255,6 +1260,24 @@ export class WarRoomService {
       .replace(/^-+|-+$/g, '');
     const timestamp = Date.now();
     return `factory-${slug}-${timestamp}`;
+  }
+
+  /**
+   * Generate a manufacturer location ID compatible with Project.manufacturerLocationId
+   * Format: company-slug-city (e.g. nova-st-eustache, new-flyer-winnipeg)
+   */
+  generateManufacturerLocationId(...parts: string[]): string {
+    const slug = parts
+      .filter(Boolean)
+      .map((p) =>
+        p
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+      )
+      .filter(Boolean)
+      .join('-');
+    return slug || `factory-${Date.now()}`;
   }
 
   /**

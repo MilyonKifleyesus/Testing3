@@ -51,6 +51,19 @@ export class ProjectService {
     return this.getProjects({ clientId });
   }
 
+  getProjectsByFactory(manufacturerLocationId: string): Observable<Project[]> {
+    return of(
+      this.projects.filter((p) => p.manufacturerLocationId === manufacturerLocationId)
+    ).pipe(delay(100));
+  }
+
+  addProject(project: Omit<Project, 'id'>): Observable<Project> {
+    const nextId = Math.max(0, ...this.projects.map((p) => (typeof p.id === 'number' ? p.id : parseInt(String(p.id), 10) || 0))) + 1;
+    const newProject: Project = { ...project, id: nextId };
+    this.projects = [...this.projects, newProject];
+    return of(newProject).pipe(delay(100));
+  }
+
   getProjectCounts(clientId?: string): Observable<ProjectCounts> {
     return this.getProjects(clientId ? { clientId } : {}).pipe(
       map((projects) => ({

@@ -17,7 +17,9 @@
     <div class="project-hud-list" role="list">
       @for (project of filteredProjects(); track project.id) {
       <button type="button" class="project-hud-card btn-reset" (click)="onProjectClick(project)"
-        [attr.aria-label]="'Select project ' + project.projectName">
+        [class.selected]="(project.id + '') === selectedProjectId()"
+        [attr.aria-label]="'Select project ' + project.projectName"
+        [attr.aria-pressed]="(project.id + '') === selectedProjectId()">
         <div class="project-hud-card-header">
           <span class="project-hud-card-name">{{ project.projectName }}</span>
           <span class="project-hud-card-badge" [ngClass]="statusClass(project.status)">{{ project.status }}</span>

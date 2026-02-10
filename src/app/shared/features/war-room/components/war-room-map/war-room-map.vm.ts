@@ -1,8 +1,11 @@
 import { Node as WarRoomNode } from '../../../../models/war-room.interface';
 
+export type MarkerNodeType = 'client' | 'factory' | 'subsidiary' | 'parent';
+
 export interface MarkerVm {
     id: string; // Internal unique ID
     node: WarRoomNode; // Reference to original data
+    nodeType: MarkerNodeType;
     displayName: string;
     shortName: string;
     subLabel: string;

@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface RouteVm {
@@ -13,6 +13,8 @@ export interface RouteVm {
   dashArray?: string;
   /** Per-route stroke color for project routes (energy conduit styling) */
   strokeColor?: string;
+  /** Project ID for project routes (enables route click → select project) */
+  projectId?: string;
 }
 
 @Component({
@@ -26,4 +28,11 @@ export class WarRoomMapRoutesComponent {
   routes = input<RouteVm[]>([]);
   routeStroke = input<string>('#0ea5e9');
   routeFill = input<string>('#0ea5e9');
+  routeSelected = output<{ routeId: string; projectId?: string }>();
+
+  onRouteClick(route: RouteVm, event: MouseEvent): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.routeSelected.emit({ routeId: route.id, projectId: route.projectId });
+  }
 }

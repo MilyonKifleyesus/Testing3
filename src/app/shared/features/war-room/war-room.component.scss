@@ -334,6 +334,15 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   }
 }
 
+// Context panel overlay
+.war-room-context-panel-wrapper {
+  position: absolute;
+  top: 4rem;
+  right: 0.75rem;
+  z-index: 30;
+  pointer-events: auto;
+}
+
 // Project HUD overlay
 .war-room-project-hud-wrapper {
   position: absolute;

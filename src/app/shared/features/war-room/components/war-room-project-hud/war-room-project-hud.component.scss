@@ -116,6 +116,12 @@
     background: rgba(0, 255, 65, 0.1);
     border-color: rgba(0, 255, 65, 0.35);
   }
+
+  &.selected {
+    background: rgba(0, 255, 65, 0.15);
+    border-color: rgba(0, 255, 65, 0.5);
+    box-shadow: 0 0 0 1px rgba(0, 255, 65, 0.3);
+  }
 }
 
 .project-hud-card-header {

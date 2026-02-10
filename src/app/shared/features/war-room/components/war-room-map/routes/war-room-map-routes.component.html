@@ -24,7 +24,8 @@
 
     <g id="transit-routes-layer">
       @for (route of routes(); track route.id) {
-      <g class="transit-route-group" [style.--route-index]="route.index">
+      <g class="transit-route-group" [style.--route-index]="route.index" (click)="onRouteClick(route, $event)" style="cursor: pointer">
+        <path [attr.d]="route.path" class="route-click-target" fill="none" stroke="transparent" stroke-width="12" />
         <path [attr.d]="route.path" class="route-path animated-route" [class.highlighted]="route.highlighted"
           fill="none" [attr.stroke]="route.strokeColor ?? routeStroke()" [attr.stroke-width]="route.strokeWidth"
           [attr.stroke-dasharray]="route.dashArray || '1000'" stroke-dashoffset="1000" pathLength="1000">

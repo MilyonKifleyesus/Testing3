@@ -164,13 +164,22 @@
 
       @if (!tacticalMode()) {
       <div class="war-room-project-hud-wrapper">
-        <app-war-room-project-hud (projectSelected)="onProjectHudSelected($event)" />
+        <app-war-room-project-hud [selectedProjectId]="selectedProjectId()" (projectSelected)="onProjectHudSelected($event)" />
       </div>
+      @if (selectedProjectId() || selectedEntity()) {
+      <div class="war-room-context-panel-wrapper">
+        <app-war-room-context-panel [selectedEntity]="selectedEntity()" [selectedProjectId]="selectedProjectId()" />
+      </div>
+      }
+
+      @if (!tacticalMode()) {
+      <app-war-room-command-menu (actionTriggered)="onCommandAction($event)" />
+      }
       }
 
       <app-war-room-map class="war-room-map-fill" [nodes]="filteredNodes()" [selectedEntity]="selectedEntity()"
         [transitRoutes]="filteredTransitRoutes()" [projectRoutes]="projectRoutes()" [filterStatus]="filterApplied().status"
-        (nodeSelected)="onNodeSelected($event)"></app-war-room-map>
+        (nodeSelected)="onNodeSelected($event)" (routeSelected)="onRouteSelected($event)"></app-war-room-map>
 
       @if (filteredNodes().length === 0) {
       <div

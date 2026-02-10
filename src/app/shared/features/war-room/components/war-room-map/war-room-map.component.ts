@@ -9,7 +9,7 @@ import { WarRoomMapControlsComponent } from './controls/war-room-map-controls.co
 import { WarRoomMapTooltipComponent, TooltipVm } from './tooltip/war-room-map-tooltip.component';
 import { WarRoomMapMathService } from './services/war-room-map-math.service';
 import { WarRoomMapAssetsService } from './services/war-room-map-assets.service';
-import { MarkerVm } from './war-room-map.vm';
+import { MarkerVm, MarkerNodeType } from './war-room-map.vm';
 import { WarRoomMapRoutesComponent, RouteVm } from './routes/war-room-map-routes.component';
 import { WarRoomMapMarkersComponent } from './markers/war-room-map-markers.component';
 
@@ -19,6 +19,7 @@ interface RouteFeatureProperties {
   highlighted: boolean;
   routeId: string;
   strokeColor?: string;
+  projectId?: string;
 }
 
 interface RouteFeature {
@@ -57,6 +58,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   // Outputs
   nodeSelected = output<WarRoomNode | undefined>();
+  routeSelected = output<{ routeId: string; projectId?: string }>();
 
   private mapInstance: MapLibreMap | null = null;
   private mapLoaded = false;
@@ -447,6 +449,10 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     this.pinnedNodeId.set(null);
   }
 
+  onRouteSelected(payload: { routeId: string; projectId?: string }): void {
+    this.routeSelected.emit(payload);
+  }
+
   onMarkerLogoError(event: { node: WarRoomNode; logoPath: string }): void {
     const logoSource = this.getCompanyLogoSource(event.node);
     if (!logoSource || !event.logoPath) return;
@@ -636,6 +642,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         strokeWidth: feature.properties.strokeWidth || 1.5,
         dashArray: feature.properties.dashArray,
         strokeColor: feature.properties.strokeColor,
+        projectId: feature.properties.projectId,
       });
     });
 
@@ -700,9 +707,15 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const statusIconPath = isActive ? 'M 5,13 L 10,18 L 19,7' : 'M 6,6 L 18,18 M 18,6 L 6,18';
 
 
+    const nodeType: MarkerNodeType =
+      node.level === 'client' || node.clientId
+        ? 'client'
+        : (node.level ?? 'factory') as MarkerNodeType;
+
     return {
       id: node.id,
       node,
+      nodeType,
       displayName,
       shortName,
       subLabel,
@@ -937,6 +950,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
             strokeWidth: 2,
             highlighted,
             routeId: route.id,
+            projectId: route.projectId,
             strokeColor: route.strokeColor ?? (route.status === 'Open' ? '#5ad85a' : route.status === 'Delayed' ? '#ef4444' : '#94a3b8'),
           }
         });

@@ -5,12 +5,15 @@ import { WarRoomService } from '../../../shared/services/war-room.service';
 import { WarRoomRealtimeService } from '../../../shared/services/war-room-realtime.service';
 import { ClientService } from '../../../shared/services/client.service';
 import { ProjectService } from '../../../shared/services/project.service';
+import { CompanyLocationService } from '../../../shared/services/company-location.service';
 import { Node, ActivityLog, ParentGroup, FleetSelection, MapViewMode, SubsidiaryCompany, FactoryLocation, NodeStatus, ActivityStatus, TransitRoute, ProjectRoute } from '../../../shared/models/war-room.interface';
 import { Project } from '../../../shared/models/project.model';
 import { WarRoomMapComponent } from './components/war-room-map/war-room-map.component';
 import { WarRoomActivityLogComponent } from './components/war-room-activity-log/war-room-activity-log.component';
 import { WarRoomHubStatusComponent } from './components/war-room-hub-status/war-room-hub-status.component';
 import { WarRoomProjectHudComponent } from './components/war-room-project-hud/war-room-project-hud.component';
+import { WarRoomContextPanelComponent } from './components/war-room-context-panel/war-room-context-panel.component';
+import { WarRoomCommandMenuComponent, CommandAction } from './components/war-room-command-menu/war-room-command-menu.component';
 import { AddCompanyModalComponent, CompanyFormData } from './components/add-company-modal/add-company-modal.component';
 import { ToastrService } from 'ngx-toastr';
 import { OperationalStatus } from '../../../shared/models/war-room.interface';
@@ -44,6 +47,8 @@ const createDefaultFilters = (): WarRoomFilters => ({
     WarRoomActivityLogComponent,
     WarRoomHubStatusComponent,
     WarRoomProjectHudComponent,
+    WarRoomContextPanelComponent,
+    WarRoomCommandMenuComponent,
     AddCompanyModalComponent,
   ],
   templateUrl: './war-room.component.html',
@@ -58,10 +63,12 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   private realtimeService = inject(WarRoomRealtimeService);
   private clientService = inject(ClientService);
   private projectService = inject(ProjectService);
+  private companyLocationService = inject(CompanyLocationService);
   private toastr = inject(ToastrService);
 
   private readonly clientsSignal = toSignal(this.clientService.getClients(), { initialValue: [] });
   readonly projectRoutes = signal<ProjectRoute[]>([]);
+  readonly selectedProjectId = signal<string | null>(null);
 
   // Signals from service
   readonly nodes = this.warRoomService.nodes;
@@ -123,13 +130,38 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     return preferredOrder.filter((region) => regionSet.has(region));
   });
 
+  /** Nodes merged with client nodes when project routes exist */
+  readonly nodesWithClients = computed(() => {
+    const base = this.nodes();
+    const clients = this.clientsSignal();
+    const routes = this.projectRoutes();
+    if (!routes?.length || !clients?.length) return base;
+    const clientIdsInRoutes = new Set(routes.map((r) => r.fromNodeId));
+    const clientNodes: Node[] = clients
+      .filter((c) => c.coordinates && clientIdsInRoutes.has(c.id))
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        company: c.name,
+        companyId: c.id,
+        city: c.code || c.name,
+        coordinates: c.coordinates!,
+        type: 'Hub' as const,
+        status: 'ACTIVE' as const,
+        level: 'client' as const,
+        clientId: c.id,
+      }));
+    return [...base, ...clientNodes];
+  });
+
   private readonly nodeLookup = computed(() => {
     const nodeMap = new Map<string, Node>();
-    this.nodes().forEach(node => {
+    this.nodesWithClients().forEach((node) => {
       nodeMap.set(node.id, node);
       if (node.factoryId) nodeMap.set(node.factoryId, node);
       if (node.subsidiaryId) nodeMap.set(node.subsidiaryId, node);
       if (node.parentGroupId) nodeMap.set(node.parentGroupId, node);
+      if (node.clientId) nodeMap.set(node.clientId, node);
     });
     return nodeMap;
   });
@@ -209,37 +241,22 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   readonly filteredNodes = computed(() => {
     const filters = this.filterApplied();
-    const nodes = this.nodes();
+    const nodes = this.nodesWithClients();
     const viewMode = this.mapViewMode();
 
-    console.log('[WarRoom] --- Filtering Nodes ---');
-    console.log('[WarRoom] Current Mode:', viewMode);
-    console.log('[WarRoom] Applied Filters:', {
-      companies: filters.parentCompanyIds,
-      regions: filters.regions,
-      status: filters.status
-    });
-
     const result = nodes.filter((node) => {
+      // Client nodes (from project routes) always visible in factory view
+      if (node.level === 'client') {
+        return viewMode === 'factory';
+      }
+
       const companyMatch = this.matchesParentCompanyFilterForNode(node, filters.parentCompanyIds);
       const isFleetZero = node.id === 'fleetzero' || node.subsidiaryId === 'fleetzero';
       const statusMatch = isFleetZero || this.matchesStatus(node.status, filters.status);
       const regionMatch = this.matchesRegionsForNode(node, filters.regions);
 
-      const isVisible = companyMatch && statusMatch && regionMatch;
-
-      // Small tactical log for single items if needed (disabled by default for noise)
-      // if (!isVisible) console.log(`[WarRoom] Hidden: ${node.name} (Level: ${node.level}, CompanyMatch: ${companyMatch}, StatusMatch: ${statusMatch}, RegionMatch: ${regionMatch})`);
-
-      return isVisible;
+      return companyMatch && statusMatch && regionMatch;
     });
-
-    console.log('[WarRoom] Result:', {
-      in: nodes.length,
-      out: result.length,
-      hidden: nodes.length - result.length
-    });
-    console.log('[WarRoom] -----------------------');
 
     return result;
   });
@@ -779,7 +796,34 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   /**
    * Handle node selection from map
    */
+  onCommandAction(action: CommandAction): void {
+    switch (action) {
+      case 'addCompany':
+        this.onAddCompanyRequested();
+        break;
+      case 'panels':
+        this.togglePanels();
+        break;
+      case 'filters':
+        this.toggleFiltersPanel();
+        break;
+      case 'tactical':
+        this.toggleTacticalMode();
+        break;
+      case 'expandMap':
+        this.toggleMapExpanded();
+        break;
+    }
+  }
+
+  onRouteSelected(payload: { routeId: string; projectId?: string }): void {
+    if (payload.projectId) {
+      this.selectedProjectId.set(payload.projectId);
+    }
+  }
+
   onProjectHudSelected(project: Project): void {
+    this.selectedProjectId.set(String(project.id));
     if (project.manufacturerLocationId) {
       this.warRoomService.setMapViewMode('factory');
       this.warRoomService.selectEntity({
@@ -805,8 +849,24 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         factoryId: node.factoryId,
       };
       this.onEntitySelected(selection);
+
+      // Sync selectedProjectId: factory → first matching project
+      if (node.factoryId) {
+        this.projectService.getProjectsByFactory(node.factoryId).subscribe((projects) => {
+          const first = projects[0];
+          this.selectedProjectId.set(first ? String(first.id) : null);
+        });
+      } else if (node.level === 'client' || node.clientId) {
+        this.projectService.getProjectsByClient(node.companyId).subscribe((projects) => {
+          const first = projects[0];
+          this.selectedProjectId.set(first ? String(first.id) : null);
+        });
+      } else {
+        this.selectedProjectId.set(null);
+      }
     } else {
       this.warRoomService.selectEntity(null);
+      this.selectedProjectId.set(null);
     }
   }
 
@@ -1164,7 +1224,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         }
 
         const { city: subCity, country: subCountry, fullLocation: subFullLocation } = this.parseLocationParts(subLocation.location);
-        const subFactoryId = this.warRoomService.generateFactoryId(`${companyName}-${subLocation.name}-${subLocation.location}`);
+        const subFactoryId = this.warRoomService.generateManufacturerLocationId(companyName, subLocation.name || '', subCity || subLocation.location);
         const factoryName = subLocation.name || `${companyName} - ${subCity}`;
         const factoryStatus = this.mapSubLocationStatusToNode(subLocation.status);
 
@@ -1242,6 +1302,37 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       };
 
       this.warRoomService.addSubsidiary(newSubsidiary);
+
+      // Sync to CompanyLocationService for address management and project linking
+      this.companyLocationService.addCompany({
+        name: companyName,
+        description: formData.description?.trim(),
+      }).subscribe({
+        next: (company) => {
+          this.companyLocationService.addLocation({
+            companyId: company.id,
+            fullStreetAddress: fullLocation || `${city}, ${country}`,
+            city: city || 'Unknown',
+            country: country || undefined,
+            coordinates: this.isValidCoordinates(locationData) ? locationData : undefined,
+            manufacturerLocationId: factoryId,
+          }).subscribe();
+          for (const [index, subLocation] of subLocations.entries()) {
+            const { city: subCity, country: subCountry, fullLocation: subFullLocation } = this.parseLocationParts(subLocation.location);
+            const subFactory = additionalFactories[index];
+            if (subFactory) {
+              this.companyLocationService.addLocation({
+                companyId: company.id,
+                fullStreetAddress: subFullLocation || `${subCity}, ${subCountry}`,
+                city: subCity || 'Unknown',
+                country: subCountry || undefined,
+                manufacturerLocationId: subFactory.id,
+              }).subscribe();
+            }
+          }
+        },
+      });
+
       this.warRoomService.addActivityLog({
         id: `log-${factoryId}`,
         timestamp: new Date(),

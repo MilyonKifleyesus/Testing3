@@ -16,6 +16,9 @@ export class WarRoomProjectHudComponent {
   /** Optional: pre-filtered projects. If not set, fetches from ProjectService */
   projectsInput = input<Project[] | null>(null);
 
+  /** Project ID to highlight (from map/HUD sync) */
+  selectedProjectId = input<string | null>(null);
+
   projectSelected = output<Project>();
 
   readonly collapsed = signal<boolean>(false);

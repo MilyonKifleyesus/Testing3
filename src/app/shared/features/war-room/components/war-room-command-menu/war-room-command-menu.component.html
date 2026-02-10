@@ -1,0 +1,32 @@
+<div class="command-menu" [class.expanded]="expanded()">
+  <button type="button" class="command-fab" (click)="toggle()"
+    [attr.aria-label]="expanded() ? 'Close command menu' : 'Open command menu'"
+    [attr.aria-expanded]="expanded()">
+    <i class="fe fe-plus" aria-hidden="true"></i>
+  </button>
+
+  @if (expanded()) {
+  <div class="command-actions">
+    <button type="button" class="command-action" (click)="onAction('addCompany')" aria-label="Add Company">
+      <i class="fe fe-plus-circle" aria-hidden="true"></i>
+      <span>Add Company</span>
+    </button>
+    <button type="button" class="command-action" (click)="onAction('panels')" aria-label="Panels">
+      <i class="fe fe-layers" aria-hidden="true"></i>
+      <span>Panels</span>
+    </button>
+    <button type="button" class="command-action" (click)="onAction('filters')" aria-label="Filters">
+      <i class="fe fe-filter" aria-hidden="true"></i>
+      <span>Filters</span>
+    </button>
+    <button type="button" class="command-action" (click)="onAction('tactical')" aria-label="Tactical">
+      <i class="fe fe-crosshair" aria-hidden="true"></i>
+      <span>Tactical</span>
+    </button>
+    <button type="button" class="command-action" (click)="onAction('expandMap')" aria-label="Expand Map">
+      <i class="fe fe-maximize-2" aria-hidden="true"></i>
+      <span>Expand Map</span>
+    </button>
+  </div>
+  }
+</div>

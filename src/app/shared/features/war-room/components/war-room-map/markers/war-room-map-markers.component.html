@@ -2,6 +2,8 @@
   @for (m of markers(); track m.id) {
     <div
       class="marker-container marker-group {{ m.lodClass }} {{ m.statusKey }}"
+      [class.marker-client]="m.nodeType === 'client'"
+      [class.marker-factory]="m.nodeType === 'factory' || m.nodeType === 'subsidiary' || m.nodeType === 'parent'"
       [class.selected]="m.isSelected"
       [class.hovered]="m.isHovered"
       [class.hq]="m.isHQ"
@@ -34,6 +36,23 @@
               <circle class="marker-dot-ring" cx="0" cy="0" r="6.5" fill="rgba(8, 12, 16, 0.75)" [attr.stroke]="m.statusColor" stroke-width="1.5"></circle>
               <circle class="marker-dot-core" cx="0" cy="0" r="3.5" [attr.fill]="m.statusColor"></circle>
             </g>
+            @if (m.nodeType === 'client') {
+            <g class="marker-shell marker-client-shape">
+              <polygon class="marker-client-diamond" points="0,-14 12,0 0,14 -12,0" [attr.stroke]="m.statusColor" fill="rgba(8, 12, 16, 0.85)" stroke-width="2"></polygon>
+              <g class="marker-logo">
+                <defs>
+                  <clipPath [id]="'logo-clip-client-' + m.id">
+                    <polygon points="0,-9 8,0 0,9 -8,0" />
+                  </clipPath>
+                </defs>
+                @if (m.hasLogo) {
+                  <image class="marker-logo-image" [attr.href]="m.logoPath" x="-8" y="-9" width="16" height="18" [attr.clip-path]="'url(#logo-clip-client-' + m.id + ')'" preserveAspectRatio="xMidYMid slice" (error)="onLogoError(m.node, m.logoPath)" />
+                } @else {
+                  <text class="marker-initials marker-client-initials" text-anchor="middle" dominant-baseline="central" y="0.5">{{ m.initials }}</text>
+                }
+              </g>
+            </g>
+            } @else {
             <g class="marker-shell">
               @if (m.statusKey === 'online') {
                 <circle class="marker-pulse" cx="0" cy="0" r="20"></circle>
@@ -78,6 +97,7 @@
                 <circle class="pin-core" r="2.2"></circle>
               </g>
             </g>
+            }
           </g>
           @if (m.showPinLabel) {
             <g class="marker-tag" transform="translate(0, -47) scale(0.65) translate(0, 13)">
