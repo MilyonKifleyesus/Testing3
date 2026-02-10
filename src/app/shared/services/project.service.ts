@@ -48,7 +48,7 @@ export class ProjectService {
     let result = [...this.projects];
     // Array filters take precedence when non-empty
     if (filters?.clientIds?.length) {
-      result = result.filter((p) => filters.clientIds!.includes(p.clientId));
+      result = result.filter((p) => p.clientId != null && filters.clientIds!.includes(p.clientId));
     } else if (filters?.clientId && filters.clientId !== 'all') {
       result = result.filter((p) => p.clientId === filters.clientId);
     }

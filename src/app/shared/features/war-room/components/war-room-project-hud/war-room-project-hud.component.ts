@@ -48,18 +48,26 @@ export class WarRoomProjectHudComponent {
   });
 
   constructor() {
-    effect(() => {
-      const clientIds = this.clientIds();
-      const manufacturerIds = this.manufacturerIds();
-      const projectTypeIds = this.projectTypeIds();
-      const filters = {
-        clientIds: clientIds.length ? clientIds : undefined,
-        manufacturerIds: manufacturerIds.length ? manufacturerIds : undefined,
-        projectTypeIds: projectTypeIds.length ? projectTypeIds : undefined,
-      };
-      const sub = this.projectService.getProjects(filters).subscribe((list) => this.projects.set(list));
-      return () => sub.unsubscribe();
-    });
+    effect(
+      (onCleanup) => {
+        const inputProjects = this.projectsInput();
+        if (inputProjects != null) {
+          this.projects.set(inputProjects);
+          return;
+        }
+        const clientIds = this.clientIds();
+        const manufacturerIds = this.manufacturerIds();
+        const projectTypeIds = this.projectTypeIds();
+        const filters = {
+          clientIds: clientIds.length ? clientIds : undefined,
+          manufacturerIds: manufacturerIds.length ? manufacturerIds : undefined,
+          projectTypeIds: projectTypeIds.length ? projectTypeIds : undefined,
+        };
+        const sub = this.projectService.getProjects(filters).subscribe((list) => this.projects.set(list));
+        onCleanup(() => sub.unsubscribe());
+      },
+      { allowSignalWrites: true }
+    );
   }
 
   toggleCollapsed(): void {
