@@ -13,32 +13,64 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: rgba(8, 12, 16, 0.85);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(8, 12, 16, 0.9);
+  border: 1px solid rgba(0, 255, 65, 0.3);
   color: var(--cm-text, #e2e8f0);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 
+              0 0 20px rgba(0, 255, 65, 0.15),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+
+  // Holographic ring
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    background: conic-gradient(
+      from 0deg,
+      rgba(0, 255, 65, 0.4),
+      transparent 90deg,
+      transparent 270deg,
+      rgba(0, 255, 65, 0.4)
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+  }
 
   i {
     font-size: 1.5rem;
     transition: transform 0.2s ease;
+    position: relative;
+    z-index: 1;
   }
 
   &:hover {
-    background: rgba(0, 255, 65, 0.15);
-    border-color: rgba(0, 255, 65, 0.4);
+    background: rgba(0, 255, 65, 0.2);
+    border-color: rgba(0, 255, 65, 0.6);
     color: var(--cm-primary, #00ff41);
+    transform: scale(1.05);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6), 
+                0 0 30px rgba(0, 255, 65, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15);
+
+    &::before {
+      opacity: 1;
+    }
   }
 
   &:focus-visible {
     outline: 2px solid var(--cm-primary, #00ff41);
-    outline-offset: 2px;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 4px rgba(0, 255, 65, 0.2);
   }
 }
 
@@ -69,30 +101,59 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.5rem 0.85rem;
-  background: rgba(8, 12, 16, 0.85);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(8, 12, 16, 0.9);
+  border: 1px solid rgba(0, 255, 65, 0.25);
   border-radius: var(--cm-radius-sm, 8px);
   color: var(--cm-text, #e2e8f0);
   font-size: 0.8rem;
   font-family: 'JetBrains Mono', monospace;
   cursor: pointer;
   white-space: nowrap;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: background 0.15s ease, border-color 0.15s ease;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+
+  // Holographic effect on left edge
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, 
+      rgba(0, 255, 65, 0.8), 
+      rgba(0, 255, 65, 0.2));
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
 
   i {
     font-size: 1rem;
+    transition: transform 0.2s ease;
   }
 
   &:hover {
-    background: rgba(0, 255, 65, 0.12);
-    border-color: rgba(0, 255, 65, 0.4);
+    background: rgba(0, 255, 65, 0.15);
+    border-color: rgba(0, 255, 65, 0.5);
     color: var(--cm-primary, #00ff41);
+    transform: translateX(-3px);
+    box-shadow: 0 4px 12px rgba(0, 255, 65, 0.15);
+
+    &::before {
+      opacity: 1;
+    }
+
+    i {
+      transform: scale(1.1);
+    }
   }
 
   &:focus-visible {
     outline: 2px solid var(--cm-primary, #00ff41);
     outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(0, 255, 65, 0.15);
   }
 }
