@@ -1,7 +1,7 @@
 import { Component, input, output, AfterViewInit, OnDestroy, inject, effect, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
-import { Node as WarRoomNode, FleetSelection, TransitRoute } from '../../../../models/war-room.interface';
+import { Node as WarRoomNode, FleetSelection, TransitRoute, ProjectRoute } from '../../../../models/war-room.interface';
 import { WarRoomService } from '../../../../services/war-room.service';
 import { AppStateService } from '../../../../services/app-state.service';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -18,6 +18,7 @@ interface RouteFeatureProperties {
   dashArray?: string;
   highlighted: boolean;
   routeId: string;
+  strokeColor?: string;
 }
 
 interface RouteFeature {
@@ -51,6 +52,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   nodes = input<WarRoomNode[]>([]);
   selectedEntity = input<FleetSelection | null>(null);
   transitRoutes = input<TransitRoute[]>([]);
+  projectRoutes = input<ProjectRoute[]>([]);
   filterStatus = input<'all' | 'active' | 'inactive'>('all');
 
   // Outputs
@@ -171,10 +173,12 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       const selected = this.selectedEntity();
       const hovered = this.warRoomService.hoveredEntity();
       const routes = this.transitRoutes();
+      const projectRoutes = this.projectRoutes();
       const status = this.filterStatus();
       void selected;
       void hovered;
       void routes;
+      void projectRoutes;
       void status;
       if (this.mapInstance && this.mapLoaded && !this.destroyed) {
         this.scheduleOverlayUpdate(false);
@@ -631,6 +635,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         highlighted: feature.properties.highlighted,
         strokeWidth: feature.properties.strokeWidth || 1.5,
         dashArray: feature.properties.dashArray,
+        strokeColor: feature.properties.strokeColor,
       });
     });
 
@@ -904,13 +909,47 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   }
 
   private buildRouteFeatures(nodes: WarRoomNode[]): RouteFeatureCollection {
-    const routes = this.transitRoutes();
+    const transitRoutes = this.transitRoutes();
+    const projectRoutes = this.projectRoutes();
     const selected = this.selectedEntity();
     const features: RouteFeature[] = [];
 
-    if (!routes || routes.length === 0) {
+    const addProjectRouteFeatures = (): void => {
+      if (!projectRoutes?.length) return;
+      for (const route of projectRoutes) {
+        if (!this.isValidCoordinates(route.fromCoordinates) || !this.isValidCoordinates(route.toCoordinates)) continue;
+        const highlighted = !!selected && (
+          route.fromNodeId === selected.id ||
+          route.toNodeId === selected.id ||
+          route.fromNodeId === selected.factoryId ||
+          route.toNodeId === selected.factoryId
+        );
+        features.push({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [route.fromCoordinates.longitude, route.fromCoordinates.latitude],
+              [route.toCoordinates.longitude, route.toCoordinates.latitude]
+            ]
+          },
+          properties: {
+            strokeWidth: 2,
+            highlighted,
+            routeId: route.id,
+            strokeColor: route.strokeColor ?? (route.status === 'Open' ? '#5ad85a' : route.status === 'Delayed' ? '#ef4444' : '#94a3b8'),
+          }
+        });
+      }
+    };
+
+    addProjectRouteFeatures();
+
+    if (!transitRoutes || transitRoutes.length === 0) {
       return { type: 'FeatureCollection', features };
     }
+
+    const routes = transitRoutes;
 
     const findMatches = (id: string): WarRoomNode[] => {
       const nid = id.toLowerCase();
@@ -995,6 +1034,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
           dashArray: route.dashArray,
           highlighted,
           routeId: route.id,
+          strokeColor: route.strokeColor,
         }
       });
     });

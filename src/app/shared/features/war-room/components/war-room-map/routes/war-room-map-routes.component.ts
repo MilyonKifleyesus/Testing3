@@ -11,6 +11,8 @@ export interface RouteVm {
   highlighted: boolean;
   strokeWidth: number;
   dashArray?: string;
+  /** Per-route stroke color for project routes (energy conduit styling) */
+  strokeColor?: string;
 }
 
 @Component({

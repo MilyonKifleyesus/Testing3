@@ -1,90 +1,99 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-
-interface Project {
-  id: number;
-  projectName: string;
-  client: string;
-  assessmentType: string;
-  location: string;
-  manufacturer: string;
-  totalAssets: number;
-  userAccess: string[];
-  status: 'Active' | 'Closed';
-}
+import { FormsModule } from '@angular/forms';
+import { Project } from '../../../../shared/models/project.model';
+import { Client } from '../../../../shared/models/client.model';
+import { ClientService } from '../../../../shared/services/client.service';
+import { ProjectService } from '../../../../shared/services/project.service';
 
 @Component({
   selector: 'app-project-list',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './project-list.component.html',
-  styleUrls: ['./project-list.component.scss']
+  styleUrls: ['./project-list.component.scss'],
 })
 export class ProjectListComponent implements OnInit {
-  projects: Project[] = [];
+  projects = signal<Project[]>([]);
+  clients = signal<Client[]>([]);
+  selectedClientId = signal<string>('all');
+  selectedProjectType = signal<string>('all');
 
-  constructor(private router: Router) {}
+  statusSummary = computed(() => {
+    const list = this.projects();
+    return {
+      total: list.length,
+      open: list.filter((p) => p.status === 'Open').length,
+      closed: list.filter((p) => p.status === 'Closed').length,
+      delayed: list.filter((p) => p.status === 'Delayed').length,
+    };
+  });
+
+  projectTypes = computed(() => {
+    const list = this.projects();
+    const types = new Set(list.map((p) => p.assessmentType));
+    return Array.from(types).sort();
+  });
+
+  constructor(
+    private router: Router,
+    private clientService: ClientService,
+    private projectService: ProjectService
+  ) {}
 
   ngOnInit(): void {
-    // Mock data - replace with actual API call
-    this.projects = [
-      {
-        id: 1,
-        projectName: 'Bus Fleet Inspection 2024',
-        client: 'City Transit Authority',
-        assessmentType: 'Full Inspection',
-        location: 'New York',
-        manufacturer: 'Mercedes-Benz',
-        totalAssets: 150,
-        userAccess: ['inspector1@example.com', 'admin@example.com'],
-        status: 'Active'
-      },
-      {
-        id: 2,
-        projectName: 'Electric Bus Evaluation',
-        client: 'Green Transport Inc',
-        assessmentType: 'Technical Assessment',
-        location: 'California',
-        manufacturer: 'BYD',
-        totalAssets: 75,
-        userAccess: ['inspector2@example.com', 'client@example.com'],
-        status: 'Active'
-      },
-      {
-        id: 3,
-        projectName: 'Maintenance Check Q1',
-        client: 'Metro Transit',
-        assessmentType: 'Routine Maintenance',
-        location: 'Chicago',
-        manufacturer: 'Volvo',
-        totalAssets: 200,
-        userAccess: ['inspector1@example.com', 'inspector3@example.com'],
-        status: 'Active'
-      }
-    ];
+    this.clientService.getClients().subscribe((clients) => this.clients.set(clients));
+    this.loadProjects();
   }
 
-  viewProjectDetails(projectId: number): void {
+  private loadProjects(): void {
+    const clientId = this.selectedClientId();
+    const projectType = this.selectedProjectType();
+    this.projectService
+      .getProjects({
+        clientId: clientId === 'all' ? undefined : clientId,
+        projectType: projectType === 'all' ? undefined : projectType,
+      })
+      .subscribe((projects) => this.projects.set(projects));
+  }
+
+  onClientChange(clientId: string): void {
+    this.selectedClientId.set(clientId);
+    this.loadProjects();
+  }
+
+  onProjectTypeChange(projectType: string): void {
+    this.selectedProjectType.set(projectType);
+    this.loadProjects();
+  }
+
+  viewProjectDetails(projectId: string | number): void {
     this.router.navigate(['/admin/projects/view', projectId]);
   }
 
-  goToTickets(projectId: number): void {
+  goToTickets(projectId: string | number): void {
     this.router.navigate(['/admin/tickets'], { queryParams: { projectId } });
   }
 
-  closeProject(projectId: number): void {
-    const project = this.projects.find(p => p.id === projectId);
+  closeProject(projectId: string | number): void {
+    const project = this.projects().find((p) => p.id === projectId);
     if (!project || project.status === 'Closed') return;
     if (confirm('Are you sure you want to close this project?')) {
-      project.status = 'Closed';
-      console.log('Project closed:', projectId);
+      const updated = this.projects().map((p) =>
+        p.id === projectId ? { ...p, status: 'Closed' as const } : p
+      );
+      this.projects.set(updated);
     }
   }
 
-  deleteProject(projectId: number): void {
+  deleteProject(projectId: string | number): void {
     if (confirm('Are you sure you want to delete this project?')) {
-      this.projects = this.projects.filter(p => p.id !== projectId);
+      this.projects.set(this.projects().filter((p) => p.id !== projectId));
     }
+  }
+
+  getClientName(clientId: string): string {
+    return this.clients().find((c) => c.id === clientId)?.name ?? clientId;
   }
 }

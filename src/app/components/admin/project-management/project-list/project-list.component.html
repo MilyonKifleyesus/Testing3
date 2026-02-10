@@ -12,6 +12,51 @@
     </div>
   </div>
 
+  <!-- Filters: Client & Project Type (BusPulse style) -->
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card custom-card">
+        <div class="card-body py-3">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Client</label>
+              <select
+                class="form-select"
+                [value]="selectedClientId()"
+                (change)="onClientChange($any($event.target).value)"
+                aria-label="Filter by client"
+              >
+                <option value="all">All clients</option>
+                @for (client of clients(); track client.id) {
+                  <option [value]="client.id">{{ client.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Project Type</label>
+              <select
+                class="form-select"
+                [value]="selectedProjectType()"
+                (change)="onProjectTypeChange($any($event.target).value)"
+                aria-label="Filter by project type"
+              >
+                <option value="all">All project types</option>
+                @for (type of projectTypes(); track type) {
+                  <option [value]="type">{{ type }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-center">
+              <div class="badge bg-primary-transparent px-3 py-2 fs-14">
+                {{ statusSummary().total }} total &middot; {{ statusSummary().open }} open &middot; {{ statusSummary().closed }} closed
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Projects Table -->
   <div class="row">
     <div class="col-xl-12">
@@ -36,69 +81,66 @@
                   <th scope="col">Location</th>
                   <th scope="col">Manufacturer</th>
                   <th scope="col">Total Assets</th>
-                  <th scope="col">User Access</th>
                   <th scope="col">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let project of projects">
-                  <td>{{ project.id }}</td>
-                  <td>
-                    <div class="fw-semibold d-flex align-items-center justify-content-between">
-                      <span>{{ project.projectName }}</span>
-                      <span *ngIf="project.status === 'Closed'" class="badge bg-secondary ms-2">Closed</span>
-                    </div>
-                  </td>
-                  <td>{{ project.client }}</td>
-                  <td>
-                    <span class="badge bg-primary-transparent">{{ project.assessmentType }}</span>
-                  </td>
-                  <td>{{ project.location }}</td>
-                  <td>{{ project.manufacturer }}</td>
-                  <td>
-                    <span class="badge bg-success">{{ project.totalAssets }}</span>
-                  </td>
-                  <td>
-                    <div class="avatar-list-stacked">
-                      <span class="badge bg-light text-dark" *ngFor="let user of project.userAccess.slice(0, 2)">
-                        {{ user.split('@')[0] }}
-                      </span>
-                      <span class="badge bg-light text-dark" *ngIf="project.userAccess.length > 2">
-                        +{{ project.userAccess.length - 2 }}
-                      </span>
-                    </div>
-                  </td>
-                  <td>
-                    <div class="dropdown">
-                      <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        Action
-                      </button>
-                      <ul class="dropdown-menu">
-                        <li>
-                          <a class="dropdown-item" href="javascript:void(0);" (click)="viewProjectDetails(project.id)">
-                            View
-                          </a>
-                        </li>
-                        <li>
-                          <a class="dropdown-item" href="javascript:void(0);" (click)="goToTickets(project.id)">
-                            Tickets
-                          </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                          <a class="dropdown-item" [class.disabled]="project.status === 'Closed'" [attr.aria-disabled]="project.status === 'Closed'" href="javascript:void(0);" (click)="project.status !== 'Closed' && closeProject(project.id)">
-                            Close Project
-                          </a>
-                        </li>
-                        <li>
-                          <a class="dropdown-item text-danger" href="javascript:void(0);" (click)="deleteProject(project.id)">
-                            Delete Project
-                          </a>
-                        </li>
-                      </ul>
-                    </div>
-                  </td>
-                </tr>
+                @for (project of projects(); track project.id) {
+                  <tr>
+                    <td>{{ project.id }}</td>
+                    <td>
+                      <div class="fw-semibold d-flex align-items-center justify-content-between">
+                        <span>{{ project.projectName }}</span>
+                        @if (project.status === 'Closed') {
+                          <span class="badge bg-secondary ms-2">Closed</span>
+                        } @else if (project.status === 'Delayed') {
+                          <span class="badge bg-danger ms-2">Delayed</span>
+                        } @else {
+                          <span class="badge bg-success-transparent text-success ms-2">Open</span>
+                        }
+                      </div>
+                    </td>
+                    <td>{{ project.clientName ?? getClientName(project.clientId) }}</td>
+                    <td>
+                      <span class="badge bg-primary-transparent">{{ project.assessmentType }}</span>
+                    </td>
+                    <td>{{ project.location ?? '-' }}</td>
+                    <td>{{ project.manufacturer ?? '-' }}</td>
+                    <td>
+                      <span class="badge bg-success">{{ project.totalAssets ?? 0 }}</span>
+                    </td>
+                    <td>
+                      <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                          Action
+                        </button>
+                        <ul class="dropdown-menu">
+                          <li>
+                            <a class="dropdown-item" href="javascript:void(0);" (click)="viewProjectDetails(project.id)">
+                              View
+                            </a>
+                          </li>
+                          <li>
+                            <a class="dropdown-item" href="javascript:void(0);" (click)="goToTickets(project.id)">
+                              Tickets
+                            </a>
+                          </li>
+                          <li><hr class="dropdown-divider"></li>
+                          <li>
+                            <a class="dropdown-item" [class.disabled]="project.status === 'Closed'" [attr.aria-disabled]="project.status === 'Closed'" href="javascript:void(0);" (click)="project.status !== 'Closed' && closeProject(project.id)">
+                              Close Project
+                            </a>
+                          </li>
+                          <li>
+                            <a class="dropdown-item text-danger" href="javascript:void(0);" (click)="deleteProject(project.id)">
+                              Delete Project
+                            </a>
+                          </li>
+                        </ul>
+                      </div>
+                    </td>
+                  </tr>
+                }
               </tbody>
             </table>
           </div>
@@ -106,22 +148,17 @@
         <div class="card-footer">
           <div class="d-flex align-items-center">
             <div>
-              Showing {{ projects.length }} of {{ projects.length }} Entries
+              Showing {{ projects().length }} of {{ projects().length }} Entries
             </div>
             <div class="ms-auto">
               <nav aria-label="Page navigation" class="pagination-style-4">
                 <ul class="pagination mb-0">
                   <li class="page-item disabled">
-                    <a class="page-link" href="javascript:void(0);">
-                      Prev
-                    </a>
+                    <a class="page-link" href="javascript:void(0);">Prev</a>
                   </li>
                   <li class="page-item active"><a class="page-link" href="javascript:void(0);">1</a></li>
-                  <li class="page-item"><a class="page-link" href="javascript:void(0);">2</a></li>
                   <li class="page-item">
-                    <a class="page-link text-primary" href="javascript:void(0);">
-                      next
-                    </a>
+                    <a class="page-link text-primary" href="javascript:void(0);">next</a>
                   </li>
                 </ul>
               </nav>

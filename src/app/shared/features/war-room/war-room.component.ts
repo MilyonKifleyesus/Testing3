@@ -1,11 +1,16 @@
 import { Component, OnInit, OnDestroy, signal, inject, viewChild, effect, computed } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { WarRoomService } from '../../../shared/services/war-room.service';
 import { WarRoomRealtimeService } from '../../../shared/services/war-room-realtime.service';
-import { Node, ActivityLog, ParentGroup, FleetSelection, MapViewMode, SubsidiaryCompany, FactoryLocation, NodeStatus, ActivityStatus, TransitRoute } from '../../../shared/models/war-room.interface';
+import { ClientService } from '../../../shared/services/client.service';
+import { ProjectService } from '../../../shared/services/project.service';
+import { Node, ActivityLog, ParentGroup, FleetSelection, MapViewMode, SubsidiaryCompany, FactoryLocation, NodeStatus, ActivityStatus, TransitRoute, ProjectRoute } from '../../../shared/models/war-room.interface';
+import { Project } from '../../../shared/models/project.model';
 import { WarRoomMapComponent } from './components/war-room-map/war-room-map.component';
 import { WarRoomActivityLogComponent } from './components/war-room-activity-log/war-room-activity-log.component';
 import { WarRoomHubStatusComponent } from './components/war-room-hub-status/war-room-hub-status.component';
+import { WarRoomProjectHudComponent } from './components/war-room-project-hud/war-room-project-hud.component';
 import { AddCompanyModalComponent, CompanyFormData } from './components/add-company-modal/add-company-modal.component';
 import { ToastrService } from 'ngx-toastr';
 import { OperationalStatus } from '../../../shared/models/war-room.interface';
@@ -38,6 +43,7 @@ const createDefaultFilters = (): WarRoomFilters => ({
     WarRoomMapComponent,
     WarRoomActivityLogComponent,
     WarRoomHubStatusComponent,
+    WarRoomProjectHudComponent,
     AddCompanyModalComponent,
   ],
   templateUrl: './war-room.component.html',
@@ -50,7 +56,12 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   // Inject services
   private warRoomService = inject(WarRoomService);
   private realtimeService = inject(WarRoomRealtimeService);
+  private clientService = inject(ClientService);
+  private projectService = inject(ProjectService);
   private toastr = inject(ToastrService);
+
+  private readonly clientsSignal = toSignal(this.clientService.getClients(), { initialValue: [] });
+  readonly projectRoutes = signal<ProjectRoute[]>([]);
 
   // Signals from service
   readonly nodes = this.warRoomService.nodes;
@@ -83,6 +94,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly filtersPanelVisible = signal<boolean>(false);
   readonly filterDraft = signal<WarRoomFilters>(createDefaultFilters());
   readonly filterApplied = signal<WarRoomFilters>(createDefaultFilters());
+
+  // Tactical mode: map-only view with bottom-center view toggle
+  readonly tacticalMode = signal<boolean>(false);
 
   readonly parentCompanyOptions = computed(() => {
     const statusFilter = this.filterDraft().status;
@@ -424,6 +438,27 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     effect(() => {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.filterApplied()));
     });
+
+    effect(() => {
+      const clients = this.clientsSignal();
+      const factories = this.factories();
+      if (!clients?.length || !factories?.length) {
+        this.projectRoutes.set([]);
+        return;
+      }
+      const clientCoords = new Map(
+        clients
+          .filter((c) => c.coordinates)
+          .map((c) => [c.id, c.coordinates!])
+      );
+      const factoryCoords = new Map(
+        factories.map((f) => [f.id, { latitude: f.coordinates.latitude, longitude: f.coordinates.longitude }])
+      );
+      const sub = this.projectService
+        .getProjectsForMap(clientCoords, factoryCoords)
+        .subscribe((routes) => this.projectRoutes.set(routes));
+      return () => sub.unsubscribe();
+    });
   }
 
   ngOnInit(): void {
@@ -731,9 +766,34 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     this.announce('Switched to ' + mode + ' view.');
   }
 
+  toggleTacticalMode(): void {
+    const next = !this.tacticalMode();
+    this.tacticalMode.set(next);
+    if (next) {
+      this.filtersPanelVisible.set(false);
+      this.panelVisible.set(false);
+    }
+    this.announce(next ? 'Tactical mode on. Map only view.' : 'Tactical mode off.');
+  }
+
   /**
    * Handle node selection from map
    */
+  onProjectHudSelected(project: Project): void {
+    if (project.manufacturerLocationId) {
+      this.warRoomService.setMapViewMode('factory');
+      this.warRoomService.selectEntity({
+        level: 'factory',
+        id: project.manufacturerLocationId,
+        parentGroupId: undefined,
+        subsidiaryId: undefined,
+        factoryId: project.manufacturerLocationId,
+      });
+      this.warRoomService.requestPanToEntity(project.manufacturerLocationId);
+      this.announce(`Selected project ${project.projectName}. Panning to ${project.manufacturer ?? 'factory'}.`);
+    }
+  }
+
   onNodeSelected(node: Node | undefined): void {
     if (node) {
       const nodeLevel = node.level ?? 'factory';

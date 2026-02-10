@@ -83,6 +83,13 @@ export class NavService implements OnDestroy {
       active: false,
     },
     {
+      path: '/apps/war-room',
+      title: 'War Room',
+      icon: 'ti-map',
+      type: 'link',
+      active: false,
+    },
+    {
       title: 'Project Management',
       type: 'sub',
       icon: 'ti-layout',
@@ -495,6 +502,13 @@ export class NavService implements OnDestroy {
       icon: 'ti-dashboard',
       active: false,
       selected:false
+    },
+    {
+      path: '/apps/war-room',
+      title: 'War Room',
+      type: 'link',
+      icon: 'ti-map',
+      active: false,
     },
     {
       path: '/assets',

@@ -26,7 +26,7 @@
       @for (route of routes(); track route.id) {
       <g class="transit-route-group" [style.--route-index]="route.index">
         <path [attr.d]="route.path" class="route-path animated-route" [class.highlighted]="route.highlighted"
-          fill="none" [attr.stroke]="routeStroke()" [attr.stroke-width]="route.strokeWidth"
+          fill="none" [attr.stroke]="route.strokeColor ?? routeStroke()" [attr.stroke-width]="route.strokeWidth"
           [attr.stroke-dasharray]="route.dashArray || '1000'" stroke-dashoffset="1000" pathLength="1000">
           <animate attributeName="stroke-dashoffset" values="1000;1000;0;0;1000;1000" keyTimes="0;0.1;0.45;0.65;0.95;1"
             dur="6s" [attr.begin]="route.beginOffset" repeatCount="indefinite" />
@@ -34,7 +34,7 @@
             [attr.begin]="route.beginOffset" repeatCount="indefinite" />
         </path>
 
-        <circle r="3.5" class="route-dot" [attr.fill]="routeFill()" filter="url(#glow)" opacity="0">
+        <circle r="3.5" class="route-dot" [attr.fill]="route.strokeColor ?? routeFill()" filter="url(#glow)" opacity="0">
           <animateMotion [attr.path]="route.path" dur="6s" rotate="auto" calcMode="linear" keyPoints="0;0;1;1;1;0"
             keyTimes="0;0.1;0.45;0.65;0.95;1" [attr.begin]="route.beginOffset" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0;0;1;1;1;0" keyTimes="0;0.1;0.15;0.6;0.7;1" dur="6s"
@@ -44,9 +44,9 @@
         </circle>
 
         <g class="point-group source" [style.opacity]="0">
-          <circle [attr.cx]="route.start.x" [attr.cy]="route.start.y" r="2.5" [attr.fill]="routeFill()"
+          <circle [attr.cx]="route.start.x" [attr.cy]="route.start.y" r="2.5" [attr.fill]="route.strokeColor ?? routeFill()"
             filter="url(#glow)" />
-          <circle [attr.cx]="route.start.x" [attr.cy]="route.start.y" r="2.5" [attr.fill]="routeFill()" opacity="0.5">
+          <circle [attr.cx]="route.start.x" [attr.cy]="route.start.y" r="2.5" [attr.fill]="route.strokeColor ?? routeFill()" opacity="0.5">
             <animate attributeName="r" from="2.5" to="10" dur="2s" repeatCount="indefinite" />
             <animate attributeName="opacity" from="0.5" to="0" dur="2s" repeatCount="indefinite" />
           </circle>
@@ -56,9 +56,9 @@
         </g>
 
         <g class="point-group destination" [style.opacity]="0">
-          <circle [attr.cx]="route.end.x" [attr.cy]="route.end.y" r="2.5" [attr.fill]="routeFill()"
+          <circle [attr.cx]="route.end.x" [attr.cy]="route.end.y" r="2.5" [attr.fill]="route.strokeColor ?? routeFill()"
             filter="url(#glow)" />
-          <circle [attr.cx]="route.end.x" [attr.cy]="route.end.y" r="2.5" [attr.fill]="routeFill()" opacity="0.5">
+          <circle [attr.cx]="route.end.x" [attr.cy]="route.end.y" r="2.5" [attr.fill]="route.strokeColor ?? routeFill()" opacity="0.5">
             <animate attributeName="r" from="2.5" to="10" dur="2s" [attr.begin]="route.beginOffset"
               repeatCount="indefinite" />
             <animate attributeName="opacity" from="0.5" to="0" dur="2s" [attr.begin]="route.beginOffset"

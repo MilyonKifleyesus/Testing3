@@ -35,6 +35,7 @@ export const content: Routes = [
    {path:'', loadChildren : () => import('../../../app/components/Forms/Form-Elements/form-elements.routes').then(r => r.formelementsRoutingModule)},
    {path:'', loadChildren : () => import('../../../app/components/Forms/forms.routes').then(r => r.formsRoutingModule)},
    {path:'', loadChildren : () => import('../../../app/components/Forms/form-editor/form-editor.routes').then(r => r.formeditorRoutingModule)},
+   {path:'', loadChildren : () => import('../features/war-room/war-room.routes').then(r => r.WarRoomRoutingModule)},
    // Super Admin Routes
    {path:'admin', loadChildren : () => import('../../components/admin/admin.routes').then(r => r.adminRoutingModule)},
    // Client Routes

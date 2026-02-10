@@ -13,9 +13,6 @@ import { SpkApexChartsComponent } from '../../../@spk/reusable-charts/spk-apex-c
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { WarRoomComponent } from '../../../shared/features/war-room/war-room.component';
-  
-
 
 // ========== Data Model: Universal Widget Contract ==========
 // Each widget has a unique ID, title, and flexible content type
@@ -60,8 +57,7 @@ const DEFAULT_WIDGET_LAYOUT: Array<Pick<DashboardWidget, 'id' | 'width' | 'heigh
     CommonModule, 
     FormsModule,
     DragDropModule,
-    NgOptimizedImage,
-     WarRoomComponent,
+    NgOptimizedImage
   ],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['./client-dashboard.component.scss']

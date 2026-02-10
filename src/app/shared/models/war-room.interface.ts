@@ -109,6 +109,29 @@ export interface Node {
   parentGroupId?: string;
   subsidiaryId?: string;
   factoryId?: string;
+  /** For client nodes when in client view */
+  clientId?: string;
+}
+
+/**
+ * Project Route - Connection from Client to Factory for project visualization
+ */
+export interface ProjectRoute {
+  id: string;
+  projectId: string;
+  fromNodeId: string;
+  toNodeId: string;
+  status: 'Open' | 'Closed' | 'Delayed';
+  fromCoordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  toCoordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  animated?: boolean;
+  strokeColor?: string;
 }
 
 /**

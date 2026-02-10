@@ -4,7 +4,8 @@
   <main class="war-room-main">
     <!-- Map Area -->
     <div class="war-room-map-area">
-      <!-- Single toolbar: view toggle + active filters in one compact strip -->
+      <!-- Single toolbar: view toggle + active filters in one compact strip (hidden in tactical mode) -->
+      @if (!tacticalMode()) {
       <div class="war-room-map-toolbar" role="toolbar" aria-label="Map view and filters">
         <div class="map-view-toggle card custom-card d-flex align-items-center gap-2 p-2">
           <div class="btn-group btn-group-sm" role="radiogroup" aria-label="Map view mode selection">
@@ -49,8 +50,9 @@
         </div>
         }
       </div>
+      }
 
-      <div class="map-action-bar" role="group" aria-label="Map panels and layout controls">
+      <div class="map-action-bar" [class.hidden]="tacticalMode()" role="group" aria-label="Map panels and layout controls">
         <button type="button" class="map-action-btn" (click)="togglePanels()" [class.active]="panelVisible()"
           [attr.aria-label]="panelVisible() ? 'Hide panels' : 'Show panels'" [attr.aria-expanded]="panelVisible()"
           aria-controls="war-room-overlay-panel">
@@ -63,7 +65,13 @@
             aria-hidden="true"></i>
           <span>{{ mapExpanded() ? 'Exit Expand' : 'Expand Map' }}</span>
         </button>
+        <button type="button" class="map-action-btn" (click)="toggleTacticalMode()" [class.active]="tacticalMode()"
+          [attr.aria-label]="tacticalMode() ? 'Exit tactical mode' : 'Enter tactical mode'" [attr.aria-pressed]="tacticalMode()">
+          <i class="fe fe-crosshair" aria-hidden="true"></i>
+          <span>Tactical</span>
+        </button>
       </div>
+      @if (!tacticalMode()) {
       <div id="war-room-filters-panel" class="war-room-filters card custom-card" [class.open]="filtersPanelVisible()">
         <div class="card-header d-flex align-items-center justify-content-between">
           <h6 class="main-content-label mb-0">Open Filters</h6>
@@ -134,8 +142,34 @@
           </div>
         </div>
       </div>
+      }
+
+      <!-- Bottom-center view toggle pill (tactical mode only) -->
+      @if (tacticalMode()) {
+      <div class="war-room-view-toggle-bottom" role="toolbar" aria-label="Map view mode">
+        <div class="btn-group btn-group-sm" role="radiogroup" aria-label="Map view mode selection">
+          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'subsidiary'"
+            [class.btn-outline-primary]="mapViewMode() !== 'subsidiary'" (click)="setMapViewMode('subsidiary')"
+            role="radio" [attr.aria-checked]="mapViewMode() === 'subsidiary'" aria-label="Subsidiary view">Subsidiary</button>
+          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'factory'"
+            [class.btn-outline-primary]="mapViewMode() !== 'factory'" (click)="setMapViewMode('factory')"
+            role="radio" [attr.aria-checked]="mapViewMode() === 'factory'" aria-label="Factory view">Factory</button>
+        </div>
+        <button type="button" class="btn btn-sm map-view-exit-tactical ms-2" (click)="toggleTacticalMode()"
+          aria-label="Exit tactical mode" title="Exit tactical mode">
+          <i class="fe fe-x" aria-hidden="true"></i>
+        </button>
+      </div>
+      }
+
+      @if (!tacticalMode()) {
+      <div class="war-room-project-hud-wrapper">
+        <app-war-room-project-hud (projectSelected)="onProjectHudSelected($event)" />
+      </div>
+      }
+
       <app-war-room-map class="war-room-map-fill" [nodes]="filteredNodes()" [selectedEntity]="selectedEntity()"
-        [transitRoutes]="filteredTransitRoutes()" [filterStatus]="filterApplied().status"
+        [transitRoutes]="filteredTransitRoutes()" [projectRoutes]="projectRoutes()" [filterStatus]="filterApplied().status"
         (nodeSelected)="onNodeSelected($event)"></app-war-room-map>
 
       @if (filteredNodes().length === 0) {
@@ -164,6 +198,7 @@
     </div>
 
     <!-- Sidebar -->
+    @if (!tacticalMode()) {
     <aside id="war-room-overlay-panel" class="war-room-sidebar" [class.open]="panelVisible()"
       [attr.aria-hidden]="!panelVisible()">
       <div class="sidebar-tabs" role="tablist" aria-label="War room panels">
@@ -221,5 +256,6 @@
         </section>
       </div>
     </aside>
+    }
   </main>
 </div>

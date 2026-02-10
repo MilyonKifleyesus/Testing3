@@ -1,0 +1,45 @@
+<div class="project-hud" [class.collapsed]="collapsed()">
+  <header class="project-hud-header" (click)="toggleCollapsed()">
+    <h6 class="project-hud-title mb-0">Project List</h6>
+    <button type="button" class="btn-reset project-hud-toggle" [attr.aria-label]="(collapsed() ? 'Expand' : 'Collapse') + ' project list'">
+      <i class="fe" [class.fe-chevron-down]="collapsed()" [class.fe-chevron-up]="!collapsed()" aria-hidden="true"></i>
+    </button>
+  </header>
+
+  @if (!collapsed()) {
+  <div class="project-hud-body">
+    <div class="project-hud-search">
+      <i class="fe fe-search project-hud-search-icon" aria-hidden="true"></i>
+      <input type="text" class="project-hud-search-input" placeholder="Search projects..."
+        [value]="searchQuery()" (input)="onSearchChange($any($event.target).value)" />
+    </div>
+
+    <div class="project-hud-list" role="list">
+      @for (project of filteredProjects(); track project.id) {
+      <button type="button" class="project-hud-card btn-reset" (click)="onProjectClick(project)"
+        [attr.aria-label]="'Select project ' + project.projectName">
+        <div class="project-hud-card-header">
+          <span class="project-hud-card-name">{{ project.projectName }}</span>
+          <span class="project-hud-card-badge" [ngClass]="statusClass(project.status)">{{ project.status }}</span>
+        </div>
+        <div class="project-hud-card-meta">
+          <span class="project-hud-card-client">{{ project.clientName ?? 'Unknown' }}</span>
+          <span class="project-hud-card-type">{{ project.assessmentType }}</span>
+        </div>
+        @if (project.manufacturer || project.location) {
+        <div class="project-hud-card-location">{{ project.manufacturer }} · {{ project.location }}</div>
+        }
+        @if (project.progress !== undefined) {
+        <div class="project-hud-card-progress">
+          <div class="project-hud-progress-bar" [style.width.%]="project.progress"></div>
+        </div>
+        <span class="project-hud-card-progress-label">{{ project.progress }}%</span>
+        }
+      </button>
+      } @empty {
+      <div class="project-hud-empty">No projects match</div>
+      }
+    </div>
+  </div>
+  }
+</div>

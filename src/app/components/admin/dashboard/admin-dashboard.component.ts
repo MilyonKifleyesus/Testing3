@@ -12,9 +12,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ConfirmModalComponent } from './confirm-modal.component';
-import { WarRoomComponent } from '../../../shared/features/war-room/war-room.component';
-
-
 
 // ========== Data Model: Universal Widget Contract ==========
 // Each widget has a unique ID, title, and flexible content type
@@ -41,8 +38,7 @@ export interface DashboardWidget {
     SpkApexChartsComponent, 
     CommonModule, 
     FormsModule,
-    DragDropModule,
-        WarRoomComponent,
+    DragDropModule
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss']

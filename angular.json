@@ -34,6 +34,7 @@
         "@schematics/angularervice": {
           "skipTests": true
         }
+
       },
       "root": "",
       "sourceRoot": "src",
@@ -46,8 +47,7 @@
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
-              "zone.js",
-              "@angular/localize/init"
+              "zone.js","@angular/localize/init"
             ],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
@@ -61,6 +61,7 @@
             "styles": [
               "src/styles.scss",
               "node_modules/swiper/swiper.css"
+
             ],
             "scripts": [
               "public/assets/libs/bootstrap/js/bootstrap.bundle.min.js"
@@ -94,7 +95,6 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
             "hmr": false,
-            "liveReload": false,
             "proxyConfig": "proxy.conf.json"
           },
           "configurations": {
@@ -129,6 +129,7 @@
             "styles": [
               "src/styles.scss",
               "node_modules/swiper/swiper.css"
+
             ],
             "scripts": [
               "public/assets/libs/bootstrap/js/bootstrap.bundle.min.js"

@@ -28,6 +28,14 @@ $sidebar-bg: var(--default-background, #f8faf9);
 $card-bg: var(--custom-white, #ffffff);
 $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 
+// Glass-morphism utility
+.glass {
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background: rgba(8, 12, 16, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
 // Accessibility: Focus states
 :focus-visible {
   outline: 2px solid var(--cm-primary, #00FF41) !important;
@@ -144,9 +152,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  backdrop-filter: blur(12px);
-  background: var(--cm-panel);
-  border: 1px solid var(--cm-border);
+  @extend .glass;
   border-radius: var(--cm-radius);
   box-shadow: var(--cm-shadow);
   width: fit-content;
@@ -232,6 +238,13 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+
+  &.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
   max-width: calc(100% - 3.5rem);
 }
 
@@ -293,9 +306,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   width: 290px;
   display: none;
   z-index: 34;
-  backdrop-filter: blur(12px);
-  background: var(--cm-panel-strong);
-  border: 1px solid var(--cm-border);
+  @extend .glass;
   box-shadow: var(--cm-shadow);
   border-radius: var(--cm-radius);
 
@@ -320,6 +331,43 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
     &:hover {
       opacity: 1;
     }
+  }
+}
+
+// Project HUD overlay
+.war-room-project-hud-wrapper {
+  position: absolute;
+  bottom: 1rem;
+  left: 0.75rem;
+  z-index: 30;
+  pointer-events: auto;
+}
+
+// Bottom-center view toggle (tactical mode)
+.war-room-view-toggle-bottom {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  @extend .glass;
+  border-radius: var(--cm-radius);
+  box-shadow: var(--cm-shadow);
+}
+
+.map-view-exit-tactical {
+  color: var(--cm-muted);
+  background: transparent;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: var(--cm-danger);
   }
 }
 
@@ -424,10 +472,8 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   width: 320px;
   max-width: 360px;
   min-height: 0;
-  background: var(--cm-panel-strong);
-  border: 1px solid var(--cm-border);
+  @extend .glass;
   border-radius: var(--cm-radius);
-  backdrop-filter: blur(14px);
   box-shadow: var(--cm-shadow);
   display: flex;
   flex-direction: column;
