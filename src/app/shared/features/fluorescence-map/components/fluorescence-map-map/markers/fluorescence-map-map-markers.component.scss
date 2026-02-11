@@ -1,0 +1,306 @@
+:host {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.markers-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Position + anchor via template transform so center (60,90) is at project(x,y). No left/top to avoid zoom drift. */
+.marker-container {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 120px;
+  height: 180px;
+  pointer-events: auto;
+  cursor: pointer;
+
+  .marker-contents-wrapper {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 120px;
+    height: 180px;
+    pointer-events: none;
+  }
+
+  .marker-svg-root {
+    overflow: visible;
+    pointer-events: none;
+
+    g,
+    circle,
+    rect,
+    text,
+    image {
+      pointer-events: auto;
+    }
+
+    .marker-tag,
+    .marker-dot-group,
+    .marker-shell {
+      pointer-events: auto;
+    }
+  }
+
+  &.marker-group {
+    --status-color: #00ff41;
+    --status-glow: rgba(0, 255, 65, 0.45);
+    transition: filter 0.2s ease-out;
+  }
+
+  &.marker-client {
+    --status-color: #60a5fa;
+    --status-glow: rgba(96, 165, 250, 0.5);
+  }
+
+  &.offline {
+    --status-color: #ef4444;
+    --status-glow: rgba(239, 68, 68, 0.45);
+  }
+
+  &.hovered {
+    filter: drop-shadow(0 0 10px var(--status-glow));
+  }
+
+  &.selected {
+    filter: drop-shadow(0 0 14px var(--status-glow));
+  }
+
+  &.pinned {
+    filter: drop-shadow(0 0 18px var(--status-glow));
+
+    .marker-ring {
+      stroke-width: 2.5;
+      filter: drop-shadow(0 0 8px var(--status-glow));
+    }
+
+    .marker-halo {
+      opacity: 0.35;
+    }
+
+    .marker-core {
+      stroke: rgba(255, 255, 255, 0.18);
+    }
+
+    .marker-pulse {
+      display: block;
+      animation-duration: 2s;
+    }
+
+    .marker-status-shell {
+      stroke-width: 1.6;
+    }
+
+    .marker-status-core {
+      filter: drop-shadow(0 0 6px var(--status-glow));
+    }
+
+    .marker-tag {
+      filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.55));
+    }
+
+    .marker-pin-indicator {
+      opacity: 1;
+      transform: scale(1.05);
+
+      .pin-core {
+        fill: var(--status-color);
+      }
+
+      .pin-ring {
+        stroke: var(--status-color);
+        opacity: 0.9;
+      }
+    }
+  }
+
+  .marker-shell {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+  }
+
+  .marker-scale {
+    transform-origin: center;
+  }
+
+  &:hover .marker-shell {
+    transform: scale(1.06);
+  }
+
+  .marker-dot-group {
+    display: none;
+  }
+
+  .marker-dot-ring {
+    vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 0 6px var(--status-glow));
+  }
+
+  .marker-halo {
+    opacity: 0.22;
+    filter: blur(6px);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .marker-ring {
+    fill: #0c1218;
+    stroke: var(--status-color);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .marker-ring-inner {
+    fill: #0e1722;
+    stroke: rgba(255, 255, 255, 0.12);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .marker-core {
+    fill: #0b1118;
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-width: 0.8;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .marker-initials {
+    fill: #e6f9ef;
+    font-weight: 700;
+    font-size: 7px;
+    letter-spacing: 0.6px;
+    font-family: 'Outfit', 'Inter', sans-serif;
+  }
+
+  .marker-client-shape {
+    .marker-client-diamond {
+      filter: drop-shadow(0 0 6px var(--status-glow));
+    }
+  }
+
+  .marker-client-initials {
+    fill: #e6f4ff;
+    font-size: 6px;
+  }
+
+  .marker-status-shell {
+    fill: #0a0f14;
+    stroke: var(--status-color);
+    stroke-width: 1.2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .marker-status-core {
+    fill: var(--status-color);
+    vector-effect: non-scaling-stroke;
+  }
+
+  .marker-status-icon {
+    fill: none;
+    stroke: #0a0f14;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .marker-pulse {
+    fill: none;
+    stroke: var(--status-color);
+    stroke-width: 1.6;
+    opacity: 0.6;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: marker-pulse 2.6s ease-out infinite;
+  }
+
+  .marker-tag {
+    font-family: 'Outfit', 'Inter', sans-serif;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+  }
+
+  .marker-pin-indicator {
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    transform-origin: center;
+
+    .pin-ring {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.35);
+      stroke-width: 1.4;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .pin-core {
+      fill: rgba(255, 255, 255, 0.65);
+    }
+  }
+
+  &.hq .marker-ring {
+    stroke-dasharray: 4 2;
+  }
+
+  &.hub .marker-ring-inner {
+    stroke: rgba(255, 255, 255, 0.25);
+  }
+
+  &.lod-low .marker-shell {
+    display: none;
+  }
+
+  &.lod-low .marker-dot-group {
+    display: block;
+  }
+
+  &.lod-medium .marker-status,
+  &.lod-medium .marker-pulse {
+    display: none;
+  }
+
+  .tag-bg,
+  .tag-notch {
+    fill: rgba(10, 16, 22, 0.92);
+    stroke: rgba(255, 255, 255, 0.15);
+    stroke-width: 1;
+  }
+
+  .tag-title {
+    fill: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+  }
+
+  .tag-sub {
+    fill: rgba(255, 255, 255, 0.7);
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+  }
+}
+
+@keyframes marker-pulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.5;
+  }
+
+  70% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}

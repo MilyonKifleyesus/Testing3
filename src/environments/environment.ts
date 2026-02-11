@@ -4,6 +4,10 @@
 export const environment = {
   production: false,
   apiBaseUrl: 'https://api.fleetpulse.net/api',
+  /** Use real projects API; when false, load from assets/data/projects.json */
+  useProjectApi: false,
+  /** Load clients from assets/data/clients.json; when false, use mock clients */
+  useClientJson: true,
   firebase: {
     apiKey: "***************************************",
     authDomain: "************************",

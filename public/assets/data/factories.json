@@ -1,0 +1,517 @@
+{
+  "manufacturers": [
+    {
+      "manufacturer_id": 1,
+      "manufacturer_name": "Nova"
+    },
+    {
+      "manufacturer_id": 2,
+      "manufacturer_name": "New Flyer"
+    },
+    {
+      "manufacturer_id": 3,
+      "manufacturer_name": "Arboc"
+    },
+    {
+      "manufacturer_id": 4,
+      "manufacturer_name": "TAM"
+    },
+    {
+      "manufacturer_id": 5,
+      "manufacturer_name": "MCI"
+    },
+    {
+      "manufacturer_id": 6,
+      "manufacturer_name": "Prevost"
+    },
+    {
+      "manufacturer_id": 7,
+      "manufacturer_name": "ENC (ElDorado National)"
+    },
+    {
+      "manufacturer_id": 8,
+      "manufacturer_name": "Karsan"
+    },
+    {
+      "manufacturer_id": 9,
+      "manufacturer_name": "TEMSA"
+    }
+  ],
+  "factories": [
+    {
+      "factory_id": 1,
+      "manufacturer_id": 1,
+      "factory_location_name": "St. Eustache (Nova)",
+      "city": "St. Eustache",
+      "state_province": "Quebec",
+      "country": "Canada"
+    },
+    {
+      "factory_id": 2,
+      "manufacturer_id": 2,
+      "factory_location_name": "Crookston (New Flyer)",
+      "city": "Crookston",
+      "state_province": "Minnesota",
+      "country": "USA",
+      "full_address": "214 5th Avenue SW, Crookston, MN 56716",
+      "facility_type": "Manufacturing Plant",
+      "notes": "Transit bus assembly."
+    },
+    {
+      "factory_id": 3,
+      "manufacturer_id": 2,
+      "factory_location_name": "Winnipeg (New Flyer)",
+      "city": "Winnipeg",
+      "state_province": "Manitoba",
+      "country": "Canada",
+      "full_address": "711 Kernaghan Avenue, Winnipeg, MB R2C 3T4",
+      "facility_type": "Headquarters & Manufacturing Plant",
+      "notes": "Corporate HQ and main Canadian production facility."
+    },
+    {
+      "factory_id": 4,
+      "manufacturer_id": 3,
+      "factory_location_name": "Middlebury IN (NFI / Arboc)",
+      "city": "Middlebury",
+      "state_province": "Indiana",
+      "country": "USA"
+    },
+    {
+      "factory_id": 7,
+      "manufacturer_id": 4,
+      "factory_location_name": "TAM Facility",
+      "city": null,
+      "state_province": null,
+      "country": "China"
+    },
+    {
+      "factory_id": 8,
+      "manufacturer_id": 2,
+      "factory_location_name": "Anniston (New Flyer)",
+      "city": "Anniston",
+      "state_province": "Alabama",
+      "country": "USA",
+      "full_address": "106 National Drive, Anniston, AL 36207",
+      "facility_type": "Manufacturing Plant",
+      "notes": "U.S. production plant; includes Vehicle Innovation Center."
+    },
+    {
+      "factory_id": 9,
+      "manufacturer_id": 2,
+      "factory_location_name": "St. Cloud (New Flyer)",
+      "city": "St. Cloud",
+      "state_province": "Minnesota",
+      "country": "USA",
+      "full_address": "6200 Glenn Carlson Drive, St. Cloud, MN 56301",
+      "facility_type": "Manufacturing Plant",
+      "notes": "Transit bus assembly."
+    },
+    {
+      "factory_id": 10,
+      "manufacturer_id": 2,
+      "factory_location_name": "Jamestown (New Flyer)",
+      "city": "Jamestown",
+      "state_province": "New York",
+      "country": "USA",
+      "full_address": "255 Fluvanna Ave, Jamestown, NY 14701",
+      "facility_type": "Manufacturing Plant",
+      "notes": "Component manufacturing & assembly."
+    },
+    {
+      "factory_id": 11,
+      "manufacturer_id": 2,
+      "factory_location_name": "Shepherdsville (New Flyer)",
+      "city": "Shepherdsville",
+      "state_province": "Kentucky",
+      "country": "USA",
+      "full_address": "857 Park Loop Rd, Shepherdsville, KY 40165",
+      "facility_type": "Parts Fabrication Plant",
+      "notes": "Parts fabrication facility opened in 2018."
+    },
+    {
+      "factory_id": 12,
+      "manufacturer_id": 1,
+      "factory_location_name": "Saint-Eustache (Nova Bus)",
+      "city": "Saint-Eustache",
+      "state_province": "Quebec",
+      "country": "Canada",
+      "full_address": "1000 Boulevard Industriel, Saint-Eustache, QC J7R 5A5",
+      "facility_type": "Headquarters & Assembly Plant",
+      "notes": "Main transit bus manufacturing facility."
+    },
+    {
+      "factory_id": 13,
+      "manufacturer_id": 1,
+      "factory_location_name": "Saint-Fran\u00e7ois-du-Lac (Nova Bus)",
+      "city": "Saint-Fran\u00e7ois-du-Lac",
+      "state_province": "Quebec",
+      "country": "Canada",
+      "full_address": "155 Boulevard Marie-Victorin, Saint-Fran\u00e7ois-du-Lac, QC J0G 1M0",
+      "facility_type": "Assembly Plant",
+      "notes": "Secondary production plant."
+    },
+    {
+      "factory_id": 14,
+      "manufacturer_id": 1,
+      "factory_location_name": "Plattsburgh (Nova Bus)",
+      "city": "Plattsburgh",
+      "state_province": "New York",
+      "country": "USA",
+      "full_address": "260 Banker Road, Plattsburgh, NY 12901",
+      "facility_type": "Assembly & Delivery Plant",
+      "notes": "Final bus assembly; closing by 2025."
+    },
+    {
+      "factory_id": 15,
+      "manufacturer_id": 5,
+      "factory_location_name": "Pembina (MCI)",
+      "city": "Pembina",
+      "state_province": "North Dakota",
+      "country": "USA",
+      "full_address": "552 West Stutsman Avenue, Pembina, ND 58271",
+      "facility_type": "Manufacturing Plant",
+      "notes": "Main motorcoach manufacturing."
+    },
+    {
+      "factory_id": 16,
+      "manufacturer_id": 5,
+      "factory_location_name": "Winnipeg (MCI)",
+      "city": "Winnipeg",
+      "state_province": "Manitoba",
+      "country": "Canada",
+      "full_address": "1475 Clarence Avenue, Winnipeg, MB R3T 1T5",
+      "facility_type": "Manufacturing Plant",
+      "notes": "Original coach plant."
+    },
+    {
+      "factory_id": 17,
+      "manufacturer_id": 5,
+      "factory_location_name": "Arnprior (MCI)",
+      "city": "Arnprior",
+      "state_province": "Ontario",
+      "country": "Canada",
+      "full_address": "480A Hartney Street, Arnprior, ON K7S 0B8",
+      "facility_type": "Service Center",
+      "notes": "Collision repair & refurbishment."
+    },
+    {
+      "factory_id": 18,
+      "manufacturer_id": 5,
+      "factory_location_name": "Blackwood (MCI)",
+      "city": "Blackwood",
+      "state_province": "New Jersey",
+      "country": "USA",
+      "full_address": "14 Harmon Drive, Blackwood, NJ 08012",
+      "facility_type": "Service Center",
+      "notes": "Northeast service center."
+    },
+    {
+      "factory_id": 19,
+      "manufacturer_id": 5,
+      "factory_location_name": "Torrance (MCI)",
+      "city": "Torrance",
+      "state_province": "California",
+      "country": "USA",
+      "full_address": "20700 Denker Ave Suite A, Torrance, CA 90501",
+      "facility_type": "Service Center",
+      "notes": "West Coast service center."
+    },
+    {
+      "factory_id": 20,
+      "manufacturer_id": 5,
+      "factory_location_name": "Hayward (MCI)",
+      "city": "Hayward",
+      "state_province": "California",
+      "country": "USA",
+      "full_address": "4120 Point Eden Way, Hayward, CA 94545",
+      "facility_type": "Service Center",
+      "notes": "Bay Area service center."
+    },
+    {
+      "factory_id": 21,
+      "manufacturer_id": 5,
+      "factory_location_name": "Montreal (MCI)",
+      "city": "Montreal",
+      "state_province": "Quebec",
+      "country": "Canada",
+      "full_address": "3500 Rue Saint-Patrick, Montreal, QC H4E 1A2",
+      "facility_type": "Service Center",
+      "notes": "Eastern Canada service center."
+    },
+    {
+      "factory_id": 22,
+      "manufacturer_id": 5,
+      "factory_location_name": "Des Plaines (MCI)",
+      "city": "Des Plaines",
+      "state_province": "Illinois",
+      "country": "USA",
+      "full_address": "200 East Oakton Street, Des Plaines, IL 60018",
+      "facility_type": "Service Center",
+      "notes": "Midwest service center."
+    },
+    {
+      "factory_id": 23,
+      "manufacturer_id": 5,
+      "factory_location_name": "Dallas (MCI)",
+      "city": "Dallas",
+      "state_province": "Texas",
+      "country": "USA",
+      "full_address": "9787 Clifford Drive, Dallas, TX 75220",
+      "facility_type": "Service Center",
+      "notes": "Southern US service center."
+    },
+    {
+      "factory_id": 24,
+      "manufacturer_id": 6,
+      "factory_location_name": "Sainte-Claire (Prevost)",
+      "city": "Sainte-Claire",
+      "state_province": "Quebec",
+      "country": "Canada",
+      "full_address": "35 Gagnon Boulevard, Sainte-Claire, QC G0R 2V0",
+      "facility_type": "Manufacturing Headquarters",
+      "notes": "Main coach manufacturing and HQ."
+    },
+    {
+      "factory_id": 25,
+      "manufacturer_id": 6,
+      "factory_location_name": "Plattsburgh (Prevost)",
+      "city": "Plattsburgh",
+      "state_province": "New York",
+      "country": "USA",
+      "full_address": "260 Banker Road, Plattsburgh, NY 12901",
+      "facility_type": "Assembly Plant",
+      "notes": "U.S. assembly line (2014\u20132022)."
+    },
+    {
+      "factory_id": 26,
+      "manufacturer_id": 6,
+      "factory_location_name": "Airdrie (Prevost)",
+      "city": "Airdrie",
+      "state_province": "Alberta",
+      "country": "Canada",
+      "full_address": "2932 Kingsview Blvd SE, Airdrie, AB T4A 0C9",
+      "facility_type": "Parts & Service Center",
+      "notes": "Service facility for Calgary region."
+    },
+    {
+      "factory_id": 27,
+      "manufacturer_id": 6,
+      "factory_location_name": "Richmond (Prevost)",
+      "city": "Richmond",
+      "state_province": "British Columbia",
+      "country": "Canada",
+      "full_address": "11911 No. 5 Road, Richmond, BC V7A 4E9",
+      "facility_type": "Parts & Service Center",
+      "notes": "Service facility for Vancouver."
+    },
+    {
+      "factory_id": 28,
+      "manufacturer_id": 6,
+      "factory_location_name": "Mississauga (Prevost)",
+      "city": "Mississauga",
+      "state_province": "Ontario",
+      "country": "Canada",
+      "full_address": "7655 Tranmere Drive, Mississauga, ON L5S 1L4",
+      "facility_type": "Parts & Service Center",
+      "notes": "Service facility for Toronto."
+    },
+    {
+      "factory_id": 29,
+      "manufacturer_id": 6,
+      "factory_location_name": "L\u00e9vis (Prevost)",
+      "city": "L\u00e9vis",
+      "state_province": "Quebec",
+      "country": "Canada",
+      "full_address": "850 Chemin Olivier, L\u00e9vis, QC G7A 2N1",
+      "facility_type": "Parts & Service Center",
+      "notes": "Service facility for Quebec City."
+    },
+    {
+      "factory_id": 30,
+      "manufacturer_id": 6,
+      "factory_location_name": "Newark (Prevost)",
+      "city": "Newark",
+      "state_province": "California",
+      "country": "USA",
+      "full_address": "6821 Central Avenue, Newark, CA 94560",
+      "facility_type": "Parts & Service Center",
+      "notes": "San Francisco Bay Area service center."
+    },
+    {
+      "factory_id": 31,
+      "manufacturer_id": 6,
+      "factory_location_name": "Franklin Park (Prevost)",
+      "city": "Franklin Park",
+      "state_province": "Illinois",
+      "country": "USA",
+      "full_address": "3715 N. Carnation St., Franklin Park, IL 60131",
+      "facility_type": "Parts & Service Center",
+      "notes": "Chicago area service center."
+    },
+    {
+      "factory_id": 32,
+      "manufacturer_id": 6,
+      "factory_location_name": "South Plainfield (Prevost)",
+      "city": "South Plainfield",
+      "state_province": "New Jersey",
+      "country": "USA",
+      "full_address": "201 South Avenue, South Plainfield, NJ 07080",
+      "facility_type": "Parts & Service Center",
+      "notes": "New Jersey service center."
+    },
+    {
+      "factory_id": 33,
+      "manufacturer_id": 6,
+      "factory_location_name": "Secaucus (Prevost)",
+      "city": "Secaucus",
+      "state_province": "New Jersey",
+      "country": "USA",
+      "full_address": "57 County Avenue, Secaucus, NJ 07094",
+      "facility_type": "Parts & Service Center",
+      "notes": "New Jersey service center."
+    },
+    {
+      "factory_id": 34,
+      "manufacturer_id": 6,
+      "factory_location_name": "Goodlettsville (Prevost)",
+      "city": "Goodlettsville",
+      "state_province": "Tennessee",
+      "country": "USA",
+      "full_address": "800 South Cartwright St., Goodlettsville, TN 37072",
+      "facility_type": "Parts & Service Center",
+      "notes": "Nashville area service center."
+    },
+    {
+      "factory_id": 35,
+      "manufacturer_id": 6,
+      "factory_location_name": "Fort Worth (Prevost)",
+      "city": "Fort Worth",
+      "state_province": "Texas",
+      "country": "USA",
+      "full_address": "15200 Frye Road, Fort Worth, TX 76155",
+      "facility_type": "Parts & Service Center",
+      "notes": "Dallas\u2013Fort Worth service center."
+    },
+    {
+      "factory_id": 36,
+      "manufacturer_id": 6,
+      "factory_location_name": "Houston (Prevost)",
+      "city": "Houston",
+      "state_province": "Texas",
+      "country": "USA",
+      "full_address": "11851 Cutten Road, Houston, TX 77066",
+      "facility_type": "Parts & Service Center",
+      "notes": "Houston area service center."
+    },
+    {
+      "factory_id": 37,
+      "manufacturer_id": 6,
+      "factory_location_name": "Jacksonville (Prevost)",
+      "city": "Jacksonville",
+      "state_province": "Florida",
+      "country": "USA",
+      "full_address": "6931 Business Park Blvd N, Jacksonville, FL 32256",
+      "facility_type": "Parts & Service Center",
+      "notes": "Jacksonville, FL service center."
+    },
+    {
+      "factory_id": 38,
+      "manufacturer_id": 6,
+      "factory_location_name": "Winter Garden (Prevost)",
+      "city": "Winter Garden",
+      "state_province": "Florida",
+      "country": "USA",
+      "full_address": "1300 Green Forest Court, Winter Garden, FL 34787",
+      "facility_type": "Parts & Service Center",
+      "notes": "Orlando area service center."
+    },
+    {
+      "factory_id": 39,
+      "manufacturer_id": 3,
+      "factory_location_name": "Middlebury (ARBOC Specialty Vehicles)",
+      "city": "Middlebury",
+      "state_province": "Indiana",
+      "country": "USA",
+      "full_address": "51165 Greenfield Pkwy, Middlebury, IN 46540",
+      "facility_type": "Manufacturing Plant & Headquarters",
+      "notes": "Main production facility and HQ."
+    },
+    {
+      "factory_id": 40,
+      "manufacturer_id": 4,
+      "factory_location_name": "Maribor (TAM)",
+      "city": "Maribor",
+      "state_province": null,
+      "country": "Slovenia",
+      "full_address": "Cesta k Tamu 33, 2000 Maribor",
+      "facility_type": "Manufacturing Plant & Headquarters",
+      "notes": "Factory and headquarters on historic site."
+    },
+    {
+      "factory_id": 41,
+      "manufacturer_id": 7,
+      "factory_location_name": "Riverside (ENC (ElDorado National))",
+      "city": "Riverside",
+      "state_province": "California",
+      "country": "USA",
+      "full_address": "9670 Galena Street, Riverside, CA 92509",
+      "facility_type": "Manufacturing Plant & Headquarters",
+      "notes": "Main 227,000 sq.ft. production facility."
+    },
+    {
+      "factory_id": 42,
+      "manufacturer_id": 8,
+      "factory_location_name": "Nil\u00fcfer (Karsan)",
+      "city": "Nil\u00fcfer",
+      "state_province": "Bursa Province",
+      "country": "Turkey",
+      "full_address": "Organize Sanayi B\u00f6lgesi, Mavi Cad. No:13, Nil\u00fcfer, Bursa 16215",
+      "facility_type": "Coating & Components Plant",
+      "notes": "Coating and parts facility."
+    },
+    {
+      "factory_id": 43,
+      "manufacturer_id": 9,
+      "factory_location_name": "Adana (TEMSA)",
+      "city": "Adana",
+      "state_province": "Adana Province",
+      "country": "Turkey",
+      "full_address": "Sar\u0131hamzal\u0131 Mah., Turhan Cemal Beriker Blv. No:563/A, 01110 Seyhan, Adana",
+      "facility_type": "Manufacturing Headquarters",
+      "notes": "Main production campus."
+    },
+    {
+      "factory_id": 44,
+      "manufacturer_id": 9,
+      "factory_location_name": "Istanbul (TEMSA)",
+      "city": "Istanbul",
+      "state_province": "\u0130stanbul",
+      "country": "Turkey",
+      "full_address": "K\u0131s\u0131kl\u0131 Cad. \u015eehit \u0130smail Moray Sok. No:2/1, Altunizade, \u00dcsk\u00fcdar, \u0130stanbul",
+      "facility_type": "Corporate Office (R&D Center)",
+      "notes": "Corporate and innovation hub."
+    },
+    {
+      "factory_id": 45,
+      "manufacturer_id": 9,
+      "factory_location_name": "Burlingame (TEMSA)",
+      "city": "Burlingame",
+      "state_province": "California",
+      "country": "USA",
+      "full_address": "41480 Rollins Rd, Burlingame, CA 94010",
+      "facility_type": "Distribution & Service Center",
+      "notes": "North America West Coast service center."
+    },
+    {
+      "factory_id": 46,
+      "manufacturer_id": 9,
+      "factory_location_name": "Orlando (TEMSA)",
+      "city": "Orlando",
+      "state_province": "Florida",
+      "country": "USA",
+      "full_address": "404 Zell Dr, Orlando, FL 32824",
+      "facility_type": "Distribution & Service Center",
+      "notes": "North America East Coast service center."
+    }
+  ]
+}

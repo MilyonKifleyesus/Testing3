@@ -1,4 +1,13 @@
 /**
+ * Client location from API (address, type)
+ */
+export interface ClientLocation {
+  locationName: string;
+  address: string;
+  type: string;
+}
+
+/**
  * Client model for War Room and project management
  * Merges concepts from ClientProfile and VehicleReportService Client
  */
@@ -14,4 +23,6 @@ export interface Client {
     latitude: number;
     longitude: number;
   };
+  /** Client locations from API */
+  locations?: ClientLocation[];
 }

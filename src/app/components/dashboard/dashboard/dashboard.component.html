@@ -1,4 +1,5 @@
-<app-page-header [title]="'Welcome To Dashboard'" [title1]="['Home']" [activeitem]="'Project Dashboard'"></app-page-header>
+<app-page-header [title]="'Welcome To Dashboard'" [title1]="['Home']"
+    [activeitem]="'Project Dashboard'"></app-page-header>
 
 
 <!--Row-->
@@ -31,9 +32,9 @@
         <!--Row-->
         <div class="row row-sm">
             @for(card of cards;track $index){
-                <div class="col-sm-12 col-md-6 col-lg-6 col-xl-4">
-                    <spk-dashboard [card]="card"></spk-dashboard>
-                </div>
+            <div class="col-sm-12 col-md-6 col-lg-6 col-xl-4">
+                <spk-dashboard [card]="card"></spk-dashboard>
+            </div>
             }
         </div>
         <!--End row-->
@@ -86,15 +87,15 @@
                                 </div>
                             </div>
                             <div class="col-md-6 my-auto">
-                                <div id="todaytask">  
+                                <div id="todaytask">
                                     <shared-today-tasks-chart [chartOptions]="ChartOptions1"></shared-today-tasks-chart>
-                                  </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div><!-- col end -->
-         
+
             <div class="col-sm-12 col-md-6 col-lg-6 col-xl-6">
                 <div class="card custom-card">
                     <div class="card-header  border-bottom-0 pb-0">
@@ -113,15 +114,14 @@
                             </div>
                             <div class="col-3 my-auto">
                                 <div class="progress ht-6 my-auto progress-animate">
-                                    <div class="progress-bar ht-6 wd-80p" role="progressbar"
-                                        aria-valuenow="15" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar ht-6 wd-80p" role="progressbar" aria-valuenow="15"
+                                        aria-valuemin="0" aria-valuemax="100">
                                     </div>
                                 </div>
                             </div>
                             <div class="col-4">
                                 <div class="d-flex">
-                                    <span class="fs-13"><i
-                                            class="text-success fe fe-arrow-up"></i><b>24.75%</b></span>
+                                    <span class="fs-13"><i class="text-success fe fe-arrow-up"></i><b>24.75%</b></span>
                                 </div>
                             </div>
                         </div>
@@ -131,15 +131,14 @@
                             </div>
                             <div class="col-3 my-auto">
                                 <div class="progress ht-6 my-auto progress-animate">
-                                    <div class="progress-bar ht-6 wd-70p" role="progressbar"
-                                        aria-valuenow="15" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar ht-6 wd-70p" role="progressbar" aria-valuenow="15"
+                                        aria-valuemin="0" aria-valuemax="100">
                                     </div>
                                 </div>
                             </div>
                             <div class="col-4">
                                 <div class="d-flex">
-                                    <span class="fs-13"><i
-                                            class="text-danger fe fe-arrow-down"></i><b>12.34%</b></span>
+                                    <span class="fs-13"><i class="text-danger fe fe-arrow-down"></i><b>12.34%</b></span>
                                 </div>
                             </div>
                         </div>
@@ -149,15 +148,14 @@
                             </div>
                             <div class="col-3 my-auto">
                                 <div class="progress ht-6 my-auto progress-animate">
-                                    <div class="progress-bar ht-6 wd-40p" role="progressbar"
-                                        aria-valuenow="15" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar ht-6 wd-40p" role="progressbar" aria-valuenow="15"
+                                        aria-valuemin="0" aria-valuemax="100">
                                     </div>
                                 </div>
                             </div>
                             <div class="col-4">
                                 <div class="d-flex">
-                                    <span class="fs-13"><i
-                                            class="text-success  fe fe-arrow-up"></i><b>12.75%</b></span>
+                                    <span class="fs-13"><i class="text-success  fe fe-arrow-up"></i><b>12.75%</b></span>
                                 </div>
                             </div>
                         </div>
@@ -169,65 +167,68 @@
                     <div class="card-body">
                         <div class="card-header border-bottom-0 pt-0 ps-0 pe-0 pb-2 d-flex">
                             <div>
-                                <div class="card-title">Tasks</div> 
+                                <div class="card-title">Tasks</div>
                                 <p class="mb-0 fs-12 mb-3 text-muted">A task is accomplished by
                                     a set deadline, and must contribute toward work-related
                                     objectives.</p>
                             </div>
                             <div class="ms-auto d-flex flex-wrap gap-2">
                                 <div class="contact-search3 me-3 ">
-                                    <button type="button" class="btn border-0"><i class="fe fe-search fw-semibold text-muted" aria-hidden="true"></i></button>
-                                    <input type="text" class="form-control h-6" id="typehead1" placeholder="Search here..." autocomplete="off">
+                                    <button type="button" class="btn border-0"><i
+                                            class="fe fe-search fw-semibold text-muted" aria-hidden="true"></i></button>
+                                    <input type="text" class="form-control h-6" id="typehead1"
+                                        placeholder="Search here..." autocomplete="off">
                                 </div>
                                 <div class="ms-auto d-flex dropdown" ngbDropdown>
-                                    <a href="javascript:void(0);" ngbDropdownToggle class="btn dropdown-toggle btn-sm btn-wave waves-effect waves-light btn-primary d-inline-flex align-items-center" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false"><i class="ri-equalizer-line me-1"></i>Sort by</a>
+                                    <a href="javascript:void(0);" ngbDropdownToggle
+                                        class="btn dropdown-toggle btn-sm btn-wave waves-effect waves-light btn-primary d-inline-flex align-items-center"
+                                        id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false"><i
+                                            class="ri-equalizer-line me-1"></i>Sort by</a>
                                     <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1" ngbDropdownMenu>
-                                        <li><a class="dropdown-item" ngbDropdownItem href="javascript:void(0);">Task</a></li>
-                                        <li><a class="dropdown-item" ngbDropdownItem href="javascript:void(0);">Team</a></li>
-                                        <li><a class="dropdown-item" ngbDropdownItem href="javascript:void(0);">Status</a></li>
+                                        <li><a class="dropdown-item" ngbDropdownItem href="javascript:void(0);">Task</a>
+                                        </li>
+                                        <li><a class="dropdown-item" ngbDropdownItem href="javascript:void(0);">Team</a>
+                                        </li>
+                                        <li><a class="dropdown-item" ngbDropdownItem
+                                                href="javascript:void(0);">Status</a></li>
                                         <li class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" ngbDropdownItem href="javascript:void(0);"><i class="fa fa-cog me-2"></i>Settings</a></li>
+                                        <li><a class="dropdown-item" ngbDropdownItem href="javascript:void(0);"><i
+                                                    class="fa fa-cog me-2"></i>Settings</a></li>
                                     </ul>
                                 </div>
                             </div>
                         </div>
                         <div class="table-responsive tasks">
-                            <spk-reusable-tables [columns]="taskColumns"  [tableClass]="'table card-table table-vcenter text-nowrap mb-0 border'"
-                            [showCheckbox]="false" >
-                            @for(task of tasks;track $index){
+                            <spk-reusable-tables [columns]="taskColumns"
+                                [tableClass]="'table card-table table-vcenter text-nowrap mb-0 border'"
+                                [showCheckbox]="false">
+                                @for(task of tasks;track $index){
                                 <tr>
                                     <td class="fw-medium">
-                                      <div class="form-check">
-                                        <input 
-                                          type="checkbox" 
-                                          class="form-check-input me-4 rounded" 
-                                          [checked]="task.checked">
-                                        <label class="form-check-label">{{ task.name }}</label>
-                                      </div>
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input me-4 rounded"
+                                                [checked]="task.checked">
+                                            <label class="form-check-label">{{ task.name }}</label>
+                                        </div>
                                     </td>
                                     <td class="text-nowrap">
-                                      <div class="avatar-list-stacked my-auto float-end">
-                                        @for(avatar of task.avatars;track $index){
+                                        <div class="avatar-list-stacked my-auto float-end">
+                                            @for(avatar of task.avatars;track $index){
 
-                                            <div 
-                                              class="avatar avatar-rounded avatar-sm" >
-                                              <img 
-                                                alt="avatar" 
-                                                class="rounded-circle" 
-                                                [src]="avatar">
+                                            <div class="avatar avatar-rounded avatar-sm">
+                                                <img alt="avatar" class="rounded-circle" [src]="avatar">
                                             </div>
-                                        }
-                                      </div>
+                                            }
+                                        </div>
                                     </td>
                                     <td class="text-center">{{ task.comments }}</td>
                                     <td [class]="task.priorityClass">{{ task.priority }}</td>
                                     <td>
-                                      <span 
-                                        class="badge bg-pill rounded-pill" 
-                                        [class]="task.statusClass">{{ task.status }}</span>
+                                        <span class="badge bg-pill rounded-pill" [class]="task.statusClass">{{
+                                            task.status }}</span>
                                     </td>
-                                  </tr>
-                            }
+                                </tr>
+                                }
                             </spk-reusable-tables>
                         </div>
                         <div class="float-end mt-3">
@@ -238,7 +239,8 @@
                                             Prev
                                         </a>
                                     </li>
-                                    <li class="page-item active"><a class="page-link" href="javascript:void(0);">1</a></li>
+                                    <li class="page-item active"><a class="page-link" href="javascript:void(0);">1</a>
+                                    </li>
                                     <li class="page-item"><a class="page-link" href="javascript:void(0);">2</a></li>
                                     <li class="page-item">
                                         <a class="page-link" href="javascript:void(0);">
@@ -265,50 +267,49 @@
             <label class="main-content-label mb-2 pt-1">Recent transactions</label>
             <span class="d-block fs-12 mb-2 text-muted">Projects where development work is on
                 completion</span>
-                <spk-reusable-tables  [tableClass]="'table  m-b-0 transcations mt-2'"
-                [showCheckbox]="false" >
+            <spk-reusable-tables [tableClass]="'table  m-b-0 transcations mt-2'" [showCheckbox]="false">
                 @for (transaction of transactions; track transaction) {
-                    <tr>
-                        <td class="wd-5p {{transaction.cell}}">
-                          <div class="main-img-user avatar-md">
+                <tr>
+                    <td class="wd-5p {{transaction.cell}}">
+                        <div class="main-img-user avatar-md">
                             <img alt="avatar" class="rounded-circle me-3" [src]="transaction.avatar">
-                          </div>
-                        </td>
-                        <td class="{{transaction.cell}}">
-                          <div class="d-flex align-middle ms-3">
+                        </div>
+                    </td>
+                    <td class="{{transaction.cell}}">
+                        <div class="d-flex align-middle ms-3">
                             <div class="d-inline-block">
-                              <h6 class="mb-1">{{ transaction.name }}</h6>
-                              <p class="mb-0 fs-13 text-muted">{{ transaction.description }}</p>
+                                <h6 class="mb-1">{{ transaction.name }}</h6>
+                                <p class="mb-0 fs-13 text-muted">{{ transaction.description }}</p>
                             </div>
-                          </div>
-                        </td>
-                        <td class="text-end {{transaction.cell}}">
-                          <div class="d-inline-block">
+                        </div>
+                    </td>
+                    <td class="text-end {{transaction.cell}}">
+                        <div class="d-inline-block">
                             <h6 class="mb-2 fs-15 font-weight-semibold">
-                              {{ transaction.amount }}
-                              <i class="fas fa-level-{{transaction.trendClass}} ms-2  m-l-10"></i>
+                                {{ transaction.amount }}
+                                <i class="fas fa-level-{{transaction.trendClass}} ms-2  m-l-10"></i>
                             </h6>
                             <p class="mb-0 tx-11 text-muted">{{ transaction.date }}</p>
-                          </div>
-                        </td>
-                      </tr>
+                        </div>
+                    </td>
+                </tr>
                 }
-                </spk-reusable-tables>
+            </spk-reusable-tables>
         </div>
-                <!-- Tickets horizontal bar chart (placed in shaded right section) -->
-                <div class="card custom-card">
-                        <div class="card-header border-bottom-0 pb-0 d-flex ps-3 ms-1">
-                                <div>
-                                        <label class="main-content-label mb-2 pt-2">Tickets by Status</label>
-                                        <span class="d-block fs-12 mb-2 text-muted">Current distribution of support tickets</span>
-                                </div>
-                        </div>
-                        <div class="card-body pt-2 mt-0">
-                                <div id="tickets-status-chart">
-                                        <shared-tickets-bar-chart [chartOptions]="ticketsBarOptions"></shared-tickets-bar-chart>
-                                </div>
-                        </div>
+        <!-- Tickets horizontal bar chart (placed in shaded right section) -->
+        <div class="card custom-card">
+            <div class="card-header border-bottom-0 pb-0 d-flex ps-3 ms-1">
+                <div>
+                    <label class="main-content-label mb-2 pt-2">Tickets by Status</label>
+                    <span class="d-block fs-12 mb-2 text-muted">Current distribution of support tickets</span>
                 </div>
+            </div>
+            <div class="card-body pt-2 mt-0">
+                <div id="tickets-status-chart">
+                    <shared-tickets-bar-chart [chartOptions]="ticketsBarOptions"></shared-tickets-bar-chart>
+                </div>
+            </div>
+        </div>
         <div class="card custom-card">
             <div class="card-body">
                 <div class="row row-sm">
@@ -372,7 +373,8 @@
                                 <h6 class=" mt-2">Mobile app design</h6>
                             </div>
                             <div id="ongoingprojects">
-                                <shared-ongoing-projects-chart [chartOptions]="circleOptions"></shared-ongoing-projects-chart>
+                                <shared-ongoing-projects-chart
+                                    [chartOptions]="circleOptions"></shared-ongoing-projects-chart>
                             </div>
                         </div>
                     </div>
@@ -415,7 +417,8 @@
                                 <h6 class=" mt-2">Website Redesign</h6>
                             </div>
                             <div id="ongoingprojects2">
-                                <shared-ongoing-projects2-chart [chartOptions]="circleOptions1"></shared-ongoing-projects2-chart>
+                                <shared-ongoing-projects2-chart
+                                    [chartOptions]="circleOptions1"></shared-ongoing-projects2-chart>
                             </div>
                         </div>
                     </div>
@@ -456,8 +459,7 @@
                     <div class="col col-auto">
                         <div class="mt-2">
                             <div class="">
-                                <img alt="" class="ht-50"
-                                    src="./assets/images/pngs/21.png">
+                                <img alt="" class="ht-50" src="./assets/images/pngs/21.png">
                             </div>
                         </div>
                     </div>

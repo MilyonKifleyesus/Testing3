@@ -1,0 +1,100 @@
+<div class="clients-with-projects-container card custom-card">
+  <div class="card-header">
+    <h6 class="main-content-label mb-0">Clients with Projects</h6>
+  </div>
+  <div class="card-body p-0">
+    <div class="clients-with-projects-list list-group list-group-flush">
+      @if (clientsWithProjects().length === 0) {
+      <div class="clients-empty-state text-muted p-4 text-center">
+        No clients with projects
+      </div>
+      } @else {
+      @for (item of clientsWithProjects(); track item.id) {
+      <div class="client-row" [class.expanded]="isExpanded(item.id)">
+        <button
+          type="button"
+          class="client-list-item list-group-item list-group-item-action d-flex align-items-center gap-2"
+          [class.active]="selectedEntity()?.level === 'client' && selectedEntity()?.id === item.id"
+          (click)="onClientClick(item.id, $event)"
+          tabindex="0">
+          <span class="client-chevron" aria-hidden="true">
+            {{ isExpanded(item.id) ? '▼' : '▶' }}
+          </span>
+          @if (item.logoUrl) {
+          <img [src]="item.logoUrl" alt="" class="client-list-logo" />
+          }
+          <span class="client-list-name flex-grow-1 text-start">{{ item.name }}</span>
+          <span class="client-list-count badge bg-primary-transparent">{{ item.projectCount }} {{ item.projectCount === 1 ? 'project' : 'projects' }}</span>
+        </button>
+
+        @if (isExpanded(item.id)) {
+        <div class="project-list">
+          @if (getProjectsForClient(item.id).length === 0) {
+          <div class="project-empty text-muted">No projects</div>
+          } @else {
+          @for (project of getProjectsForClient(item.id); track project.id) {
+          <div class="project-row" [class.editing]="isEditingProject(project.id)">
+            @if (editMode() && isEditingProject(project.id) && getDraft(project.id); as draft) {
+            <div class="project-edit-form" (click)="$event.stopPropagation()">
+              <input
+                type="text"
+                class="form-control form-control-sm mb-2"
+                [value]="draft.projectName"
+                (input)="updateDraft(idStr(project.id), { projectName: $any($event.target).value })"
+                placeholder="Project name"
+                aria-label="Project name" />
+              <input
+                type="text"
+                class="form-control form-control-sm mb-2"
+                [value]="draft.location"
+                (input)="updateDraft(idStr(project.id), { location: $any($event.target).value })"
+                placeholder="Location"
+                aria-label="Location" />
+              <select
+                class="form-select form-select-sm mb-2"
+                [value]="draft.status"
+                (change)="updateDraft(idStr(project.id), { status: $any($event.target).value })"
+                aria-label="Status">
+                <option value="Open">Open</option>
+                <option value="Closed">Closed</option>
+                <option value="Delayed">Delayed</option>
+              </select>
+              <div class="project-edit-actions d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-success" (click)="saveProject(project)">
+                  Save
+                </button>
+                <button type="button" class="btn btn-sm btn-light" (click)="cancelEditProject(idStr(project.id))">
+                  Cancel
+                </button>
+              </div>
+            </div>
+            } @else {
+            <div class="project-row-content d-flex align-items-center gap-2">
+              <span class="project-name">{{ project.projectName }}</span>
+              <span class="project-location">{{ getProjectLocation(project) }}</span>
+              <span class="project-status-pill" [ngClass]="getStatusPillClass(project.status)">
+                {{ getStatusLabel(project.status) }}
+              </span>
+              @if (editMode()) {
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary ms-auto"
+                data-edit-btn
+                (click)="startEditProject(project, $event)"
+                aria-label="Edit project">
+                Edit
+              </button>
+              }
+            </div>
+            }
+          </div>
+          }
+          }
+        </div>
+        }
+      </div>
+      }
+      }
+    </div>
+  </div>
+</div>

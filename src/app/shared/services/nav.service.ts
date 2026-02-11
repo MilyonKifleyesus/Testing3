@@ -16,7 +16,7 @@ export interface Menu {
   active?: boolean;
   children?: Menu[];
   selected?: boolean;
-  menutype?:string;
+  menutype?: string;
 }
 
 @Injectable({
@@ -44,7 +44,7 @@ export class NavService implements OnDestroy {
         this.collapseSidebar = false;
       });
     }
-    
+
     // Load menu based on stored user role on app initialization
     this.initializeMenuFromStorage();
   }
@@ -83,7 +83,7 @@ export class NavService implements OnDestroy {
       active: false,
     },
     {
-      path: '/apps/war-room',
+      path: '/apps/fluorescence-map',
       title: 'War Room',
       icon: 'ti-map',
       type: 'link',
@@ -494,17 +494,17 @@ export class NavService implements OnDestroy {
   // Default/Original Menu Items
   MENUITEMS: Menu[] = [
     //title
-    { headTitle: 'Bus Pulse'},
+    { headTitle: 'Bus Pulse' },
     {
       title: 'Dashboard',
       path: '/dashboard',
       type: 'link',
       icon: 'ti-dashboard',
       active: false,
-      selected:false
+      selected: false
     },
     {
-      path: '/apps/war-room',
+      path: '/apps/fluorescence-map',
       title: 'War Room',
       type: 'link',
       icon: 'ti-map',
@@ -568,8 +568,8 @@ export class NavService implements OnDestroy {
           type: 'link',
         }]
     },
-    
-     {
+
+    {
       path: '/vehicles',
       title: 'Vehicles',
       type: 'sub',
@@ -598,7 +598,7 @@ export class NavService implements OnDestroy {
       // YRT Data entry removed
     },
 
-{
+    {
       path: '/users',
       title: 'USERS',
       type: 'sub',
@@ -647,7 +647,7 @@ export class NavService implements OnDestroy {
       title: 'Elements',
       icon: 'ti-package',
       type: 'sub',
-      menutype:'mega-menu',
+      menutype: 'mega-menu',
       active: false,
       children: [
         { path: '/elements/accordion', title: 'Accordions & Collapse', type: 'link' },
@@ -693,8 +693,8 @@ export class NavService implements OnDestroy {
         { path: '/advancedui/contacts', title: 'Contacts', type: 'link' },
         { path: '/advancedui/cards', title: 'Cards', type: 'link' },
         { path: '/advancedui/timeline', title: 'Timeline', type: 'link' },
-      
-      
+
+
         { path: '/advancedui/search', title: 'Search', type: 'link' },
         { path: '/advancedui/userlist', title: 'Userlist', type: 'link' },
         {
@@ -727,7 +727,7 @@ export class NavService implements OnDestroy {
         { path: '/pages/invoice', title: 'Invoice', type: 'link' },
         { path: '/pages/pricing', title: 'Pricing', type: 'link' },
         { path: '/pages/gallery', title: 'Gallery', type: 'link' },
-        { path: '/pages/notifications-list', title: 'Notifications list', type: 'link'},
+        { path: '/pages/notifications-list', title: 'Notifications list', type: 'link' },
         { path: '/pages/faqs', title: 'Faqs', type: 'link' },
         {
           path: '/alert-pages/success-message',
@@ -778,7 +778,8 @@ export class NavService implements OnDestroy {
           children: [
             { title: 'Level 2.0', type: 'empty' },
             { title: 'Level 2.1', type: 'empty' },
-            { title: 'Level 2.2', type: 'sub', active: false, children: [
+            {
+              title: 'Level 2.2', type: 'sub', active: false, children: [
                 { title: 'Level 2.2.1', type: 'empty' },
                 { title: 'Level 2.2.2', type: 'empty' }
               ],
@@ -859,9 +860,9 @@ export class NavService implements OnDestroy {
               title: 'Input Masks',
               type: 'link',
             },
-          
-         
-       
+
+
+
             {
               path: '/forms/forms-elements/file-uploads',
               title: 'File Uploads',
@@ -913,7 +914,7 @@ export class NavService implements OnDestroy {
         },
       ],
     },
-    
+
     {
       title: 'Charts',
       type: 'sub',
@@ -1031,7 +1032,7 @@ export class NavService implements OnDestroy {
 
   // Get menu items based on user role
   getMenuByRole(role: string): Menu[] {
-    switch(role) {
+    switch (role) {
       case 'superadmin':
         return this.SUPERADMIN_MENUITEMS;
       case 'admin':

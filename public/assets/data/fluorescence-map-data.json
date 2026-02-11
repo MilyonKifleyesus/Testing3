@@ -1,0 +1,1702 @@
+{
+  "nodes": [],
+  "transitRoutes": [],
+  "activityLogs": [
+    {
+      "id": "log-001",
+      "timestamp": "2026-01-30T14:20:00Z",
+      "status": "ACTIVE",
+      "title": "NEW FLYER | WINNIPEG",
+      "description": "CHARGE CYCLE COMPLETE // FLEET READY",
+      "parentGroupId": "namg",
+      "subsidiaryId": "new-flyer",
+      "factoryId": "new-flyer-winnipeg",
+      "location": "Winnipeg, Canada",
+      "logo": "/assets/images/New-Flyer.jpg"
+    },
+    {
+      "id": "log-002",
+      "timestamp": "2026-01-30T13:42:00Z",
+      "status": "INFO",
+      "title": "NOVA BUS | SAINT-EUSTACHE",
+      "description": "ASSEMBLY LINE OPTIMIZED // THROUGHPUT +6%",
+      "parentGroupId": "namg",
+      "subsidiaryId": "nova",
+      "factoryId": "nova-saint-eustache",
+      "location": "Saint-Eustache, Canada",
+      "logo": "/assets/images/Nova-Bus.png"
+    },
+    {
+      "id": "log-003",
+      "timestamp": "2026-01-30T12:10:00Z",
+      "status": "WARNING",
+      "title": "NEW FLYER | ANNISTON",
+      "description": "SCHEDULE SLIP DETECTED // MAINTENANCE QUEUE",
+      "parentGroupId": "namg",
+      "subsidiaryId": "new-flyer",
+      "factoryId": "new-flyer-anniston",
+      "location": "Anniston, Alabama",
+      "logo": "/assets/images/New-Flyer.jpg"
+    },
+    {
+      "id": "log-004",
+      "timestamp": "2026-01-30T11:25:00Z",
+      "status": "ERROR",
+      "title": "ALEXANDER DENNIS | PLANTATION",
+      "description": "LINE PAUSED // TOOLING RESET REQUIRED",
+      "parentGroupId": "namg",
+      "subsidiaryId": "alex-dennis",
+      "factoryId": "alex-dennis-plantation",
+      "location": "Plantation, Florida",
+      "logo": "/assets/images/alexander-dennis.jpg"
+    },
+    {
+      "id": "log-005",
+      "timestamp": "2026-01-30T10:05:00Z",
+      "status": "ACTIVE",
+      "title": "KARSAN | BURSA",
+      "description": "EUROPE LINE ACTIVE // EXPORT RUN CONFIRMED",
+      "parentGroupId": "namg",
+      "subsidiaryId": "karsan",
+      "factoryId": "karsan-bursa",
+      "location": "Bursa, Turkey",
+      "logo": "/assets/images/KARSAN.jpg"
+    },
+    {
+      "id": "log-006",
+      "timestamp": "2026-01-30T09:15:00Z",
+      "status": "ACTIVE",
+      "title": "YUTONG | ZHENGZHOU",
+      "description": "ASIA PACIFIC LINE ACTIVE // OUTPUT TARGET MET",
+      "parentGroupId": "namg",
+      "subsidiaryId": "yutong",
+      "factoryId": "yutong-zhengzhou",
+      "location": "Zhengzhou, China",
+      "logo": "/assets/images/svgs/user.svg"
+    },
+    {
+      "id": "log-007",
+      "timestamp": "2026-01-30T08:25:00Z",
+      "status": "WARNING",
+      "title": "MARCOPOLO | CAXIAS DO SUL",
+      "description": "LATAM LINE DEGRADED // SUPPLY HOLD",
+      "parentGroupId": "namg",
+      "subsidiaryId": "marcopolo",
+      "factoryId": "marcopolo-caxias",
+      "location": "Caxias do Sul, Brazil",
+      "logo": "/assets/images/svgs/user.svg"
+    },
+    {
+      "id": "log-008",
+      "timestamp": "2026-01-30T17:40:00Z",
+      "status": "ACTIVE",
+      "title": "FLEETZERO | TORONTO",
+      "description": "HUB ONLINE // SYNCHRONIZING GLOBAL OPERATIONS",
+      "parentGroupId": "namg",
+      "subsidiaryId": "fleetzero",
+      "factoryId": "fleetzero-toronto",
+      "location": "Toronto, Ontario",
+      "logo": "/assets/images/FleetZero.png"
+    }
+  ],
+  "networkMetrics": {
+    "dataFlowIntegrity": 98.7,
+    "fleetSyncRate": 642,
+    "networkLatency": 5,
+    "latencyChange": -8.2,
+    "nodeDensity": 92.4,
+    "encryptionProtocol": "QUANTUM-X",
+    "encryptionStatus": "ACTIVE"
+  },
+  "networkThroughput": {
+    "bars": [
+      35,
+      55,
+      72,
+      68,
+      84,
+      90,
+      78
+    ],
+    "channelStatus": "L-CHANNEL: ACTIVE",
+    "throughput": "3.9 GBPS"
+  },
+  "geopoliticalHeatmap": {
+    "grid": [
+      [
+        10,
+        25,
+        30,
+        15
+      ],
+      [
+        5,
+        40,
+        20,
+        18
+      ],
+      [
+        22,
+        12,
+        35,
+        28
+      ]
+    ],
+    "rows": 3,
+    "cols": 4
+  },
+  "satelliteStatuses": [
+    {
+      "id": "sat-01",
+      "name": "SAT-01",
+      "type": "GEO",
+      "status": "LOCKED"
+    },
+    {
+      "id": "sat-02",
+      "name": "SAT-02",
+      "type": "LEO",
+      "status": "ACQUIRING"
+    },
+    {
+      "id": "sat-03",
+      "name": "SAT-03",
+      "type": "MEO",
+      "status": "LOCKED"
+    }
+  ],
+  "parentGroups": [
+    {
+      "id": "namg",
+      "name": "North America Mobility Group",
+      "status": "ACTIVE",
+      "metrics": {
+        "assetCount": 1330,
+        "incidentCount": 23,
+        "syncStability": 96.4
+      },
+      "description": "Primary manufacturing and service umbrella for North America.",
+      "logo": null,
+      "subsidiaries": [
+        {
+          "id": "new-flyer",
+          "parentGroupId": "namg",
+          "name": "New Flyer Industries",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 420,
+            "incidentCount": 4,
+            "syncStability": 96.9
+          },
+          "description": "Zero-emission bus manufacturing and retrofits.",
+          "location": "Winnipeg, Canada",
+          "logo": "/assets/images/New-Flyer.jpg",
+          "quantumChart": {
+            "dataPoints": [
+              72,
+              88,
+              90,
+              82,
+              95,
+              87
+            ],
+            "highlightedIndex": 4
+          },
+          "hubs": [
+            {
+              "id": "hub-nf-01",
+              "code": "WIN",
+              "companyId": "new-flyer",
+              "companyName": "New Flyer Industries",
+              "status": "ONLINE",
+              "capacity": "82% CAP",
+              "capacityPercentage": 82,
+              "statusColor": "#6ee755",
+              "capColor": "#6ee755"
+            },
+            {
+              "id": "hub-nf-02",
+              "code": "ANN",
+              "companyId": "new-flyer",
+              "companyName": "New Flyer Industries",
+              "status": "ACTIVE",
+              "capacity": "76% CAP",
+              "capacityPercentage": 76,
+              "statusColor": "#6ee755",
+              "capColor": "#6ee755"
+            }
+          ],
+          "factories": [
+            {
+              "id": "new-flyer-winnipeg",
+              "parentGroupId": "namg",
+              "subsidiaryId": "new-flyer",
+              "name": "Winnipeg Manufacturing",
+              "city": "Winnipeg",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 49.8951,
+                "longitude": -97.1384
+              },
+              "status": "ONLINE",
+              "syncStability": 98.1,
+              "assets": 240,
+              "incidents": 1,
+              "description": "Primary production campus.",
+              "logo": "/assets/images/New-Flyer.jpg",
+              "fullAddress": "711 Kernaghan Avenue, Winnipeg, MB R2C 3T4",
+              "facilityType": "Headquarters & Manufacturing Plant",
+              "notes": "Corporate HQ and main Canadian production facility."
+            },
+            {
+              "id": "new-flyer-anniston",
+              "parentGroupId": "namg",
+              "subsidiaryId": "new-flyer",
+              "name": "Anniston Manufacturing",
+              "city": "Anniston, Alabama",
+              "country": "United States",
+              "coordinates": {
+                "latitude": 33.6598,
+                "longitude": -85.8316
+              },
+              "status": "ACTIVE",
+              "syncStability": 94.6,
+              "assets": 180,
+              "incidents": 3,
+              "description": "Southern production and retrofit center.",
+              "logo": "/assets/images/New-Flyer.jpg",
+              "fullAddress": "106 National Drive, Anniston, AL 36207",
+              "facilityType": "Manufacturing Plant",
+              "notes": "U.S. production plant; includes Vehicle Innovation Center."
+            },
+            {
+              "id": "new-flyer-crookston-new-flyer",
+              "parentGroupId": "namg",
+              "subsidiaryId": "new-flyer",
+              "name": "Crookston (New Flyer)",
+              "city": "Crookston",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 47.7741,
+                "longitude": -96.6064
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Plant",
+              "logo": "/assets/images/New-Flyer.jpg",
+              "fullAddress": "214 5th Avenue SW, Crookston, MN 56716",
+              "facilityType": "Manufacturing Plant",
+              "notes": "Transit bus assembly."
+            },
+            {
+              "id": "new-flyer-anniston-new-flyer",
+              "parentGroupId": "namg",
+              "subsidiaryId": "new-flyer",
+              "name": "Anniston (New Flyer)",
+              "city": "Anniston",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 33.6598,
+                "longitude": -85.8316
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Plant",
+              "logo": "/assets/images/New-Flyer.jpg",
+              "fullAddress": "106 National Drive, Anniston, AL 36207",
+              "facilityType": "Manufacturing Plant",
+              "notes": "U.S. production plant; includes Vehicle Innovation Center."
+            },
+            {
+              "id": "new-flyer-st.-cloud-new-flyer",
+              "parentGroupId": "namg",
+              "subsidiaryId": "new-flyer",
+              "name": "St. Cloud (New Flyer)",
+              "city": "St. Cloud",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 45.5608,
+                "longitude": -94.1622
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Plant",
+              "logo": "/assets/images/New-Flyer.jpg",
+              "fullAddress": "6200 Glenn Carlson Drive, St. Cloud, MN 56301",
+              "facilityType": "Manufacturing Plant",
+              "notes": "Transit bus assembly."
+            },
+            {
+              "id": "new-flyer-jamestown-new-flyer",
+              "parentGroupId": "namg",
+              "subsidiaryId": "new-flyer",
+              "name": "Jamestown (New Flyer)",
+              "city": "Jamestown",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 42.0956,
+                "longitude": -79.2386
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Plant",
+              "logo": "/assets/images/New-Flyer.jpg",
+              "fullAddress": "255 Fluvanna Ave, Jamestown, NY 14701",
+              "facilityType": "Manufacturing Plant",
+              "notes": "Component manufacturing & assembly."
+            },
+            {
+              "id": "new-flyer-shepherdsville-new-flyer",
+              "parentGroupId": "namg",
+              "subsidiaryId": "new-flyer",
+              "name": "Shepherdsville (New Flyer)",
+              "city": "Shepherdsville",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 37.9859,
+                "longitude": -85.7141
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts Fabrication Plant",
+              "logo": "/assets/images/New-Flyer.jpg",
+              "fullAddress": "857 Park Loop Rd, Shepherdsville, KY 40165",
+              "facilityType": "Parts Fabrication Plant",
+              "notes": "Parts fabrication facility opened in 2018."
+            }
+          ]
+        },
+        {
+          "id": "nova",
+          "parentGroupId": "namg",
+          "name": "Nova Bus",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 320,
+            "incidentCount": 3,
+            "syncStability": 95.8
+          },
+          "description": "High-capacity urban transit manufacturing.",
+          "location": "Saint-Eustache, Canada",
+          "logo": "/assets/images/Nova-Bus.png",
+          "quantumChart": {
+            "dataPoints": [
+              65,
+              70,
+              78,
+              85,
+              88,
+              90
+            ],
+            "highlightedIndex": 5
+          },
+          "hubs": [
+            {
+              "id": "hub-nv-01",
+              "code": "SEU",
+              "companyId": "nova",
+              "companyName": "Nova Bus",
+              "status": "ONLINE",
+              "capacity": "88% CAP",
+              "capacityPercentage": 88,
+              "statusColor": "#6ee755",
+              "capColor": "#6ee755"
+            }
+          ],
+          "factories": [
+            {
+              "id": "nova-saint-eustache",
+              "parentGroupId": "namg",
+              "subsidiaryId": "nova",
+              "name": "Saint-Eustache Assembly",
+              "city": "Saint-Eustache, Quebec",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 45.565,
+                "longitude": -73.9055
+              },
+              "status": "ONLINE",
+              "syncStability": 97.6,
+              "assets": 200,
+              "incidents": 2,
+              "description": "Primary platform build and systems integration.",
+              "logo": "/assets/images/Nova-Bus.png",
+              "fullAddress": "1000 Boulevard Industriel, Saint-Eustache, QC J7R 5A5",
+              "facilityType": "Headquarters & Assembly Plant",
+              "notes": "Main transit bus manufacturing facility."
+            },
+            {
+              "id": "nova-saint-francois",
+              "parentGroupId": "namg",
+              "subsidiaryId": "nova",
+              "name": "Saint-Francois-du-Lac Facility",
+              "city": "Saint-Francois-du-Lac, Quebec",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 46.0,
+                "longitude": -72.95
+              },
+              "status": "ACTIVE",
+              "syncStability": 94.0,
+              "assets": 120,
+              "incidents": 1,
+              "description": "Component fabrication and test operations.",
+              "logo": "/assets/images/Nova-Bus.png"
+            },
+            {
+              "id": "nova-st.-eustache-nova",
+              "parentGroupId": "namg",
+              "subsidiaryId": "nova",
+              "name": "St. Eustache (Nova)",
+              "city": "St. Eustache",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 45.5583,
+                "longitude": -73.8967
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Facility",
+              "logo": "/assets/images/Nova-Bus.png",
+              "fullAddress": null,
+              "facilityType": null,
+              "notes": null
+            },
+            {
+              "id": "nova-saint-eustache-nova-bus",
+              "parentGroupId": "namg",
+              "subsidiaryId": "nova",
+              "name": "Saint-Eustache (Nova Bus)",
+              "city": "Saint-Eustache",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 45.5583,
+                "longitude": -73.8967
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Headquarters & Assembly Plant",
+              "logo": "/assets/images/Nova-Bus.png",
+              "fullAddress": "1000 Boulevard Industriel, Saint-Eustache, QC J7R 5A5",
+              "facilityType": "Headquarters & Assembly Plant",
+              "notes": "Main transit bus manufacturing facility."
+            },
+            {
+              "id": "nova-saint-françois-du-lac-nova-bus",
+              "parentGroupId": "namg",
+              "subsidiaryId": "nova",
+              "name": "Saint-François-du-Lac (Nova Bus)",
+              "city": "Saint-François-du-Lac",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 46.0667,
+                "longitude": -72.9167
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Assembly Plant",
+              "logo": "/assets/images/Nova-Bus.png",
+              "fullAddress": "155 Boulevard Marie-Victorin, Saint-François-du-Lac, QC J0G 1M0",
+              "facilityType": "Assembly Plant",
+              "notes": "Secondary production plant."
+            },
+            {
+              "id": "nova-plattsburgh-nova-bus",
+              "parentGroupId": "namg",
+              "subsidiaryId": "nova",
+              "name": "Plattsburgh (Nova Bus)",
+              "city": "Plattsburgh",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 44.6995,
+                "longitude": -73.4529
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Assembly & Delivery Plant",
+              "logo": "/assets/images/Nova-Bus.png",
+              "fullAddress": "260 Banker Road, Plattsburgh, NY 12901",
+              "facilityType": "Assembly & Delivery Plant",
+              "notes": "Final bus assembly; closing by 2025."
+            }
+          ]
+        },
+        {
+          "id": "alex-dennis",
+          "parentGroupId": "namg",
+          "name": "Alexander Dennis",
+          "status": "PAUSED",
+          "metrics": {
+            "assetCount": 140,
+            "incidentCount": 5,
+            "syncStability": 78.2
+          },
+          "description": "Hybrid platform retrofit and idle production line.",
+          "location": "Plantation, Florida",
+          "logo": "/assets/images/alexander-dennis.jpg",
+          "quantumChart": {
+            "dataPoints": [
+              42,
+              55,
+              48,
+              52,
+              60,
+              46
+            ],
+            "highlightedIndex": 1
+          },
+          "hubs": [
+            {
+              "id": "hub-ad-01",
+              "code": "PLT",
+              "companyId": "alex-dennis",
+              "companyName": "Alexander Dennis",
+              "status": "OFFLINE",
+              "capacity": "30% CAP",
+              "capacityPercentage": 30,
+              "statusColor": "#ef4444",
+              "capColor": "#ef4444"
+            }
+          ],
+          "factories": [
+            {
+              "id": "alex-dennis-plantation",
+              "parentGroupId": "namg",
+              "subsidiaryId": "alex-dennis",
+              "name": "Plantation Retrofit Center",
+              "city": "Plantation, Florida",
+              "country": "United States",
+              "coordinates": {
+                "latitude": 26.1276,
+                "longitude": -80.2331
+              },
+              "status": "OFFLINE",
+              "syncStability": 72.5,
+              "assets": 140,
+              "incidents": 5,
+              "description": "Paused retrofit bay awaiting parts.",
+              "logo": "/assets/images/alexander-dennis.jpg"
+            }
+          ]
+        },
+        {
+          "id": "karsan",
+          "parentGroupId": "namg",
+          "name": "Karsan",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 110,
+            "incidentCount": 2,
+            "syncStability": 93.1
+          },
+          "description": "European electric bus production.",
+          "location": "Bursa, Turkey",
+          "logo": "/assets/images/KARSAN.jpg",
+          "quantumChart": {
+            "dataPoints": [
+              58,
+              62,
+              71,
+              77,
+              83,
+              86
+            ],
+            "highlightedIndex": 4
+          },
+          "hubs": [
+            {
+              "id": "hub-ks-01",
+              "code": "BUR",
+              "companyId": "karsan",
+              "companyName": "Karsan",
+              "status": "ONLINE",
+              "capacity": "84% CAP",
+              "capacityPercentage": 84,
+              "statusColor": "#6ee755",
+              "capColor": "#6ee755"
+            }
+          ],
+          "factories": [
+            {
+              "id": "karsan-bursa",
+              "parentGroupId": "namg",
+              "subsidiaryId": "karsan",
+              "name": "Bursa Assembly Campus",
+              "city": "Bursa",
+              "country": "Turkey",
+              "coordinates": {
+                "latitude": 40.1828,
+                "longitude": 29.0665
+              },
+              "status": "ACTIVE",
+              "syncStability": 95.2,
+              "assets": 110,
+              "incidents": 2,
+              "description": "European production and integration center.",
+              "logo": "/assets/images/KARSAN.jpg"
+            },
+            {
+              "id": "karsan-nilüfer-karsan",
+              "parentGroupId": "namg",
+              "subsidiaryId": "karsan",
+              "name": "Nilüfer (Karsan)",
+              "city": "Nilüfer",
+              "country": "Turkey",
+              "coordinates": {
+                "latitude": 40.2167,
+                "longitude": 28.95
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Coating & Components Plant",
+              "logo": "/assets/images/KARSAN.jpg",
+              "fullAddress": "Organize Sanayi Bölgesi, Mavi Cad. No:13, Nilüfer, Bursa 16215",
+              "facilityType": "Coating & Components Plant",
+              "notes": "Coating and parts facility."
+            }
+          ]
+        },
+        {
+          "id": "yutong",
+          "parentGroupId": "namg",
+          "name": "Yutong",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 210,
+            "incidentCount": 3,
+            "syncStability": 94.3
+          },
+          "description": "Asia Pacific high-volume electric bus production.",
+          "location": "Zhengzhou, China",
+          "logo": "/assets/images/svgs/user.svg",
+          "quantumChart": {
+            "dataPoints": [
+              60,
+              68,
+              74,
+              80,
+              85,
+              88
+            ],
+            "highlightedIndex": 4
+          },
+          "hubs": [
+            {
+              "id": "hub-yt-01",
+              "code": "ZZU",
+              "companyId": "yutong",
+              "companyName": "Yutong",
+              "status": "ONLINE",
+              "capacity": "86% CAP",
+              "capacityPercentage": 86,
+              "statusColor": "#6ee755",
+              "capColor": "#6ee755"
+            }
+          ],
+          "factories": [
+            {
+              "id": "yutong-zhengzhou",
+              "parentGroupId": "namg",
+              "subsidiaryId": "yutong",
+              "name": "Zhengzhou Assembly Hub",
+              "city": "Zhengzhou",
+              "country": "China",
+              "coordinates": {
+                "latitude": 34.7466,
+                "longitude": 113.6254
+              },
+              "status": "ACTIVE",
+              "syncStability": 96.1,
+              "assets": 210,
+              "incidents": 3,
+              "description": "Asia Pacific production and export center.",
+              "logo": "/assets/images/svgs/user.svg"
+            }
+          ]
+        },
+        {
+          "id": "marcopolo",
+          "parentGroupId": "namg",
+          "name": "Marcopolo",
+          "status": "MAINTENANCE",
+          "metrics": {
+            "assetCount": 130,
+            "incidentCount": 6,
+            "syncStability": 82.4
+          },
+          "description": "LATAM production line under maintenance.",
+          "location": "Caxias do Sul, Brazil",
+          "logo": "/assets/images/svgs/user.svg",
+          "quantumChart": {
+            "dataPoints": [
+              48,
+              52,
+              56,
+              50,
+              54,
+              49
+            ],
+            "highlightedIndex": 2
+          },
+          "hubs": [
+            {
+              "id": "hub-mp-01",
+              "code": "CXS",
+              "companyId": "marcopolo",
+              "companyName": "Marcopolo",
+              "status": "OFFLINE",
+              "capacity": "40% CAP",
+              "capacityPercentage": 40,
+              "statusColor": "#ef4444",
+              "capColor": "#ef4444"
+            }
+          ],
+          "factories": [
+            {
+              "id": "marcopolo-caxias",
+              "parentGroupId": "namg",
+              "subsidiaryId": "marcopolo",
+              "name": "Caxias do Sul Plant",
+              "city": "Caxias do Sul",
+              "country": "Brazil",
+              "coordinates": {
+                "latitude": -29.1686,
+                "longitude": -51.1797
+              },
+              "status": "OFFLINE",
+              "syncStability": 70.2,
+              "assets": 130,
+              "incidents": 6,
+              "description": "LATAM assembly line under maintenance.",
+              "logo": "/assets/images/svgs/user.svg"
+            }
+          ]
+        },
+        {
+          "id": "fleetzero",
+          "parentGroupId": "namg",
+          "name": "FleetZero",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 50,
+            "incidentCount": 0,
+            "syncStability": 99.9
+          },
+          "description": "Premium Fleet Intelligence & Operations Command Hub.",
+          "location": "Toronto, Ontario",
+          "logo": null,
+          "quantumChart": {
+            "dataPoints": [
+              95,
+              96,
+              98,
+              99,
+              99,
+              100
+            ],
+            "highlightedIndex": 5
+          },
+          "hubs": [
+            {
+              "id": "hub-fleetzero-yyz",
+              "code": "YYZ",
+              "companyId": "fleetzero",
+              "companyName": "FleetZero",
+              "status": "ONLINE",
+              "capacity": "95% CAP",
+              "capacityPercentage": 95,
+              "statusColor": "#00FF41",
+              "capColor": "#00FF41"
+            }
+          ],
+          "factories": [
+            {
+              "id": "fleetzero-toronto",
+              "parentGroupId": "namg",
+              "subsidiaryId": "fleetzero",
+              "name": "FleetZero HQ & Hub",
+              "city": "Toronto, Ontario",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 43.6532,
+                "longitude": -79.3832
+              },
+              "status": "ONLINE",
+              "syncStability": 99.9,
+              "assets": 50,
+              "incidents": 0,
+              "description": "Global command center and innovation laboratory.",
+              "logo": null
+            }
+          ]
+        },
+        {
+          "id": "arboc",
+          "parentGroupId": "namg",
+          "name": "Arboc Specialty Vehicles",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 0,
+            "incidentCount": 0,
+            "syncStability": 95.0
+          },
+          "description": "Low-floor cutaway bus manufacturing.",
+          "location": "",
+          "logo": "/assets/images/NFI_Logo.png",
+          "quantumChart": {
+            "dataPoints": [
+              50,
+              60,
+              55,
+              70,
+              65,
+              80
+            ],
+            "highlightedIndex": 5
+          },
+          "hubs": [],
+          "factories": [
+            {
+              "id": "arboc-middlebury-in-nfi-/-arboc",
+              "parentGroupId": "namg",
+              "subsidiaryId": "arboc",
+              "name": "Middlebury IN (NFI / Arboc)",
+              "city": "Middlebury",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 41.6739,
+                "longitude": -85.7067
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Facility",
+              "logo": "/assets/images/NFI_Logo.png",
+              "fullAddress": "51165 Greenfield Pkwy, Middlebury, IN 46540",
+              "facilityType": "Manufacturing Plant & Headquarters",
+              "notes": "Main production facility and HQ."
+            }
+          ]
+        },
+        {
+          "id": "tam",
+          "parentGroupId": "namg",
+          "name": "TAM",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 0,
+            "incidentCount": 0,
+            "syncStability": 95.0
+          },
+          "description": "European bus and coach manufacturing.",
+          "location": "",
+          "logo": "/assets/images/svgs/user.svg",
+          "quantumChart": {
+            "dataPoints": [
+              50,
+              60,
+              55,
+              70,
+              65,
+              80
+            ],
+            "highlightedIndex": 5
+          },
+          "hubs": [],
+          "factories": [
+            {
+              "id": "tam-tam-facility",
+              "parentGroupId": "namg",
+              "subsidiaryId": "tam",
+              "name": "TAM Facility",
+              "city": "",
+              "country": "China",
+              "coordinates": {
+                "latitude": 0,
+                "longitude": 0
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Facility",
+              "logo": "/assets/images/svgs/user.svg",
+              "fullAddress": null,
+              "facilityType": null,
+              "notes": null
+            },
+            {
+              "id": "tam-maribor-tam",
+              "parentGroupId": "namg",
+              "subsidiaryId": "tam",
+              "name": "Maribor (TAM)",
+              "city": "Maribor",
+              "country": "Slovenia",
+              "coordinates": {
+                "latitude": 46.5546,
+                "longitude": 15.6459
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Plant & Headquarters",
+              "logo": "/assets/images/svgs/user.svg",
+              "fullAddress": "Cesta k Tamu 33, 2000 Maribor",
+              "facilityType": "Manufacturing Plant & Headquarters",
+              "notes": "Factory and headquarters on historic site."
+            }
+          ]
+        },
+        {
+          "id": "mci",
+          "parentGroupId": "namg",
+          "name": "MCI (Motor Coach Industries)",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 0,
+            "incidentCount": 0,
+            "syncStability": 95.0
+          },
+          "description": "Premium motorcoach manufacturing.",
+          "location": "",
+          "logo": "/assets/images/MCI_Logo.png",
+          "quantumChart": {
+            "dataPoints": [
+              50,
+              60,
+              55,
+              70,
+              65,
+              80
+            ],
+            "highlightedIndex": 5
+          },
+          "hubs": [],
+          "factories": [
+            {
+              "id": "mci-pembina-mci",
+              "parentGroupId": "namg",
+              "subsidiaryId": "mci",
+              "name": "Pembina (MCI)",
+              "city": "Pembina",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 48.9669,
+                "longitude": -97.2454
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Plant",
+              "logo": "/assets/images/MCI_Logo.png",
+              "fullAddress": "552 West Stutsman Avenue, Pembina, ND 58271",
+              "facilityType": "Manufacturing Plant",
+              "notes": "Main motorcoach manufacturing."
+            },
+            {
+              "id": "mci-winnipeg-mci",
+              "parentGroupId": "namg",
+              "subsidiaryId": "mci",
+              "name": "Winnipeg (MCI)",
+              "city": "Winnipeg",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 49.8951,
+                "longitude": -97.1384
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Plant",
+              "logo": "/assets/images/MCI_Logo.png",
+              "fullAddress": "1475 Clarence Avenue, Winnipeg, MB R3T 1T5",
+              "facilityType": "Manufacturing Plant",
+              "notes": "Original coach plant."
+            },
+            {
+              "id": "mci-arnprior-mci",
+              "parentGroupId": "namg",
+              "subsidiaryId": "mci",
+              "name": "Arnprior (MCI)",
+              "city": "Arnprior",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 45.4357,
+                "longitude": -76.3533
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Service Center",
+              "logo": "/assets/images/MCI_Logo.png",
+              "fullAddress": "480A Hartney Street, Arnprior, ON K7S 0B8",
+              "facilityType": "Service Center",
+              "notes": "Collision repair & refurbishment."
+            },
+            {
+              "id": "mci-blackwood-mci",
+              "parentGroupId": "namg",
+              "subsidiaryId": "mci",
+              "name": "Blackwood (MCI)",
+              "city": "Blackwood",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 39.7993,
+                "longitude": -75.0632
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Service Center",
+              "logo": "/assets/images/MCI_Logo.png",
+              "fullAddress": "14 Harmon Drive, Blackwood, NJ 08012",
+              "facilityType": "Service Center",
+              "notes": "Northeast service center."
+            },
+            {
+              "id": "mci-torrance-mci",
+              "parentGroupId": "namg",
+              "subsidiaryId": "mci",
+              "name": "Torrance (MCI)",
+              "city": "Torrance",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 33.8358,
+                "longitude": -118.3406
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Service Center",
+              "logo": "/assets/images/MCI_Logo.png",
+              "fullAddress": "20700 Denker Ave Suite A, Torrance, CA 90501",
+              "facilityType": "Service Center",
+              "notes": "West Coast service center."
+            },
+            {
+              "id": "mci-hayward-mci",
+              "parentGroupId": "namg",
+              "subsidiaryId": "mci",
+              "name": "Hayward (MCI)",
+              "city": "Hayward",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 37.6688,
+                "longitude": -122.0808
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Service Center",
+              "logo": "/assets/images/MCI_Logo.png",
+              "fullAddress": "4120 Point Eden Way, Hayward, CA 94545",
+              "facilityType": "Service Center",
+              "notes": "Bay Area service center."
+            },
+            {
+              "id": "mci-montreal-mci",
+              "parentGroupId": "namg",
+              "subsidiaryId": "mci",
+              "name": "Montreal (MCI)",
+              "city": "Montreal",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 45.5017,
+                "longitude": -73.5673
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Service Center",
+              "logo": "/assets/images/MCI_Logo.png",
+              "fullAddress": "3500 Rue Saint-Patrick, Montreal, QC H4E 1A2",
+              "facilityType": "Service Center",
+              "notes": "Eastern Canada service center."
+            },
+            {
+              "id": "mci-des-plaines-mci",
+              "parentGroupId": "namg",
+              "subsidiaryId": "mci",
+              "name": "Des Plaines (MCI)",
+              "city": "Des Plaines",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 42.0334,
+                "longitude": -87.8834
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Service Center",
+              "logo": "/assets/images/MCI_Logo.png",
+              "fullAddress": "200 East Oakton Street, Des Plaines, IL 60018",
+              "facilityType": "Service Center",
+              "notes": "Midwest service center."
+            },
+            {
+              "id": "mci-dallas-mci",
+              "parentGroupId": "namg",
+              "subsidiaryId": "mci",
+              "name": "Dallas (MCI)",
+              "city": "Dallas",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 32.7767,
+                "longitude": -96.797
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Service Center",
+              "logo": "/assets/images/MCI_Logo.png",
+              "fullAddress": "9787 Clifford Drive, Dallas, TX 75220",
+              "facilityType": "Service Center",
+              "notes": "Southern US service center."
+            }
+          ]
+        },
+        {
+          "id": "prevost",
+          "parentGroupId": "namg",
+          "name": "Prevost",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 0,
+            "incidentCount": 0,
+            "syncStability": 95.0
+          },
+          "description": "Luxury coach and motorhome manufacturing.",
+          "location": "",
+          "logo": "/assets/images/Prevost_Logo.png",
+          "quantumChart": {
+            "dataPoints": [
+              50,
+              60,
+              55,
+              70,
+              65,
+              80
+            ],
+            "highlightedIndex": 5
+          },
+          "hubs": [],
+          "factories": [
+            {
+              "id": "prevost-sainte-claire-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Sainte-Claire (Prevost)",
+              "city": "Sainte-Claire",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 46.6,
+                "longitude": -70.8667
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Headquarters",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "35 Gagnon Boulevard, Sainte-Claire, QC G0R 2V0",
+              "facilityType": "Manufacturing Headquarters",
+              "notes": "Main coach manufacturing and HQ."
+            },
+            {
+              "id": "prevost-plattsburgh-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Plattsburgh (Prevost)",
+              "city": "Plattsburgh",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 44.6995,
+                "longitude": -73.4529
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Assembly Plant",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "260 Banker Road, Plattsburgh, NY 12901",
+              "facilityType": "Assembly Plant",
+              "notes": "U.S. assembly line (2014–2022)."
+            },
+            {
+              "id": "prevost-airdrie-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Airdrie (Prevost)",
+              "city": "Airdrie",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 51.2917,
+                "longitude": -114.0142
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "2932 Kingsview Blvd SE, Airdrie, AB T4A 0C9",
+              "facilityType": "Parts & Service Center",
+              "notes": "Service facility for Calgary region."
+            },
+            {
+              "id": "prevost-richmond-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Richmond (Prevost)",
+              "city": "Richmond",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 49.1667,
+                "longitude": -123.1333
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "11911 No. 5 Road, Richmond, BC V7A 4E9",
+              "facilityType": "Parts & Service Center",
+              "notes": "Service facility for Vancouver."
+            },
+            {
+              "id": "prevost-mississauga-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Mississauga (Prevost)",
+              "city": "Mississauga",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 43.589,
+                "longitude": -79.6441
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "7655 Tranmere Drive, Mississauga, ON L5S 1L4",
+              "facilityType": "Parts & Service Center",
+              "notes": "Service facility for Toronto."
+            },
+            {
+              "id": "prevost-lévis-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Lévis (Prevost)",
+              "city": "Lévis",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 46.8033,
+                "longitude": -71.1733
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "850 Chemin Olivier, Lévis, QC G7A 2N1",
+              "facilityType": "Parts & Service Center",
+              "notes": "Service facility for Quebec City."
+            },
+            {
+              "id": "prevost-newark-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Newark (Prevost)",
+              "city": "Newark",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 37.5255,
+                "longitude": -122.0355
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "6821 Central Avenue, Newark, CA 94560",
+              "facilityType": "Parts & Service Center",
+              "notes": "San Francisco Bay Area service center."
+            },
+            {
+              "id": "prevost-franklin-park-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Franklin Park (Prevost)",
+              "city": "Franklin Park",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 41.9361,
+                "longitude": -87.8761
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "3715 N. Carnation St., Franklin Park, IL 60131",
+              "facilityType": "Parts & Service Center",
+              "notes": "Chicago area service center."
+            },
+            {
+              "id": "prevost-south-plainfield-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "South Plainfield (Prevost)",
+              "city": "South Plainfield",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 40.5793,
+                "longitude": -74.4115
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "201 South Avenue, South Plainfield, NJ 07080",
+              "facilityType": "Parts & Service Center",
+              "notes": "New Jersey service center."
+            },
+            {
+              "id": "prevost-secaucus-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Secaucus (Prevost)",
+              "city": "Secaucus",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 40.7896,
+                "longitude": -74.0565
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "57 County Avenue, Secaucus, NJ 07094",
+              "facilityType": "Parts & Service Center",
+              "notes": "New Jersey service center."
+            },
+            {
+              "id": "prevost-goodlettsville-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Goodlettsville (Prevost)",
+              "city": "Goodlettsville",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 36.3231,
+                "longitude": -86.7133
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "800 South Cartwright St., Goodlettsville, TN 37072",
+              "facilityType": "Parts & Service Center",
+              "notes": "Nashville area service center."
+            },
+            {
+              "id": "prevost-fort-worth-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Fort Worth (Prevost)",
+              "city": "Fort Worth",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 32.7555,
+                "longitude": -97.3308
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "15200 Frye Road, Fort Worth, TX 76155",
+              "facilityType": "Parts & Service Center",
+              "notes": "Dallas–Fort Worth service center."
+            },
+            {
+              "id": "prevost-houston-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Houston (Prevost)",
+              "city": "Houston",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 29.7604,
+                "longitude": -95.3698
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "11851 Cutten Road, Houston, TX 77066",
+              "facilityType": "Parts & Service Center",
+              "notes": "Houston area service center."
+            },
+            {
+              "id": "prevost-jacksonville-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Jacksonville (Prevost)",
+              "city": "Jacksonville",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 30.3322,
+                "longitude": -81.6557
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "6931 Business Park Blvd N, Jacksonville, FL 32256",
+              "facilityType": "Parts & Service Center",
+              "notes": "Jacksonville, FL service center."
+            },
+            {
+              "id": "prevost-winter-garden-prevost",
+              "parentGroupId": "namg",
+              "subsidiaryId": "prevost",
+              "name": "Winter Garden (Prevost)",
+              "city": "Winter Garden",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 28.565,
+                "longitude": -81.5862
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Parts & Service Center",
+              "logo": "/assets/images/Prevost_Logo.png",
+              "fullAddress": "1300 Green Forest Court, Winter Garden, FL 34787",
+              "facilityType": "Parts & Service Center",
+              "notes": "Orlando area service center."
+            }
+          ]
+        },
+        {
+          "id": "enc",
+          "parentGroupId": "namg",
+          "name": "ENC",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 0,
+            "incidentCount": 0,
+            "syncStability": 95.0
+          },
+          "description": "Specialized transit bus manufacturing.",
+          "location": "",
+          "logo": "/assets/images/svgs/user.svg",
+          "quantumChart": {
+            "dataPoints": [
+              50,
+              60,
+              55,
+              70,
+              65,
+              80
+            ],
+            "highlightedIndex": 5
+          },
+          "hubs": [],
+          "factories": [
+            {
+              "id": "enc-riverside-enc-eldorado-national",
+              "parentGroupId": "namg",
+              "subsidiaryId": "enc",
+              "name": "Riverside (ENC (ElDorado National))",
+              "city": "Riverside",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 33.9533,
+                "longitude": -117.3961
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Plant & Headquarters",
+              "logo": "/assets/images/svgs/user.svg",
+              "fullAddress": "9670 Galena Street, Riverside, CA 92509",
+              "facilityType": "Manufacturing Plant & Headquarters",
+              "notes": "Main 227,000 sq.ft. production facility."
+            }
+          ]
+        },
+        {
+          "id": "temsa",
+          "parentGroupId": "namg",
+          "name": "TEMSA",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 0,
+            "incidentCount": 0,
+            "syncStability": 95.0
+          },
+          "description": "Global motorcoach and transit manufacturer.",
+          "location": "",
+          "logo": "/assets/images/TEMSA_Logo_Black.svg",
+          "quantumChart": {
+            "dataPoints": [
+              50,
+              60,
+              55,
+              70,
+              65,
+              80
+            ],
+            "highlightedIndex": 5
+          },
+          "hubs": [],
+          "factories": [
+            {
+              "id": "temsa-adana-temsa",
+              "parentGroupId": "namg",
+              "subsidiaryId": "temsa",
+              "name": "Adana (TEMSA)",
+              "city": "Adana",
+              "country": "Turkey",
+              "coordinates": {
+                "latitude": 36.9914,
+                "longitude": 35.3308
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Headquarters",
+              "logo": "/assets/images/TEMSA_Logo_Black.svg",
+              "fullAddress": "Sarıhamzalı Mah., Turhan Cemal Beriker Blv. No:563/A, 01110 Seyhan, Adana",
+              "facilityType": "Manufacturing Headquarters",
+              "notes": "Main production campus."
+            },
+            {
+              "id": "temsa-istanbul-temsa",
+              "parentGroupId": "namg",
+              "subsidiaryId": "temsa",
+              "name": "Istanbul (TEMSA)",
+              "city": "Istanbul",
+              "country": "Turkey",
+              "coordinates": {
+                "latitude": 41.0082,
+                "longitude": 28.9784
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Corporate Office (R&D Center)",
+              "logo": "/assets/images/TEMSA_Logo_Black.svg",
+              "fullAddress": "Kısıklı Cad. Şehit İsmail Moray Sok. No:2/1, Altunizade, Üsküdar, İstanbul",
+              "facilityType": "Corporate Office (R&D Center)",
+              "notes": "Corporate and innovation hub."
+            },
+            {
+              "id": "temsa-burlingame-temsa",
+              "parentGroupId": "namg",
+              "subsidiaryId": "temsa",
+              "name": "Burlingame (TEMSA)",
+              "city": "Burlingame",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 37.5778,
+                "longitude": -122.3483
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Distribution & Service Center",
+              "logo": "/assets/images/TEMSA_Logo_Black.svg",
+              "fullAddress": "41480 Rollins Rd, Burlingame, CA 94010",
+              "facilityType": "Distribution & Service Center",
+              "notes": "North America West Coast service center."
+            },
+            {
+              "id": "temsa-orlando-temsa",
+              "parentGroupId": "namg",
+              "subsidiaryId": "temsa",
+              "name": "Orlando (TEMSA)",
+              "city": "Orlando",
+              "country": "USA",
+              "coordinates": {
+                "latitude": 28.5383,
+                "longitude": -81.3792
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Distribution & Service Center",
+              "logo": "/assets/images/TEMSA_Logo_Black.svg",
+              "fullAddress": "404 Zell Dr, Orlando, FL 32824",
+              "facilityType": "Distribution & Service Center",
+              "notes": "North America East Coast service center."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "mapViewMode": "subsidiary",
+  "selectedEntity": {
+    "level": "parent",
+    "id": "namg",
+    "parentGroupId": "namg"
+  }
+}

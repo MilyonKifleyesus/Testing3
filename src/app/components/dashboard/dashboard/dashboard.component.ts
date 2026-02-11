@@ -37,9 +37,9 @@ import { CommonModule } from '@angular/common';
   styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent {
-  constructor() {}
+  constructor() { }
 
-  ngOnInit(): void {  }
+  ngOnInit(): void { }
   //line Chart
   public ChartOptions = chartData.ChartOptions;
   public ChartOptions1 = chartData.ChartOptions1;
@@ -50,71 +50,8 @@ export class DashboardComponent {
   public barChartOptions = chartData.barChartOptions;
   public barChartType = chartData.barChartType;
   public barChartData = chartData.barChartData;
-  circleOptions={
+  circleOptions = {
     series: [1854, 250],
-	labels: ["Bitcoin", "Ethereum"],
-	chart: {
-	  height: 73,
-	  width: 50,
-		type: 'donut',
-	},
-	dataLabels: {
-		enabled: false,
-	},
-  
-	legend: {
-		show: false,
-	},
-	stroke: {
-		show: true,
-		curve: 'smooth',
-		lineCap: 'round',
-		colors: "#fff",
-		width: 0,
-		dashArray: 0,
-	},
-	plotOptions: {
-  
-		pie: {
-			expandOnClick: false,
-			donut: {
-				size: '75%',
-				background: 'transparent',
-				labels: {
-					show: false,
-					name: {
-						show: true,
-						fontSize: '20px',
-						color: '#495057',
-						offsetY: -4
-					},
-					value: {
-						show: true,
-						fontSize: '18px',
-						color: undefined,
-						offsetY: 8,
-						formatter: function (val: string) {
-							return val + "%"
-						}
-					},
-					total: {
-						show: true,
-						showAlways: true,
-						label: 'Total',
-						fontSize: '22px',
-						fontWeight: 600,
-						color: '#495057',
-					}
-  
-				}
-			}
-		}
-	},
-	colors: ["var(--primary-color)", "rgba(var(--primary-rgb), 0.2)"],
-  
-  }
-  circleOptions1={
-    series: [1754, 544],
     labels: ["Bitcoin", "Ethereum"],
     chart: {
       height: 73,
@@ -124,7 +61,7 @@ export class DashboardComponent {
     dataLabels: {
       enabled: false,
     },
-    
+
     legend: {
       show: false,
     },
@@ -137,7 +74,70 @@ export class DashboardComponent {
       dashArray: 0,
     },
     plotOptions: {
-    
+
+      pie: {
+        expandOnClick: false,
+        donut: {
+          size: '75%',
+          background: 'transparent',
+          labels: {
+            show: false,
+            name: {
+              show: true,
+              fontSize: '20px',
+              color: '#495057',
+              offsetY: -4
+            },
+            value: {
+              show: true,
+              fontSize: '18px',
+              color: undefined,
+              offsetY: 8,
+              formatter: function (val: string) {
+                return val + "%"
+              }
+            },
+            total: {
+              show: true,
+              showAlways: true,
+              label: 'Total',
+              fontSize: '22px',
+              fontWeight: 600,
+              color: '#495057',
+            }
+
+          }
+        }
+      }
+    },
+    colors: ["var(--primary-color)", "rgba(var(--primary-rgb), 0.2)"],
+
+  }
+  circleOptions1 = {
+    series: [1754, 544],
+    labels: ["Bitcoin", "Ethereum"],
+    chart: {
+      height: 73,
+      width: 50,
+      type: 'donut',
+    },
+    dataLabels: {
+      enabled: false,
+    },
+
+    legend: {
+      show: false,
+    },
+    stroke: {
+      show: true,
+      curve: 'smooth',
+      lineCap: 'round',
+      colors: "#fff",
+      width: 0,
+      dashArray: 0,
+    },
+    plotOptions: {
+
       pie: {
         expandOnClick: false,
         donut: {
@@ -168,7 +168,7 @@ export class DashboardComponent {
               fontWeight: 600,
               color: '#495057',
             }
-    
+
           }
         }
       }
@@ -246,15 +246,15 @@ export class DashboardComponent {
       amount: '$25.341',
       date: '4 Apr 2020',
       trendClass: 'down-alt text-danger',
-      cell:'pb-0'
+      cell: 'pb-0'
     }
   ];
-  taskColumns=[
-    {header:'Task',field:'Task',tableHeadColumn:'wd-lg-20p'},
-    {header:'Team',field:'Team',tableHeadColumn:'wd-lg-20p text-center'},
-    {header:'Open task',field:'Task',tableHeadColumn:'wd-lg-20p text-center'},
-    {header:'Priority',field:'Priority',tableHeadColumn:'wd-lg-20p'},
-    {header:'Status',field:'Status',tableHeadColumn:'wd-lg-20p'},
+  taskColumns = [
+    { header: 'Task', field: 'Task', tableHeadColumn: 'wd-lg-20p' },
+    { header: 'Team', field: 'Team', tableHeadColumn: 'wd-lg-20p text-center' },
+    { header: 'Open task', field: 'Task', tableHeadColumn: 'wd-lg-20p text-center' },
+    { header: 'Priority', field: 'Priority', tableHeadColumn: 'wd-lg-20p' },
+    { header: 'Status', field: 'Status', tableHeadColumn: 'wd-lg-20p' },
   ]
   tasks = [
     {

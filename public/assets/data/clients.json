@@ -1,0 +1,334 @@
+{
+  "clients": [
+    {
+      "clientId": "yrt",
+      "clientName": "York Region Transit",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "55 Orlando Avenue, Richmond Hill, ON L4B 0B4",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "ttc",
+      "clientName": "Toronto Transit Commission (TTC)",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "1900 Yonge Street, Toronto, ON M4S 1Z2",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "onorth",
+      "clientName": "Ontario Northland",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "555 Oak Street East, North Bay, ON P1B 8L3",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "translink",
+      "clientName": "TransLink",
+      "locations": [
+        {
+          "locationName": "Main Office",
+          "address": "400–287 Nelson's Court, New Westminster, BC V3L 0E7",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "cmbc",
+      "clientName": "Coast Mountain Bus Company",
+      "locations": [
+        {
+          "locationName": "Operations Office",
+          "address": "700–287 Nelson's Court, New Westminster, BC V3L 0E7",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "oc-transpo",
+      "clientName": "OC Transpo",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "1500 St. Laurent Blvd, Ottawa, ON K1G 0Z8",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "drt",
+      "clientName": "Durham Region Transit",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "110 Westney Rd S, Ajax, ON L1S 2C8",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "halifax-transit",
+      "clientName": "Halifax Transit",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "200 Ilsley Ave, Dartmouth, NS B3B 1V1",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "metrolinx",
+      "clientName": "Metrolinx",
+      "locations": [
+        {
+          "locationName": "Corporate HQ",
+          "address": "97 Front Street West, Toronto, ON M5J 1E6",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "giro",
+      "clientName": "HASTUS (GIRO Inc.)",
+      "locations": [
+        {
+          "locationName": "Montreal Office",
+          "address": "5800 Rue Saint-Denis, Suite 1102, Montreal, QC H2S 3L5",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "samtrans",
+      "clientName": "SamTrans",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "1250 San Carlos Ave, San Carlos, CA 94070",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "yarts-vrts",
+      "clientName": "YARTS / VRTS",
+      "locations": [
+        {
+          "locationName": "Operations Office",
+          "address": "357 W. 18th Street, Merced, CA 95340",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "mta",
+      "clientName": "MTA",
+      "locations": [
+        {
+          "locationName": "Headquarters",
+          "address": "2 Broadway, New York, NY 10004",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "rtd-denver",
+      "clientName": "RTD Denver",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "1660 Blake Street, Denver, CO 80202",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "art",
+      "clientName": "Arlington Transit (ART)",
+      "locations": [
+        {
+          "locationName": "Administrative Office",
+          "address": "2100 Clarendon Blvd, Suite 900, Arlington, VA 22201",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "fairfield-ca",
+      "clientName": "City of Fairfield, CA",
+      "locations": [
+        {
+          "locationName": "City Hall",
+          "address": "1000 Webster Street, Fairfield, CA 94533",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "mst",
+      "clientName": "Monterey-Salinas Transit (MST)",
+      "locations": [
+        {
+          "locationName": "Administrative Office",
+          "address": "19 Upper Ragsdale Dr, Suite 200, Monterey, CA 93940",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "sp-plus",
+      "clientName": "SP+",
+      "locations": [
+        {
+          "locationName": "Chicago Office",
+          "address": "200 E Randolph St, Suite 7700, Chicago, IL 60601",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "mount-sinai",
+      "clientName": "Mount Sinai Hospital",
+      "locations": [
+        {
+          "locationName": "Main Campus",
+          "address": "600 University Ave, Toronto, ON M5G 1X5",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "electromin",
+      "clientName": "Electromin",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "8136 Prince Sultan St, Jeddah 23618, Saudi Arabia",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "abbotsford",
+      "clientName": "City of Abbotsford",
+      "locations": [
+        {
+          "locationName": "City Hall",
+          "address": "32315 South Fraser Way, Abbotsford, BC V2T 1W7",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "dufferin-county",
+      "clientName": "Dufferin County",
+      "locations": [
+        {
+          "locationName": "County Offices",
+          "address": "55 Zina Street, Orangeville, ON L9W 1E5",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "tok-group",
+      "clientName": "TOK Group",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "221 Caldari Road, Concord, ON L4K 3Z9",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "miller-transit",
+      "clientName": "Miller Transit",
+      "locations": [
+        {
+          "locationName": "Operations Office",
+          "address": "55 Orlando Ave, Richmond Hill, ON L4B 0B4",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "innergex",
+      "clientName": "Innergex",
+      "locations": [
+        {
+          "locationName": "Corporate Office",
+          "address": "1225 Saint-Charles St W, 10th Floor, Longueuil, QC J4K 0B9",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "mtb-transit",
+      "clientName": "MTB Transit Solutions",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "8170 Lawson Road, Milton, ON L9T 5C4",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "gazzola",
+      "clientName": "Gazzola Paving",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "529 Carlingview Dr, Etobicoke, ON M9W 5H2",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "enbridge",
+      "clientName": "Enbridge",
+      "locations": [
+        {
+          "locationName": "Calgary Office",
+          "address": "425 1st Street SW, Calgary, AB T2P 3L8",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "aux-energy",
+      "clientName": "AUX Energy",
+      "locations": [
+        {
+          "locationName": "Toronto Office",
+          "address": "483 Bay Street, Toronto, ON M5G 2P5",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "camsc",
+      "clientName": "CAMSC",
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "282 Richmond St E, Suite 101, Toronto, ON M5A 1P4",
+          "type": "main"
+        }
+      ]
+    }
+  ]
+}

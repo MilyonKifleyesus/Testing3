@@ -4,6 +4,10 @@
  */
 export type ProjectStatus = 'Open' | 'Closed' | 'Delayed';
 
+export function normalizeStatus(s: ProjectStatus | null | undefined): ProjectStatus {
+  return s ?? 'Open';
+}
+
 export interface Project {
   id: string | number;
   projectName: string;
@@ -14,7 +18,7 @@ export interface Project {
   manufacturerLocationId?: string;
   location?: string; // Display label
   manufacturer?: string; // Display label
-  status: ProjectStatus;
+  status: ProjectStatus | null;
   totalAssets?: number;
   userAccess?: string[];
   /** 0-100 for mini-progress bar in Project HUD */

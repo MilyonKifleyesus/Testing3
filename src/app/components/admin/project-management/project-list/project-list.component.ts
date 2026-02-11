@@ -24,7 +24,7 @@ export class ProjectListComponent implements OnInit {
     const list = this.projects();
     return {
       total: list.length,
-      open: list.filter((p) => p.status === 'Open').length,
+      open: list.filter((p) => (p.status ?? 'Open') === 'Open').length,
       closed: list.filter((p) => p.status === 'Closed').length,
       delayed: list.filter((p) => p.status === 'Delayed').length,
     };
@@ -80,16 +80,17 @@ export class ProjectListComponent implements OnInit {
     const project = this.projects().find((p) => p.id === projectId);
     if (!project || project.status === 'Closed') return;
     if (confirm('Are you sure you want to close this project?')) {
-      const updated = this.projects().map((p) =>
-        p.id === projectId ? { ...p, status: 'Closed' as const } : p
-      );
-      this.projects.set(updated);
+      const updated = { ...project, status: 'Closed' as const };
+      this.projectService.updateProject(updated).subscribe({
+        next: () => this.loadProjects(),
+        error: () => alert('Failed to close project. Please try again.'),
+      });
     }
   }
 
   deleteProject(projectId: string | number): void {
     if (confirm('Are you sure you want to delete this project?')) {
-      this.projects.set(this.projects().filter((p) => p.id !== projectId));
+      this.projects.update((list) => list.filter((p) => p.id !== projectId));
     }
   }
 

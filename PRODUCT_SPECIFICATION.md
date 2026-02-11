@@ -61,7 +61,7 @@ From the War Room page, users can add a subsidiary and optionally connect it to 
 ## Data Sources
 - War Room data is loaded from local static sources and services.
 - Primary sources:
-  - `public/assets/data/war-room-data.json`
+  - `public/assets/data/fluorescence-map-data.json`
   - War Room services in `src/app/shared/services/`
 
 ## UX/Theme Requirements
