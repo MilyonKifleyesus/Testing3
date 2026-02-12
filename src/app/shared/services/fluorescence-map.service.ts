@@ -29,7 +29,7 @@ export class WarRoomService {
   private _networkThroughput = signal<NetworkThroughput | null>(null);
   private _geopoliticalHeatmap = signal<GeopoliticalHeatmap | null>(null);
   private _satelliteStatuses = signal<SatelliteStatus[]>([]);
-  private _mapViewMode = signal<MapViewMode>('parent');
+  private _mapViewMode = signal<MapViewMode>('project');
   private _selectedEntity = signal<FleetSelection | null>(null);
   private _hoveredEntity = signal<FleetSelection | null>(null);
   private _factoryFilterSubsidiaryId = signal<string | null>(null);
@@ -163,7 +163,7 @@ export class WarRoomService {
     this._geopoliticalHeatmap.set(data.geopoliticalHeatmap || this.getEmptyState().geopoliticalHeatmap);
     this._satelliteStatuses.set(data.satelliteStatuses || []);
     this._parentGroups.set(data.parentGroups || []);
-    this._mapViewMode.set(data.mapViewMode || 'parent');
+    this._mapViewMode.set(data.mapViewMode || 'project');
 
     if (data.selectedEntity) {
       this._selectedEntity.set(this.normalizeSelection(data.selectedEntity));
@@ -213,7 +213,7 @@ export class WarRoomService {
       },
       satelliteStatuses: [],
       parentGroups: [],
-      mapViewMode: 'parent',
+      mapViewMode: 'project',
       selectedEntity: null,
     };
   }
@@ -239,6 +239,21 @@ export class WarRoomService {
       }
 
       return this.subsidiaries().map((subsidiary) => this.createSubsidiaryNode(subsidiary));
+    }
+
+    if (viewMode === 'client') {
+      return [];
+    }
+
+    if (viewMode === 'project') {
+      let factories = this.factories();
+      if (factoryFilterSubsidiaryId) {
+        factories = factories.filter((factory) => factory.subsidiaryId === factoryFilterSubsidiaryId);
+      }
+      return factories.map((factory) => {
+        const subsidiary = this.subsidiaries().find((sub) => sub.id === factory.subsidiaryId);
+        return this.createFactoryNode(factory, subsidiary);
+      });
     }
 
     let factories = this.factories();

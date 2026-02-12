@@ -77,6 +77,9 @@
               (keydown.enter)="onProjectClick(project, $event)"
               (keydown.space)="onProjectClick(project, $event); $event.preventDefault()">
               <span class="project-name">{{ project.projectName }}</span>
+              @if (getFactoryName(project)) {
+              <span class="project-factory">{{ getFactoryName(project) }}</span>
+              }
               <span class="project-location">{{ getProjectLocation(project) }}</span>
               <span class="project-status-pill" [ngClass]="getStatusPillClass(project.status)">
                 {{ getStatusLabel(project.status) }}

@@ -76,7 +76,7 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
       cols: 0,
     },
     satelliteStatuses: [],
-    mapViewMode: 'parent',
+    mapViewMode: 'project',
     selectedEntity: null,
   };
 
@@ -216,7 +216,7 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
     serviceAny._parentGroups.set([]);
     serviceAny._activityLogs.set([]);
     serviceAny._transitRoutes.set([]);
-    serviceAny._mapViewMode.set('parent');
+    serviceAny._mapViewMode.set('project');
     serviceAny._selectedEntity.set(null);
   };
 

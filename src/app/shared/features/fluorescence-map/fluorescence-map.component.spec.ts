@@ -80,7 +80,7 @@ describe('WarRoomComponent (unit)', () => {
       cols: 0,
     },
     satelliteStatuses: [],
-    mapViewMode: 'parent',
+    mapViewMode: 'project',
     selectedEntity: null,
   };
 

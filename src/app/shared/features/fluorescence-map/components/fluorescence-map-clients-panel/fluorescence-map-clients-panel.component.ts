@@ -2,6 +2,7 @@ import { Component, DestroyRef, inject, input, output, signal } from '@angular/c
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ProjectService } from '../../../../services/project.service';
+import { WarRoomService } from '../../../../services/fluorescence-map.service';
 import { ToastrService } from 'ngx-toastr';
 import { Project, ProjectStatus } from '../../../../models/project.model';
 import { catchError, of } from 'rxjs';
@@ -23,6 +24,7 @@ export interface ClientWithProjects {
 })
 export class WarRoomClientsPanelComponent {
   private projectService = inject(ProjectService);
+  private warRoomService = inject(WarRoomService);
   private toastr = inject(ToastrService);
   private destroyRef = inject(DestroyRef);
 
@@ -107,6 +109,13 @@ export class WarRoomClientsPanelComponent {
 
   getProjectLocation(project: Project): string {
     return project.location ?? project.manufacturer ?? 'Unknown';
+  }
+
+  getFactoryName(project: Project): string {
+    const factoryId = project.manufacturerLocationId;
+    if (!factoryId) return project.manufacturer ?? '';
+    const factory = this.warRoomService.factories().find((f) => f.id === factoryId);
+    return factory?.name ?? project.manufacturer ?? '';
   }
 
   getStatusLabel(status: ProjectStatus | null): string {

@@ -9,10 +9,15 @@
       <div class="war-room-map-toolbar" role="toolbar" aria-label="Map view and filters">
         <div class="map-view-toggle card custom-card d-flex align-items-center gap-2 p-2">
           <div class="btn-group btn-group-sm" role="radiogroup" aria-label="Map view mode selection">
-            <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'subsidiary'"
-              [class.btn-outline-primary]="mapViewMode() !== 'subsidiary'" (click)="setMapViewMode('subsidiary')"
-              role="radio" [attr.aria-checked]="mapViewMode() === 'subsidiary'" aria-label="Switch to subsidiary view">
-              Subsidiary View
+            <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'project'"
+              [class.btn-outline-primary]="mapViewMode() !== 'project'" (click)="setMapViewMode('project')"
+              role="radio" [attr.aria-checked]="mapViewMode() === 'project'" aria-label="Switch to project view">
+              Project View
+            </button>
+            <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'client'"
+              [class.btn-outline-primary]="mapViewMode() !== 'client'" (click)="setMapViewMode('client')"
+              role="radio" [attr.aria-checked]="mapViewMode() === 'client'" aria-label="Switch to client view">
+              Client View
             </button>
             <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'factory'"
               [class.btn-outline-primary]="mapViewMode() !== 'factory'" (click)="setMapViewMode('factory')" role="radio"
@@ -236,10 +241,12 @@
       @if (tacticalMode()) {
       <div class="war-room-view-toggle-bottom" role="toolbar" aria-label="Map view mode">
         <div class="btn-group btn-group-sm" role="radiogroup" aria-label="Map view mode selection">
-          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'subsidiary'"
-            [class.btn-outline-primary]="mapViewMode() !== 'subsidiary'" (click)="setMapViewMode('subsidiary')"
-            role="radio" [attr.aria-checked]="mapViewMode() === 'subsidiary'"
-            aria-label="Subsidiary view">Subsidiary</button>
+          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'project'"
+            [class.btn-outline-primary]="mapViewMode() !== 'project'" (click)="setMapViewMode('project')"
+            role="radio" [attr.aria-checked]="mapViewMode() === 'project'" aria-label="Project view">Project</button>
+          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'client'"
+            [class.btn-outline-primary]="mapViewMode() !== 'client'" (click)="setMapViewMode('client')"
+            role="radio" [attr.aria-checked]="mapViewMode() === 'client'" aria-label="Client view">Client</button>
           <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'factory'"
             [class.btn-outline-primary]="mapViewMode() !== 'factory'" (click)="setMapViewMode('factory')" role="radio"
             [attr.aria-checked]="mapViewMode() === 'factory'" aria-label="Factory view">Factory</button>
@@ -284,7 +291,11 @@
               <i class="fe fe-filter fs-40"></i>
             </div>
           </div>
+          @if (mapViewMode() === 'client') {
+          <h5 class="fw-bold mb-2">No clients match current filters</h5>
+          } @else {
           <h5 class="fw-bold mb-2">No companies match current filters</h5>
+          }
           <p class="text-muted mb-4 fs-13">Try adjusting your region or status filters, or clear all filters to see the
             full map.</p>
           <button class="btn btn-primary w-100" (click)="clearAllFilters()">

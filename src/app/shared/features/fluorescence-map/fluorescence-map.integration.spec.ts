@@ -105,7 +105,7 @@ describe('WarRoomComponent Integration', () => {
             cols: 0,
         },
         satelliteStatuses: [],
-        mapViewMode: 'parent',
+        mapViewMode: 'project',
         selectedEntity: null,
     };
 

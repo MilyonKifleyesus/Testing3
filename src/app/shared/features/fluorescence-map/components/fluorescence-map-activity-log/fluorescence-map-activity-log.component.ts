@@ -204,7 +204,7 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   }
 
   onSubsidiaryClick(subsidiary: SubsidiaryCompany): void {
-    if (this.mapViewMode() !== 'subsidiary') {
+    if (this.mapViewMode() !== 'subsidiary' && this.mapViewMode() !== 'project' && this.mapViewMode() !== 'client') {
       return;
     }
     const selection: FleetSelection = {

@@ -83,6 +83,10 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly projectRoutes = signal<ProjectRoute[]>([]);
   readonly selectedProjectId = signal<string | null>(null);
   readonly projectRoutesForMap = computed(() => {
+    const viewMode = this.mapViewMode();
+    if (viewMode === 'client' || viewMode === 'factory') {
+      return [];
+    }
     const selectedId = this.selectedProjectId();
     const routes = this.projectRoutes();
     if (!selectedId) {
@@ -316,11 +320,21 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     const routeTargetIds = projectFiltersActive ? new Set(routes.map((r) => r.toNodeId)) : null;
     const enforceRouteTargets = !!routeTargetIds && routeTargetIds.size > 0;
 
+    // Client view: only client nodes, no factories or project routes
+    if (viewMode === 'client') {
+      return nodes
+        .filter((n) => n.level === 'client')
+        .filter((n) => {
+          if (filters.clientIds.length > 0 && !filters.clientIds.includes(n.id)) return false;
+          return true;
+        });
+    }
+
     const routeFailures: string[] = [];
     const result = nodes.filter((node) => {
-      // Client nodes: visible in factory view or when client filter is active
+      // Client nodes: visible in project view, factory view, or when client filter is active
       if (node.level === 'client') {
-        return viewMode === 'factory' || filters.clientIds.length > 0;
+        return viewMode === 'project' || viewMode === 'factory' || filters.clientIds.length > 0;
       }
 
       // When project filters are active, only show nodes that appear in filtered project routes.
@@ -454,6 +468,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   });
 
   readonly filteredTransitRoutes = computed(() => {
+    if (this.mapViewMode() === 'client') {
+      return [];
+    }
     const routes = this.transitRoutes();
     const nodes = this.filteredNodes();
     const filteredNodeIds = new Set(nodes.map(n => n.id));
@@ -649,20 +666,25 @@ export class WarRoomComponent implements OnInit, OnDestroy {
    * Handle entity selection from activity log
    */
   onEntitySelected(selection: FleetSelection): void {
-    if (selection.level === 'subsidiary' && this.mapViewMode() !== 'subsidiary') {
+    const currentView = this.mapViewMode();
+    if (selection.level === 'subsidiary' && currentView !== 'subsidiary' && currentView !== 'project' && currentView !== 'client') {
       return;
+    }
+    if (selection.level === 'subsidiary') {
+      const subsidiaryId = selection.subsidiaryId || selection.id;
+      if (currentView === 'project' || currentView === 'client') {
+        this.warRoomService.setMapViewMode('factory');
+        this.warRoomService.setFactoryFilterSubsidiaryId(subsidiaryId);
+      } else if (currentView === 'subsidiary') {
+        this.warRoomService.setFactoryFilterSubsidiaryId(subsidiaryId);
+      } else {
+        this.warRoomService.setFactoryFilterSubsidiaryId(null);
+      }
     }
 
     const currentSelection = this.selectedEntity();
     const isSameSelection = currentSelection?.id === selection.id && currentSelection?.level === selection.level;
     this.warRoomService.selectEntity(selection);
-    const currentView = this.mapViewMode();
-    if (selection.level === 'subsidiary' && currentView === 'subsidiary') {
-      const subsidiaryId = selection.subsidiaryId || selection.id;
-      this.warRoomService.setFactoryFilterSubsidiaryId(subsidiaryId);
-    } else if (selection.level === 'subsidiary') {
-      this.warRoomService.setFactoryFilterSubsidiaryId(null);
-    }
 
     // Show activity log panel when clicking activity log
     this.showPanel('log');

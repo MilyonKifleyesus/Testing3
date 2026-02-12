@@ -9,7 +9,7 @@ export type NodeStatus = 'ACTIVE' | 'INACTIVE';
 
 // Fleet hierarchy levels
 export type FleetLevel = 'parent' | 'subsidiary' | 'factory' | 'client';
-export type MapViewMode = 'parent' | 'subsidiary' | 'factory';
+export type MapViewMode = 'parent' | 'subsidiary' | 'factory' | 'project' | 'client';
 
 // Operational status for parent/subsidiary entities
 export type OperationalStatus = 'ACTIVE' | 'INACTIVE';

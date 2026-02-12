@@ -71,27 +71,10 @@ export interface ApiFactory {
   notes?: string | null;
 }
 
-/** Map API factory_id to War Room factory IDs for route drawing */
-const FACTORY_ID_TO_WAR_ROOM: Record<number, string> = {
-  1: 'nova-saint-eustache',
-  2: 'new-flyer-crookston',
-  3: 'new-flyer-winnipeg',
-  4: 'new-flyer-anniston',
-  7: 'tam-facility',
-  100: 'eastway-pembroke',
-};
-
-/** Mock projects linking clients to manufacturer locations (War Room factory IDs) */
-const MOCK_PROJECTS: Project[] = [
-  { id: 1, projectName: 'Nava-19904FT', clientId: 'drt', clientName: 'DRT', assessmentType: 'New Build', manufacturerLocationId: 'nova-st-eustache', location: 'St. Eustache', manufacturer: 'Nova Bus', status: 'Open', totalAssets: 25, progress: 75 },
-  { id: 2, projectName: 'LFS-40FT-2', clientId: 'drt', clientName: 'DRT', assessmentType: 'Retrofit', manufacturerLocationId: 'new-flyer-winnipeg', location: 'Winnipeg', manufacturer: 'New Flyer', status: 'Closed', totalAssets: 40, progress: 100 },
-  { id: 3, projectName: 'LGES-40FT-D', clientId: 'drt', clientName: 'DRT', assessmentType: 'New Build', manufacturerLocationId: 'new-flyer-winnipeg', location: 'Winnipeg', manufacturer: 'New Flyer', status: 'Closed', totalAssets: 35, progress: 100 },
-  { id: 4, projectName: 'LFS-40FT-3', clientId: 'drt', clientName: 'DRT', assessmentType: 'Retrofit', manufacturerLocationId: 'new-flyer-anniston', location: 'Anniston, Alabama', manufacturer: 'New Flyer', status: 'Closed', totalAssets: 30, progress: 100 },
-  { id: 5, projectName: 'Nova-LE65-40FT', clientId: 'ttc', clientName: 'TTC', assessmentType: 'New Build', manufacturerLocationId: 'nova-st-eustache', location: 'Saint-Eustache', manufacturer: 'Nova Bus', status: 'Open', totalAssets: 50, progress: 45 },
-  { id: 6, projectName: 'Arboc-23FT', clientId: 'ttc', clientName: 'TTC', assessmentType: 'Retrofit', manufacturerLocationId: 'new-flyer-anniston', location: 'Anniston', manufacturer: 'ARBOC', status: 'Open', totalAssets: 20, progress: 30 },
-  { id: 7, projectName: 'LF76-Inspection', clientId: 'yrt', clientName: 'York Region Transit', assessmentType: 'Full Inspection', manufacturerLocationId: 'new-flyer-winnipeg', location: 'Winnipeg', manufacturer: 'New Flyer', status: 'Open', totalAssets: 75, progress: 10 },
-  { id: 8, projectName: 'Supply-Chain-Delayed', clientId: 'drt', clientName: 'DRT', assessmentType: 'Retrofit', manufacturerLocationId: 'alex-dennis-plantation', location: 'Plantation, Florida', manufacturer: 'Alexander Dennis', status: 'Delayed', totalAssets: 15, progress: 20 },
-];
+export interface FactoryIdMapping {
+  factoryIdToWarRoom: Record<string, string>;
+  aliases?: Record<string, string>;
+}
 
 function normalizeApiResponse(raw: unknown): ApiProject[] {
   if (raw && typeof raw === 'object' && 'projects' in raw) {
@@ -143,7 +126,8 @@ function mapApiProjectToProject(
   api: ApiProject,
   clients: Client[],
   manufacturers: ApiManufacturer[] = [],
-  factories: ApiFactory[] = []
+  factories: ApiFactory[] = [],
+  factoryIdToWarRoom: Record<string, string> = {}
 ): Project | null {
   const norm = normalizeApiProject(api);
   const clientId = resolveClientId(api, clients);
@@ -164,7 +148,7 @@ function mapApiProjectToProject(
       location = parts.length > 0 ? parts.join(', ') : factory.factory_location_name;
     }
     manufacturerLocationId =
-      FACTORY_ID_TO_WAR_ROOM[norm.factoryId] ?? String(norm.factoryId);
+      factoryIdToWarRoom[String(norm.factoryId)] ?? api.manufacturerLocationId ?? String(norm.factoryId);
   } else {
     manufacturer = api.manufacturer ?? undefined;
     location = api.location ?? undefined;
@@ -226,6 +210,16 @@ export class ProjectService {
   /** Path to sample JSON when not using API */
   private readonly SAMPLE_JSON_PATH = 'assets/data/projects.json';
   private readonly FACTORIES_PATH = 'assets/data/factories.json';
+  private readonly FACTORY_MAPPING_PATH = 'assets/data/factory-id-mapping.json';
+
+  private loadFactoryMapping(): Observable<FactoryIdMapping> {
+    return this.http.get<FactoryIdMapping>(this.FACTORY_MAPPING_PATH).pipe(
+      catchError((err) => {
+        console.warn('Failed to load factory-id-mapping.json, using empty mapping:', err);
+        return of({ factoryIdToWarRoom: {}, aliases: {} });
+      })
+    );
+  }
 
   private loadProjectsFromJson(
     clients: Client[],
@@ -238,24 +232,30 @@ export class ProjectService {
       )
       .pipe(catchError(() => of({ manufacturers: [], factories: [] })));
 
-    return projects$.pipe(
-      switchMap((raw) =>
-        factoriesData$.pipe(
-          map((cf) => {
-            const apiProjects = normalizeApiResponse(raw);
-            const manufacturers = cf.manufacturers ?? [];
-            const factories = cf.factories ?? [];
-            const projects = apiProjects
-              .map((api) =>
-                mapApiProjectToProject(api, clients, manufacturers, factories)
-              )
-              .filter((p): p is Project => p != null);
-            return applyFilters(projects, filters);
-          })
+    return this.loadFactoryMapping().pipe(
+      switchMap((mapping) =>
+        projects$.pipe(
+          switchMap((raw) =>
+            factoriesData$.pipe(
+              map((cf) => {
+                const apiProjects = normalizeApiResponse(raw);
+                const manufacturers = cf.manufacturers ?? [];
+                const factories = cf.factories ?? [];
+                const factoryIdToWarRoom = mapping.factoryIdToWarRoom ?? {};
+                const projects = apiProjects
+                  .map((api) =>
+                    mapApiProjectToProject(api, clients, manufacturers, factories, factoryIdToWarRoom)
+                  )
+                  .filter((p): p is Project => p != null);
+                return applyFilters(projects, filters);
+              })
+            )
+          ),
+          catchError(() => of([] as Project[])),
+          delay(150)
         )
       ),
-      catchError(() => of(applyFilters(MOCK_PROJECTS, filters))),
-      delay(150)
+      catchError(() => of([] as Project[]).pipe(delay(150)))
     );
   }
 
@@ -268,18 +268,25 @@ export class ProjectService {
 
     return this.clientService.getClients().pipe(
       switchMap((clients) =>
-        this.http.get<unknown>(`${environment.apiBaseUrl}/projects`).pipe(
-          map((raw) => {
-            const apiProjects = normalizeApiResponse(raw);
-            const projects = apiProjects
-              .map((api) => mapApiProjectToProject(api, clients, [], []))
-              .filter((p): p is Project => p != null);
-            return applyFilters(projects, filters);
-          }),
-          catchError((err) => {
-            console.warn('Projects API failed, using mock data:', err);
-            return of(applyFilters(MOCK_PROJECTS, filters)).pipe(delay(150));
-          })
+        this.loadFactoryMapping().pipe(
+          switchMap((mapping) =>
+            this.http.get<unknown>(`${environment.apiBaseUrl}/projects`).pipe(
+              map((raw) => {
+                const apiProjects = normalizeApiResponse(raw);
+                const factoryIdToWarRoom = mapping.factoryIdToWarRoom ?? {};
+                const projects = apiProjects
+                  .map((api) =>
+                    mapApiProjectToProject(api, clients, [], [], factoryIdToWarRoom)
+                  )
+                  .filter((p): p is Project => p != null);
+                return applyFilters(projects, filters);
+              }),
+              catchError((err) => {
+                console.warn('Projects API failed:', err);
+                return of([] as Project[]).pipe(delay(150));
+              })
+            )
+          )
         )
       )
     );
@@ -295,15 +302,19 @@ export class ProjectService {
 
   addProject(project: Omit<Project, 'id'>): Observable<Project> {
     if (!environment.useProjectApi) {
-      const nextId =
-        Math.max(
-          0,
-          ...MOCK_PROJECTS.map((p) =>
-            typeof p.id === 'number' ? p.id : parseInt(String(p.id), 10) || 0
-          )
-        ) + 1;
-      const newProject: Project = { ...project, id: nextId };
-      return of(newProject).pipe(delay(100));
+      return this.http.get<unknown>(this.SAMPLE_JSON_PATH).pipe(
+        map((raw) => {
+          const apiProjects = normalizeApiResponse(raw);
+          const ids = apiProjects
+            .map((p) => (p.project_id ?? p.id) as number | string)
+            .filter((v): v is number => typeof v === 'number' || !isNaN(parseInt(String(v), 10)))
+            .map((v) => (typeof v === 'number' ? v : parseInt(String(v), 10)) || 0);
+          const nextId = ids.length > 0 ? Math.max(0, ...ids) + 1 : 1;
+          return { ...project, id: nextId } as Project;
+        }),
+        catchError(() => of({ ...project, id: 1 } as Project)),
+        delay(100)
+      );
     }
 
     const body = {
@@ -337,15 +348,14 @@ export class ProjectService {
 
   updateProject(project: Project): Observable<Project> {
     if (!environment.useProjectApi) {
-      const mock = [...MOCK_PROJECTS];
-      const idx = mock.findIndex((p) => String(p.id) === String(project.id));
-      if (idx === -1) {
-        return new Observable<Project>((sub) =>
-          sub.error(new Error(`Project not found: ${project.id}`))
-        );
-      }
-      const updated = { ...mock[idx], ...project };
-      return of(updated).pipe(delay(100));
+      return this.getProjects({}).pipe(
+        delay(100),
+        map((projects) => {
+          const idx = projects.findIndex((p) => String(p.id) === String(project.id));
+          if (idx === -1) throw new Error(`Project not found: ${project.id}`);
+          return { ...projects[idx], ...project };
+        })
+      );
     }
 
     const body = {
