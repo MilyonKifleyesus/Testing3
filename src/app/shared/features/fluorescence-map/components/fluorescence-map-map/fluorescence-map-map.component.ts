@@ -688,8 +688,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       markers.push(vm);
     });
 
-    this.markerPixelCoordinates.set(markerPixels);
-    this.markersVm.set(markers);
     const featureCollection = this.buildRouteFeatures(nodes);
     const routes: RouteVm[] = [];
 
@@ -708,37 +706,47 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     featureCollection.features.forEach((feature, index) => {
       const coords = feature.geometry.coordinates;
       if (coords.length < 2) return;
-      const startPixel = feature.properties.fromNodeId
-        ? markerPixels.get(feature.properties.fromNodeId)
-        : undefined;
-      const endPixel = feature.properties.toNodeId
-        ? markerPixels.get(feature.properties.toNodeId)
-        : undefined;
+      const fid = feature.properties.fromNodeId;
+      const tid = feature.properties.toNodeId;
+      // Resolve pixel from markerPixels; fallback to matching node when endpoint id differs (e.g. subsidiary vs factory)
+      let startPixel = fid ? markerPixels.get(fid) : undefined;
+      if (!startPixel && fid) {
+        const fromNode = nodes.find((n) => this.nodeMatchesProjectRouteEndpoint(n, fid, true));
+        if (fromNode) startPixel = markerPixels.get(fromNode.id);
+      }
+      let endPixel = tid ? markerPixels.get(tid) : undefined;
+      if (!endPixel && tid) {
+        const toNode = nodes.find((n) => this.nodeMatchesProjectRouteEndpoint(n, tid, false));
+        if (toNode) endPixel = markerPixels.get(toNode.id);
+      }
       let startPoint = startPixel
         ? { x: startPixel.x, y: startPixel.y }
         : this.mapInstance!.project(coords[0]);
       let endPoint = endPixel
         ? { x: endPixel.x, y: endPixel.y }
         : this.mapInstance!.project(coords[1]);
-      const fid = feature.properties.fromNodeId;
-      const tid = feature.properties.toNodeId;
+      let groupIndex = -1;
+      let groupSize = 1;
       if (fid && tid) {
         const key = `${fid}|${tid}`;
         const indices = projectRouteGroups.get(key);
         if (indices && indices.length > 1) {
-          const indexInGroup = indices.indexOf(index);
-          const { start, end } = this.applyParallelRouteOffset(
-            startPoint,
-            endPoint,
-            indexInGroup,
-            indices.length,
-            this.PARALLEL_ROUTE_OFFSET_PIXELS
-          );
-          startPoint = start;
-          endPoint = end;
+          groupIndex = indices.indexOf(index);
+          groupSize = indices.length;
         }
+        // Always align marker with route line endpoint (for both single and parallel routes)
+        this.updateMarkerPixelsForRouteEndpoints(
+          markerPixels,
+          nodes,
+          fid,
+          tid,
+          startPoint,
+          endPoint,
+          indices,
+          index
+        );
       }
-      const path = this.mathService.createCurvedPath(startPoint, endPoint);
+      const path = this.createRoutePath(startPoint, endPoint, groupIndex, groupSize);
       if (!path) return;
       const routeId = feature.properties.routeId || `route-${index}`;
       routes.push({
@@ -756,6 +764,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       });
     });
 
+    this.markerPixelCoordinates.set(markerPixels);
+    this.markersVm.set(markers);
     this.routesVm.set(routes);
   }
 
@@ -1017,15 +1027,55 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     return (!!node.name && node.name.toLowerCase() === nid) || (!!node.company && node.company.toLowerCase().includes(nid));
   }
 
+  /** Update marker pixel positions so they align exactly with route line endpoints. */
+  private updateMarkerPixelsForRouteEndpoints(
+    markerPixels: Map<string, { x: number; y: number }>,
+    nodes: WarRoomNode[],
+    fid: string,
+    tid: string,
+    startPoint: { x: number; y: number },
+    endPoint: { x: number; y: number },
+    indices: number[] | undefined,
+    index: number
+  ): void {
+    const shouldUpdate =
+      !indices || indices.length <= 1 || index === indices[Math.floor(indices.length / 2)];
+    if (!shouldUpdate) return;
+    markerPixels.set(fid, { x: startPoint.x, y: startPoint.y });
+    markerPixels.set(tid, { x: endPoint.x, y: endPoint.y });
+    nodes.forEach((n) => {
+      if (this.nodeMatchesProjectRouteEndpoint(n, fid, true)) {
+        markerPixels.set(n.id, { x: startPoint.x, y: startPoint.y });
+      }
+      if (this.nodeMatchesProjectRouteEndpoint(n, tid, false)) {
+        markerPixels.set(n.id, { x: endPoint.x, y: endPoint.y });
+      }
+    });
+  }
+
+  /** True if node represents a project route endpoint (factory or client). */
+  private nodeMatchesProjectRouteEndpoint(
+    node: WarRoomNode,
+    endpointId: string,
+    isToNode: boolean
+  ): boolean {
+    if (node.id === endpointId) return true;
+    if (node.factoryId === endpointId || node.subsidiaryId === endpointId) return true;
+    const factory = this.warRoomService.factories().find((f) => f.id === endpointId);
+    if (factory && (node.id === factory.subsidiaryId || node.id === factory.parentGroupId)) return true;
+    if (node.clientId === endpointId) return true;
+    return false;
+  }
+
   /** Coordinates to use for marker position; prefer route endpoint coords when node is a route endpoint so marker aligns with the line. */
   private getEffectiveCoordinates(node: WarRoomNode, nodes: WarRoomNode[]): { longitude: number; latitude: number } {
     const projectRoutes = this.projectRoutes();
     if (projectRoutes?.length) {
       for (const route of projectRoutes) {
-        if (node.id === route.toNodeId && this.isValidCoordinates(route.toCoordinates)) {
+        if (this.nodeMatchesProjectRouteEndpoint(node, route.toNodeId, true) && this.isValidCoordinates(route.toCoordinates)) {
           return { longitude: route.toCoordinates.longitude, latitude: route.toCoordinates.latitude };
         }
-        if (node.id === route.fromNodeId && this.isValidCoordinates(route.fromCoordinates)) {
+        if (this.nodeMatchesProjectRouteEndpoint(node, route.fromNodeId, false) && this.isValidCoordinates(route.fromCoordinates)) {
           return { longitude: route.fromCoordinates.longitude, latitude: route.fromCoordinates.latitude };
         }
       }
@@ -1047,27 +1097,40 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Apply perpendicular offset to start/end points so parallel routes are visible.
-   * Used when multiple projects share the same client-factory pair.
+   * Build route path while preserving exact endpoint alignment to marker center.
+   * Parallel routes are separated by offsetting only the curve control point.
    */
-  private applyParallelRouteOffset(
+  private createRoutePath(
     start: { x: number; y: number },
     end: { x: number; y: number },
     indexInGroup: number,
-    groupSize: number,
-    offsetPixels: number
-  ): { start: { x: number; y: number }; end: { x: number; y: number } } {
+    groupSize: number
+  ): string {
+    if (groupSize <= 1 || indexInGroup < 0) {
+      return this.mathService.createCurvedPath(start, end);
+    }
+
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const len = Math.sqrt(dx * dx + dy * dy);
-    if (len < 1e-6) return { start: { ...start }, end: { ...end } };
+    if (len < 1e-6) {
+      return this.mathService.createCurvedPath(start, end);
+    }
+
+    const midX = (start.x + end.x) / 2;
+    const midY = Math.min(start.y, end.y) - 50;
     const perpX = -dy / len;
     const perpY = dx / len;
-    const offsetAmount = (indexInGroup - (groupSize - 1) / 2) * offsetPixels;
-    return {
-      start: { x: start.x + offsetAmount * perpX, y: start.y + offsetAmount * perpY },
-      end: { x: end.x + offsetAmount * perpX, y: end.y + offsetAmount * perpY },
-    };
+    const offsetAmount =
+      (indexInGroup - (groupSize - 1) / 2) * this.PARALLEL_ROUTE_OFFSET_PIXELS;
+
+    const sx = Number(start.x.toFixed(4));
+    const sy = Number(start.y.toFixed(4));
+    const ex = Number(end.x.toFixed(4));
+    const ey = Number(end.y.toFixed(4));
+    const cx = Number((midX + offsetAmount * perpX).toFixed(4));
+    const cy = Number((midY + offsetAmount * perpY).toFixed(4));
+    return `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`;
   }
 
   private buildRouteFeatures(nodes: WarRoomNode[]): RouteFeatureCollection {
@@ -1083,7 +1146,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         : filterStatus === 'inactive'
           ? (rawProjectRoutes ?? []).filter((r) => r.status === 'Closed' || r.status === 'Delayed')
           : rawProjectRoutes ?? [];
-    const projectStrokeColor = this.getRouteColor();
 
     const addProjectRouteFeatures = (): void => {
       if (!projectRoutes.length) return;
@@ -1095,6 +1157,12 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
           route.fromNodeId === selected.factoryId ||
           route.toNodeId === selected.factoryId
         );
+        const strokeColor =
+          filterStatus === 'all'
+            ? route.status === 'Open'
+              ? '#00C853'
+              : '#D50000'
+            : this.getRouteColor();
         // Render project routes from manufacturer -> client (directional animation).
         const startCoords = route.toCoordinates;
         const endCoords = route.fromCoordinates;
@@ -1112,7 +1180,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
             highlighted,
             routeId: route.id,
             projectId: route.projectId,
-            strokeColor: projectStrokeColor,
+            strokeColor,
             fromNodeId: route.toNodeId,
             toNodeId: route.fromNodeId,
           }
@@ -1240,7 +1308,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const status = this.filterStatus();
     if (status === 'active') return '#00C853';
     if (status === 'inactive') return '#D50000';
-    return '#0ea5e9';
+    return '#00C853';
   }
 
   private buildProjectStatusByNodeId(routes: ProjectRoute[]): Map<string, 'active' | 'inactive'> {

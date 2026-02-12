@@ -510,7 +510,7 @@ describe('WarRoomComponent Integration', () => {
             expect(routes[0].strokeColor).toBe(expectedColor);
         };
 
-        setFilterStatus('all', '#0ea5e9', 'Open');
+        setFilterStatus('all', '#00C853', 'Open');
         setFilterStatus('active', '#00C853', 'Open');
         setFilterStatus('inactive', '#D50000', 'Closed');
     }));

@@ -252,4 +252,86 @@ describe('WarRoomMapComponent logic helpers', () => {
     expect(routes[0].start).toEqual(expectedStart!);
     expect(routes[0].end).toEqual(expectedEnd!);
   });
+
+  it('syncOverlays keeps parallel route endpoints locked to marker center', async () => {
+    const nodeA = {
+      id: 'client-1',
+      name: 'Client One',
+      company: 'Client One',
+      companyId: 'client-1',
+      city: 'Alpha',
+      coordinates: { latitude: 10, longitude: 20 },
+      type: 'Terminal',
+      status: 'ACTIVE',
+      level: 'client',
+      clientId: 'client-1',
+    } as any;
+
+    const nodeB = {
+      id: 'factory-1',
+      name: 'Factory One',
+      company: 'Factory One',
+      companyId: 'factory-1',
+      city: 'Beta',
+      coordinates: { latitude: 30, longitude: 40 },
+      type: 'Factory',
+      status: 'ACTIVE',
+      level: 'factory',
+      factoryId: 'factory-1',
+    } as any;
+
+    const projectRoutes = [
+      {
+        id: 'project-route-1',
+        projectId: 'p1',
+        fromNodeId: 'client-1',
+        toNodeId: 'factory-1',
+        status: 'Open',
+        fromCoordinates: { latitude: 11, longitude: 21 },
+        toCoordinates: { latitude: 12, longitude: 22 },
+      },
+      {
+        id: 'project-route-2',
+        projectId: 'p2',
+        fromNodeId: 'client-1',
+        toNodeId: 'factory-1',
+        status: 'Closed',
+        fromCoordinates: { latitude: 11, longitude: 21 },
+        toCoordinates: { latitude: 12, longitude: 22 },
+      },
+    ];
+
+    (component as any).nodes = signal([nodeA, nodeB]);
+    (component as any).selectedEntity = signal(null);
+    (component as any).projectRoutes = signal(projectRoutes);
+    (component as any).transitRoutes = signal([]);
+    (component as any).filterStatus = signal('all');
+    (component as any).mapLoaded = true;
+    (component as any).destroyed = false;
+    (component as any).mapInstance = {
+      getZoom: () => 4,
+      project: ([lng, lat]: [number, number]) => ({ x: lng * 10, y: lat * 10 }),
+      remove: () => undefined,
+    };
+
+    await (component as any).syncOverlays(false);
+
+    const markerPixels = (component as any).markerPixelCoordinates() as Map<string, { x: number; y: number }>;
+    const routes = (component as any).routesVm() as Array<{
+      start: { x: number; y: number };
+      end: { x: number; y: number };
+      path: string;
+    }>;
+
+    const expectedStart = markerPixels.get('factory-1');
+    const expectedEnd = markerPixels.get('client-1');
+    expect(routes.length).toBe(2);
+    expect(expectedStart).toBeTruthy();
+    expect(expectedEnd).toBeTruthy();
+    routes.forEach((route) => {
+      expect(route.start).toEqual(expectedStart!);
+      expect(route.end).toEqual(expectedEnd!);
+    });
+    expect(routes[0].path).not.toBe(routes[1].path);
+  });
 });
