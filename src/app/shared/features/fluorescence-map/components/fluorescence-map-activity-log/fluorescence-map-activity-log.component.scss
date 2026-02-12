@@ -290,6 +290,10 @@
   &.status-inactive {
     color: #ef4444;
   }
+
+  &.status-unassigned {
+    color: #0ea5e9;
+  }
 }
 
 .log-status {
@@ -368,6 +372,10 @@
   border-left-color: #ef4444;
 }
 
+.subsidiary-entry.status-unassigned {
+  border-left-color: #0ea5e9;
+}
+
 .factory-entry {
   margin-left: 1.25rem;
   position: relative;
@@ -405,6 +413,10 @@
 
 .status-inactive {
   border-left-color: #ef4444;
+}
+
+.status-unassigned {
+  border-left-color: #0ea5e9;
 }
 
 .entry-kind {

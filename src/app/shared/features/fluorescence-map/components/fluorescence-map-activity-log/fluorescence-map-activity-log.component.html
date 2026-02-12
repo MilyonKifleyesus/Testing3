@@ -19,8 +19,9 @@
         <div class="log-entry subsidiary-entry list-group-item list-group-item-action flex-column"
           [class.active]="isSelected('subsidiary', subsidiary.id)"
           [class.editing]="editMode() && isEditingSubsidiary(subsidiary.id)"
-          [class.status-active]="getStatusClass(subsidiary.status) === 'status-active'"
-          [class.status-inactive]="getStatusClass(subsidiary.status) === 'status-inactive'"
+          [class.status-active]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-active'"
+          [class.status-inactive]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-inactive'"
+          [class.status-unassigned]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-unassigned'"
           [class.has-logo]="!!subsidiary.logo"
           (click)="editMode() ? startEditSubsidiary(subsidiary) : onSubsidiaryClick(subsidiary)"
           (mouseenter)="onSubsidiaryHover(subsidiary, true)" (mouseleave)="onSubsidiaryHover(subsidiary, false)"
@@ -37,14 +38,16 @@
               <img [src]="subsidiary.logo" alt="Subsidiary logo" class="company-logo" />
               }
               <span class="status-icon material-symbols-outlined"
-                [class.status-active]="getStatusClass(subsidiary.status) === 'status-active'"
-                [class.status-inactive]="getStatusClass(subsidiary.status) === 'status-inactive'" aria-hidden="true">
-                {{ getStatusIcon(subsidiary.status) }}
+                [class.status-active]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-active'"
+                [class.status-inactive]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-inactive'"
+                [class.status-unassigned]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-unassigned'" aria-hidden="true">
+                {{ getStatusIcon(getProjectStatusForSubsidiary(subsidiary)) }}
               </span>
               <span class="badge log-status"
-                [class.bg-success-transparent]="getStatusClass(subsidiary.status) === 'status-active'"
-                [class.bg-danger-transparent]="getStatusClass(subsidiary.status) === 'status-inactive'">
-                {{ formatStatusLabel(subsidiary.status) }}
+                [class.bg-success-transparent]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-active'"
+                [class.bg-danger-transparent]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-inactive'"
+                [class.bg-secondary-transparent]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-unassigned'">
+                {{ formatStatusLabel(getProjectStatusForSubsidiary(subsidiary)) }}
               </span>
               @if (editMode() && isEditingSubsidiary(subsidiary.id)) {
               <select class="form-select form-select-sm text-uppercase"
@@ -153,8 +156,10 @@
         <div class="log-entry factory-entry list-group-item list-group-item-action flex-column"
           [class.active]="isSelected('factory', factory.id)"
           [class.editing]="editMode() && isEditingFactory(factory.id)"
-          [class.status-active]="getStatusClass(factory.status) === 'status-active'"
-          [class.status-inactive]="getStatusClass(factory.status) === 'status-inactive'" [class.has-logo]="!!factory.logo"
+          [class.status-active]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-active'"
+          [class.status-inactive]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-inactive'"
+          [class.status-unassigned]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-unassigned'"
+          [class.has-logo]="!!factory.logo"
           (click)="editMode() ? startEditFactory(factory) : onFactoryClick(factory)"
           (mouseenter)="onFactoryHover(factory, true)" (mouseleave)="onFactoryHover(factory, false)"
           (focus)="onFactoryHover(factory, true)" (blur)="onFactoryHover(factory, false)"
@@ -170,14 +175,16 @@
               <img [src]="factory.logo" alt="Factory logo" class="company-logo" />
               }
               <span class="status-icon material-symbols-outlined"
-                [class.status-active]="getStatusClass(factory.status) === 'status-active'"
-                [class.status-inactive]="getStatusClass(factory.status) === 'status-inactive'" aria-hidden="true">
-                {{ getStatusIcon(factory.status) }}
+                [class.status-active]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-active'"
+                [class.status-inactive]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-inactive'"
+                [class.status-unassigned]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-unassigned'" aria-hidden="true">
+                {{ getStatusIcon(getProjectStatusForFactory(factory.id)) }}
               </span>
               <span class="badge log-status"
-                [class.bg-success-transparent]="getStatusClass(factory.status) === 'status-active'"
-                [class.bg-danger-transparent]="getStatusClass(factory.status) === 'status-inactive'">
-                {{ formatStatusLabel(factory.status) }}
+                [class.bg-success-transparent]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-active'"
+                [class.bg-danger-transparent]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-inactive'"
+                [class.bg-secondary-transparent]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-unassigned'">
+                {{ formatStatusLabel(getProjectStatusForFactory(factory.id)) }}
               </span>
               @if (editMode() && isEditingFactory(factory.id)) {
               <select class="form-select form-select-sm text-uppercase"

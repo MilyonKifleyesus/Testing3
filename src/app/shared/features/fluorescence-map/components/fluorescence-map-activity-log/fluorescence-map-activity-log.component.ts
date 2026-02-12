@@ -12,6 +12,8 @@ import {
 } from '../../../../../shared/models/fluorescence-map.interface';
 import { WarRoomService } from '../../../../../shared/services/fluorescence-map.service';
 
+export type ProjectStatusDisplay = 'active' | 'inactive' | 'none';
+
 @Component({
   selector: 'app-war-room-activity-log',
   imports: [CommonModule],
@@ -21,6 +23,7 @@ import { WarRoomService } from '../../../../../shared/services/fluorescence-map.
 export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   parentGroups = input.required<ParentGroup[]>();
   activityLogs = input.required<ActivityLog[]>();
+  projectStatusByFactoryId = input<Map<string, ProjectStatusDisplay>>(new Map());
   selectedEntity = input<FleetSelection | null>(null);
   editMode = input<boolean>(false);
   mapViewMode = input<MapViewMode>('parent');
@@ -492,26 +495,39 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
     return Math.max(0, subsidiary.factories.length - this.factoryCollapseThreshold);
   }
 
-  getStatusClass(status: string): string {
-    const normalized = status.trim().toUpperCase();
-    if (normalized === 'ACTIVE') return 'status-active';
-    return 'status-inactive';
+  getProjectStatusForFactory(factoryId: string): ProjectStatusDisplay {
+    return this.projectStatusByFactoryId().get(factoryId) ?? 'none';
   }
 
-  formatStatusLabel(status: string): string {
-    const normalized = status.trim().toUpperCase();
-    if (normalized === 'ACTIVE') return 'ACTIVE';
-    return 'INACTIVE';
+  getProjectStatusForSubsidiary(subsidiary: SubsidiaryCompany): ProjectStatusDisplay {
+    return subsidiary.factories.reduce<ProjectStatusDisplay>((acc, f) => {
+      const s = this.getProjectStatusForFactory(f.id);
+      if (s === 'active') return 'active';
+      if (s === 'inactive' && acc !== 'active') return 'inactive';
+      return acc;
+    }, 'none');
+  }
+
+  getStatusClass(projectStatus: ProjectStatusDisplay): string {
+    if (projectStatus === 'active') return 'status-active';
+    if (projectStatus === 'inactive') return 'status-inactive';
+    return 'status-unassigned';
+  }
+
+  formatStatusLabel(projectStatus: ProjectStatusDisplay): string {
+    if (projectStatus === 'active') return 'ACTIVE';
+    if (projectStatus === 'inactive') return 'INACTIVE';
+    return 'NO PROJECT ASSIGNED';
   }
 
   private normalizeLocation(value: string): string {
     return value.trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
-  getStatusIcon(status: string): string {
-    const normalized = status.trim().toUpperCase();
-    if (normalized === 'ACTIVE') return 'check_circle';
-    return 'cancel';
+  getStatusIcon(projectStatus: ProjectStatusDisplay): string {
+    if (projectStatus === 'active') return 'check_circle';
+    if (projectStatus === 'inactive') return 'cancel';
+    return 'help_outline';
   }
 
   private warRoomService = inject(WarRoomService);

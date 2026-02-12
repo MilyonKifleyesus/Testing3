@@ -370,8 +370,9 @@
 
           @if (logPanelMode() === 'manufacturer') {
           <app-war-room-activity-log [parentGroups]="filteredParentGroups()" [activityLogs]="filteredActivityLogs()"
-            [selectedEntity]="selectedEntity()" [editMode]="activityLogEditMode()" [mapViewMode]="mapViewMode()"
-            [isBusy]="activityLogBusy()" (selectionChange)="onEntitySelected($event)"
+            [projectStatusByFactoryId]="projectStatusByFactoryId()" [selectedEntity]="selectedEntity()"
+            [editMode]="activityLogEditMode()" [mapViewMode]="mapViewMode()" [isBusy]="activityLogBusy()"
+            (selectionChange)="onEntitySelected($event)"
             (editModeChange)="activityLogEditMode.set($event)" (factoryDetailsUpdated)="onFactoryDetailsUpdated($event)"
             (subsidiaryDetailsUpdated)="onSubsidiaryDetailsUpdated($event)"
             (batchUpdateRequested)="onBatchUpdateRequested($event)" (subsidiaryDeleted)="onSubsidiaryDeleted($event)"

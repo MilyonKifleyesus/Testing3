@@ -724,12 +724,12 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     // We just need to align the SVG content so the "tip" is at (0,0).
     // The previous implementation used screen coordinates (sx, sy) which caused double-translation.
     const pinTransform = '';
-    const status = (node.status || '').toUpperCase().trim();
-    const isActive = status === 'ACTIVE' || status === 'ONLINE';
-    const statusKey: 'online' | 'offline' = isActive ? 'online' : 'offline';
-    const statusColor = isActive ? '#00FF41' : '#ef4444';
-    const statusGlow = isActive ? 'rgba(0, 255, 65, 0.45)' : 'rgba(239, 68, 68, 0.45)';
-    const statusIconPath = isActive ? 'M 5,13 L 10,18 L 19,7' : 'M 6,6 L 18,18 M 18,6 L 6,18';
+    // Derive status from project (projectStatusColor): active #00C853, inactive #D50000, default #0ea5e9
+    const statusColor = projectStatusColor;
+    const statusGlow = this.getProjectStatusGlow(projectStatusColor);
+    const isInactive = projectStatusColor === '#D50000';
+    const statusKey: 'online' | 'offline' = isInactive ? 'offline' : 'online';
+    const statusIconPath = isInactive ? 'M 6,6 L 18,18 M 18,6 L 6,18' : 'M 5,13 L 10,18 L 19,7';
 
 
     const nodeType: MarkerNodeType =
@@ -1154,6 +1154,12 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     if (status === 'active') return '#00C853';
     if (status === 'inactive') return '#D50000';
     return '#0ea5e9';
+  }
+
+  private getProjectStatusGlow(color: string): string {
+    if (color === '#00C853') return 'rgba(0, 200, 83, 0.45)';
+    if (color === '#D50000') return 'rgba(213, 0, 0, 0.45)';
+    return 'rgba(14, 165, 233, 0.45)';
   }
 
   readonly tooltipVm = computed<TooltipVm | null>(() => {

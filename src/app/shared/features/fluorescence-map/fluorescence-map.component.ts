@@ -95,6 +95,24 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     return routes.filter((route) => route.projectId === selectedId);
   });
 
+  readonly projectsSignal = toSignal(this.projectService.getProjects(), { initialValue: [] as Project[] });
+  readonly projectStatusByFactoryId = computed(() => {
+    const projects = this.projectsSignal();
+    const map = new Map<string, 'active' | 'inactive' | 'none'>();
+    for (const p of projects) {
+      const fid = p.manufacturerLocationId;
+      if (!fid) continue;
+      const st = p.status ?? 'Open';
+      const current = map.get(fid);
+      if (st === 'Open') {
+        map.set(fid, 'active');
+      } else if (current !== 'active') {
+        map.set(fid, 'inactive');
+      }
+    }
+    return map;
+  });
+
   // Signals from service
   readonly nodes = this.warRoomService.nodes;
   readonly activityLogs = this.warRoomService.activityLogs;
