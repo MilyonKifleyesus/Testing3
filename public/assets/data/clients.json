@@ -1,1 +1,394 @@
-{"clients":[{"clientId":"yrt","clientName":"York Region Transit","latitude":43.8828,"longitude":-79.4403,"locations":[{"locationName":"Head Office","address":"55 Orlando Avenue, Richmond Hill, ON L4B 0B4","type":"main"}]},{"clientId":"ttc","clientName":"Toronto Transit Commission (TTC)","latitude":43.6532,"longitude":-79.3832,"locations":[{"locationName":"Head Office","address":"1900 Yonge Street, Toronto, ON M4S 1Z2","type":"main"}]},{"clientId":"onorth","clientName":"Ontario Northland","latitude":46.3092,"longitude":-79.4608,"locations":[{"locationName":"Head Office","address":"555 Oak Street East, North Bay, ON P1B 8L3","type":"main"}]},{"clientId":"translink","clientName":"TransLink","latitude":49.2827,"longitude":-122.8368,"locations":[{"locationName":"Main Office","address":"400–287 Nelson's Court, New Westminster, BC V3L 0E7","type":"main"}]},{"clientId":"cmbc","clientName":"Coast Mountain Bus Company","latitude":49.2068,"longitude":-122.9109,"locations":[{"locationName":"Operations Office","address":"700–287 Nelson's Court, New Westminster, BC V3L 0E7","type":"main"}]},{"clientId":"oc-transpo","clientName":"OC Transpo","latitude":45.4215,"longitude":-75.6972,"locations":[{"locationName":"Head Office","address":"1500 St. Laurent Blvd, Ottawa, ON K1G 0Z8","type":"main"}]},{"clientId":"drt","clientName":"Durham Region Transit","latitude":43.8975,"longitude":-78.9405,"locations":[{"locationName":"Head Office","address":"110 Westney Rd S, Ajax, ON L1S 2C8","type":"main"}]},{"clientId":"halifax-transit","clientName":"Halifax Transit","latitude":44.6488,"longitude":-63.5752,"locations":[{"locationName":"Head Office","address":"200 Ilsley Ave, Dartmouth, NS B3B 1V1","type":"main"}]},{"clientId":"metrolinx","clientName":"Metrolinx","latitude":43.6532,"longitude":-79.3832,"locations":[{"locationName":"Corporate HQ","address":"97 Front Street West, Toronto, ON M5J 1E6","type":"main"}]},{"clientId":"giro","clientName":"HASTUS (GIRO Inc.)","latitude":45.5617,"longitude":-73.6103,"locations":[{"locationName":"Montreal Office","address":"5800 Rue Saint-Denis, Suite 1102, Montreal, QC H2S 3L5","type":"main"}]},{"clientId":"samtrans","clientName":"SamTrans","latitude":37.5072,"longitude":-122.2605,"locations":[{"locationName":"Head Office","address":"1250 San Carlos Ave, San Carlos, CA 94070","type":"main"}]},{"clientId":"yarts-vrts","clientName":"YARTS / VRTS","latitude":37.3022,"longitude":-120.483,"locations":[{"locationName":"Operations Office","address":"357 W. 18th Street, Merced, CA 95340","type":"main"}]},{"clientId":"mta","clientName":"MTA","latitude":40.7013,"longitude":-74.013,"locations":[{"locationName":"Headquarters","address":"2 Broadway, New York, NY 10004","type":"main"}]},{"clientId":"rtd-denver","clientName":"RTD Denver","latitude":39.7547,"longitude":-105.0067,"locations":[{"locationName":"Head Office","address":"1660 Blake Street, Denver, CO 80202","type":"main"}]},{"clientId":"art","clientName":"Arlington Transit (ART)","latitude":38.8816,"longitude":-77.091,"locations":[{"locationName":"Administrative Office","address":"2100 Clarendon Blvd, Suite 900, Arlington, VA 22201","type":"main"}]},{"clientId":"fairfield-ca","clientName":"City of Fairfield, CA","latitude":38.2494,"longitude":-122.0398,"locations":[{"locationName":"City Hall","address":"1000 Webster Street, Fairfield, CA 94533","type":"main"}]},{"clientId":"mst","clientName":"Monterey-Salinas Transit (MST)","latitude":36.6002,"longitude":-121.8947,"locations":[{"locationName":"Administrative Office","address":"19 Upper Ragsdale Dr, Suite 200, Monterey, CA 93940","type":"main"}]},{"clientId":"sp-plus","clientName":"SP+","latitude":41.8781,"longitude":-87.6298,"locations":[{"locationName":"Chicago Office","address":"200 E Randolph St, Suite 7700, Chicago, IL 60601","type":"main"}]},{"clientId":"mount-sinai","clientName":"Mount Sinai Hospital","latitude":43.6532,"longitude":-79.3832,"locations":[{"locationName":"Main Campus","address":"600 University Ave, Toronto, ON M5G 1X5","type":"main"}]},{"clientId":"electromin","clientName":"Electromin","latitude":21.5433,"longitude":39.1728,"locations":[{"locationName":"Head Office","address":"8136 Prince Sultan St, Jeddah 23618, Saudi Arabia","type":"main"}]},{"clientId":"abbotsford","clientName":"City of Abbotsford","latitude":49.0504,"longitude":-122.3045,"locations":[{"locationName":"City Hall","address":"32315 South Fraser Way, Abbotsford, BC V2T 1W7","type":"main"}]},{"clientId":"dufferin-county","clientName":"Dufferin County","latitude":43.9208,"longitude":-80.0948,"locations":[{"locationName":"County Offices","address":"55 Zina Street, Orangeville, ON L9W 1E5","type":"main"}]},{"clientId":"tok-group","clientName":"TOK Group","latitude":43.8014,"longitude":-79.4814,"locations":[{"locationName":"Head Office","address":"221 Caldari Road, Concord, ON L4K 3Z9","type":"main"}]},{"clientId":"miller-transit","clientName":"Miller Transit","latitude":43.8828,"longitude":-79.4403,"locations":[{"locationName":"Operations Office","address":"55 Orlando Ave, Richmond Hill, ON L4B 0B4","type":"main"}]},{"clientId":"innergex","clientName":"Innergex","latitude":45.5597,"longitude":-73.4698,"locations":[{"locationName":"Corporate Office","address":"1225 Saint-Charles St W, 10th Floor, Longueuil, QC J4K 0B9","type":"main"}]},{"clientId":"mtb-transit","clientName":"MTB Transit Solutions","latitude":43.5183,"longitude":-79.8774,"locations":[{"locationName":"Head Office","address":"8170 Lawson Road, Milton, ON L9T 5C4","type":"main"}]},{"clientId":"gazzola","clientName":"Gazzola Paving","latitude":43.6899,"longitude":-79.6168,"locations":[{"locationName":"Head Office","address":"529 Carlingview Dr, Etobicoke, ON M9W 5H2","type":"main"}]},{"clientId":"enbridge","clientName":"Enbridge","latitude":51.0447,"longitude":-114.0719,"locations":[{"locationName":"Calgary Office","address":"425 1st Street SW, Calgary, AB T2P 3L8","type":"main"}]},{"clientId":"aux-energy","clientName":"AUX Energy","latitude":43.6532,"longitude":-79.3832,"locations":[{"locationName":"Toronto Office","address":"483 Bay Street, Toronto, ON M5G 2P5","type":"main"}]},{"clientId":"camsc","clientName":"CAMSC","latitude":43.6532,"longitude":-79.3832,"locations":[{"locationName":"Head Office","address":"282 Richmond St E, Suite 101, Toronto, ON M5A 1P4","type":"main"}]}]}
+{
+  "clients": [
+    {
+      "clientId": "yrt",
+      "clientName": "York Region Transit",
+      "latitude": 43.8828,
+      "longitude": -79.4403,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "55 Orlando Avenue, Richmond Hill, ON L4B 0B4",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "ttc",
+      "clientName": "Toronto Transit Commission (TTC)",
+      "latitude": 43.6532,
+      "longitude": -79.3832,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "1900 Yonge Street, Toronto, ON M4S 1Z2",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "onorth",
+      "clientName": "Ontario Northland",
+      "latitude": 46.3092,
+      "longitude": -79.4608,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "555 Oak Street East, North Bay, ON P1B 8L3",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "translink",
+      "clientName": "TransLink",
+      "latitude": 49.2827,
+      "longitude": -122.8368,
+      "locations": [
+        {
+          "locationName": "Main Office",
+          "address": "400–287 Nelson's Court, New Westminster, BC V3L 0E7",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "cmbc",
+      "clientName": "Coast Mountain Bus Company",
+      "latitude": 49.2068,
+      "longitude": -122.9109,
+      "locations": [
+        {
+          "locationName": "Operations Office",
+          "address": "700–287 Nelson's Court, New Westminster, BC V3L 0E7",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "oc-transpo",
+      "clientName": "OC Transpo",
+      "latitude": 45.4215,
+      "longitude": -75.6972,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "1500 St. Laurent Blvd, Ottawa, ON K1G 0Z8",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "drt",
+      "clientName": "Durham Region Transit",
+      "latitude": 43.8975,
+      "longitude": -78.9405,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "110 Westney Rd S, Ajax, ON L1S 2C8",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "halifax-transit",
+      "clientName": "Halifax Transit",
+      "latitude": 44.6488,
+      "longitude": -63.5752,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "200 Ilsley Ave, Dartmouth, NS B3B 1V1",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "metrolinx",
+      "clientName": "Metrolinx",
+      "latitude": 43.6532,
+      "longitude": -79.3832,
+      "locations": [
+        {
+          "locationName": "Corporate HQ",
+          "address": "97 Front Street West, Toronto, ON M5J 1E6",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "giro",
+      "clientName": "HASTUS (GIRO Inc.)",
+      "latitude": 45.5617,
+      "longitude": -73.6103,
+      "locations": [
+        {
+          "locationName": "Montreal Office",
+          "address": "5800 Rue Saint-Denis, Suite 1102, Montreal, QC H2S 3L5",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "samtrans",
+      "clientName": "SamTrans",
+      "latitude": 37.5072,
+      "longitude": -122.2605,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "1250 San Carlos Ave, San Carlos, CA 94070",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "yarts-vrts",
+      "clientName": "YARTS / VRTS",
+      "latitude": 37.3022,
+      "longitude": -120.483,
+      "locations": [
+        {
+          "locationName": "Operations Office",
+          "address": "357 W. 18th Street, Merced, CA 95340",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "mta",
+      "clientName": "MTA",
+      "latitude": 40.7013,
+      "longitude": -74.013,
+      "locations": [
+        {
+          "locationName": "Headquarters",
+          "address": "2 Broadway, New York, NY 10004",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "rtd-denver",
+      "clientName": "RTD Denver",
+      "latitude": 39.7547,
+      "longitude": -105.0067,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "1660 Blake Street, Denver, CO 80202",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "art",
+      "clientName": "Arlington Transit (ART)",
+      "latitude": 38.8816,
+      "longitude": -77.091,
+      "locations": [
+        {
+          "locationName": "Administrative Office",
+          "address": "2100 Clarendon Blvd, Suite 900, Arlington, VA 22201",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "fairfield-ca",
+      "clientName": "City of Fairfield, CA",
+      "latitude": 38.2494,
+      "longitude": -122.0398,
+      "locations": [
+        {
+          "locationName": "City Hall",
+          "address": "1000 Webster Street, Fairfield, CA 94533",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "mst",
+      "clientName": "Monterey-Salinas Transit (MST)",
+      "latitude": 36.6002,
+      "longitude": -121.8947,
+      "locations": [
+        {
+          "locationName": "Administrative Office",
+          "address": "19 Upper Ragsdale Dr, Suite 200, Monterey, CA 93940",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "sp-plus",
+      "clientName": "SP+",
+      "latitude": 41.8781,
+      "longitude": -87.6298,
+      "locations": [
+        {
+          "locationName": "Chicago Office",
+          "address": "200 E Randolph St, Suite 7700, Chicago, IL 60601",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "mount-sinai",
+      "clientName": "Mount Sinai Hospital",
+      "latitude": 43.6532,
+      "longitude": -79.3832,
+      "locations": [
+        {
+          "locationName": "Main Campus",
+          "address": "600 University Ave, Toronto, ON M5G 1X5",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "electromin",
+      "clientName": "Electromin",
+      "latitude": 21.5433,
+      "longitude": 39.1728,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "8136 Prince Sultan St, Jeddah 23618, Saudi Arabia",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "abbotsford",
+      "clientName": "City of Abbotsford",
+      "latitude": 49.0504,
+      "longitude": -122.3045,
+      "locations": [
+        {
+          "locationName": "City Hall",
+          "address": "32315 South Fraser Way, Abbotsford, BC V2T 1W7",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "dufferin-county",
+      "clientName": "Dufferin County",
+      "latitude": 43.9208,
+      "longitude": -80.0948,
+      "locations": [
+        {
+          "locationName": "County Offices",
+          "address": "55 Zina Street, Orangeville, ON L9W 1E5",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "tok-group",
+      "clientName": "TOK Group",
+      "latitude": 43.8014,
+      "longitude": -79.4814,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "221 Caldari Road, Concord, ON L4K 3Z9",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "miller-transit",
+      "clientName": "Miller Transit",
+      "latitude": 43.8828,
+      "longitude": -79.4403,
+      "locations": [
+        {
+          "locationName": "Operations Office",
+          "address": "55 Orlando Ave, Richmond Hill, ON L4B 0B4",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "innergex",
+      "clientName": "Innergex",
+      "latitude": 45.5597,
+      "longitude": -73.4698,
+      "locations": [
+        {
+          "locationName": "Corporate Office",
+          "address": "1225 Saint-Charles St W, 10th Floor, Longueuil, QC J4K 0B9",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "mtb-transit",
+      "clientName": "MTB Transit Solutions",
+      "latitude": 43.5183,
+      "longitude": -79.8774,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "8170 Lawson Road, Milton, ON L9T 5C4",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "gazzola",
+      "clientName": "Gazzola Paving",
+      "latitude": 43.6899,
+      "longitude": -79.6168,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "529 Carlingview Dr, Etobicoke, ON M9W 5H2",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "enbridge",
+      "clientName": "Enbridge",
+      "latitude": 51.0447,
+      "longitude": -114.0719,
+      "locations": [
+        {
+          "locationName": "Calgary Office",
+          "address": "425 1st Street SW, Calgary, AB T2P 3L8",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "aux-energy",
+      "clientName": "AUX Energy",
+      "latitude": 43.6532,
+      "longitude": -79.3832,
+      "locations": [
+        {
+          "locationName": "Toronto Office",
+          "address": "483 Bay Street, Toronto, ON M5G 2P5",
+          "type": "main"
+        }
+      ]
+    },
+    {
+      "clientId": "camsc",
+      "clientName": "CAMSC",
+      "latitude": 43.6532,
+      "longitude": -79.3832,
+      "locations": [
+        {
+          "locationName": "Head Office",
+          "address": "282 Richmond St E, Suite 101, Toronto, ON M5A 1P4",
+          "type": "main"
+        }
+      ]
+    }
+  ]
+}

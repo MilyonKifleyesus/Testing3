@@ -2,21 +2,21 @@
   "projects": [
     {
       "project_id": 15,
-      "project_name": "Nova - LG50 AOFT",
+      "project_name": "Nova - LE96 40FT",
       "manufacturer_id": 1,
       "factory_id": 1,
       "client": "DRT",
       "assessment_type": "New Build",
-      "status": null
+      "status": "Inactive"
     },
     {
       "project_id": 29,
-      "project_name": "LFT5-40FT-D",
+      "project_name": "LF75-40FT-D",
       "manufacturer_id": 1,
       "factory_id": 1,
       "client": "DRT",
       "assessment_type": "New Build",
-      "status": "Closed"
+      "status": "Inactive"
     },
     {
       "project_id": 30,
@@ -25,16 +25,16 @@
       "factory_id": 1,
       "client": "DRT",
       "assessment_type": "New Build",
-      "status": "Closed"
+      "status": "Inactive"
     },
     {
       "project_id": 31,
-      "project_name": "LFT5-40FT-BEB",
-      "manufacturer_id": 2,
-      "factory_id": 3,
+      "project_name": "LF55-40FT-BEB",
+      "manufacturer_id": 1,
+      "factory_id": 1,
       "client": "DRT",
       "assessment_type": "New Build",
-      "status": "Closed"
+      "status": "Inactive"
     },
     {
       "project_id": 63,
@@ -43,16 +43,18 @@
       "factory_id": 3,
       "client": "DRT",
       "assessment_type": "New Build",
-      "status": null
+      "status": "Active"
     },
     {
       "project_id": 69,
-      "project_name": "SR3049",
-      "manufacturer_id": null,
-      "factory_id": null,
-      "client": null,
-      "assessment_type": null,
-      "status": null
+      "project_name": "SR-3049",
+      "manufacturer_id": 2,
+      "factory_id": 2,
+      "client": "DRT",
+      "assessment_type": "New Build",
+      "location": "Winnipeg-Crookston (New Flyer)",
+      "manufacturer": "New Flyer",
+      "status": "Active"
     },
     {
       "project_id": 11,
@@ -63,7 +65,7 @@
       "assessment_type": "Condition Assessment",
       "location": "Ottawa - Pembroke (Eastway)",
       "manufacturer": "Eastway",
-      "status": null
+      "status": "Active"
     },
     {
       "project_id": 23,
@@ -74,7 +76,7 @@
       "assessment_type": "Condition Assessment",
       "location": "Ottawa - Pembroke (Eastway)",
       "manufacturer": "Eastway",
-      "status": null
+      "status": "Active"
     }
   ]
 }

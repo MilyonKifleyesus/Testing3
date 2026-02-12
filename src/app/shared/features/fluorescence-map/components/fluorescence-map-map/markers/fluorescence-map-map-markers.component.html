@@ -2,6 +2,7 @@
   @for (m of markers(); track m.id) {
     <div
       class="marker-container marker-group {{ m.lodClass }} {{ m.statusKey }}"
+      [class.marker-cluster-container]="m.isCluster"
       [class.marker-client]="m.nodeType === 'client'"
       [class.marker-factory]="m.nodeType === 'factory' || m.nodeType === 'subsidiary' || m.nodeType === 'parent'"
       [class.selected]="m.isSelected"
@@ -11,9 +12,9 @@
       [class.pinned]="m.isPinned"
       [style.--status-color]="m.statusColor"
       [style.--status-glow]="m.statusGlow"
-      [style.transform]="'translate(' + (getPosition(m.id).x - 60) + 'px, ' + (getPosition(m.id).y - 90) + 'px)'"
+      [style.transform]="computeTranslate(m, getPosition(m.id))"
       (click)="onMarkerClick(m.node); $event.preventDefault(); $event.stopPropagation()"
-      (mouseenter)="onMarkerHover(m.node)"
+      (mouseenter)="onMarkerHover(m.isCluster ? null : m.node)"
       (mouseleave)="onMarkerHover(null)"
     >
       <svg width="0" height="0" style="position: absolute">
@@ -30,8 +31,13 @@
         </defs>
       </svg>
       <div class="marker-contents-wrapper">
+        @if (m.isCluster) {
+        <svg viewBox="-24 -24 48 48" width="48" height="48" class="marker-svg-root marker-cluster" preserveAspectRatio="xMidYMid meet">
+          <circle class="marker-cluster-bg" cx="0" cy="0" r="20" [attr.stroke]="m.statusColor" fill="rgba(8, 12, 16, 0.9)"></circle>
+        </svg>
+        } @else {
         <svg viewBox="-30 -45 60 90" width="120" height="180" class="marker-svg-root" preserveAspectRatio="xMidYMid meet">
-          <g class="marker-scale" [attr.transform]="'scale(' + m.pinScale + ')'">
+          <g class="marker-scale" [attr.transform]="computePinScaleTransform(m)">
             <g class="marker-dot-group">
               <circle class="marker-dot-ring" cx="0" cy="0" r="6.5" fill="rgba(8, 12, 16, 0.75)" [attr.stroke]="m.projectStatusColor" stroke-width="1.5"></circle>
               <circle class="marker-dot-core" cx="0" cy="0" r="3.5" [attr.fill]="m.projectStatusColor"></circle>
@@ -108,6 +114,7 @@
             </g>
           }
         </svg>
+        }
       </div>
     </div>
   }

@@ -1,4 +1,4 @@
-import { Component, input, output, AfterViewInit, OnDestroy, inject, effect, signal, computed } from '@angular/core';
+import { Component, input, output, AfterViewInit, OnDestroy, inject, effect, signal, computed, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
 import { Node as WarRoomNode, FleetSelection, TransitRoute, ProjectRoute } from '../../../../models/fluorescence-map.interface';
@@ -12,6 +12,7 @@ import { WarRoomMapAssetsService } from './services/fluorescence-map-map-assets.
 import { MarkerVm, MarkerNodeType } from './fluorescence-map-map.vm';
 import { WarRoomMapRoutesComponent, RouteVm } from './routes/fluorescence-map-map-routes.component';
 import { WarRoomMapMarkersComponent } from './markers/fluorescence-map-map-markers.component';
+import { ToastrService } from 'ngx-toastr';
 
 interface RouteFeatureProperties {
   strokeWidth: number;
@@ -62,6 +63,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   nodeSelected = output<WarRoomNode | undefined>();
   routeSelected = output<{ routeId: string; projectId?: string }>();
 
+  @ViewChild('mapContainer', { static: false }) mapContainerRef!: ElementRef<HTMLDivElement>;
+
   private mapInstance: MapLibreMap | null = null;
   private mapLoaded = false;
   private resizeObserver: ResizeObserver | null = null;
@@ -72,6 +75,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   private overlayUpdateRaf: number | null = null;
   private overlayEnsureCoords = false;
   private selectionZoomTimeoutId: any = null;
+  private initMapRetryCount = 0;
+  private static readonly INIT_MAP_MAX_RETRIES = 10;
 
   private readonly defaultView = {
     center: [0, 0] as [number, number],
@@ -101,6 +106,10 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   private readonly MARKER_ZOOM_DIVISOR = 5;
   /** Extra scale for HQ node markers (e.g. 1.25 = 25% bigger). */
   private readonly MARKER_HQ_FACTOR = 1.25;
+  private readonly DEFAULT_MARKER_ANCHOR: MarkerVm['anchor'] = { width: 120, height: 180, centerX: 60, centerY: 90 };
+  private readonly CLUSTER_MARKER_ANCHOR: MarkerVm['anchor'] = { width: 48, height: 48, centerX: 24, centerY: 24 };
+  /** Pixel offset between parallel project routes sharing same client-factory pair */
+  private readonly PARALLEL_ROUTE_OFFSET_PIXELS = 8;
   // --------------------------------------------------------------------------
 
   // Caches
@@ -119,12 +128,14 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   readonly routesVm = signal<RouteVm[]>([]);
   readonly routeStroke = computed(() => this.getRouteColor());
   readonly routeFill = computed(() => this.getRouteColor());
+  readonly mapLoadError = signal<string | null>(null);
 
   // Services
   private warRoomService = inject(WarRoomService);
   private appStateService = inject(AppStateService);
   private mathService = inject(WarRoomMapMathService);
   private assetsService = inject(WarRoomMapAssetsService);
+  private toastr = inject(ToastrService);
 
   currentTheme = signal<'light' | 'dark'>('dark');
 
@@ -252,9 +263,15 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    this.initMap();
+    setTimeout(() => this.initMap(), 0);
     this.setupResizeObserver();
     this.setupFullscreenListeners();
+  }
+
+  retryMapLoad(): void {
+    this.mapLoadError.set(null);
+    this.initMapRetryCount = 0;
+    this.initMap();
   }
 
   ngOnDestroy(): void {
@@ -499,14 +516,54 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  private initMap(): void {
-    const container = document.getElementById('war-room-map');
-    if (!container) return;
+  private getMapContainer(): HTMLElement | null {
+    return this.mapContainerRef?.nativeElement ?? document.getElementById('war-room-map');
+  }
 
-    this.mapInstance = this.createMap(container);
+  private initMap(): void {
+    const container = this.getMapContainer();
+    if (!container) {
+      const msg = 'Map container not found';
+      this.mapLoadError.set(msg);
+      this.toastr.error(msg, 'Map failed to load');
+      return;
+    }
+
+    const rect = container.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) {
+      if (this.initMapRetryCount >= WarRoomMapComponent.INIT_MAP_MAX_RETRIES) {
+        const msg = 'Map container has no dimensions. Please refresh the page.';
+        this.mapLoadError.set(msg);
+        this.toastr.error(msg, 'Map failed to load');
+        this.initMapRetryCount = 0;
+        return;
+      }
+      this.initMapRetryCount++;
+      requestAnimationFrame(() => {
+        setTimeout(() => this.initMap(), 50);
+      });
+      return;
+    }
+    this.initMapRetryCount = 0;
+
+    try {
+      this.mapInstance = this.createMap(container);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Map initialization failed';
+      this.mapLoadError.set(msg);
+      this.toastr.error(msg, 'Map failed to load');
+      return;
+    }
+
+    this.mapInstance.on('error', (e) => {
+      const msg = (e.error as Error)?.message ?? 'Map failed to load';
+      this.mapLoadError.set(msg);
+      this.toastr.error(msg, 'Map failed to load');
+    });
 
     this.mapInstance.on('load', () => {
       if (this.destroyed) return;
+      this.mapLoadError.set(null);
       this.mapLoaded = true;
       this.updateContainerRect();
       this.scheduleOverlayUpdate(true);
@@ -560,7 +617,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   }
 
   private setupResizeObserver(): void {
-    const container = document.getElementById('war-room-map');
+    const container = this.getMapContainer();
     if (!container) return;
 
     this.resizeObserver = new ResizeObserver(() => {
@@ -627,7 +684,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       const point = this.mapInstance!.project([displayCoords.longitude, displayCoords.latitude]);
       markerPixels.set(node.id, { x: point.x, y: point.y });
       const projectStatusColor = this.getProjectStatusColor(node, projectStatusByNodeId);
-      const vm = this.buildMarkerVm(node, zoom, selected, hovered, baseUrl, point.x, point.y, displayCoords, projectStatusColor);
+      const vm = this.buildMarkerVm(node, zoom, selected, hovered, baseUrl, displayCoords, projectStatusColor);
       markers.push(vm);
     });
 
@@ -635,6 +692,18 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     this.markersVm.set(markers);
     const featureCollection = this.buildRouteFeatures(nodes);
     const routes: RouteVm[] = [];
+
+    const projectRouteGroups = new Map<string, number[]>();
+    featureCollection.features.forEach((f, idx) => {
+      const fid = f.properties.fromNodeId;
+      const tid = f.properties.toNodeId;
+      if (fid && tid) {
+        const key = `${fid}|${tid}`;
+        const arr = projectRouteGroups.get(key) ?? [];
+        arr.push(idx);
+        projectRouteGroups.set(key, arr);
+      }
+    });
 
     featureCollection.features.forEach((feature, index) => {
       const coords = feature.geometry.coordinates;
@@ -645,12 +714,30 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       const endPixel = feature.properties.toNodeId
         ? markerPixels.get(feature.properties.toNodeId)
         : undefined;
-      const startPoint = startPixel
+      let startPoint = startPixel
         ? { x: startPixel.x, y: startPixel.y }
         : this.mapInstance!.project(coords[0]);
-      const endPoint = endPixel
+      let endPoint = endPixel
         ? { x: endPixel.x, y: endPixel.y }
         : this.mapInstance!.project(coords[1]);
+      const fid = feature.properties.fromNodeId;
+      const tid = feature.properties.toNodeId;
+      if (fid && tid) {
+        const key = `${fid}|${tid}`;
+        const indices = projectRouteGroups.get(key);
+        if (indices && indices.length > 1) {
+          const indexInGroup = indices.indexOf(index);
+          const { start, end } = this.applyParallelRouteOffset(
+            startPoint,
+            endPoint,
+            indexInGroup,
+            indices.length,
+            this.PARALLEL_ROUTE_OFFSET_PIXELS
+          );
+          startPoint = start;
+          endPoint = end;
+        }
+      }
       const path = this.mathService.createCurvedPath(startPoint, endPoint);
       if (!path) return;
       const routeId = feature.properties.routeId || `route-${index}`;
@@ -678,8 +765,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     selected: FleetSelection | null,
     hovered: FleetSelection | null,
     baseUrl: string,
-    x: number,
-    y: number,
     displayCoordinates: { longitude: number; latitude: number } | undefined,
     projectStatusColor: string
   ): MarkerVm {
@@ -719,11 +804,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const invZoom = 1 / zoomFactor;
     const scaleRaw = (adaptiveFactor * hqFactor) * invZoom * this.MARKER_BASE_SCALE;
     const scale = Number.isFinite(scaleRaw) ? Number(scaleRaw.toFixed(4)) : 1;
-
-    // Fixed alignment: Native markers are already positioned at the coordinate.
-    // We just need to align the SVG content so the "tip" is at (0,0).
-    // The previous implementation used screen coordinates (sx, sy) which caused double-translation.
-    const pinTransform = '';
+    const isCluster = false;
+    const anchor = isCluster ? this.CLUSTER_MARKER_ANCHOR : this.DEFAULT_MARKER_ANCHOR;
     // Derive status from project (projectStatusColor): active #00C853, inactive #D50000, default #0ea5e9
     const statusColor = projectStatusColor;
     const statusGlow = this.getProjectStatusGlow(projectStatusColor);
@@ -741,6 +823,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       id: node.id,
       node,
       nodeType,
+      isCluster,
       displayName,
       shortName,
       subLabel,
@@ -758,7 +841,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       statusIconPath,
       lodClass: lod.lodClass,
       isPinned,
-      pinTransform,
+      anchor,
       pinScale: scale,
       showPinLabel: true,
       displayCoordinates,
@@ -851,12 +934,16 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   zoomIn(): void {
     if (this.mapInstance) {
+      const next = Math.min(14, this.mapInstance.getZoom() + 1);
+      this.currentZoomLevel.set(next);
       this.mapInstance.zoomIn();
     }
   }
 
   zoomOut(): void {
     if (this.mapInstance) {
+      const next = Math.max(0.5, this.mapInstance.getZoom() - 1);
+      this.currentZoomLevel.set(next);
       this.mapInstance.zoomOut();
     }
   }
@@ -932,6 +1019,18 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   /** Coordinates to use for marker position; prefer route endpoint coords when node is a route endpoint so marker aligns with the line. */
   private getEffectiveCoordinates(node: WarRoomNode, nodes: WarRoomNode[]): { longitude: number; latitude: number } {
+    const projectRoutes = this.projectRoutes();
+    if (projectRoutes?.length) {
+      for (const route of projectRoutes) {
+        if (node.id === route.toNodeId && this.isValidCoordinates(route.toCoordinates)) {
+          return { longitude: route.toCoordinates.longitude, latitude: route.toCoordinates.latitude };
+        }
+        if (node.id === route.fromNodeId && this.isValidCoordinates(route.fromCoordinates)) {
+          return { longitude: route.fromCoordinates.longitude, latitude: route.fromCoordinates.latitude };
+        }
+      }
+    }
+
     const routes = this.transitRoutes();
     if (!routes?.length) {
       return node.coordinates;
@@ -945,6 +1044,30 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       }
     }
     return node.coordinates;
+  }
+
+  /**
+   * Apply perpendicular offset to start/end points so parallel routes are visible.
+   * Used when multiple projects share the same client-factory pair.
+   */
+  private applyParallelRouteOffset(
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    indexInGroup: number,
+    groupSize: number,
+    offsetPixels: number
+  ): { start: { x: number; y: number }; end: { x: number; y: number } } {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1e-6) return { start: { ...start }, end: { ...end } };
+    const perpX = -dy / len;
+    const perpY = dx / len;
+    const offsetAmount = (indexInGroup - (groupSize - 1) / 2) * offsetPixels;
+    return {
+      start: { x: start.x + offsetAmount * perpX, y: start.y + offsetAmount * perpY },
+      end: { x: end.x + offsetAmount * perpX, y: end.y + offsetAmount * perpY },
+    };
   }
 
   private buildRouteFeatures(nodes: WarRoomNode[]): RouteFeatureCollection {

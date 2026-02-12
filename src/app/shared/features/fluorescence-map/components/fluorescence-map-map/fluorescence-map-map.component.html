@@ -4,7 +4,7 @@
 
   <!-- Map Container: overlays inside #war-room-map so (0,0) matches MapLibre project() – stops marker/logo drift on zoom -->
   <div class="map-container" (click)="clearPinned()">
-    <div id="war-room-map" class="war-room-map-inner">
+    <div #mapContainer id="war-room-map" class="war-room-map-inner">
       <app-war-room-map-routes [routes]="routesVm()" [routeStroke]="routeStroke()" [routeFill]="routeFill()"
         (routeSelected)="onRouteSelected($event)">
       </app-war-room-map-routes>
@@ -21,4 +21,11 @@
 
   <app-war-room-map-tooltip [tooltip]="tooltipVm()" (logoError)="onTooltipLogoError($event)">
   </app-war-room-map-tooltip>
+
+  @if (mapLoadError()) {
+  <div class="map-error-overlay">
+    <p>{{ mapLoadError() }}</p>
+    <button type="button" class="btn btn-primary btn-sm" (click)="retryMapLoad()">Retry</button>
+  </div>
+  }
 </div>

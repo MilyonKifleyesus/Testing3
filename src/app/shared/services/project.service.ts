@@ -116,9 +116,9 @@ function resolveClientId(api: ApiProject, clients: Client[]): string | null {
 }
 
 function mapApiStatus(apiStatus: string | null | undefined): ProjectStatus | null {
-  if (apiStatus === 'Closed') return 'Closed';
+  if (apiStatus === 'Closed' || apiStatus === 'Inactive') return 'Closed';
   if (apiStatus === 'Delayed') return 'Delayed';
-  if (apiStatus === 'Open') return 'Open';
+  if (apiStatus === 'Open' || apiStatus === 'Active') return 'Open';
   return null;
 }
 

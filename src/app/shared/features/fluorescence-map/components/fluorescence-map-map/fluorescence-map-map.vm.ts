@@ -6,6 +6,7 @@ export interface MarkerVm {
     id: string; // Internal unique ID
     node: WarRoomNode; // Reference to original data
     nodeType: MarkerNodeType;
+    isCluster: boolean;
     displayName: string;
     shortName: string;
     subLabel: string;
@@ -23,7 +24,7 @@ export interface MarkerVm {
     statusIconPath: string;
     lodClass: 'lod-low' | 'lod-medium' | 'lod-high';
     isPinned: boolean;
-    pinTransform: string; // translate(x, y)
+    anchor: { width: number; height: number; centerX: number; centerY: number };
     pinScale: number;
     showPinLabel: boolean;
     /** When set, used for marker position so it aligns with route line endpoints. */

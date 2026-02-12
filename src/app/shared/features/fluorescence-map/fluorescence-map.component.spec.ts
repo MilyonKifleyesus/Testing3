@@ -314,6 +314,77 @@ describe('WarRoomComponent (unit)', () => {
     expect(component.projectRoutesForMap().length).toBe(2);
   });
 
+  it('in project view with status all and no filters, only shows markers that have projects', () => {
+    const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
+    const factoryB = buildFactory({ id: 'factory-b', subsidiaryId: 'sub-1', city: 'Dallas' });
+    const factoryC = buildFactory({ id: 'factory-c', subsidiaryId: 'sub-1', city: 'Houston' });
+    const subsidiary = buildSubsidiary({ id: 'sub-1', factories: [factoryA, factoryB, factoryC] });
+    const parentGroup = buildParentGroup([subsidiary]);
+
+    setServiceState([parentGroup], []);
+    warRoomService.setMapViewMode('project');
+    component.filterApplied.set({
+      parentCompanyIds: [],
+      status: 'all',
+      regions: [],
+      clientIds: [],
+      manufacturerIds: [],
+      projectTypeIds: [],
+    });
+
+    const routes: ProjectRoute[] = [
+      {
+        id: 'project-route-1',
+        projectId: 'project-1',
+        fromNodeId: 'client-a',
+        toNodeId: 'factory-a',
+        status: 'Open',
+        fromCoordinates: { latitude: 43.7, longitude: -79.4 },
+        toCoordinates: { latitude: 45.4, longitude: -75.7 },
+      },
+      {
+        id: 'project-route-2',
+        projectId: 'project-2',
+        fromNodeId: 'client-b',
+        toNodeId: 'factory-b',
+        status: 'Closed',
+        fromCoordinates: { latitude: 40.7, longitude: -74.0 },
+        toCoordinates: { latitude: 34.0, longitude: -118.2 },
+      },
+    ];
+    component.projectRoutes.set(routes);
+    fixture.detectChanges();
+
+    const filtered = component.filteredNodes();
+    const factoryIds = filtered.filter((n) => n.level === 'factory').map((n) => n.id);
+    expect(factoryIds).toContain('factory-a');
+    expect(factoryIds).toContain('factory-b');
+    expect(factoryIds).not.toContain('factory-c');
+  });
+
+  it('in project view with no routes, shows no factory markers', () => {
+    const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
+    const subsidiary = buildSubsidiary({ id: 'sub-1', factories: [factoryA] });
+    const parentGroup = buildParentGroup([subsidiary]);
+
+    setServiceState([parentGroup], []);
+    warRoomService.setMapViewMode('project');
+    component.filterApplied.set({
+      parentCompanyIds: [],
+      status: 'all',
+      regions: [],
+      clientIds: [],
+      manufacturerIds: [],
+      projectTypeIds: [],
+    });
+    component.projectRoutes.set([]);
+    fixture.detectChanges();
+
+    const filtered = component.filteredNodes();
+    const factoryNodes = filtered.filter((n) => n.level === 'factory');
+    expect(factoryNodes.length).toBe(0);
+  });
+
   it('selecting a company sets selectedEntity', () => {
     const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
     const subsidiary = buildSubsidiary({ id: 'sub-1', factories: [factoryA] });

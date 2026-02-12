@@ -123,8 +123,8 @@
   }
 
   .marker-shell {
-    transform-box: fill-box;
-    transform-origin: center;
+    transform-box: view-box;
+    transform-origin: 0 0;
     transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.1);
   }
 
@@ -132,6 +132,7 @@
     transform-origin: center;
   }
 
+  &.hovered .marker-shell,
   &:hover .marker-shell {
     transform: scale(1.06);
   }

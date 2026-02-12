@@ -5,6 +5,7 @@ import { WarRoomMapComponent } from './fluorescence-map-map.component';
 import { WarRoomMapMathService } from './services/fluorescence-map-map-math.service';
 import { WarRoomService } from '../../../../../shared/services/fluorescence-map.service';
 import { AppStateService } from '../../../../../shared/services/app-state.service';
+import { ToastrService } from 'ngx-toastr';
 
 describe('WarRoomMapComponent logic helpers', () => {
   let component: WarRoomMapComponent;
@@ -37,11 +38,19 @@ describe('WarRoomMapComponent logic helpers', () => {
       }),
     };
 
+    const toastrMock = {
+      success: jasmine.createSpy('success'),
+      error: jasmine.createSpy('error'),
+      info: jasmine.createSpy('info'),
+      warning: jasmine.createSpy('warning'),
+    };
+
     await TestBed.configureTestingModule({
       imports: [WarRoomMapComponent],
       providers: [
         { provide: WarRoomService, useValue: warRoomServiceMock },
         { provide: AppStateService, useValue: appStateServiceMock },
+        { provide: ToastrService, useValue: toastrMock },
       ],
     }).compileComponents();
 
@@ -143,5 +152,104 @@ describe('WarRoomMapComponent logic helpers', () => {
     expect(features.features[0].geometry.coordinates[1]).toEqual([40, 30]);
     expect(features.features[0].properties.strokeWidth).toBe(1.5);
     expect(features.features[0].properties.highlighted).toBeTrue();
+  });
+
+  it('getEffectiveCoordinates prefers exact project-route endpoint coordinates over node/transit coordinates', () => {
+    const node = {
+      id: 'factory-1',
+      name: 'Factory One',
+      company: 'Factory One',
+      companyId: 'factory-1',
+      city: 'Alpha',
+      coordinates: { latitude: 10, longitude: 20 },
+      type: 'Factory',
+      status: 'ACTIVE',
+      level: 'factory',
+      factoryId: 'factory-1',
+    } as any;
+
+    (component as any).projectRoutes = signal([{
+      id: 'project-route-1',
+      projectId: 'p1',
+      fromNodeId: 'client-1',
+      toNodeId: 'factory-1',
+      status: 'Open',
+      fromCoordinates: { latitude: 1, longitude: 2 },
+      toCoordinates: { latitude: 55.55, longitude: -77.77 },
+    }]);
+    (component as any).transitRoutes = signal([{
+      id: 'transit-route-1',
+      from: 'factory-1',
+      to: 'other-node',
+      fromCoordinates: { latitude: 88.88, longitude: 99.99 },
+      toCoordinates: { latitude: 33.33, longitude: 44.44 },
+    }]);
+
+    const coords = (component as any).getEffectiveCoordinates(node, [node]);
+    expect(coords).toEqual({ latitude: 55.55, longitude: -77.77 });
+  });
+
+  it('syncOverlays keeps route start/end locked to marker pixel coordinates when endpoint IDs resolve', async () => {
+    const nodeA = {
+      id: 'client-1',
+      name: 'Client One',
+      company: 'Client One',
+      companyId: 'client-1',
+      city: 'Alpha',
+      coordinates: { latitude: 10, longitude: 20 },
+      type: 'Terminal',
+      status: 'ACTIVE',
+      level: 'client',
+      clientId: 'client-1',
+    } as any;
+
+    const nodeB = {
+      id: 'factory-1',
+      name: 'Factory One',
+      company: 'Factory One',
+      companyId: 'factory-1',
+      city: 'Beta',
+      coordinates: { latitude: 30, longitude: 40 },
+      type: 'Factory',
+      status: 'ACTIVE',
+      level: 'factory',
+      factoryId: 'factory-1',
+    } as any;
+
+    const projectRoute = {
+      id: 'project-route-1',
+      projectId: 'p1',
+      fromNodeId: 'client-1',
+      toNodeId: 'factory-1',
+      status: 'Open',
+      fromCoordinates: { latitude: 11, longitude: 21 },
+      toCoordinates: { latitude: 12, longitude: 22 },
+    };
+
+    (component as any).nodes = signal([nodeA, nodeB]);
+    (component as any).selectedEntity = signal(null);
+    (component as any).projectRoutes = signal([projectRoute]);
+    (component as any).transitRoutes = signal([]);
+    (component as any).filterStatus = signal('all');
+    (component as any).mapLoaded = true;
+    (component as any).destroyed = false;
+    (component as any).mapInstance = {
+      getZoom: () => 4,
+      project: ([lng, lat]: [number, number]) => ({ x: lng * 10, y: lat * 10 }),
+      remove: () => undefined,
+    };
+
+    await (component as any).syncOverlays(false);
+
+    const markerPixels = (component as any).markerPixelCoordinates() as Map<string, { x: number; y: number }>;
+    const routes = (component as any).routesVm() as Array<{ start: { x: number; y: number }; end: { x: number; y: number } }>;
+
+    const expectedStart = markerPixels.get('factory-1');
+    const expectedEnd = markerPixels.get('client-1');
+    expect(routes.length).toBe(1);
+    expect(expectedStart).toBeTruthy();
+    expect(expectedEnd).toBeTruthy();
+    expect(routes[0].start).toEqual(expectedStart!);
+    expect(routes[0].end).toEqual(expectedEnd!);
   });
 });

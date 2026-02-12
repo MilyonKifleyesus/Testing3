@@ -1735,7 +1735,7 @@
       ]
     }
   ],
-  "mapViewMode": "subsidiary",
+  "mapViewMode": "project",
   "selectedEntity": {
     "level": "parent",
     "id": "namg",

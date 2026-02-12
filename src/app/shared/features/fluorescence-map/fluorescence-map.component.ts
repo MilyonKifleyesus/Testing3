@@ -299,24 +299,19 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   });
 
   readonly statusCounts = computed(() => {
-    const filters = this.filterApplied();
-    const nodes = this.nodes();
+    const projects = this.projectsSignal();
 
     let active = 0;
     let inactive = 0;
 
-    nodes.forEach((node) => {
-      // 1. Check Context (Company/Region only)
-      if (!this.matchesParentCompanyFilterForNode(node, filters.parentCompanyIds)) return;
-      if (!this.matchesRegionsForNode(node, filters.regions)) return;
-
-      // 2. Count based on Status
-      if (this.matchesStatus(node.status, 'active')) {
+    for (const p of projects) {
+      const st = p.status ?? 'Open';
+      if (st === 'Open') {
         active++;
       } else {
         inactive++;
       }
-    });
+    }
 
     return {
       total: active + inactive,
@@ -335,7 +330,8 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       filters.manufacturerIds.length > 0 ||
       filters.projectTypeIds.length > 0;
     const projectFiltersActive = filters.status !== 'all' || hasProjectFilters;
-    const routeTargetIds = projectFiltersActive ? new Set(routes.map((r) => r.toNodeId)) : null;
+    const useProjectRouteFilter = viewMode === 'project' || projectFiltersActive;
+    const routeTargetIds = useProjectRouteFilter ? new Set(routes.map((r) => r.toNodeId)) : null;
     const enforceRouteTargets = !!routeTargetIds && routeTargetIds.size > 0;
 
     // Client view: only client nodes, no factories or project routes
@@ -352,13 +348,21 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     const result = nodes.filter((node) => {
       // Client nodes: visible in project view, factory view, or when client filter is active
       if (node.level === 'client') {
+        if (viewMode === 'project' && routes.length > 0) {
+          const clientIdsInRoutes = new Set(routes.map((r) => r.fromNodeId));
+          return clientIdsInRoutes.has(node.id);
+        }
         return viewMode === 'project' || viewMode === 'factory' || filters.clientIds.length > 0;
       }
 
-      // When project filters are active, only show nodes that appear in filtered project routes.
+      // When project filters are active or in project view, only show nodes that appear in filtered project routes.
       // Factory nodes: node.id = factory id. Subsidiary nodes: node.id = subsidiary id (routeTargetIds has factory ids).
       // Parent nodes: node.id = parent group id. Must check if any child factory is in routeTargetIds.
       if (routeTargetIds !== null) {
+        if (viewMode === 'project' && routeTargetIds.size === 0) {
+          // In project view with no routes, hide all factory/subsidiary/parent nodes
+          return false;
+        }
         if (enforceRouteTargets) {
           const matches = this.nodeMatchesRouteTargets(node, routeTargetIds);
           if (!matches) {
@@ -405,6 +409,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly filteredParentGroups = computed(() => {
     const filters = this.filterApplied();
     const parentGroups = this.parentGroups();
+    const projectStatusByFactory = this.projectStatusByFactoryId();
 
     return parentGroups
       .map((group) => {
@@ -412,7 +417,12 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         const filteredSubsidiaries = group.subsidiaries
           .map((sub) => {
             const filteredFactories = sub.factories.filter((f) => {
-              const statusMatch = this.matchesStatus(f.status, filters.status);
+              const statusMatch =
+                filters.status === 'all'
+                  ? true
+                  : filters.status === 'active'
+                    ? projectStatusByFactory.get(f.id) === 'active'
+                    : projectStatusByFactory.get(f.id) === 'inactive';
               const regionMatch = this.matchesRegionsForFactory(f, filters.regions);
               const companyMatch = this.matchesParentCompanyFilterForNode({
                 id: f.id,
@@ -424,6 +434,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
             });
 
             if (filteredFactories.length === 0) {
+              if (filters.status === 'active' || filters.status === 'inactive') {
+                return null;
+              }
               // If no factories match, check if the subsidiary itself matches status/company
               // Note: Region filtering for subsidiary is based on its factories
               const statusMatch = this.matchesOperationalStatus(sub.status, filters.status);
@@ -445,6 +458,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
           .filter((sub): sub is SubsidiaryCompany => sub !== null);
 
         if (filteredSubsidiaries.length === 0) {
+          if (filters.status === 'active' || filters.status === 'inactive') {
+            return null;
+          }
           // Check if parent itself matches if no children match
           const statusMatch = this.matchesOperationalStatus(group.status, filters.status);
           const companyMatch = this.matchesParentCompanyFilterForNode({
@@ -467,13 +483,21 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly filteredActivityLogs = computed(() => {
     const filters = this.filterApplied();
     const factoryLookup = new Map(this.factories().map((factory) => [factory.id, factory]));
+    const projectStatusByFactory = this.projectStatusByFactoryId();
+
     return this.activityLogs().filter((log) => {
       if (!this.matchesParentCompanyFilterForLog(log, filters.parentCompanyIds)) {
         return false;
       }
 
       const factory = factoryLookup.get(log.factoryId);
-      if (!this.matchesStatus(factory?.status, filters.status)) {
+      const statusMatch =
+        filters.status === 'all'
+          ? true
+          : filters.status === 'active'
+            ? projectStatusByFactory.get(log.factoryId) === 'active'
+            : projectStatusByFactory.get(log.factoryId) === 'inactive';
+      if (!statusMatch) {
         return false;
       }
 
