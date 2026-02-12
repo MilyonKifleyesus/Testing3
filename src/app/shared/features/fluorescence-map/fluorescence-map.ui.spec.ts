@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { By } from '@angular/platform-browser';
 import { WarRoomComponent } from './fluorescence-map.component';
 import { WarRoomMapComponent } from './components/fluorescence-map-map/fluorescence-map-map.component';
@@ -196,6 +198,8 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
         WarRoomService,
         { provide: WarRoomRealtimeService, useValue: realtimeServiceMock },
         { provide: ToastrService, useValue: toastrMock },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     }).compileComponents();
 

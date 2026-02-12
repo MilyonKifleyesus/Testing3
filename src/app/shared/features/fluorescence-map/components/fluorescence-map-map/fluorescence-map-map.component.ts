@@ -20,6 +20,8 @@ interface RouteFeatureProperties {
   routeId: string;
   strokeColor?: string;
   projectId?: string;
+  fromNodeId?: string;
+  toNodeId?: string;
 }
 
 interface RouteFeature {
@@ -617,13 +619,15 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const baseUrl = window.location.origin;
 
     const markerPixels = new Map<string, { x: number; y: number }>();
+    const projectStatusByNodeId = this.buildProjectStatusByNodeId(this.projectRoutes());
     const markers: MarkerVm[] = [];
 
     nodes.forEach((node) => {
       const displayCoords = this.getEffectiveCoordinates(node, nodes);
       const point = this.mapInstance!.project([displayCoords.longitude, displayCoords.latitude]);
       markerPixels.set(node.id, { x: point.x, y: point.y });
-      const vm = this.buildMarkerVm(node, zoom, selected, hovered, baseUrl, point.x, point.y, displayCoords);
+      const projectStatusColor = this.getProjectStatusColor(node, projectStatusByNodeId);
+      const vm = this.buildMarkerVm(node, zoom, selected, hovered, baseUrl, point.x, point.y, displayCoords, projectStatusColor);
       markers.push(vm);
     });
 
@@ -635,8 +639,18 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     featureCollection.features.forEach((feature, index) => {
       const coords = feature.geometry.coordinates;
       if (coords.length < 2) return;
-      const startPoint = this.mapInstance!.project(coords[0]);
-      const endPoint = this.mapInstance!.project(coords[1]);
+      const startPixel = feature.properties.fromNodeId
+        ? markerPixels.get(feature.properties.fromNodeId)
+        : undefined;
+      const endPixel = feature.properties.toNodeId
+        ? markerPixels.get(feature.properties.toNodeId)
+        : undefined;
+      const startPoint = startPixel
+        ? { x: startPixel.x, y: startPixel.y }
+        : this.mapInstance!.project(coords[0]);
+      const endPoint = endPixel
+        ? { x: endPixel.x, y: endPixel.y }
+        : this.mapInstance!.project(coords[1]);
       const path = this.mathService.createCurvedPath(startPoint, endPoint);
       if (!path) return;
       const routeId = feature.properties.routeId || `route-${index}`;
@@ -666,7 +680,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     baseUrl: string,
     x: number,
     y: number,
-    displayCoordinates?: { longitude: number; latitude: number }
+    displayCoordinates: { longitude: number; latitude: number } | undefined,
+    projectStatusColor: string
   ): MarkerVm {
     let displayName = this.getCompanyDisplayName(node).toUpperCase();
     if (displayName.includes('NOVA')) displayName = 'NOVA BUS';
@@ -739,6 +754,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       statusKey,
       statusColor,
       statusGlow,
+      projectStatusColor,
       statusIconPath,
       lodClass: lod.lodClass,
       isPinned,
@@ -944,6 +960,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         : filterStatus === 'inactive'
           ? (rawProjectRoutes ?? []).filter((r) => r.status === 'Closed' || r.status === 'Delayed')
           : rawProjectRoutes ?? [];
+    const projectStrokeColor = this.getRouteColor();
 
     const addProjectRouteFeatures = (): void => {
       if (!projectRoutes.length) return;
@@ -955,18 +972,16 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
           route.fromNodeId === selected.factoryId ||
           route.toNodeId === selected.factoryId
         );
-        const defaultColor = route.status === 'Open' ? '#5ad85a' : route.status === 'Delayed' ? '#ef4444' : '#94a3b8';
-        const strokeColor =
-          filterStatus === 'inactive' ? '#ef4444' :
-            filterStatus === 'active' ? '#5ad85a' :
-              route.strokeColor ?? defaultColor;
+        // Render project routes from manufacturer -> client (directional animation).
+        const startCoords = route.toCoordinates;
+        const endCoords = route.fromCoordinates;
         features.push({
           type: 'Feature',
           geometry: {
             type: 'LineString',
             coordinates: [
-              [route.fromCoordinates.longitude, route.fromCoordinates.latitude],
-              [route.toCoordinates.longitude, route.toCoordinates.latitude]
+              [startCoords.longitude, startCoords.latitude],
+              [endCoords.longitude, endCoords.latitude]
             ]
           },
           properties: {
@@ -974,7 +989,9 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
             highlighted,
             routeId: route.id,
             projectId: route.projectId,
-            strokeColor,
+            strokeColor: projectStrokeColor,
+            fromNodeId: route.toNodeId,
+            toNodeId: route.fromNodeId,
           }
         });
       }
@@ -1077,6 +1094,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
           highlighted,
           routeId: route.id,
           strokeColor: transitStrokeColor,
+          fromNodeId: fromNode?.id,
+          toNodeId: toNode?.id,
         }
       });
     });
@@ -1096,6 +1115,42 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   private getRouteColor(): string {
     const status = this.filterStatus();
+    if (status === 'active') return '#00C853';
+    if (status === 'inactive') return '#D50000';
+    return '#0ea5e9';
+  }
+
+  private buildProjectStatusByNodeId(routes: ProjectRoute[]): Map<string, 'active' | 'inactive'> {
+    const result = new Map<string, 'active' | 'inactive'>();
+    const applyStatus = (id: string | undefined, status: 'active' | 'inactive' | null): void => {
+      if (!id || !status) return;
+      const current = result.get(id);
+      if (status === 'active' || current == null) {
+        result.set(id, status);
+        return;
+      }
+      if (current !== 'active') {
+        result.set(id, status);
+      }
+    };
+
+    routes.forEach((route) => {
+      let status: 'active' | 'inactive' | null = null;
+      if (route.status === 'Open') status = 'active';
+      if (route.status === 'Closed' || route.status === 'Delayed') status = 'inactive';
+      applyStatus(route.toNodeId, status);
+      applyStatus(route.fromNodeId, status);
+    });
+
+    return result;
+  }
+
+  private getProjectStatusColor(
+    node: WarRoomNode,
+    statusByNodeId: Map<string, 'active' | 'inactive'>
+  ): string {
+    const nodeId = node.clientId ?? node.factoryId ?? node.id;
+    const status = statusByNodeId.get(nodeId);
     if (status === 'active') return '#00C853';
     if (status === 'inactive') return '#D50000';
     return '#0ea5e9';

@@ -121,6 +121,11 @@
 .project-row-content {
   flex-wrap: wrap;
   gap: 0.5rem;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(0, 255, 65, 0.08);
+  }
 }
 
 .project-name {

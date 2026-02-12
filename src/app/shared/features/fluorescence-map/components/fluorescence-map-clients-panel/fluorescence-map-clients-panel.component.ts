@@ -31,6 +31,7 @@ export class WarRoomClientsPanelComponent {
   selectedEntity = input<{ level?: string; id?: string } | null>(null);
 
   clientSelected = output<string>();
+  projectSelected = output<Project>();
   saveComplete = output<void>();
 
   readonly expandedClientIds = signal<Set<string>>(new Set());
@@ -96,6 +97,12 @@ export class WarRoomClientsPanelComponent {
     if (target.closest('button[data-edit-btn]')) return;
     this.toggleExpand(clientId);
     this.clientSelected.emit(clientId);
+  }
+
+  onProjectClick(project: Project, event: Event): void {
+    const target = event.target as HTMLElement;
+    if (target.closest('button[data-edit-btn]')) return;
+    this.projectSelected.emit(project);
   }
 
   getProjectLocation(project: Project): string {

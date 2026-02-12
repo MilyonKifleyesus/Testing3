@@ -33,8 +33,8 @@
         <svg viewBox="-30 -45 60 90" width="120" height="180" class="marker-svg-root" preserveAspectRatio="xMidYMid meet">
           <g class="marker-scale" [attr.transform]="'scale(' + m.pinScale + ')'">
             <g class="marker-dot-group">
-              <circle class="marker-dot-ring" cx="0" cy="0" r="6.5" fill="rgba(8, 12, 16, 0.75)" [attr.stroke]="m.statusColor" stroke-width="1.5"></circle>
-              <circle class="marker-dot-core" cx="0" cy="0" r="3.5" [attr.fill]="m.statusColor"></circle>
+              <circle class="marker-dot-ring" cx="0" cy="0" r="6.5" fill="rgba(8, 12, 16, 0.75)" [attr.stroke]="m.projectStatusColor" stroke-width="1.5"></circle>
+              <circle class="marker-dot-core" cx="0" cy="0" r="3.5" [attr.fill]="m.projectStatusColor"></circle>
             </g>
             @if (m.nodeType === 'client') {
             <g class="marker-shell marker-client-shape">

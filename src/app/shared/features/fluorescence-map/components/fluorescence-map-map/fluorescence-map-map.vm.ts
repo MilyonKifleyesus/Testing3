@@ -19,6 +19,7 @@ export interface MarkerVm {
     statusKey: 'online' | 'offline';
     statusColor: string;
     statusGlow: string;
+    projectStatusColor: string;
     statusIconPath: string;
     lodClass: 'lod-low' | 'lod-medium' | 'lod-high';
     isPinned: boolean;

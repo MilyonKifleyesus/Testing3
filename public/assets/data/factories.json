@@ -35,6 +35,10 @@
     {
       "manufacturer_id": 9,
       "manufacturer_name": "TEMSA"
+    },
+    {
+      "manufacturer_id": 10,
+      "manufacturer_name": "Eastway"
     }
   ],
   "factories": [
@@ -512,6 +516,17 @@
       "full_address": "404 Zell Dr, Orlando, FL 32824",
       "facility_type": "Distribution & Service Center",
       "notes": "North America East Coast service center."
+    },
+    {
+      "factory_id": 100,
+      "manufacturer_id": 10,
+      "factory_location_name": "Ottawa - Pembroke (Eastway)",
+      "city": "Pembroke",
+      "state_province": "Ontario",
+      "country": "Canada",
+      "full_address": "Pembroke, ON",
+      "facility_type": "Manufacturing Plant",
+      "notes": "Transit bus manufacturing and refurbishment."
     }
   ]
 }

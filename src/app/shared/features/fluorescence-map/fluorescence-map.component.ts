@@ -82,6 +82,14 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly projectTypeOptionsSignal = toSignal(this.projectService.getProjectTypeOptionsWithCounts(), { initialValue: [] });
   readonly projectRoutes = signal<ProjectRoute[]>([]);
   readonly selectedProjectId = signal<string | null>(null);
+  readonly projectRoutesForMap = computed(() => {
+    const selectedId = this.selectedProjectId();
+    const routes = this.projectRoutes();
+    if (!selectedId) {
+      return routes;
+    }
+    return routes.filter((route) => route.projectId === selectedId);
+  });
 
   // Signals from service
   readonly nodes = this.warRoomService.nodes;
@@ -166,15 +174,18 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     return preferredOrder.filter((region) => regionSet.has(region));
   });
 
-  /** Nodes merged with client nodes when project routes exist */
+  /** Nodes merged with client nodes: clients in routes OR clients with projects (for pan-to-client fallback) */
   readonly nodesWithClients = computed(() => {
     const base = this.nodes();
     const clients = this.clientsSignal();
     const routes = this.projectRoutes();
-    if (!routes?.length || !clients?.length) return base;
-    const clientIdsInRoutes = new Set(routes.map((r) => r.fromNodeId));
+    const clientOptions = this.clientOptionsSignal();
+    if (!clients?.length) return base;
+    const clientIdsInRoutes = routes?.length ? new Set(routes.map((r) => r.fromNodeId)) : new Set<string>();
+    const clientIdsWithProjects = new Set(clientOptions.map((opt) => opt.id));
+    const clientIdsToAdd = new Set([...clientIdsInRoutes, ...clientIdsWithProjects]);
     const clientNodes: Node[] = clients
-      .filter((c) => c.coordinates && clientIdsInRoutes.has(c.id))
+      .filter((c) => c.coordinates && clientIdsToAdd.has(c.id))
       .map((c) => ({
         id: c.id,
         name: c.name,
@@ -297,12 +308,13 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     const nodes = this.nodesWithClients();
     const viewMode = this.mapViewMode();
     const routes = this.projectRoutes();
-    const projectFiltersActive =
-      filters.status !== 'all' ||
+    const hasProjectFilters =
       filters.clientIds.length > 0 ||
       filters.manufacturerIds.length > 0 ||
       filters.projectTypeIds.length > 0;
+    const projectFiltersActive = filters.status !== 'all' || hasProjectFilters;
     const routeTargetIds = projectFiltersActive ? new Set(routes.map((r) => r.toNodeId)) : null;
+    const enforceRouteTargets = !!routeTargetIds && routeTargetIds.size > 0;
 
     const routeFailures: string[] = [];
     const result = nodes.filter((node) => {
@@ -315,10 +327,14 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       // Factory nodes: node.id = factory id. Subsidiary nodes: node.id = subsidiary id (routeTargetIds has factory ids).
       // Parent nodes: node.id = parent group id. Must check if any child factory is in routeTargetIds.
       if (routeTargetIds !== null) {
-        if (routeTargetIds.size === 0) return false; // no matching projects
-        const matches = this.nodeMatchesRouteTargets(node, routeTargetIds);
-        if (!matches) {
-          routeFailures.push(`${node.id}(${node.level})`);
+        if (enforceRouteTargets) {
+          const matches = this.nodeMatchesRouteTargets(node, routeTargetIds);
+          if (!matches) {
+            routeFailures.push(`${node.id}(${node.level})`);
+            return false;
+          }
+        } else if (hasProjectFilters) {
+          // No matching project routes while project filters are active.
           return false;
         }
       }
@@ -326,8 +342,12 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       const companyMatch = this.matchesParentCompanyFilterForNode(node, filters.parentCompanyIds);
       // When status is active/inactive, we filter by project status; nodes are restricted by routeTargetIds.
       // When status is 'all', filter by factory operational status.
-      const statusMatch =
-        filters.status === 'all' ? this.matchesStatus(node.status, filters.status) : true;
+      const status = filters.status as FilterStatus;
+      const shouldApplyOperationalStatus =
+        status === 'all' || (!enforceRouteTargets && !hasProjectFilters);
+      const statusMatch = shouldApplyOperationalStatus
+        ? this.matchesStatus(node.status, status)
+        : true;
       const regionMatch = this.matchesRegionsForNode(node, filters.regions);
 
       return companyMatch && statusMatch && regionMatch;
@@ -1070,7 +1090,22 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         factoryId: project.manufacturerLocationId,
       });
       this.warRoomService.requestPanToEntity(project.manufacturerLocationId);
+      // Direct zoom after view updates (like onClientSelected) - handles timing
+      setTimeout(() => {
+        this.mapComponent().zoomToEntity(project.manufacturerLocationId!, 8);
+      }, 150);
       this.announce(`Selected project ${project.projectName}. Panning to ${project.manufacturer ?? 'factory'}.`);
+    } else if (project.clientId) {
+      // Fallback: pan to client when project has no manufacturer location (e.g. Metrolinx)
+      this.warRoomService.setMapViewMode('factory');
+      this.warRoomService.selectEntity({ level: 'client', id: project.clientId });
+      this.showPanel('log');
+      this.filterDraft.update((f) => ({ ...f, clientIds: [project.clientId!] }));
+      this.filterApplied.set({ ...this.filterApplied(), clientIds: [project.clientId!] });
+      setTimeout(() => {
+        this.mapComponent().zoomToEntity(project.clientId!, 8);
+      }, 150);
+      this.announce(`Selected project ${project.projectName}. Panning to ${project.clientName ?? project.clientId}.`);
     }
   }
 

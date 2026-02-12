@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { WarRoomComponent } from './fluorescence-map.component';
 import { WarRoomMapComponent } from './components/fluorescence-map-map/fluorescence-map-map.component';
 import { WarRoomService } from '../../../shared/services/fluorescence-map.service';
@@ -9,6 +11,7 @@ import {
   FactoryLocation,
   ParentGroup,
   SubsidiaryCompany,
+  ProjectRoute,
   TransitRoute,
 } from '../../../shared/models/fluorescence-map.interface';
 
@@ -177,6 +180,8 @@ describe('WarRoomComponent (unit)', () => {
         WarRoomService,
         { provide: WarRoomRealtimeService, useValue: realtimeServiceMock },
         { provide: ToastrService, useValue: toastrMock },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     }).compileComponents();
 
@@ -271,6 +276,42 @@ describe('WarRoomComponent (unit)', () => {
 
     expect(component.filteredNodes().length).toBe(0);
     expect(component.filteredTransitRoutes().length).toBe(0);
+  });
+
+  it('filters project routes when a project is selected', () => {
+    const routes: ProjectRoute[] = [
+      {
+        id: 'project-route-1',
+        projectId: 'project-1',
+        fromNodeId: 'client-a',
+        toNodeId: 'factory-a',
+        status: 'Open',
+        fromCoordinates: { latitude: 43.7, longitude: -79.4 },
+        toCoordinates: { latitude: 45.4, longitude: -75.7 },
+      },
+      {
+        id: 'project-route-2',
+        projectId: 'project-2',
+        fromNodeId: 'client-b',
+        toNodeId: 'factory-b',
+        status: 'Closed',
+        fromCoordinates: { latitude: 40.7, longitude: -74.0 },
+        toCoordinates: { latitude: 34.0, longitude: -118.2 },
+      },
+    ];
+
+    component.projectRoutes.set(routes);
+    component.selectedProjectId.set('project-2');
+    fixture.detectChanges();
+
+    const filtered = component.projectRoutesForMap();
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].projectId).toBe('project-2');
+
+    component.selectedProjectId.set(null);
+    fixture.detectChanges();
+
+    expect(component.projectRoutesForMap().length).toBe(2);
   });
 
   it('selecting a company sets selectedEntity', () => {

@@ -69,7 +69,13 @@
               </div>
             </div>
             } @else {
-            <div class="project-row-content d-flex align-items-center gap-2">
+            <div class="project-row-content d-flex align-items-center gap-2"
+              (click)="onProjectClick(project, $event)"
+              role="button"
+              tabindex="0"
+              [attr.aria-label]="'Show ' + project.projectName + ' on map'"
+              (keydown.enter)="onProjectClick(project, $event)"
+              (keydown.space)="onProjectClick(project, $event); $event.preventDefault()">
               <span class="project-name">{{ project.projectName }}</span>
               <span class="project-location">{{ getProjectLocation(project) }}</span>
               <span class="project-status-pill" [ngClass]="getStatusPillClass(project.status)">

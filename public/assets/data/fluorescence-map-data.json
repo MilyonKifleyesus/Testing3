@@ -1689,6 +1689,48 @@
               "notes": "North America East Coast service center."
             }
           ]
+        },
+        {
+          "id": "eastway",
+          "parentGroupId": "namg",
+          "name": "Eastway Bus",
+          "status": "ACTIVE",
+          "metrics": {
+            "assetCount": 0,
+            "incidentCount": 0,
+            "syncStability": 95.0
+          },
+          "description": "Transit bus manufacturing and refurbishment.",
+          "location": "Pembroke, Ontario",
+          "logo": null,
+          "quantumChart": {
+            "dataPoints": [50, 60, 55, 70, 65, 80],
+            "highlightedIndex": 5
+          },
+          "hubs": [],
+          "factories": [
+            {
+              "id": "eastway-pembroke",
+              "parentGroupId": "namg",
+              "subsidiaryId": "eastway",
+              "name": "Ottawa - Pembroke (Eastway)",
+              "city": "Pembroke",
+              "country": "Canada",
+              "coordinates": {
+                "latitude": 45.8167,
+                "longitude": -77.1167
+              },
+              "status": "ACTIVE",
+              "syncStability": 90.0,
+              "assets": 10,
+              "incidents": 0,
+              "description": "Manufacturing Plant",
+              "logo": null,
+              "fullAddress": "Pembroke, ON",
+              "facilityType": "Manufacturing Plant",
+              "notes": "Transit bus manufacturing and refurbishment."
+            }
+          ]
         }
       ]
     }

@@ -78,6 +78,7 @@ const FACTORY_ID_TO_WAR_ROOM: Record<number, string> = {
   3: 'new-flyer-winnipeg',
   4: 'new-flyer-anniston',
   7: 'tam-facility',
+  100: 'eastway-pembroke',
 };
 
 /** Mock projects linking clients to manufacturer locations (War Room factory IDs) */

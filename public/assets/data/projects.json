@@ -53,6 +53,28 @@
       "client": null,
       "assessment_type": null,
       "status": null
+    },
+    {
+      "project_id": 11,
+      "project_name": "MCI Refurbishment 45FT",
+      "manufacturer_id": 10,
+      "factory_id": 100,
+      "client": "Metrolinx",
+      "assessment_type": "Condition Assessment",
+      "location": "Ottawa - Pembroke (Eastway)",
+      "manufacturer": "Eastway",
+      "status": null
+    },
+    {
+      "project_id": 23,
+      "project_name": "Project Test admin",
+      "manufacturer_id": 10,
+      "factory_id": 100,
+      "client": "Metrolinx",
+      "assessment_type": "Condition Assessment",
+      "location": "Ottawa - Pembroke (Eastway)",
+      "manufacturer": "Eastway",
+      "status": null
     }
   ]
 }

@@ -270,7 +270,7 @@
       }
 
       <app-war-room-map class="war-room-map-fill" [nodes]="filteredNodes()" [selectedEntity]="selectedEntity()"
-        [transitRoutes]="filteredTransitRoutes()" [projectRoutes]="projectRoutes()"
+        [transitRoutes]="filteredTransitRoutes()" [projectRoutes]="projectRoutesForMap()"
         [filterStatus]="filterApplied().status" (nodeSelected)="onNodeSelected($event)"
         (routeSelected)="onRouteSelected($event)"></app-war-room-map>
 
@@ -368,6 +368,7 @@
           } @else {
           <app-war-room-clients-panel [clientsWithProjects]="clientsWithProjects()" [editMode]="activityLogEditMode()"
             [selectedEntity]="selectedEntity()" (clientSelected)="onClientSelected($event)"
+            (projectSelected)="onProjectHudSelected($event)"
             (saveComplete)="onClientPanelSaveComplete()"></app-war-room-clients-panel>
           }
         </section>
