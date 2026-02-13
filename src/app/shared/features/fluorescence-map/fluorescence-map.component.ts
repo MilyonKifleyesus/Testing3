@@ -629,10 +629,13 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       const factories = this.factories();
       const filters = this.filterApplied();
       void this.projectRoutesRefreshTrigger();
+      // #region agent log
       if (!clients?.length || !factories?.length) {
+        fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:projectRoutesEffect',message:'Early return: missing clients or factories',data:{clientsCount:clients?.length??0,factoriesCount:factories?.length??0},hypothesisId:'H_A',timestamp:Date.now()})}).catch(()=>{});
         this.projectRoutes.set([]);
         return;
       }
+      // #endregion
       const clientCoords = new Map(
         clients
           .filter((c) => c.coordinates)
@@ -654,9 +657,22 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       const sub = this.projectService
         .getProjectsForMap(clientCoords, factoryCoords, projectFilters)
         .subscribe((routes) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:projectRoutesSubscribe',message:'Routes received from getProjectsForMap',data:{routesCount:routes.length,sampleProjectIds:routes.slice(0,3).map(r=>r.projectId)},hypothesisId:'H_A',hypothesisId2:'H_C',timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           this.projectRoutes.set(routes);
         });
       return () => sub.unsubscribe();
+    });
+
+    effect(() => {
+      const viewMode = this.mapViewMode();
+      const selectedId = this.selectedProjectId();
+      const routes = this.projectRoutes();
+      const forMap = this.projectRoutesForMap();
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:projectRoutesForMapEffect',message:'projectRoutesForMap state',data:{viewMode,selectedId,routesCount:routes.length,forMapCount:forMap.length},hypothesisId:'H_B',hypothesisId2:'H_D',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
     });
   }
 
@@ -768,14 +784,18 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   }
 
   onClientSelected(clientId: string): void {
-    this.warRoomService.setMapViewMode('factory');
     const selection: FleetSelection = { level: 'client', id: clientId };
     this.warRoomService.selectEntity(selection);
+    this.warRoomService.setMapViewMode('project'); // After selectEntity; project view shows route lines for this client's projects
     this.showPanel('log');
     this.mapComponent().zoomToEntity(clientId);
     // Filter map to show only this client's project locations and connections
     this.filterDraft.update((f) => ({ ...f, clientIds: [clientId] }));
     this.filterApplied.set({ ...this.filterApplied(), clientIds: [clientId] });
+    this.selectedProjectId.set(null); // Clear project selection so all filtered routes show (not just one)
+    if (this.projectRoutes().length === 0 && (this.clientsSignal()?.length ?? 0) > 0 && this.factories().length > 0) {
+      this.projectRoutesRefreshTrigger.update((n) => n + 1);
+    }
   }
 
   onClientPanelSaveComplete(): void {
@@ -1143,9 +1163,14 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   }
 
   onProjectHudSelected(project: Project): void {
+    const routesAtClick = this.projectRoutes().length;
+    const clientsCount = this.clientsSignal()?.length ?? 0;
+    const factoriesCount = this.factories().length;
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:onProjectHudSelected',message:'Project clicked',data:{projectId:String(project.id),routesAtClick,clientsCount,factoriesCount},hypothesisId:'H_B',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     this.selectedProjectId.set(String(project.id));
     if (project.manufacturerLocationId) {
-      this.warRoomService.setMapViewMode('factory');
       this.warRoomService.selectEntity({
         level: 'factory',
         id: project.manufacturerLocationId,
@@ -1153,6 +1178,10 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         subsidiaryId: undefined,
         factoryId: project.manufacturerLocationId,
       });
+      this.warRoomService.setMapViewMode('project'); // After selectEntity so it is not overwritten by selectEntity's view-mode sync
+      if (routesAtClick === 0 && clientsCount > 0 && factoriesCount > 0) {
+        this.projectRoutesRefreshTrigger.update((n) => n + 1); // Only refresh when routes empty but data ready (avoids clearing routes on race)
+      }
       this.warRoomService.requestPanToEntity(project.manufacturerLocationId);
       // Direct zoom after view updates (like onClientSelected) - handles timing
       setTimeout(() => {
@@ -1161,8 +1190,11 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.announce(`Selected project ${project.projectName}. Panning to ${project.manufacturer ?? 'factory'}.`);
     } else if (project.clientId) {
       // Fallback: pan to client when project has no manufacturer location (e.g. Metrolinx)
-      this.warRoomService.setMapViewMode('factory');
       this.warRoomService.selectEntity({ level: 'client', id: project.clientId });
+      this.warRoomService.setMapViewMode('project'); // After selectEntity so it is not overwritten
+      if (routesAtClick === 0 && clientsCount > 0 && factoriesCount > 0) {
+        this.projectRoutesRefreshTrigger.update((n) => n + 1);
+      }
       this.showPanel('log');
       this.filterDraft.update((f) => ({ ...f, clientIds: [project.clientId!] }));
       this.filterApplied.set({ ...this.filterApplied(), clientIds: [project.clientId!] });

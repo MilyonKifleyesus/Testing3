@@ -477,6 +477,7 @@ export class ProjectService {
     return this.getProjects(filters ?? {}).pipe(
       map((projects) => {
         const routes: ProjectRoute[] = [];
+        const skipped: { id: string; clientId: string | null; manufacturerLocationId: string | null; hasClient: boolean; hasFactory: boolean }[] = [];
         for (const p of projects) {
           const clientCoords = p.clientId && clientCoordinates.get(p.clientId);
           const factoryCoords =
@@ -495,8 +496,21 @@ export class ProjectService {
               strokeColor:
                 status === 'Open' ? '#5ad85a' : status === 'Delayed' ? '#ef4444' : '#94a3b8',
             });
+          } else {
+            skipped.push({
+              id: String(p.id),
+              clientId: p.clientId ?? null,
+              manufacturerLocationId: p.manufacturerLocationId ?? null,
+              hasClient: !!(p.clientId && clientCoordinates.get(p.clientId)),
+              hasFactory: !!(p.manufacturerLocationId && factoryCoordinates.get(p.manufacturerLocationId)),
+            });
           }
         }
+        // #region agent log
+        if (projects.length > 0 || skipped.length > 0) {
+          fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'project.service.ts:getProjectsForMap',message:'Route resolution',data:{projectsCount:projects.length,routesCreated:routes.length,skippedCount:skipped.length,skippedSample:skipped.slice(0,5),clientKeys:Array.from(clientCoordinates.keys()).slice(0,10),factoryKeys:Array.from(factoryCoordinates.keys()).slice(0,10)},hypothesisId:'H_C',hypothesisId2:'H_D',timestamp:Date.now()})}).catch(()=>{});
+        }
+        // #endregion
         return routes;
       })
     );

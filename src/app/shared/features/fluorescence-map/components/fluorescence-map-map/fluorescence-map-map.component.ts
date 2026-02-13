@@ -80,7 +80,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   private readonly defaultView = {
     center: [0, 0] as [number, number],
-    zoom: 2.3,
+    zoom: 1.8,
     pitch: 45,
     bearing: 0,
   };
@@ -90,6 +90,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   private readonly LOD_LOGO_ONLY_THRESHOLD = 1.2;
   private readonly LOD_FULL_DETAIL_THRESHOLD = 2.5;
+  /** Pin label shows when zoomFactor >= this. Lower = label appears earlier when zooming in; higher = only when more zoomed in. */
+  private readonly LOD_PIN_LABEL_THRESHOLD = 1.8;
 
   /** Map style URLs by theme (Carto basemaps). */
   private readonly MAP_STYLE = {
@@ -190,6 +192,9 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       const routes = this.transitRoutes();
       const projectRoutes = this.projectRoutes();
       const status = this.filterStatus();
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map-map.component.ts:projectRoutesEffect',message:'Map received projectRoutes',data:{projectRoutesCount:projectRoutes.length,transitRoutesCount:routes?.length??0},hypothesisId:'H_E',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       void selected;
       void hovered;
       void routes;
@@ -853,7 +858,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       isPinned,
       anchor,
       pinScale: scale,
-      showPinLabel: true,
+      showPinLabel: zoomFactor >= this.LOD_PIN_LABEL_THRESHOLD,
       displayCoordinates,
     };
   }
