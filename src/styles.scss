@@ -627,3 +627,26 @@ ul.productdetails {
   margin-bottom: 0;
   white-space: nowrap;
 }
+
+/* ========== FLUORESCENCE MAP RESPONSIVE LAYOUT ========== */
+/* Route-scoped overrides when fluorescence map is active (tablet/mobile) */
+@media (max-width: 991.98px) {
+  body.fluorescence-map-active {
+    .main-content {
+      margin-left: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+    }
+    .main-sidebar {
+      display: none !important;
+    }
+    .main-content .container-fluid {
+      padding: 0 !important;
+      max-width: 100% !important;
+    }
+    .main-header-container {
+      width: 100% !important;
+      position: relative !important;
+    }
+  }
+}

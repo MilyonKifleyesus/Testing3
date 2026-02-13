@@ -34,6 +34,7 @@ export class FullLayoutComponent implements OnInit {
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => {
       window.scrollTo(0, 0);
+      this.updateFluorescenceMapBodyClass();
     });
        this.navServices.items.subscribe((menuItems: any) => {
      this.menuItems = menuItems;
@@ -45,6 +46,12 @@ export class FullLayoutComponent implements OnInit {
     this.menuitemsSubscribe$ = this.navServices.items.subscribe((items: any) => {
       this.menuItems = items;
     });
+    this.updateFluorescenceMapBodyClass();
+  }
+
+  private updateFluorescenceMapBodyClass(): void {
+    const isFluorescenceMap = this.router.url.includes('apps/fluorescence-map');
+    document.body.classList.toggle('fluorescence-map-active', isFluorescenceMap);
   }
   menuItem = {
     active: false,
