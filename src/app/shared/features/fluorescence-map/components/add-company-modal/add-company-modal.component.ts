@@ -2,10 +2,16 @@ import { Component, input, output, signal, inject, HostListener, effect, Element
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { WarRoomService } from '../../../../../shared/services/fluorescence-map.service';
+import { NgSelectModule } from '@ng-select/ng-select';
+import { SubsidiaryCompany } from '../../../../../shared/models/fluorescence-map.interface';
 
 import { A11yModule } from '@angular/cdk/a11y';
 
+export type TargetCompanyMode = 'existing' | 'new';
+
 export interface CompanyFormData {
+  targetCompanyMode: TargetCompanyMode;
+  existingSubsidiaryId?: string;
   companyName: string;
   location: string;
   sourceCompanyName?: string;
@@ -25,7 +31,7 @@ export interface SubLocationFormData {
 
 @Component({
   selector: 'app-add-company-modal',
-  imports: [CommonModule, FormsModule, A11yModule],
+  imports: [CommonModule, FormsModule, A11yModule, NgSelectModule],
   templateUrl: './add-company-modal.component.html',
   styleUrl: './add-company-modal.component.scss',
 })
@@ -34,11 +40,15 @@ export class AddCompanyModalComponent implements OnDestroy {
   isVisible = input<boolean>(false);
   /** When true, overlay is positioned over the map area only (no moveToBody, absolute positioning) */
   useMapPositioning = input<boolean>(false);
+  /** Subsidiaries for "Connect to Existing Client" dropdown */
+  subsidiaries = input<SubsidiaryCompany[]>([]);
 
   // Outputs
   companyAdded = output<CompanyFormData>();
   companyAddedComplete = output<void>();
   close = output<void>();
+  /** Emitted when user clicks "View on map" for selected subsidiary */
+  viewOnMap = output<string>();
 
   // Services
   private warRoomService = inject(WarRoomService);
@@ -46,6 +56,8 @@ export class AddCompanyModalComponent implements OnDestroy {
   private renderer = inject(Renderer2);
 
   // Form data
+  targetCompanyMode = signal<TargetCompanyMode>('new');
+  existingSubsidiaryId = signal<string | null>(null);
   companyName = signal<string>('');
   location = signal<string>('');
   companyStatus = signal<'ACTIVE' | 'INACTIVE'>('ACTIVE');
@@ -59,8 +71,37 @@ export class AddCompanyModalComponent implements OnDestroy {
   subLocationLocation = signal<string>('');
   subLocationIsActive = signal<boolean>(true);
 
+  // Step state (1–4)
+  currentStep = signal<1 | 2 | 3 | 4>(1);
+
+  readonly subsidiaryOptions = computed(() =>
+    this.subsidiaries().map((s) => ({ id: s.id, name: s.name }))
+  );
+
   readonly canAddSubLocation = computed(() => {
     return !!this.subLocationName().trim() && !!this.subLocationLocation().trim();
+  });
+
+  readonly canProceedToStep2 = computed(() => {
+    const name = this.sourceCompanyName().trim();
+    const loc = this.sourceLocation().trim();
+    return (name && loc) || (!name && !loc);
+  });
+
+  readonly canProceedToStep3 = computed(() => {
+    if (this.targetCompanyMode() === 'existing') {
+      return !!this.existingSubsidiaryId();
+    }
+    return !!this.companyName().trim() && !!this.location().trim();
+  });
+
+  readonly canProceedToStep4 = computed(() => {
+    const subs = this.subLocations();
+    return subs.length > 0 && subs.every((s) => !!s.name?.trim() && !!s.location?.trim());
+  });
+
+  readonly isFormValid = computed(() => {
+    return this.canProceedToStep2() && this.canProceedToStep3() && this.canProceedToStep4();
   });
 
   // Form state
@@ -181,16 +222,6 @@ export class AddCompanyModalComponent implements OnDestroy {
    * Validate form
    */
   private validateForm(): boolean {
-    if (!this.companyName().trim()) {
-      this.errorMessage.set('Target company name is required');
-      return false;
-    }
-
-    if (!this.location().trim()) {
-      this.errorMessage.set('Target company primary location is required');
-      return false;
-    }
-
     const sourceCompany = this.sourceCompanyName().trim();
     const sourceLocation = this.sourceLocation().trim();
     if (sourceCompany && !sourceLocation) {
@@ -202,7 +233,54 @@ export class AddCompanyModalComponent implements OnDestroy {
       return false;
     }
 
+    if (this.targetCompanyMode() === 'existing') {
+      if (!this.existingSubsidiaryId()) {
+        this.errorMessage.set('Please select an existing client');
+        return false;
+      }
+    } else {
+      if (!this.companyName().trim()) {
+        this.errorMessage.set('Target company name is required');
+        return false;
+      }
+      if (!this.location().trim()) {
+        this.errorMessage.set('Target company primary location is required');
+        return false;
+      }
+    }
+
+    const subs = this.subLocations();
+    if (subs.length === 0) {
+      this.errorMessage.set('At least one factory location is required');
+      return false;
+    }
+    for (const s of subs) {
+      if (!s.name?.trim() || !s.location?.trim()) {
+        this.errorMessage.set('Each factory must have a name and location');
+        return false;
+      }
+    }
+
     return true;
+  }
+
+  goToStep(step: number): void {
+    if (step >= 1 && step <= 4) this.currentStep.set(step as 1 | 2 | 3 | 4);
+  }
+
+  nextStep(): void {
+    const step = this.currentStep();
+    if (step < 4) this.currentStep.set((step + 1) as 1 | 2 | 3 | 4);
+  }
+
+  prevStep(): void {
+    const step = this.currentStep();
+    if (step > 1) this.currentStep.set((step - 1) as 1 | 2 | 3 | 4);
+  }
+
+  onViewOnMap(): void {
+    const id = this.existingSubsidiaryId();
+    if (id) this.viewOnMap.emit(id);
   }
 
   /**
@@ -281,16 +359,30 @@ export class AddCompanyModalComponent implements OnDestroy {
     this.submissionState.set('SUBMITTING');
 
     try {
-      const locationValue = this.location().trim();
-      // Parse location
-      const locationData = await this.parseLocation(locationValue);
-      if (!locationData) {
-        throw new Error('Failed to parse location');
+      const mode = this.targetCompanyMode();
+      let companyName = this.companyName().trim();
+      let locationValue = this.location().trim();
+
+      if (mode === 'existing') {
+        const subId = this.existingSubsidiaryId();
+        const sub = this.subsidiaries().find((s) => s.id === subId);
+        if (sub) {
+          companyName = sub.name;
+          locationValue = sub.location || sub.factories[0]?.city || '';
+        }
+      } else if (locationValue) {
+        const locationData = await this.parseLocation(locationValue);
+        if (!locationData) {
+          throw new Error('Failed to parse location');
+        }
       }
 
-      // Prepare form data
+      const subLocations = (this.subLocations() ?? []).filter((s) => s.name?.trim() && s.location?.trim());
+
       const formData: CompanyFormData = {
-        companyName: this.companyName().trim(),
+        targetCompanyMode: mode,
+        existingSubsidiaryId: mode === 'existing' ? (this.existingSubsidiaryId() ?? undefined) : undefined,
+        companyName,
         location: locationValue,
         sourceCompanyName: this.sourceCompanyName().trim(),
         sourceLocation: this.sourceLocation().trim(),
@@ -298,10 +390,9 @@ export class AddCompanyModalComponent implements OnDestroy {
         description: this.description().trim() || undefined,
         logo: this.logoPreview(),
         logoFile: this.logoFile() || undefined,
-        subLocations: this.subLocations(),
+        subLocations,
       };
 
-      // Emit company added event
       this.companyAdded.emit(formData);
 
       // Wait for parent to signal completion via companyAddedComplete event
@@ -319,6 +410,9 @@ export class AddCompanyModalComponent implements OnDestroy {
    * Reset form
    */
   private resetForm(): void {
+    this.currentStep.set(1);
+    this.targetCompanyMode.set('new');
+    this.existingSubsidiaryId.set(null);
     this.companyName.set('');
     this.location.set('');
     this.companyStatus.set('ACTIVE');
@@ -351,10 +445,11 @@ export class AddCompanyModalComponent implements OnDestroy {
    * @private
    */
   private focusFirstInput(): void {
-    const firstInput = this.elementRef.nativeElement.querySelector('#target-company-name');
-    if (firstInput) {
-      firstInput.focus();
-    }
+    const step = this.currentStep();
+    const selector =
+      step === 1 ? '#source-company-name' : step === 2 ? '#target-company-select' : step === 3 ? '.sub-location-input' : '#company-description';
+    const el = this.elementRef.nativeElement.querySelector(selector);
+    if (el) (el as HTMLElement).focus();
   }
 
   /**
@@ -447,12 +542,32 @@ export class AddCompanyModalComponent implements OnDestroy {
 
   loadSampleData(): void {
     this.errorMessage.set(null);
+    this.currentStep.set(1);
+    this.targetCompanyMode.set('new');
+    this.existingSubsidiaryId.set(null);
+
+    // Step 1: Your Company
+    this.sourceCompanyName.set('Acme Logistics Inc.');
+    this.sourceLocation.set('Toronto, Ontario');
+
+    // Step 2: Target Company (new)
     this.companyName.set('Nova Bus');
+    this.location.set('Saint-Eustache, Quebec');
+    this.companyStatus.set('ACTIVE');
+
+    // Step 3: Factory Locations
+    this.subLocations.set([
+      { name: 'Main Production Plant', location: 'Saint-Eustache, Quebec', status: 'ACTIVE' },
+      { name: 'Warehouse A', location: 'Saint-Laurent, Quebec', status: 'ACTIVE' },
+    ]);
+    this.resetSubLocationForm();
+
+    // Step 4: Description and Logo
     this.description.set(
       'STATUS: ACTIVE + INACTIVE // LOCATION: SAINT-EUSTACHE, QUEBEC // MIXED-SCHEDULE BUILDOUT'
     );
-    this.companyStatus.set('ACTIVE');
-    this.resetSubLocationForm();
+    this.logoFile.set(null);
+    this.logoPreview.set(null);
   }
 
   resetSubLocationForm(): void {

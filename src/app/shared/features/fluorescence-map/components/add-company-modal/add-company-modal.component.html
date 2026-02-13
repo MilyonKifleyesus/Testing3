@@ -5,13 +5,18 @@
     <!-- Modal Header -->
     <div class="modal-header">
       <div class="modal-title-section">
-        <h1 class="modal-title" id="modal-title">ADD SUBSIDIARY + FACTORY</h1>
-        <p class="modal-subtitle">FLEET REGISTRATION MODULE // SUBSIDIARY BOOTSTRAP</p>
+        <h1 class="modal-title" id="modal-title">Add New Subsidiary &amp; Factory</h1>
+        <p class="modal-subtitle">Fleet Registration Module // Guided Setup</p>
       </div>
-      <button class="modal-close-btn" type="button" (click)="onClose()" aria-label="Close modal"
-        [disabled]="isSubmitting()">
-        <span class="material-symbols-outlined">close</span>
-      </button>
+      <div class="modal-header-actions">
+        <button type="button" class="btn-load-sample" (click)="loadSampleData()" [disabled]="isSubmitting()">
+          Load Sample
+        </button>
+        <button class="modal-close-btn" type="button" (click)="onClose()" aria-label="Close modal"
+          [disabled]="isSubmitting()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
     </div>
 
     <!-- Modal Body -->
@@ -46,78 +51,123 @@
       </div>
       }
 
-      <!-- Connection Grid: Desktop 2-column / Mobile stacked -->
-      <div class="connection-grid">
-        <!-- Company to Connect Section -->
-        <div class="connection-section" [class.disabled]="isSubmitting()">
-          <div class="section-header">
-            <span class="section-title">COMPANY TO CONNECT</span>
-          </div>
-
-          <div class="form-field">
-            <label class="form-label" for="target-company-name">
-              COMPANY TO CONNECT
-            </label>
-            <input type="text" id="target-company-name" class="form-input" placeholder="ENTER TARGET COMPANY NAME..."
-              [value]="companyName()" (input)="companyName.set($any($event.target).value)"
-              [disabled]="isSubmitting()" />
-
-            <div class="mt-2 d-flex align-items-center">
-              <label class="sub-location-status-toggle">
-                <input type="checkbox" [checked]="companyStatus() === 'ACTIVE'"
-                  (change)="companyStatus.set($any($event.target).checked ? 'ACTIVE' : 'INACTIVE')"
-                  [disabled]="isSubmitting()" />
-                <span class="toggle-track"></span>
-                <span class="toggle-label">{{ companyStatus() }}</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="form-field">
-            <label class="form-label" for="target-location">
-              PRIMARY LOCATION
-            </label>
-            <input type="text" id="target-location" class="form-input" placeholder="City, Province or Coordinates"
-              [value]="location()" (input)="location.set($any($event.target).value)" [disabled]="isSubmitting()" />
-          </div>
-        </div>
-
-        <!-- Your Company Section -->
-        <div class="connection-section your-company-section" [class.disabled]="isSubmitting()">
-          <div class="section-header">
-            <span class="section-title">YOUR COMPANY (CONNECTION SOURCE)</span>
-          </div>
-          <p class="section-helper">
-            Provide your company name and location so we can connect it to the target company.
-          </p>
-
-          <div class="form-field">
-            <label class="form-label" for="source-company-name">
-              YOUR COMPANY
-            </label>
-            <input type="text" id="source-company-name" class="form-input" placeholder="ENTER YOUR COMPANY NAME..."
-              [value]="sourceCompanyName()" (input)="sourceCompanyName.set($any($event.target).value)"
-              [disabled]="isSubmitting()" />
-          </div>
-
-          <div class="form-field">
-            <label class="form-label" for="source-location">
-              YOUR COMPANY LOCATION
-            </label>
-            <input type="text" id="source-location" class="form-input" placeholder="City, Province or Coordinates"
-              [value]="sourceLocation()" (input)="sourceLocation.set($any($event.target).value)"
-              [disabled]="isSubmitting()" />
-          </div>
-        </div>
+      <!-- Step Indicator -->
+      <div class="step-indicator">
+        @for (s of [1,2,3,4]; track s) {
+        <button type="button" class="step-dot" [class.active]="currentStep() === s" [class.completed]="currentStep() > s"
+          (click)="goToStep(s)" [disabled]="isSubmitting()" [attr.aria-current]="currentStep() === s ? 'step' : null">
+          {{ s }}
+        </button>
+        @if (s < 4) {
+        <span class="step-connector"></span>
+        }
+        }
       </div>
 
-      <!-- Sub-Locations Card -->
+      <!-- Step 1: Your Company (Connection Source) -->
+      @if (currentStep() === 1) {
+      <div class="connection-section your-company-section" [class.disabled]="isSubmitting()">
+        <div class="section-header">
+          <span class="section-title">Your Company (Connection Source)</span>
+        </div>
+        <p class="section-helper">
+          Provide your company name and location so we can establish the connection.
+        </p>
+        <div class="form-field">
+          <label class="form-label" for="source-company-name">Company Name</label>
+          <input type="text" id="source-company-name" class="form-input" placeholder="Enter your company's legal name..."
+            [value]="sourceCompanyName()" (input)="sourceCompanyName.set($any($event.target).value)"
+            [disabled]="isSubmitting()" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="source-location">Primary Location</label>
+          <input type="text" id="source-location" class="form-input" placeholder="Search for address or drop a pin..."
+            [value]="sourceLocation()" (input)="sourceLocation.set($any($event.target).value)"
+            [disabled]="isSubmitting()" />
+        </div>
+      </div>
+      }
+
+      <!-- Step 2: Target Company Connection -->
+      @if (currentStep() === 2) {
+      <div class="connection-section" [class.disabled]="isSubmitting()">
+        <div class="section-header">
+          <span class="section-title">Connect to Target Company</span>
+        </div>
+        <p class="section-helper">
+          Link this new factory to an existing client or create a new one.
+        </p>
+        <div class="form-field">
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="target-mode" value="existing" [checked]="targetCompanyMode() === 'existing'"
+                (change)="targetCompanyMode.set('existing'); existingSubsidiaryId.set(null)" [disabled]="isSubmitting()" />
+              <span>Connect to Existing Client/Subsidiary</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="target-mode" value="new" [checked]="targetCompanyMode() === 'new'"
+                (change)="targetCompanyMode.set('new'); existingSubsidiaryId.set(null)" [disabled]="isSubmitting()" />
+              <span>Create New Target Company</span>
+            </label>
+          </div>
+        </div>
+        @if (targetCompanyMode() === 'existing') {
+        <div class="form-field">
+          <label class="form-label" for="target-company-select">Select Existing Client</label>
+          <div class="select-with-action">
+            <ng-select id="target-company-select" class="form-select-ng"
+              [items]="subsidiaryOptions()"
+              bindLabel="name"
+              bindValue="id"
+              [clearable]="true"
+              [searchable]="true"
+              placeholder="Search for an existing client..."
+              [disabled]="isSubmitting()"
+              (ngModelChange)="existingSubsidiaryId.set($event)"
+              [ngModel]="existingSubsidiaryId()">
+            </ng-select>
+            <button type="button" class="btn-compact btn-view-map" (click)="onViewOnMap()"
+              [disabled]="!existingSubsidiaryId() || isSubmitting()" title="View on map">
+              <span class="material-symbols-outlined">map</span>
+            </button>
+          </div>
+        </div>
+        } @else {
+        <div class="form-field">
+          <label class="form-label" for="target-company-name">New Client Name</label>
+          <input type="text" id="target-company-name" class="form-input" placeholder="Enter new client's name..."
+            [value]="companyName()" (input)="companyName.set($any($event.target).value)"
+            [disabled]="isSubmitting()" />
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="target-location">Client Location</label>
+          <input type="text" id="target-location" class="form-input" placeholder="Search for address or drop a pin..."
+            [value]="location()" (input)="location.set($any($event.target).value)" [disabled]="isSubmitting()" />
+        </div>
+        }
+        <div class="form-field">
+          <label class="form-label">Client Operational Status</label>
+          <label class="sub-location-status-toggle" [title]="'Determines if this client is currently active on the map.'">
+            <input type="checkbox" [checked]="companyStatus() === 'ACTIVE'"
+              (change)="companyStatus.set($any($event.target).checked ? 'ACTIVE' : 'INACTIVE')"
+              [disabled]="isSubmitting()" />
+            <span class="toggle-track"></span>
+            <span class="toggle-label">{{ companyStatus() }}</span>
+          </label>
+        </div>
+      </div>
+      }
+
+      <!-- Step 3: Factory Locations -->
+      @if (currentStep() === 3) {
       <div class="sub-locations-card" [class.disabled]="isSubmitting()">
         <div class="sub-locations-header">
-          <span class="sub-locations-title">LOCATION</span>
+          <span class="sub-locations-title">Add Factory Location(s)</span>
           <span class="sub-locations-count">{{ subLocations().length }}</span>
         </div>
-
+        <p class="section-helper">
+          Specify the physical factory sites for this client.
+        </p>
         <div class="sub-locations-list">
           @for (location of subLocations(); track $index) {
           <div class="sub-location-row">
@@ -132,31 +182,32 @@
               <span class="sub-location-status-label" [class]="getSubLocationStatusClass(location.status)">
                 {{ getSubLocationStatusLabel(location.status) }}
               </span>
-              <label class="sub-location-toggle">
+              <label class="sub-location-toggle" [title]="'A factory is active if it has at least one Open project.'">
                 <input type="checkbox" [checked]="location.status === 'ACTIVE'" [disabled]="isSubmitting()"
                   (change)="toggleSubLocationStatus($index, $any($event.target).checked)" />
                 <span class="toggle-track"></span>
               </label>
-              <button type="button" class="icon-btn" aria-label="Remove location" (click)="removeSubLocation($index)"
+              @if (subLocations().length > 1) {
+              <button type="button" class="icon-btn" aria-label="Remove factory" (click)="removeSubLocation($index)"
                 [disabled]="isSubmitting()">
                 <span class="material-symbols-outlined">delete</span>
               </button>
+              }
             </div>
           </div>
           }
         </div>
-
         <div class="sub-location-form">
           <div class="sub-location-fields">
-            <input type="text" class="form-input sub-location-input" placeholder="Sub-location or site name"
+            <input type="text" class="form-input sub-location-input" placeholder="e.g., Main Production Plant, Warehouse A"
               [value]="subLocationName()" (input)="subLocationName.set($any($event.target).value)"
               [disabled]="isSubmitting()" />
-            <input type="text" class="form-input sub-location-input" placeholder="City, Province or Coordinates"
+            <input type="text" class="form-input sub-location-input" placeholder="Search for address or drop a pin..."
               [value]="subLocationLocation()" (input)="subLocationLocation.set($any($event.target).value)"
               [disabled]="isSubmitting()" />
           </div>
           <div class="sub-location-footer">
-            <label class="sub-location-status-toggle">
+            <label class="sub-location-status-toggle" [title]="'A factory is active if it has at least one Open project.'">
               <input type="checkbox" [checked]="subLocationIsActive()"
                 (change)="subLocationIsActive.set($any($event.target).checked)" [disabled]="isSubmitting()" />
               <span class="toggle-track"></span>
@@ -165,28 +216,24 @@
             <div class="sub-location-buttons">
               <button type="button" class="btn-compact" (click)="addSubLocation()"
                 [disabled]="!canAddSubLocation() || isSubmitting()">
-                Add
+                Add Another Factory Location
               </button>
             </div>
           </div>
         </div>
       </div>
+      }
 
-      <!-- Description Field -->
+      <!-- Step 4: Description and Logo -->
+      @if (currentStep() === 4) {
       <div class="form-field" [class.disabled]="isSubmitting()">
-        <label class="form-label" for="company-description">
-          SUBSIDIARY DESCRIPTION
-        </label>
-        <textarea id="company-description" class="form-input form-textarea" placeholder="ENTER COMPANY DESCRIPTION..."
+        <label class="form-label" for="company-description">Subsidiary Description</label>
+        <textarea id="company-description" class="form-input form-textarea" placeholder="Enter a brief description of the subsidiary..."
           [value]="description()" (input)="description.set($any($event.target).value)"
           [disabled]="isSubmitting()"></textarea>
       </div>
-
-      <!-- Company Logo Field -->
       <div class="form-field" [class.disabled]="isSubmitting()">
-        <label class="form-label" for="company-logo">
-          SUBSIDIARY LOGO
-        </label>
+        <label class="form-label" for="company-logo">Subsidiary Logo</label>
         <div class="logo-upload-area" [class.has-logo]="logoPreview()" [class.disabled]="isSubmitting()">
           @if (logoPreview()) {
           <div class="logo-preview">
@@ -204,12 +251,26 @@
             <span class="upload-icon">
               <span class="material-symbols-outlined">add</span>
             </span>
-            <span class="upload-text">UPLOAD SUBSIDIARY SIGNATURE</span>
-            <span class="upload-hint">SVG, PNG, JPG, GIF, OR WEBP</span>
+            <span class="upload-text">Drag and drop or click to upload</span>
+            <span class="upload-hint">SVG, PNG, JPG, GIF, or WEBP</span>
           </label>
           }
         </div>
       </div>
+      }
+
+      <!-- Step Navigation -->
+      @if (currentStep() < 4) {
+      <div class="step-nav">
+        @if (currentStep() > 1) {
+        <button type="button" class="btn-abort" (click)="prevStep()" [disabled]="isSubmitting()">Back</button>
+        }
+        <button type="button" class="btn-compact btn-next" (click)="nextStep()"
+          [disabled]="(currentStep() === 1 && !canProceedToStep2()) || (currentStep() === 2 && !canProceedToStep3()) || (currentStep() === 3 && !canProceedToStep4()) || isSubmitting()">
+          Next
+        </button>
+      </div>
+      }
       }
     </div>
 
@@ -219,16 +280,19 @@
       <div class="success-footer-note">Closing in 2 seconds...</div>
       } @else {
       <button type="button" class="btn-abort" (click)="onClose()" [disabled]="isSubmitting()">
-        ABORT
+        Abort
       </button>
-      <button type="button" class="btn-execute" (click)="onSubmit()" [disabled]="isSubmitting()">
+      @if (currentStep() === 4) {
+      <button type="button" class="btn-abort" (click)="prevStep()" [disabled]="isSubmitting()">Back</button>
+      <button type="button" class="btn-execute" (click)="onSubmit()" [disabled]="!isFormValid() || isSubmitting()">
         @if (isSubmitting()) {
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         Saving...
         } @else {
-        EXECUTE SYNC
+        Execute Sync
         }
       </button>
+      }
       }
     </div>
   </div>

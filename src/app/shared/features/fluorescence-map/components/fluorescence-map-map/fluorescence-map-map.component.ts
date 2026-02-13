@@ -1018,6 +1018,20 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  /** Fit map bounds to show all route endpoints (client + factories). */
+  public fitBoundsToRoutes(routes: ProjectRoute[], padding = 50): void {
+    if (!this.mapInstance || !this.mapLoaded || !routes?.length) return;
+    const lngs: number[] = [];
+    const lats: number[] = [];
+    for (const r of routes) {
+      lngs.push(r.fromCoordinates.longitude, r.toCoordinates.longitude);
+      lats.push(r.fromCoordinates.latitude, r.toCoordinates.latitude);
+    }
+    const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
+    const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
+    this.mapInstance.fitBounds([sw, ne], { padding, duration: 800 });
+  }
+
   private isHub(node: WarRoomNode): boolean {
     return node.type === 'Hub' || node.isHub === true;
   }

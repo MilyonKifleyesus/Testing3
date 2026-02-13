@@ -272,6 +272,7 @@ describe('WarRoomComponent Integration', () => {
     it('should verify sub-location entries appear on the map', fakeAsync(() => {
         resetServiceState();
         const testCompanyData: CompanyFormData = {
+            targetCompanyMode: 'new',
             companyName: 'Integration Test Corp',
             location: 'New York, USA',
             status: 'ACTIVE',

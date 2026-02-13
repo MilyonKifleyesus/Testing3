@@ -361,6 +361,35 @@ $bp-desktop: 1199.98px;
   flex: 1;
 }
 
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-load-sample {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748B;
+  background: transparent;
+  border: 1px dashed #94A3B8;
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    color: #2D6A4F;
+    border-color: #2D6A4F;
+    background: rgba(45, 106, 79, 0.08);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
 .modal-title {
   // Modal title matching website structure
   margin-block-end: 0;
@@ -492,6 +521,118 @@ $bp-desktop: 1199.98px;
 
   @media (max-width: 399.98px) {
     padding: 0.75rem 0.65rem;
+  }
+}
+
+// Step indicator
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.step-dot {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid var(--default-border, #e8e8f7);
+  background: var(--custom-white, #ffffff);
+  color: #64748B;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    border-color: #2D6A4F;
+    color: #2D6A4F;
+  }
+
+  &.active {
+    background: #2D6A4F;
+    border-color: #2D6A4F;
+    color: #ffffff;
+  }
+
+  &.completed {
+    background: #DCFCE7;
+    border-color: #22C55E;
+    color: #166534;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+}
+
+.step-connector {
+  width: 1.5rem;
+  height: 2px;
+  background: #E2E8F0;
+}
+
+.step-nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--default-border, #e8e8f7);
+}
+
+.btn-next {
+  min-width: 100px;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--default-text-color, #1d212f);
+
+  input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: #2D6A4F;
+  }
+}
+
+.select-with-action {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+
+  ng-select {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.form-select-ng {
+  min-height: 44px;
+}
+
+.btn-view-map {
+  flex-shrink: 0;
+  padding: 0.5rem;
+  min-width: 44px;
+
+  .material-symbols-outlined {
+    font-size: 1.25rem;
   }
 }
 

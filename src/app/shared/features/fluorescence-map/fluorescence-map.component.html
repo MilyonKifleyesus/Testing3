@@ -312,7 +312,9 @@
       }
       @if (addCompanyModalVisible()) {
       <app-add-company-modal #addCompanyModalRef [isVisible]="true" [useMapPositioning]="true"
-        (companyAdded)="onCompanyAdded($event)" (close)="onAddCompanyModalClose()" />
+        [subsidiaries]="subsidiaries()"
+        (companyAdded)="onCompanyAdded($event)" (close)="onAddCompanyModalClose()"
+        (viewOnMap)="onAddCompanyViewOnMap($event)" />
       }
     </div>
 
