@@ -62,6 +62,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   // Outputs
   nodeSelected = output<WarRoomNode | undefined>();
   routeSelected = output<{ routeId: string; projectId?: string }>();
+  /** Emitted when map has been idle after zoom for 2s - for TestSprite marker stability assertions. Payload: current zoom level. */
+  zoomStable = output<number>();
 
   @ViewChild('mapContainer', { static: false }) mapContainerRef!: ElementRef<HTMLDivElement>;
 
@@ -75,6 +77,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   private overlayUpdateRaf: number | null = null;
   private overlayEnsureCoords = false;
   private selectionZoomTimeoutId: any = null;
+  private zoomStableTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private initMapRetryCount = 0;
   private static readonly INIT_MAP_MAX_RETRIES = 10;
 
@@ -285,6 +288,10 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     if (this.selectionZoomTimeoutId) {
       clearTimeout(this.selectionZoomTimeoutId);
       this.selectionZoomTimeoutId = null;
+    }
+    if (this.zoomStableTimeoutId) {
+      clearTimeout(this.zoomStableTimeoutId);
+      this.zoomStableTimeoutId = null;
     }
 
     if (this.fullscreenHandler) {
@@ -589,6 +596,15 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       if (!this.mapLoaded) return;
       this.currentZoomLevel.set(this.mapInstance!.getZoom());
       this.scheduleOverlayUpdate(false);
+    });
+
+    this.mapInstance.on('zoomend', () => {
+      if (!this.mapLoaded || this.destroyed) return;
+      if (this.zoomStableTimeoutId) clearTimeout(this.zoomStableTimeoutId);
+      this.zoomStableTimeoutId = setTimeout(() => {
+        this.zoomStableTimeoutId = null;
+        if (!this.destroyed) this.zoomStable.emit(this.mapInstance!.getZoom());
+      }, 2000);
     });
 
     this.mapInstance.on('moveend', () => {

@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 
 export const fluorescenceMapRoutes: Routes = [
+  { path: 'war-room', redirectTo: 'apps/fluorescence-map', pathMatch: 'full' },
   {
     path: 'apps/fluorescence-map',
     children: [

@@ -1,48 +1,80 @@
 {
   "tech_stack": [
     "TypeScript",
-    "Angular",
+    "Angular 19",
     "MapLibre GL",
+    "RxJS",
     "SCSS",
-    "TestSprite"
+    "Bootstrap",
+    "ng-bootstrap"
   ],
   "features": [
     {
-      "name": "War Room Map",
-      "description": "Main interface for monitoring fleet operations with a MapLibre base layer and SVG overlays.",
+      "name": "Fluorescence Map (War Room)",
+      "description": "Main interface for monitoring fleet operations with MapLibre base layer, SVG overlays, view modes (project/client/factory), filters, and responsive layout.",
       "files": [
-        "src/app/shared/features/war-room/components/war-room-map/war-room-map.component.ts",
-        "src/app/shared/features/war-room/components/war-room-map/war-room-map.component.html"
+        "src/app/shared/features/fluorescence-map/fluorescence-map.component.ts",
+        "src/app/shared/features/fluorescence-map/fluorescence-map.component.html",
+        "src/app/shared/features/fluorescence-map/fluorescence-map.component.scss"
       ]
     },
     {
-      "name": "Marker Synchronization",
-      "description": "High-precision SVG marker placement that stays fixed relative to the map via coordinate projection and transform syncing.",
+      "name": "Map Canvas",
+      "description": "MapLibre GL map container with zoom controls, fullscreen, and canvas resize handling.",
       "files": [
-        "src/app/shared/features/war-room/components/war-room-map/markers/war-room-map-markers.component.ts",
-        "src/app/shared/features/war-room/components/war-room-map/markers/war-room-map-markers.component.html"
+        "src/app/shared/features/fluorescence-map/components/fluorescence-map-map/fluorescence-map-map.component.ts",
+        "src/app/shared/features/fluorescence-map/components/fluorescence-map-map/fluorescence-map-map.component.html",
+        "src/app/shared/features/fluorescence-map/components/fluorescence-map-map/fluorescence-map-map.component.scss"
       ]
     },
     {
-      "name": "Map Math & Projection",
-      "description": "Services for converting geographic coordinates to screen pixels and generating curved transit paths.",
+      "name": "Map Markers",
+      "description": "SVG marker placement for nodes (clients, factories, projects) with coordinate projection.",
       "files": [
-        "src/app/shared/features/war-room/components/war-room-map/services/war-room-map-math.service.ts",
-        "src/app/shared/features/war-room/components/war-room-map/services/war-room-map-assets.service.ts"
+        "src/app/shared/features/fluorescence-map/components/fluorescence-map-map/markers/fluorescence-map-map-markers.component.ts",
+        "src/app/shared/features/fluorescence-map/components/fluorescence-map-map/markers/fluorescence-map-map-markers.component.html"
       ]
     },
     {
-      "name": "Filtering System",
-      "description": "Logic to filter displayed markers based on region, status, and company affiliation.",
+      "name": "View Toggle and Filters",
+      "description": "Project/Client/Factory view mode selection, filter panel (companies, status, regions), and active filters bar.",
       "files": [
-        "src/app/shared/features/war-room/src/app/shared/features/war-room/war-room.component.ts"
+        "src/app/shared/features/fluorescence-map/fluorescence-map.component.html",
+        "src/app/shared/features/fluorescence-map/fluorescence-map.component.ts"
       ]
     },
     {
-      "name": "TestSprite Test Suite",
-      "description": "Automated verification scripts to ensure map stability and feature correctness.",
+      "name": "Sidebar Panel",
+      "description": "Right-side overlay panel with Activity Log, Hub Status tabs, and Clients panel. Responsive bottom-sheet on mobile.",
       "files": [
-        "testsprite_tests/testsprite_frontend_test_plan.json"
+        "src/app/shared/features/fluorescence-map/fluorescence-map.component.html",
+        "src/app/shared/features/fluorescence-map/components/fluorescence-map-activity-log/fluorescence-map-activity-log.component.ts",
+        "src/app/shared/features/fluorescence-map/components/fluorescence-map-clients-panel/fluorescence-map-clients-panel.component.ts",
+        "src/app/shared/features/fluorescence-map/components/fluorescence-map-hub-status/fluorescence-map-hub-status.component.ts"
+      ]
+    },
+    {
+      "name": "Map Controls",
+      "description": "Zoom in/out, fullscreen, and map action buttons (Panels, Expand Map, Tactical mode).",
+      "files": [
+        "src/app/shared/features/fluorescence-map/components/fluorescence-map-map/controls/fluorescence-map-map-controls.component.ts",
+        "src/app/shared/features/fluorescence-map/components/fluorescence-map-map/controls/fluorescence-map-map-controls.component.html"
+      ]
+    },
+    {
+      "name": "Authentication",
+      "description": "Sign-in flow. App redirects to /custom/sign-in for unauthenticated users.",
+      "files": [
+        "src/app/components/authentication/sign-in/sign-in.component.ts",
+        "src/app/shared/services/auth.service.ts"
+      ]
+    },
+    {
+      "name": "Layout",
+      "description": "Full layout with header, sidemenu, main content. Route-scoped body class for fluorescence-map responsive overrides.",
+      "files": [
+        "src/app/shared/layouts/full-layout/full-layout.component.ts",
+        "src/app/shared/layouts/full-layout/full-layout.component.html"
       ]
     }
   ]

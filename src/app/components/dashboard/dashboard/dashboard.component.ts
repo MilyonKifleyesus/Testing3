@@ -14,10 +14,12 @@ import { SharedOngoingProjects2ChartComponent } from '../../../shared/charts/sha
 import { SpkDashboardComponent } from '../../../@spk/reusable-dashboard/spk-dashboard/spk-dashboard.component';
 import { SpkReusableTablesComponent } from '../../../@spk/reusable-tables/spk-reusable-tables/spk-reusable-tables.component';
 import { CommonModule } from '@angular/common';
+import { WarRoomComponent } from '../../../shared/features/fluorescence-map/fluorescence-map.component';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [
+    WarRoomComponent,
     SharedModule,
     NgbModule,
     NgSelectModule,

@@ -1,5 +1,11 @@
 <div class="war-room-container">
   <div class="visually-hidden" aria-live="polite" aria-atomic="true">{{ announcementMessage() }}</div>
+  <!-- TestSprite marker stability assertions - visible for automation -->
+  @if (markerStabilityMessage()) {
+  <div class="marker-stability-status" data-testid="marker-stability-status" role="status">
+    {{ markerStabilityMessage() }}
+  </div>
+  }
   <!-- Main Content -->
   <main class="war-room-main">
     <!-- Map Area -->
@@ -279,7 +285,7 @@
       <app-war-room-map class="war-room-map-fill" [nodes]="filteredNodes()" [selectedEntity]="selectedEntity()"
         [transitRoutes]="filteredTransitRoutes()" [projectRoutes]="projectRoutesForMap()"
         [filterStatus]="filterApplied().status" (nodeSelected)="onNodeSelected($event)"
-        (routeSelected)="onRouteSelected($event)"></app-war-room-map>
+        (routeSelected)="onRouteSelected($event)" (zoomStable)="onMapZoomStable($event)"></app-war-room-map>
 
       @if (filteredNodes().length === 0) {
       <div

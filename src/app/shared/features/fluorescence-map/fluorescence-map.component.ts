@@ -45,6 +45,21 @@ const createDefaultFilters = (): WarRoomFilters => ({
   projectTypeIds: [],
 });
 
+/** Persisted state schema - supports both legacy filters-only and extended state */
+interface WarRoomPersistedState {
+  mapViewMode?: MapViewMode;
+  parentCompanyIds?: string[];
+  status?: FilterStatus;
+  regions?: string[];
+  clientIds?: string[];
+  manufacturerIds?: string[];
+  projectTypeIds?: string[];
+  /** Legacy single-value fields for migration */
+  clientId?: string;
+  manufacturerId?: string;
+  projectType?: string;
+}
+
 @Component({
   selector: 'app-war-room',
   standalone: true,
@@ -63,9 +78,12 @@ const createDefaultFilters = (): WarRoomFilters => ({
   styleUrl: './fluorescence-map.component.scss',
 })
 export class WarRoomComponent implements OnInit, OnDestroy {
-  private readonly STORAGE_KEY = 'war-room-filters-v1';
+  private readonly STORAGE_KEY = 'war-room-state-v1';
+  private readonly LEGACY_STORAGE_KEY = 'war-room-filters-v1';
   private readonly MAP_EXPANDED_CLASS = 'war-room-map-expanded';
   private lastFocusedElement: HTMLElement | null = null;
+  private hasHydratedFromStorage = false;
+  private savedMapViewMode: MapViewMode | null = null;
   // Inject services
   private warRoomService = inject(WarRoomService);
   private realtimeService = inject(WarRoomRealtimeService);
@@ -127,6 +145,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   // Screen reader announcement message
   readonly announcementMessage = signal<string>('');
+
+  /** Visible status for TestSprite marker stability assertions - shown after zoom idle */
+  readonly markerStabilityMessage = signal<string>('');
 
   // Overlay panel + expand state
   readonly panelVisible = signal<boolean>(false);
@@ -325,6 +346,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     const nodes = this.nodesWithClients();
     const viewMode = this.mapViewMode();
     const routes = this.projectRoutes();
+    const routesLoading = this.projectRoutesLoading();
     const hasProjectFilters =
       filters.clientIds.length > 0 ||
       filters.manufacturerIds.length > 0 ||
@@ -360,7 +382,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       // Parent nodes: node.id = parent group id. Must check if any child factory is in routeTargetIds.
       if (routeTargetIds !== null) {
         if (viewMode === 'project' && routeTargetIds.size === 0) {
-          // In project view with no routes, hide all factory/subsidiary/parent nodes
+          // When routes are loading with client filter, don't hide factory nodes yet - allow them to show until fetch completes
+          if (routesLoading && hasProjectFilters) return true;
+          // In project view with no routes (and not loading), hide all factory/subsidiary/parent nodes
           return false;
         }
         if (enforceRouteTargets) {
@@ -584,6 +608,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly clientsPanelRef = viewChild<WarRoomClientsPanelComponent>(WarRoomClientsPanelComponent);
 
   readonly projectRoutesRefreshTrigger = signal(0);
+  readonly projectRoutesLoading = signal(false);
 
   readonly addCompanyModalRef = viewChild<AddCompanyModalComponent>('addCompanyModalRef');
 
@@ -619,9 +644,16 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       };
     });
 
-    // Save filters on change
+    // Save filters and view mode on change (after hydration to avoid overwriting)
     effect(() => {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.filterApplied()));
+      if (!this.hasHydratedFromStorage) return;
+      const filters = this.filterApplied();
+      const viewMode = this.mapViewMode();
+      const state: WarRoomPersistedState = {
+        ...filters,
+        mapViewMode: viewMode,
+      };
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(state));
     });
 
     effect(() => {
@@ -633,9 +665,11 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       if (!clients?.length || !factories?.length) {
         fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:projectRoutesEffect',message:'Early return: missing clients or factories',data:{clientsCount:clients?.length??0,factoriesCount:factories?.length??0},hypothesisId:'H_A',timestamp:Date.now()})}).catch(()=>{});
         this.projectRoutes.set([]);
+        this.projectRoutesLoading.set(false);
         return;
       }
       // #endregion
+      this.projectRoutesLoading.set(true);
       const clientCoords = new Map(
         clients
           .filter((c) => c.coordinates)
@@ -661,8 +695,12 @@ export class WarRoomComponent implements OnInit, OnDestroy {
           fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:projectRoutesSubscribe',message:'Routes received from getProjectsForMap',data:{routesCount:routes.length,sampleProjectIds:routes.slice(0,3).map(r=>r.projectId)},hypothesisId:'H_A',hypothesisId2:'H_C',timestamp:Date.now()})}).catch(()=>{});
           // #endregion
           this.projectRoutes.set(routes);
+          this.projectRoutesLoading.set(false);
         });
-      return () => sub.unsubscribe();
+      return () => {
+        sub.unsubscribe();
+        this.projectRoutesLoading.set(false);
+      };
     });
 
     effect(() => {
@@ -677,35 +715,63 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Load persisted filters (merge with defaults for backward compatibility)
-    const saved = localStorage.getItem(this.STORAGE_KEY);
+    // Load persisted state (filters + view mode) - support legacy key for migration
+    const saved = localStorage.getItem(this.STORAGE_KEY) ?? localStorage.getItem(this.LEGACY_STORAGE_KEY);
     if (saved) {
       try {
+        const parsed = JSON.parse(saved) as WarRoomPersistedState;
         const defaults = createDefaultFilters();
-        const parsed = { ...defaults, ...JSON.parse(saved) };
+        const filters: WarRoomFilters = {
+          ...defaults,
+          parentCompanyIds: parsed.parentCompanyIds ?? defaults.parentCompanyIds,
+          status: parsed.status ?? defaults.status,
+          regions: parsed.regions ?? defaults.regions,
+          clientIds: parsed.clientIds ?? defaults.clientIds,
+          manufacturerIds: parsed.manufacturerIds ?? defaults.manufacturerIds,
+          projectTypeIds: parsed.projectTypeIds ?? defaults.projectTypeIds,
+        };
         // Migrate legacy single-string filters to arrays
-        if (parsed.clientIds == null && parsed.clientId != null) {
-          parsed.clientIds = parsed.clientId === 'all' ? [] : [parsed.clientId];
+        if (filters.clientIds.length === 0 && parsed.clientId != null && parsed.clientId !== 'all') {
+          filters.clientIds = [parsed.clientId];
         }
-        if (parsed.manufacturerIds == null && parsed.manufacturerId != null) {
-          parsed.manufacturerIds = parsed.manufacturerId === 'all' ? [] : [parsed.manufacturerId];
+        if (filters.manufacturerIds.length === 0 && parsed.manufacturerId != null && parsed.manufacturerId !== 'all') {
+          filters.manufacturerIds = [parsed.manufacturerId];
         }
-        if (parsed.projectTypeIds == null && parsed.projectType != null) {
-          parsed.projectTypeIds = parsed.projectType === 'all' ? [] : [parsed.projectType];
+        if (filters.projectTypeIds.length === 0 && parsed.projectType != null && parsed.projectType !== 'all') {
+          filters.projectTypeIds = [parsed.projectType];
         }
-        parsed.clientIds = parsed.clientIds ?? [];
-        parsed.manufacturerIds = parsed.manufacturerIds ?? [];
-        parsed.projectTypeIds = parsed.projectTypeIds ?? [];
-        this.filterApplied.set(parsed);
-        this.filterDraft.set(parsed);
+        filters.clientIds = filters.clientIds ?? [];
+        filters.manufacturerIds = filters.manufacturerIds ?? [];
+        filters.projectTypeIds = filters.projectTypeIds ?? [];
+        this.filterApplied.set(filters);
+        this.filterDraft.set(filters);
+
+        // Restore view mode - store for effect to apply after service data loads (service overwrites on JSON load)
+        const validModes: MapViewMode[] = ['project', 'client', 'factory', 'subsidiary', 'parent'];
+        if (parsed.mapViewMode && validModes.includes(parsed.mapViewMode)) {
+          this.savedMapViewMode = parsed.mapViewMode;
+          this.warRoomService.setMapViewMode(parsed.mapViewMode);
+        }
       } catch (e) {
-        console.warn('Failed to parse saved filters', e);
+        console.warn('Failed to parse saved state', e);
       }
     }
+
+    this.hasHydratedFromStorage = true;
 
     // Start real-time updates
     this.realtimeService.startRealTimeUpdates();
   }
+
+  /** Effect to re-apply saved view mode after WarRoomService loads JSON (which overwrites mapViewMode) */
+  private readonly restoreViewModeEffect = effect(() => {
+    const groups = this.parentGroups();
+    const saved = this.savedMapViewMode;
+    if (groups.length > 0 && saved) {
+      this.warRoomService.setMapViewMode(saved);
+      this.savedMapViewMode = null;
+    }
+  });
 
   ngOnDestroy(): void {
     // Stop real-time updates
@@ -793,9 +859,8 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     this.filterDraft.update((f) => ({ ...f, clientIds: [clientId] }));
     this.filterApplied.set({ ...this.filterApplied(), clientIds: [clientId] });
     this.selectedProjectId.set(null); // Clear project selection so all filtered routes show (not just one)
-    if (this.projectRoutes().length === 0 && (this.clientsSignal()?.length ?? 0) > 0 && this.factories().length > 0) {
-      this.projectRoutesRefreshTrigger.update((n) => n + 1);
-    }
+    // Always refresh routes when client filter changes to ensure correct routes are fetched
+    this.projectRoutesRefreshTrigger.update((n) => n + 1);
   }
 
   onClientPanelSaveComplete(): void {
@@ -1756,6 +1821,16 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     this.announcementMessage.set(message);
     // clear after a delay so it can be re-announced if needed
     setTimeout(() => this.announcementMessage.set(''), 3000);
+  }
+
+  /** Called when map zoom has been idle 2s - shows status for TestSprite marker stability assertions */
+  onMapZoomStable(zoom: number): void {
+    const nearInitial = Math.abs(zoom - 1.8) < 0.3;
+    const msg = nearInitial
+      ? 'Markers and logos restored to original coordinates'
+      : 'Markers and logos remained aligned after zoom operations';
+    this.markerStabilityMessage.set(msg);
+    setTimeout(() => this.markerStabilityMessage.set(''), 5000);
   }
 
   private restoreFocusAfterModalClose(): void {

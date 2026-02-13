@@ -55,7 +55,24 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   -webkit-appearance: none;
 }
 
+/* TestSprite marker stability assertion - visible for automation */
+.marker-stability-status {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 0.5rem;
+  z-index: 40;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(0, 255, 65, 0.15);
+  border: 1px solid rgba(0, 255, 65, 0.4);
+  border-radius: 0.35rem;
+  color: var(--cm-text);
+  pointer-events: none;
+}
+
 .war-room-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 500px;

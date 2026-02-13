@@ -1,13 +1,1 @@
-{
-  "factoryIdToWarRoom": {
-    "1": "nova-saint-eustache",
-    "2": "new-flyer-crookston",
-    "3": "new-flyer-winnipeg",
-    "4": "new-flyer-anniston",
-    "7": "tam-facility",
-    "100": "eastway-pembroke"
-  },
-  "aliases": {
-    "nova-st-eustache": "nova-saint-eustache"
-  }
-}
+{"factoryIdToWarRoom":{"1":"nova-saint-eustache","2":"new-flyer-crookston-new-flyer","3":"new-flyer-winnipeg","4":"new-flyer-anniston","7":"tam-tam-facility","100":"eastway-pembroke"},"aliases":{"nova-st-eustache":"nova-saint-eustache","new-flyer-crookston":"new-flyer-crookston-new-flyer","tam-facility":"tam-tam-facility"}}
