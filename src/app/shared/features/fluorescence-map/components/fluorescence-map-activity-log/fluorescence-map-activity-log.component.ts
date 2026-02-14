@@ -45,6 +45,7 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   }>();
   subsidiaryDeleted = output<string>();
   factoryDeleted = output<string>();
+  addProjectForFactory = output<{ factoryId: string; subsidiaryId: string }>();
 
   @ViewChild('logList', { static: false }) logList?: ElementRef<HTMLElement>;
   private viewReady = false;

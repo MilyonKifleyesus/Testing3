@@ -9,7 +9,13 @@
   <!-- Main Content -->
   <main class="war-room-main">
     <!-- Map Area -->
-    <div class="war-room-map-area">
+    <div class="war-room-map-area" [class.add-project-mode]="addCompanyModalVisible()"
+      [attr.aria-describedby]="addCompanyModalVisible() ? 'add-project-mode-announcement' : null">
+      @if (addCompanyModalVisible()) {
+      <div id="add-project-mode-announcement" class="visually-hidden" aria-live="polite" aria-atomic="true">
+        Add Project mode active.
+      </div>
+      }
       <!-- Single toolbar: view toggle + active filters in one compact strip (hidden in tactical mode) -->
       @if (!tacticalMode()) {
       <div class="war-room-map-toolbar" role="toolbar" aria-label="Map view and filters">
@@ -31,6 +37,10 @@
               Factory View
             </button>
           </div>
+          <button type="button" class="btn btn-primary btn-icon-text btn-sm map-add-project-btn"
+            (click)="onAddCompanyRequested()" aria-label="Add new project to map">
+            <i class="fe fe-plus-circle me-2 fs-14" aria-hidden="true"></i> Add Project
+          </button>
           <button type="button" class="btn btn-white btn-icon-text btn-sm map-filter-btn" (click)="toggleFiltersPanel()"
             [class.btn-primary-transparent]="filtersPanelVisible()"
             [attr.aria-label]="(filtersPanelVisible() ? 'Close' : 'Open') + ' filters' + (activeFilterCount() > 0 ? ' (' + activeFilterCount() + ' active)' : '')"
@@ -285,7 +295,8 @@
       <app-war-room-map class="war-room-map-fill" [nodes]="filteredNodes()" [selectedEntity]="selectedEntity()"
         [transitRoutes]="filteredTransitRoutes()" [projectRoutes]="projectRoutesForMap()"
         [filterStatus]="filterApplied().status" (nodeSelected)="onNodeSelected($event)"
-        (routeSelected)="onRouteSelected($event)" (zoomStable)="onMapZoomStable($event)"></app-war-room-map>
+        (routeSelected)="onRouteSelected($event)" (zoomStable)="onMapZoomStable($event)"
+        (addProjectRequested)="onAddCompanyRequested()"></app-war-room-map>
 
       @if (filteredNodes().length === 0) {
       <div
@@ -313,6 +324,7 @@
       @if (addCompanyModalVisible()) {
       <app-add-company-modal #addCompanyModalRef [isVisible]="true" [useMapPositioning]="true"
         [clients]="clientsSignal()"
+        [preselectedFactoryId]="addCompanyModalPreselectedFactoryId()"
         (projectAdded)="onProjectAdded($event)" (close)="onAddCompanyModalClose()" />
       }
     </div>
@@ -383,7 +395,8 @@
             (editModeChange)="activityLogEditMode.set($event)" (factoryDetailsUpdated)="onFactoryDetailsUpdated($event)"
             (subsidiaryDetailsUpdated)="onSubsidiaryDetailsUpdated($event)"
             (batchUpdateRequested)="onBatchUpdateRequested($event)" (subsidiaryDeleted)="onSubsidiaryDeleted($event)"
-            (factoryDeleted)="onFactoryDeleted($event)"></app-war-room-activity-log>
+            (factoryDeleted)="onFactoryDeleted($event)"
+            (addProjectForFactory)="onAddProjectForFactory($event)"></app-war-room-activity-log>
           } @else {
           <app-war-room-clients-panel [clientsWithProjects]="clientsWithProjects()" [editMode]="activityLogEditMode()"
             [selectedEntity]="selectedEntity()" [projectsRefreshTrigger]="projectRoutesRefreshTrigger()"

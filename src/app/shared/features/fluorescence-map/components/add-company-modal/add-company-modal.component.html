@@ -5,8 +5,8 @@
     <!-- Modal Header -->
     <div class="modal-header">
       <div class="modal-title-section">
-        <h1 class="modal-title" id="modal-title">ADD PROJECT</h1>
-        <p class="modal-subtitle">CLIENT-FACTORY LINK // PROJECT REGISTRATION</p>
+        <h1 class="modal-title" id="modal-title">Add Project</h1>
+        <p class="modal-subtitle">Adding a project creates a connection line on the map between the client and factory.</p>
       </div>
       <div class="modal-header-actions">
         <button type="button" class="btn-load-sample" (click)="loadSampleData()" [disabled]="isSubmitting()">
@@ -26,9 +26,9 @@
         <div class="success-icon-container">
           <span class="material-symbols-outlined success-icon">check_circle</span>
         </div>
-        <h2 class="success-title">PROJECT REGISTERED</h2>
+        <h2 class="success-title">Project Registered</h2>
         <p class="success-description">
-          {{ successMessage() || (projectName() + ' has been added and will appear on the map.') }}
+          {{ successMessage() || (projectName() + ' has been added. A new connection line will appear on the map.') }}
         </p>
         <div class="success-details">
           <div class="detail-row">
@@ -70,7 +70,7 @@
           <span class="section-title">Select Client</span>
         </div>
         <p class="section-helper">
-          Choose the client this project will be associated with.
+          Choose the client this project will be associated with. The project will create a connection line from this client to the selected factory on the map.
         </p>
         <div class="form-field">
           <label class="form-label" for="client-select">Client</label>

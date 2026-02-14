@@ -33,6 +33,8 @@ export class AddCompanyModalComponent implements OnDestroy {
   useMapPositioning = input<boolean>(false);
   /** Clients for Step 1 dropdown */
   clients = input<Client[]>([]);
+  /** WarRoom factory id to pre-select when opening from Activity Log (NO PROJECT ASSIGNED) */
+  preselectedFactoryId = input<string | null>(null);
 
   // Outputs
   projectAdded = output<ProjectFormData>();
@@ -95,6 +97,18 @@ export class AddCompanyModalComponent implements OnDestroy {
       if (visible) {
         setTimeout(() => this.focusFirstInput(), 100);
       }
+    });
+
+    effect(() => {
+      const visible = this.isVisible();
+      const factoryId = this.preselectedFactoryId();
+      if (!visible || !factoryId) return;
+      this.projectService.getFactoryOptionForWarRoomId(factoryId).subscribe((option) => {
+        if (option) {
+          this.selectedFactory.set(option);
+          this.currentStep.set(3);
+        }
+      });
     });
   }
 

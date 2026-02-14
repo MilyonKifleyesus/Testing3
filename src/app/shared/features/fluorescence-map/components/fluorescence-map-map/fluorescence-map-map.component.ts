@@ -1,4 +1,4 @@
-import { Component, input, output, AfterViewInit, OnDestroy, inject, effect, signal, computed, ViewChild, ElementRef } from '@angular/core';
+import { Component, input, output, AfterViewInit, OnDestroy, inject, effect, signal, computed, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
 import { Node as WarRoomNode, FleetSelection, TransitRoute, ProjectRoute } from '../../../../models/fluorescence-map.interface';
@@ -64,6 +64,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   routeSelected = output<{ routeId: string; projectId?: string }>();
   /** Emitted when map has been idle after zoom for 2s - for TestSprite marker stability assertions. Payload: current zoom level. */
   zoomStable = output<number>();
+  /** Emitted when user selects "Add Project" from map context menu */
+  addProjectRequested = output<void>();
 
   @ViewChild('mapContainer', { static: false }) mapContainerRef!: ElementRef<HTMLDivElement>;
 
@@ -90,6 +92,10 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   /** Current map zoom level (0.5–14) for slider binding. */
   readonly currentZoomLevel = signal(1.8);
+
+  /** Context menu state for right-click "Add Project" */
+  readonly contextMenuVisible = signal(false);
+  readonly contextMenuPosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
 
   private readonly LOD_LOGO_ONLY_THRESHOLD = 1.2;
   private readonly LOD_FULL_DETAIL_THRESHOLD = 2.5;
@@ -487,6 +493,28 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   clearPinned(): void {
     this.pinnedNodeId.set(null);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    this.contextMenuVisible.set(false);
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.contextMenuVisible.set(false);
+  }
+
+  onMapContextMenu(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.contextMenuPosition.set({ x: event.clientX, y: event.clientY });
+    this.contextMenuVisible.set(true);
+  }
+
+  onContextMenuAddProject(): void {
+    this.contextMenuVisible.set(false);
+    this.addProjectRequested.emit();
   }
 
   onRouteSelected(payload: { routeId: string; projectId?: string }): void {

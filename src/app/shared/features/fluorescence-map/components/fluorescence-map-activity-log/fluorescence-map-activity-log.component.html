@@ -204,6 +204,13 @@
             </div>
             <div class="log-entry-actions log-header-actions d-flex align-items-center gap-2">
               @if (editMode()) {
+              @if (getProjectStatusForFactory(factory.id) === 'none') {
+              <button type="button" class="btn btn-sm btn-success"
+                (click)="addProjectForFactory.emit({ factoryId: factory.id, subsidiaryId: subsidiary.id }); $event.stopPropagation()"
+                aria-label="Add project for this factory">
+                Add Project
+              </button>
+              }
               <button type="button" class="btn btn-sm btn-outline-primary"
                 (click)="startEditFactory(factory); $event.stopPropagation()" aria-label="Edit factory details">
                 Edit

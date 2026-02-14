@@ -321,7 +321,7 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
     serviceAny._activityLogs.set([buildLog(factoryA, subsidiary, 0)]);
     warRoomService.setMapViewMode('factory');
 
-    component.showPanel('log');
+    component.showPanel('hub');
     fixture.detectChanges();
 
     const announcer = fixture.nativeElement.querySelector('.visually-hidden[aria-live="polite"]');

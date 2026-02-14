@@ -3,7 +3,7 @@
   <div class="grid-overlay"></div>
 
   <!-- Map Container: overlays inside #war-room-map so (0,0) matches MapLibre project() – stops marker/logo drift on zoom -->
-  <div class="map-container" (click)="clearPinned()">
+  <div class="map-container" (click)="clearPinned()" (contextmenu)="onMapContextMenu($event)">
     <div #mapContainer id="war-room-map" class="war-room-map-inner">
       <app-war-room-map-routes [routes]="routesVm()" [routeStroke]="routeStroke()" [routeFill]="routeFill()"
         (routeSelected)="onRouteSelected($event)">
@@ -26,6 +26,17 @@
   <div class="map-error-overlay">
     <p>{{ mapLoadError() }}</p>
     <button type="button" class="btn btn-primary btn-sm" (click)="retryMapLoad()">Retry</button>
+  </div>
+  }
+
+  @if (contextMenuVisible()) {
+  <div class="map-context-menu" [style.left.px]="contextMenuPosition().x" [style.top.px]="contextMenuPosition().y"
+    (click)="$event.stopPropagation()" role="menu">
+    <button type="button" class="map-context-menu-item" (click)="onContextMenuAddProject()"
+      aria-label="Add new project">
+      <i class="fe fe-plus-circle" aria-hidden="true"></i>
+      <span>Add Project</span>
+    </button>
   </div>
   }
 </div>

@@ -163,6 +163,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   // Add company modal (over map)
   readonly addCompanyModalVisible = signal<boolean>(false);
+  readonly addCompanyModalPreselectedFactoryId = signal<string | null>(null);
 
   // Filters panel state
   readonly filtersPanelVisible = signal<boolean>(false);
@@ -1557,13 +1558,21 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   onAddCompanyRequested(): void {
     const active = document.activeElement;
     this.lastFocusedElement = active instanceof HTMLElement ? active : null;
+    this.addCompanyModalPreselectedFactoryId.set(null);
     this.addCompanyModalVisible.set(true);
     this.announce('Add Company modal opened.');
   }
 
   onAddCompanyModalClose(): void {
     this.addCompanyModalVisible.set(false);
+    this.addCompanyModalPreselectedFactoryId.set(null);
     this.restoreFocusAfterModalClose();
+  }
+
+  onAddProjectForFactory(payload: { factoryId: string; subsidiaryId: string }): void {
+    this.addCompanyModalPreselectedFactoryId.set(payload.factoryId);
+    this.addCompanyModalVisible.set(true);
+    this.announce('Add Project modal opened. Factory pre-selected.');
   }
 
   onAddCompanyViewOnMap(subsidiaryId: string): void {

@@ -258,6 +258,30 @@ export class ProjectService {
       );
   }
 
+  /** Resolve WarRoom factory id to FactoryOption for modal pre-selection */
+  getFactoryOptionForWarRoomId(warRoomId: string): Observable<FactoryOption | null> {
+    return this.loadFactoryMapping().pipe(
+      switchMap((mapping) =>
+        this.getFactoriesWithManufacturers().pipe(
+          map((opts) => {
+            const factoryIdToWarRoom = mapping.factoryIdToWarRoom ?? {};
+            const aliases = mapping.aliases ?? {};
+            const normalizedId = (aliases[warRoomId] ?? warRoomId).toLowerCase();
+            const entry = Object.entries(factoryIdToWarRoom).find(
+              ([, wr]) => (wr ?? '').toLowerCase() === normalizedId
+            );
+            if (!entry) {
+              return opts.find((o) => String(o.factoryId) === warRoomId) ?? null;
+            }
+            const apiId = entry[0];
+            return opts.find((o) => String(o.factoryId) === apiId) ?? null;
+          })
+        )
+      ),
+      catchError(() => of(null))
+    );
+  }
+
   refreshProjects(): void {
     this.projectsRefresh$.next();
   }
