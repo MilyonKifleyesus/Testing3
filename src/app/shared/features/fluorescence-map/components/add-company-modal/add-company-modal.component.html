@@ -5,8 +5,8 @@
     <!-- Modal Header -->
     <div class="modal-header">
       <div class="modal-title-section">
-        <h1 class="modal-title" id="modal-title">Add New Subsidiary &amp; Factory</h1>
-        <p class="modal-subtitle">Fleet Registration Module // Guided Setup</p>
+        <h1 class="modal-title" id="modal-title">ADD PROJECT</h1>
+        <p class="modal-subtitle">CLIENT-FACTORY LINK // PROJECT REGISTRATION</p>
       </div>
       <div class="modal-header-actions">
         <button type="button" class="btn-load-sample" (click)="loadSampleData()" [disabled]="isSubmitting()">
@@ -26,19 +26,18 @@
         <div class="success-icon-container">
           <span class="material-symbols-outlined success-icon">check_circle</span>
         </div>
-        <h2 class="success-title">SYSTEM SYNC COMPLETE</h2>
+        <h2 class="success-title">PROJECT REGISTERED</h2>
         <p class="success-description">
-          {{ successMessage() || (companyName() + ' has been registered and synced to the tactical map. Initial
-          connectivity established with primary hubs.') }}
+          {{ successMessage() || (projectName() + ' has been added and will appear on the map.') }}
         </p>
         <div class="success-details">
           <div class="detail-row">
-            <span class="detail-label">Locations:</span>
-            <span class="detail-value">{{ 1 + subLocations().length }} Sites</span>
+            <span class="detail-label">Client:</span>
+            <span class="detail-value">{{ clientId() }}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">Status:</span>
-            <span class="detail-value status-active">ACTIVE</span>
+            <span class="detail-value" [class]="getProjectStatusClass(projectStatus())">{{ projectStatus() }}</span>
           </div>
         </div>
       </div>
@@ -64,198 +63,110 @@
         }
       </div>
 
-      <!-- Step 1: Your Company (Connection Source) -->
+      <!-- Step 1: Select Client -->
       @if (currentStep() === 1) {
-      <div class="connection-section your-company-section" [class.disabled]="isSubmitting()">
+      <div class="connection-section" [class.disabled]="isSubmitting()">
         <div class="section-header">
-          <span class="section-title">Your Company (Connection Source)</span>
+          <span class="section-title">Select Client</span>
         </div>
         <p class="section-helper">
-          Provide your company name and location so we can establish the connection.
+          Choose the client this project will be associated with.
         </p>
         <div class="form-field">
-          <label class="form-label" for="source-company-name">Company Name</label>
-          <input type="text" id="source-company-name" class="form-input" placeholder="Enter your company's legal name..."
-            [value]="sourceCompanyName()" (input)="sourceCompanyName.set($any($event.target).value)"
-            [disabled]="isSubmitting()" />
-        </div>
-        <div class="form-field">
-          <label class="form-label" for="source-location">Primary Location</label>
-          <input type="text" id="source-location" class="form-input" placeholder="Search for address or drop a pin..."
-            [value]="sourceLocation()" (input)="sourceLocation.set($any($event.target).value)"
-            [disabled]="isSubmitting()" />
+          <label class="form-label" for="client-select">Client</label>
+          <ng-select id="client-select" class="form-select-ng"
+            [items]="clients()"
+            bindLabel="name"
+            bindValue="id"
+            [clearable]="true"
+            [searchable]="true"
+            placeholder="Search for a client..."
+            [disabled]="isSubmitting()"
+            (ngModelChange)="clientId.set($event)"
+            [ngModel]="clientId()">
+          </ng-select>
         </div>
       </div>
       }
 
-      <!-- Step 2: Target Company Connection -->
+      <!-- Step 2: Select Factory -->
       @if (currentStep() === 2) {
       <div class="connection-section" [class.disabled]="isSubmitting()">
         <div class="section-header">
-          <span class="section-title">Connect to Target Company</span>
+          <span class="section-title">Select Factory</span>
         </div>
         <p class="section-helper">
-          Link this new factory to an existing client or create a new one.
+          Choose the manufacturer factory location for this project.
         </p>
         <div class="form-field">
-          <div class="radio-group">
-            <label class="radio-option">
-              <input type="radio" name="target-mode" value="existing" [checked]="targetCompanyMode() === 'existing'"
-                (change)="targetCompanyMode.set('existing'); existingSubsidiaryId.set(null)" [disabled]="isSubmitting()" />
-              <span>Connect to Existing Client/Subsidiary</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="target-mode" value="new" [checked]="targetCompanyMode() === 'new'"
-                (change)="targetCompanyMode.set('new'); existingSubsidiaryId.set(null)" [disabled]="isSubmitting()" />
-              <span>Create New Target Company</span>
-            </label>
-          </div>
+          <label class="form-label" for="factory-select">Factory</label>
+          <ng-select id="factory-select" class="form-select-ng"
+            [items]="factoryOptions()"
+            bindLabel="label"
+            [clearable]="true"
+            [searchable]="true"
+            placeholder="Search for manufacturer - factory (city, country)..."
+            [disabled]="isSubmitting()"
+            (ngModelChange)="onFactorySelect($event)"
+            [ngModel]="selectedFactory()">
+          </ng-select>
         </div>
-        @if (targetCompanyMode() === 'existing') {
-        <div class="form-field">
-          <label class="form-label" for="target-company-select">Select Existing Client</label>
-          <div class="select-with-action">
-            <ng-select id="target-company-select" class="form-select-ng"
-              [items]="subsidiaryOptions()"
-              bindLabel="name"
-              bindValue="id"
-              [clearable]="true"
-              [searchable]="true"
-              placeholder="Search for an existing client..."
-              [disabled]="isSubmitting()"
-              (ngModelChange)="existingSubsidiaryId.set($event)"
-              [ngModel]="existingSubsidiaryId()">
-            </ng-select>
-            <button type="button" class="btn-compact btn-view-map" (click)="onViewOnMap()"
-              [disabled]="!existingSubsidiaryId() || isSubmitting()" title="View on map">
-              <span class="material-symbols-outlined">map</span>
-            </button>
-          </div>
+      </div>
+      }
+
+      <!-- Step 3: Project Details -->
+      @if (currentStep() === 3) {
+      <div class="connection-section" [class.disabled]="isSubmitting()">
+        <div class="section-header">
+          <span class="section-title">Project Details</span>
         </div>
-        } @else {
+        <p class="section-helper">
+          Enter the project name, assessment type, and status.
+        </p>
         <div class="form-field">
-          <label class="form-label" for="target-company-name">New Client Name</label>
-          <input type="text" id="target-company-name" class="form-input" placeholder="Enter new client's name..."
-            [value]="companyName()" (input)="companyName.set($any($event.target).value)"
+          <label class="form-label" for="project-name">Project Name</label>
+          <input type="text" id="project-name" class="form-input" placeholder="e.g., Nova - LE96 40FT"
+            [value]="projectName()" (input)="projectName.set($any($event.target).value)"
             [disabled]="isSubmitting()" />
         </div>
         <div class="form-field">
-          <label class="form-label" for="target-location">Client Location</label>
-          <input type="text" id="target-location" class="form-input" placeholder="Search for address or drop a pin..."
-            [value]="location()" (input)="location.set($any($event.target).value)" [disabled]="isSubmitting()" />
+          <label class="form-label" for="assessment-type">Assessment Type</label>
+          <ng-select id="assessment-type" class="form-select-ng"
+            [items]="projectTypes()"
+            [clearable]="true"
+            [searchable]="true"
+            placeholder="Select assessment type..."
+            [disabled]="isSubmitting()"
+            (ngModelChange)="assessmentType.set($event)"
+            [ngModel]="assessmentType()">
+          </ng-select>
         </div>
-        }
         <div class="form-field">
-          <label class="form-label">Client Operational Status</label>
-          <label class="sub-location-status-toggle" [title]="'Determines if this client is currently active on the map.'">
-            <input type="checkbox" [checked]="companyStatus() === 'ACTIVE'"
-              (change)="companyStatus.set($any($event.target).checked ? 'ACTIVE' : 'INACTIVE')"
+          <label class="form-label">Project Status</label>
+          <label class="sub-location-status-toggle" [title]="'Active projects appear on the map; Inactive do not.'">
+            <input type="checkbox" [checked]="projectStatus() === 'Active'"
+              (change)="projectStatus.set($any($event.target).checked ? 'Active' : 'Inactive')"
               [disabled]="isSubmitting()" />
             <span class="toggle-track"></span>
-            <span class="toggle-label">{{ companyStatus() }}</span>
+            <span class="toggle-label">{{ projectStatus() }}</span>
           </label>
         </div>
       </div>
       }
 
-      <!-- Step 3: Factory Locations -->
-      @if (currentStep() === 3) {
-      <div class="sub-locations-card" [class.disabled]="isSubmitting()">
-        <div class="sub-locations-header">
-          <span class="sub-locations-title">Add Factory Location(s)</span>
-          <span class="sub-locations-count">{{ subLocations().length }}</span>
-        </div>
-        <p class="section-helper">
-          Specify the physical factory sites for this client.
-        </p>
-        <div class="sub-locations-list">
-          @for (location of subLocations(); track $index) {
-          <div class="sub-location-row">
-            <div class="sub-location-left">
-              <span class="status-dot" [class]="getSubLocationStatusClass(location.status)"></span>
-              <div class="sub-location-text">
-                <span class="sub-location-name">{{ location.name }}</span>
-                <span class="sub-location-location">{{ location.location }}</span>
-              </div>
-            </div>
-            <div class="sub-location-actions">
-              <span class="sub-location-status-label" [class]="getSubLocationStatusClass(location.status)">
-                {{ getSubLocationStatusLabel(location.status) }}
-              </span>
-              <label class="sub-location-toggle" [title]="'A factory is active if it has at least one Open project.'">
-                <input type="checkbox" [checked]="location.status === 'ACTIVE'" [disabled]="isSubmitting()"
-                  (change)="toggleSubLocationStatus($index, $any($event.target).checked)" />
-                <span class="toggle-track"></span>
-              </label>
-              @if (subLocations().length > 1) {
-              <button type="button" class="icon-btn" aria-label="Remove factory" (click)="removeSubLocation($index)"
-                [disabled]="isSubmitting()">
-                <span class="material-symbols-outlined">delete</span>
-              </button>
-              }
-            </div>
-          </div>
-          }
-        </div>
-        <div class="sub-location-form">
-          <div class="sub-location-fields">
-            <input type="text" class="form-input sub-location-input" placeholder="e.g., Main Production Plant, Warehouse A"
-              [value]="subLocationName()" (input)="subLocationName.set($any($event.target).value)"
-              [disabled]="isSubmitting()" />
-            <input type="text" class="form-input sub-location-input" placeholder="Search for address or drop a pin..."
-              [value]="subLocationLocation()" (input)="subLocationLocation.set($any($event.target).value)"
-              [disabled]="isSubmitting()" />
-          </div>
-          <div class="sub-location-footer">
-            <label class="sub-location-status-toggle" [title]="'A factory is active if it has at least one Open project.'">
-              <input type="checkbox" [checked]="subLocationIsActive()"
-                (change)="subLocationIsActive.set($any($event.target).checked)" [disabled]="isSubmitting()" />
-              <span class="toggle-track"></span>
-              <span class="toggle-label">{{ subLocationIsActive() ? 'ACTIVE' : 'INACTIVE' }}</span>
-            </label>
-            <div class="sub-location-buttons">
-              <button type="button" class="btn-compact" (click)="addSubLocation()"
-                [disabled]="!canAddSubLocation() || isSubmitting()">
-                Add Another Factory Location
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      }
-
-      <!-- Step 4: Description and Logo -->
+      <!-- Step 4: Optional Location and Notes -->
       @if (currentStep() === 4) {
       <div class="form-field" [class.disabled]="isSubmitting()">
-        <label class="form-label" for="company-description">Subsidiary Description</label>
-        <textarea id="company-description" class="form-input form-textarea" placeholder="Enter a brief description of the subsidiary..."
-          [value]="description()" (input)="description.set($any($event.target).value)"
-          [disabled]="isSubmitting()"></textarea>
+        <label class="form-label" for="project-location">Location (Optional)</label>
+        <input type="text" id="project-location" class="form-input" placeholder="e.g., Winnipeg-Crookston (New Flyer)"
+          [value]="location()" (input)="location.set($any($event.target).value)"
+          [disabled]="isSubmitting()" />
       </div>
       <div class="form-field" [class.disabled]="isSubmitting()">
-        <label class="form-label" for="company-logo">Subsidiary Logo</label>
-        <div class="logo-upload-area" [class.has-logo]="logoPreview()" [class.disabled]="isSubmitting()">
-          @if (logoPreview()) {
-          <div class="logo-preview">
-            <img [src]="logoPreview()" alt="Logo preview" />
-            <button type="button" class="remove-logo-btn" (click)="removeLogo()" aria-label="Remove logo"
-              [disabled]="isSubmitting()">
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </div>
-          } @else {
-          <input type="file" id="company-logo" class="logo-file-input"
-            accept=".svg,.png,.jpg,.jpeg,.gif,.webp,image/svg+xml,image/png,image/jpeg,image/gif,image/webp"
-            (change)="onFileSelected($event)" [disabled]="isSubmitting()" />
-          <label for="company-logo" class="logo-upload-label">
-            <span class="upload-icon">
-              <span class="material-symbols-outlined">add</span>
-            </span>
-            <span class="upload-text">Drag and drop or click to upload</span>
-            <span class="upload-hint">SVG, PNG, JPG, GIF, or WEBP</span>
-          </label>
-          }
-        </div>
+        <label class="form-label" for="project-notes">Notes (Optional)</label>
+        <textarea id="project-notes" class="form-input form-textarea" placeholder="Additional notes..."
+          [value]="notes()" (input)="notes.set($any($event.target).value)"
+          [disabled]="isSubmitting()"></textarea>
       </div>
       }
 
@@ -289,7 +200,7 @@
         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         Saving...
         } @else {
-        Execute Sync
+        Add Project
         }
       </button>
       }

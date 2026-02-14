@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, delay, map, switchMap, catchError } from 'rxjs';
+import { Observable, of, delay, map, switchMap, catchError, Subject, startWith } from 'rxjs';
 import { Project, ProjectStatus } from '../models/project.model';
 import { Client } from '../models/client.model';
 import { ProjectRoute } from '../models/fluorescence-map.interface';
@@ -74,6 +74,18 @@ export interface ApiFactory {
 export interface FactoryIdMapping {
   factoryIdToWarRoom: Record<string, string>;
   aliases?: Record<string, string>;
+}
+
+/** Factory option for Add Project modal dropdown */
+export interface FactoryOption {
+  factoryId: number;
+  manufacturerId: number;
+  manufacturerName: string;
+  label: string;
+  factory_location_name: string;
+  city?: string | null;
+  state_province?: string | null;
+  country?: string | null;
 }
 
 function normalizeApiResponse(raw: unknown): ApiProject[] {
@@ -212,6 +224,51 @@ export class ProjectService {
   private readonly FACTORIES_PATH = 'assets/data/factories.json';
   private readonly FACTORY_MAPPING_PATH = 'assets/data/factory-id-mapping.json';
 
+  private readonly projectsRefresh$ = new Subject<void>();
+
+  /** In-memory cache for projects added when useProjectApi is false (JSON mode) */
+  private addedProjectsCache: Project[] = [];
+
+  getFactoriesWithManufacturers(): Observable<FactoryOption[]> {
+    return this.http
+      .get<{ manufacturers?: ApiManufacturer[]; factories?: ApiFactory[] }>(this.FACTORIES_PATH)
+      .pipe(
+        map((data) => {
+          const manufacturers = data.manufacturers ?? [];
+          const factories = data.factories ?? [];
+          return factories.map((f) => {
+            const mfr = manufacturers.find((m) => m.manufacturer_id === f.manufacturer_id);
+            const mfrName = mfr?.manufacturer_name ?? 'Unknown';
+            const parts = [f.city, f.country].filter(Boolean);
+            const locSuffix = parts.length > 0 ? ` (${parts.join(', ')})` : '';
+            const label = `${mfrName} - ${f.factory_location_name}${locSuffix}`;
+            return {
+              factoryId: f.factory_id,
+              manufacturerId: f.manufacturer_id,
+              manufacturerName: mfrName,
+              label,
+              factory_location_name: f.factory_location_name,
+              city: f.city,
+              state_province: f.state_province,
+              country: f.country,
+            } as FactoryOption;
+          });
+        }),
+        catchError(() => of([]))
+      );
+  }
+
+  refreshProjects(): void {
+    this.projectsRefresh$.next();
+  }
+
+  getProjectsWithRefresh(filters?: ProjectFilters): Observable<Project[]> {
+    return this.projectsRefresh$.pipe(
+      startWith(void 0),
+      switchMap(() => this.getProjects(filters))
+    );
+  }
+
   private loadFactoryMapping(): Observable<FactoryIdMapping> {
     return this.http.get<FactoryIdMapping>(this.FACTORY_MAPPING_PATH).pipe(
       catchError((err) => {
@@ -262,7 +319,28 @@ export class ProjectService {
   getProjects(filters?: ProjectFilters): Observable<Project[]> {
     if (!environment.useProjectApi) {
       return this.clientService.getClients().pipe(
-        switchMap((clients) => this.loadProjectsFromJson(clients, filters))
+        switchMap((clients) =>
+          this.loadFactoryMapping().pipe(
+            switchMap((mapping) =>
+              this.loadProjectsFromJson(clients, filters).pipe(
+                map((jsonProjects) => {
+                  const factoryIdToWarRoom = mapping.factoryIdToWarRoom ?? {};
+                  const merged = [...jsonProjects];
+                  const cachedFiltered = applyFilters(this.addedProjectsCache, filters);
+                  for (const p of cachedFiltered) {
+                    if (merged.some((m) => String(m.id) === String(p.id))) continue;
+                    const resolved = { ...p };
+                    if (resolved.manufacturerLocationId && factoryIdToWarRoom[resolved.manufacturerLocationId]) {
+                      resolved.manufacturerLocationId = factoryIdToWarRoom[resolved.manufacturerLocationId];
+                    }
+                    merged.push(resolved);
+                  }
+                  return merged;
+                })
+              )
+            )
+          )
+        )
       );
     }
 
@@ -309,10 +387,20 @@ export class ProjectService {
             .map((p) => (p.project_id ?? p.id) as number | string)
             .filter((v): v is number => typeof v === 'number' || !isNaN(parseInt(String(v), 10)))
             .map((v) => (typeof v === 'number' ? v : parseInt(String(v), 10)) || 0);
-          const nextId = ids.length > 0 ? Math.max(0, ...ids) + 1 : 1;
-          return { ...project, id: nextId } as Project;
+          const cacheIds = this.addedProjectsCache
+            .map((p) => (typeof p.id === 'number' ? p.id : parseInt(String(p.id), 10)) || 0)
+            .filter((v) => !isNaN(v));
+          const allIds = [...ids, ...cacheIds];
+          const nextId = allIds.length > 0 ? Math.max(0, ...allIds) + 1 : 1;
+          const newProject = { ...project, id: nextId } as Project;
+          this.addedProjectsCache.push(newProject);
+          return newProject;
         }),
-        catchError(() => of({ ...project, id: 1 } as Project)),
+        catchError(() => {
+          const newProject = { ...project, id: Date.now() } as Project;
+          this.addedProjectsCache.push(newProject);
+          return of(newProject);
+        }),
         delay(100)
       );
     }
@@ -399,7 +487,7 @@ export class ProjectService {
   }
 
   getProjectTypes(): Observable<string[]> {
-    return this.getProjects({}).pipe(
+    return this.getProjectsWithRefresh({}).pipe(
       map((projects) =>
         [...new Set(projects.map((p) => p.assessmentType).filter((v): v is string => !!v))].sort()
       )
@@ -407,7 +495,7 @@ export class ProjectService {
   }
 
   getManufacturers(): Observable<string[]> {
-    return this.getProjects({}).pipe(
+    return this.getProjectsWithRefresh({}).pipe(
       map((projects) =>
         [...new Set(projects.map((p) => p.manufacturer).filter((v): v is string => !!v))].sort()
       )
@@ -415,7 +503,7 @@ export class ProjectService {
   }
 
   getClientOptionsWithCounts(): Observable<FilterOptionWithCount[]> {
-    return this.getProjects({}).pipe(
+    return this.getProjectsWithRefresh({}).pipe(
       map((projects) => {
         const byId = new Map<string, { name: string; count: number }>();
         for (const p of projects) {
@@ -436,7 +524,7 @@ export class ProjectService {
   }
 
   getManufacturerOptionsWithCounts(): Observable<FilterOptionWithCount[]> {
-    return this.getProjects({}).pipe(
+    return this.getProjectsWithRefresh({}).pipe(
       map((projects) => {
         const byId = new Map<string, number>();
         for (const p of projects) {
@@ -451,7 +539,7 @@ export class ProjectService {
   }
 
   getProjectTypeOptionsWithCounts(): Observable<FilterOptionWithCount[]> {
-    return this.getProjects({}).pipe(
+    return this.getProjectsWithRefresh({}).pipe(
       map((projects) => {
         const byId = new Map<string, number>();
         for (const p of projects) {

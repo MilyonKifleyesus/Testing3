@@ -312,9 +312,8 @@
       }
       @if (addCompanyModalVisible()) {
       <app-add-company-modal #addCompanyModalRef [isVisible]="true" [useMapPositioning]="true"
-        [subsidiaries]="subsidiaries()"
-        (companyAdded)="onCompanyAdded($event)" (close)="onAddCompanyModalClose()"
-        (viewOnMap)="onAddCompanyViewOnMap($event)" />
+        [clients]="clientsSignal()"
+        (projectAdded)="onProjectAdded($event)" (close)="onAddCompanyModalClose()" />
       }
     </div>
 
@@ -387,7 +386,8 @@
             (factoryDeleted)="onFactoryDeleted($event)"></app-war-room-activity-log>
           } @else {
           <app-war-room-clients-panel [clientsWithProjects]="clientsWithProjects()" [editMode]="activityLogEditMode()"
-            [selectedEntity]="selectedEntity()" (clientSelected)="onClientSelected($event)"
+            [selectedEntity]="selectedEntity()" [projectsRefreshTrigger]="projectRoutesRefreshTrigger()"
+            (clientSelected)="onClientSelected($event)"
             (projectSelected)="onProjectHudSelected($event)"
             (saveComplete)="onClientPanelSaveComplete()"></app-war-room-clients-panel>
           }

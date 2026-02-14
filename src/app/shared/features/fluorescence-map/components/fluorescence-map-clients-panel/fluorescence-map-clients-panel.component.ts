@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ProjectService } from '../../../../services/project.service';
@@ -31,6 +31,8 @@ export class WarRoomClientsPanelComponent {
   clientsWithProjects = input.required<ClientWithProjects[]>();
   editMode = input<boolean>(false);
   selectedEntity = input<{ level?: string; id?: string } | null>(null);
+  /** When this changes, client project caches are invalidated (e.g. after adding a project) */
+  projectsRefreshTrigger = input<number>(0);
 
   clientSelected = output<string>();
   projectSelected = output<Project>();
@@ -38,6 +40,13 @@ export class WarRoomClientsPanelComponent {
 
   readonly expandedClientIds = signal<Set<string>>(new Set());
   readonly projectsByClientId = signal<Map<string, Project[]>>(new Map());
+
+  constructor() {
+    effect(() => {
+      const _trigger = this.projectsRefreshTrigger();
+      if (_trigger > 0) this.projectsByClientId.set(new Map());
+    });
+  }
   readonly projectDrafts = signal<
     Map<string, { projectName: string; location: string; status: ProjectStatus }>
   >(new Map());

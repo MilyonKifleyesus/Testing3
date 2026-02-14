@@ -15,7 +15,7 @@ import { WarRoomHubStatusComponent } from './components/fluorescence-map-hub-sta
 import { WarRoomProjectHudComponent } from './components/fluorescence-map-project-hud/fluorescence-map-project-hud.component';
 import { WarRoomContextPanelComponent } from './components/fluorescence-map-context-panel/fluorescence-map-context-panel.component';
 import { WarRoomCommandMenuComponent, CommandAction } from './components/fluorescence-map-command-menu/fluorescence-map-command-menu.component';
-import { AddCompanyModalComponent, CompanyFormData } from './components/add-company-modal/add-company-modal.component';
+import { AddCompanyModalComponent, ProjectFormData } from './components/add-company-modal/add-company-modal.component';
 import { ToastrService } from 'ngx-toastr';
 import { OperationalStatus } from '../../../shared/models/fluorescence-map.interface';
 
@@ -113,7 +113,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     return routes.filter((route) => route.projectId === selectedId);
   });
 
-  readonly projectsSignal = toSignal(this.projectService.getProjects(), { initialValue: [] as Project[] });
+  readonly projectsSignal = toSignal(this.projectService.getProjectsWithRefresh(), { initialValue: [] as Project[] });
   readonly projectStatusByFactoryId = computed(() => {
     const projects = this.projectsSignal();
     const map = new Map<string, 'active' | 'inactive' | 'none'>();
@@ -1577,393 +1577,52 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     });
   }
 
-  async onCompanyAdded(formData: CompanyFormData): Promise<void> {
+  onProjectAdded(formData: ProjectFormData): void {
     if (this.addCompanyInFlight) {
       return;
     }
 
-    const mode = formData.targetCompanyMode ?? 'new';
-    const subLocations = (formData.subLocations ?? []).filter(sl => sl.name?.trim() && sl.location?.trim());
-
-    if (mode === 'existing') {
-      if (!formData.existingSubsidiaryId) {
-        this.addCompanyModalRef()?.handleError('Please select an existing client.');
-        return;
-      }
-      if (subLocations.length === 0) {
-        this.addCompanyModalRef()?.handleError('At least one factory location is required.');
-        return;
-      }
-    } else {
-      if (!formData.companyName?.trim() || !formData.location?.trim()) {
-        this.addCompanyModalRef()?.handleError('Company name and location are required.');
-        return;
-      }
-    }
-
-    try {
-      this.addCompanyInFlight = true;
-
-      if (mode === 'existing') {
-        await this.handleAddFactoriesToExisting(formData);
-      } else {
-        await this.handleAddNewSubsidiary(formData, subLocations);
-      }
-    } catch (error) {
-      console.error('Critical error adding company:', error);
-      this.addCompanyModalRef()?.handleError('Failed to add subsidiary. Please try again.');
-      this.toastr.error(error instanceof Error ? error.message : 'A fatal system error occurred during registration.', 'REGISTRATION FAILED', {
-        timeOut: 8000,
-        closeButton: true,
-        disableTimeOut: true
-      });
-    } finally {
-      this.addCompanyInFlight = false;
-    }
-  }
-
-  private async handleAddFactoriesToExisting(formData: CompanyFormData): Promise<void> {
-    const subsidiaryId = formData.existingSubsidiaryId!;
-    const subsidiary = this.subsidiaries().find((s) => s.id === subsidiaryId);
-    if (!subsidiary) {
-      throw new Error('Selected subsidiary not found.');
-    }
-    const parentGroupId = subsidiary.parentGroupId;
-    const companyName = subsidiary.name;
-    const subLocations = (formData.subLocations ?? []).filter(sl => sl.name?.trim() && sl.location?.trim());
-    const logoValue = typeof formData.logo === 'string' ? formData.logo : undefined;
-
-    const locationPromises = subLocations.map((sl, idx) =>
-      this.warRoomService.parseLocationInput(sl.location).then(c => ({ id: `sub-${idx}`, coords: c }))
-    );
-    if (formData.sourceLocation?.trim()) {
-      locationPromises.push(this.warRoomService.parseLocationInput(formData.sourceLocation).then(c => ({ id: 'source', coords: c })));
-    }
-    const parsedLocations = await Promise.all(locationPromises);
-    const locationMap = new Map(parsedLocations.map(l => [l.id, l.coords]));
-
-    const firstFactoryCoords = locationMap.get('sub-0') || { latitude: 0, longitude: 0 };
-    const baseCoords = (firstFactoryCoords.latitude === 0 && firstFactoryCoords.longitude === 0)
-      ? (subsidiary.factories[0]?.coordinates ?? { latitude: 45.5, longitude: -73.5 })
-      : firstFactoryCoords;
-
-    let firstFactoryId: string | null = null;
-
-    for (const [index, subLocation] of subLocations.entries()) {
-      let subCoords = locationMap.get(`sub-${index}`) || { latitude: 0, longitude: 0 };
-      if (subCoords.latitude === 0 && subCoords.longitude === 0 && !this.isCoordinateInput(subLocation.location)) {
-        subCoords = this.buildFallbackCoordinates(subLocation.location, baseCoords, index);
-      }
-      const { city: subCity, country: subCountry, fullLocation: subFullLocation } = this.parseLocationParts(subLocation.location);
-      const subFactoryId = this.warRoomService.generateManufacturerLocationId(companyName, subLocation.name || '', subCity || subLocation.location);
-      if (index === 0) firstFactoryId = subFactoryId;
-      const factoryName = subLocation.name || `${companyName} - ${subCity}`;
-      const factoryStatus = this.mapSubLocationStatusToNode(subLocation.status);
-
-      const newFactory: FactoryLocation = {
-        id: subFactoryId,
-        parentGroupId,
-        subsidiaryId,
-        name: factoryName,
-        city: subCity || 'Unknown',
-        country: subCountry,
-        coordinates: subCoords,
-        status: factoryStatus,
-        syncStability: factoryStatus === 'INACTIVE' ? 72 : 96,
-        assets: 0,
-        incidents: 0,
-        description: formData.description?.trim() || undefined,
-        logo: logoValue,
-      };
-
-      this.warRoomService.addFactory(newFactory);
-
-      const logStatus = this.mapSubLocationStatusToLog(subLocation.status);
-      this.warRoomService.addActivityLog({
-        id: `log-${subFactoryId}`,
-        timestamp: new Date(),
-        status: logStatus,
-        title: `${companyName.toUpperCase()} | ${factoryName.toUpperCase()}`,
-        description: logStatus === 'WARNING' ? 'INACTIVE // DISPATCHED' : 'ACTIVE',
-        parentGroupId,
-        subsidiaryId,
-        factoryId: subFactoryId,
-        location: subFullLocation,
-        logo: logoValue,
-      });
-    }
-
-    const sourceLocationData = locationMap.get('source');
-    const firstSubCoords = subLocations.length > 0
-      ? (locationMap.get('sub-0') || this.buildFallbackCoordinates(subLocations[0].location, baseCoords, 0))
-      : null;
-    if (sourceLocationData && firstSubCoords && firstFactoryId && this.isValidCoordinates(sourceLocationData) && this.isValidCoordinates(firstSubCoords)) {
-      this.warRoomService.addTransitRoute({
-        id: `route-src-${firstFactoryId}-${Date.now()}`,
-        from: `source-${firstFactoryId}`,
-        to: firstFactoryId,
-        fromCoordinates: sourceLocationData,
-        toCoordinates: firstSubCoords,
-        animated: true,
-        strokeColor: '#6ee755',
-        strokeWidth: 2,
-      });
-    }
-
-    this.resetFilters();
-    this.warRoomService.setFactoryFilterSubsidiaryId(null);
-    this.addCompanyModalRef()?.handleSuccess(
-      `Successfully added ${subLocations.length} factory location(s) to ${companyName}.`
-    );
-    this.toastr.success(`Added ${subLocations.length} factory location(s) to ${companyName}.`, 'BOOTSTRAP COMPLETE', {
-      timeOut: 5000,
-      progressBar: true,
-      closeButton: true
-    });
-    this.warRoomService.setMapViewMode('factory');
-    if (firstFactoryId) {
-      this.warRoomService.selectEntity({ level: 'factory', id: firstFactoryId, parentGroupId, subsidiaryId, factoryId: firstFactoryId });
-      this.warRoomService.requestPanToEntity(firstFactoryId);
-    }
-    this.showPanel('log');
-    this.announce(`Added ${subLocations.length} factory location(s) to ${companyName}.`);
-    this.addCompanyModalRef()?.closeAfterSuccess();
-  }
-
-  private async handleAddNewSubsidiary(formData: CompanyFormData, subLocations: { name: string; location: string; status: 'ACTIVE' | 'INACTIVE' }[]): Promise<void> {
-    const locationPromises: Promise<{ id: string, coords: { latitude: number, longitude: number } | null }>[] = [
-      this.warRoomService.parseLocationInput(formData.location).then(c => ({ id: 'main', coords: c })),
-    ];
-
-    if (formData.sourceLocation?.trim()) {
-      locationPromises.push(this.warRoomService.parseLocationInput(formData.sourceLocation).then(c => ({ id: 'source', coords: c })));
-    }
-
-    subLocations.forEach((sl, idx) => {
-      locationPromises.push(this.warRoomService.parseLocationInput(sl.location).then(c => ({ id: `sub-${idx}`, coords: c })));
-    });
-
-    const parsedLocations = await Promise.all(locationPromises);
-    const locationMap = new Map(parsedLocations.map(l => [l.id, l.coords]));
-
-    let locationData = locationMap.get('main') || { latitude: 0, longitude: 0 };
-    if ((locationData.latitude === 0 && locationData.longitude === 0) && !this.isCoordinateInput(formData.location)) {
-      locationData = this.buildFallbackCoordinates(formData.location, null, 0);
-    }
-
-    const parentGroupId = this.selectedEntity()?.parentGroupId ||
-      (this.selectedEntity()?.level === 'parent' ? this.selectedEntity()?.id : null) ||
-      this.parentGroups()[0]?.id || 'global-group';
-
-    const companyName = formData.companyName.trim();
-    const subsidiaryId = this.warRoomService.generateSubsidiaryId(companyName);
-    const factoryId = this.warRoomService.generateFactoryId(`${companyName}-${formData.location}`);
-
-    const { city, country, fullLocation } = this.parseLocationParts(formData.location);
-    const hubCode = this.generateHubCode(companyName);
-    const logoValue = typeof formData.logo === 'string' ? formData.logo : undefined;
-
-    const sourceLocationData = locationMap.get('source');
-    if (sourceLocationData && this.isValidCoordinates(sourceLocationData)) {
-      this.warRoomService.addTransitRoute({
-        id: `route-src-${factoryId}-${Date.now()}`,
-        from: `source-${factoryId}`,
-        to: factoryId,
-        fromCoordinates: sourceLocationData,
-        toCoordinates: locationData,
-        animated: true,
-        strokeColor: '#6ee755',
-        strokeWidth: 2,
-      });
-    }
-
-    const newFactory: FactoryLocation = {
-      id: factoryId,
-      parentGroupId,
-      subsidiaryId,
-      name: `${companyName} - ${city}`,
-      city: city || 'Unknown',
-      country,
-      coordinates: locationData,
-      status: formData.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
-      syncStability: 98,
-      assets: 0,
-      incidents: 0,
-      description: formData.description?.trim() || undefined,
-      logo: logoValue,
+    const status = formData.status === 'Active' ? 'Open' : 'Closed';
+    const project = {
+      projectName: formData.projectName,
+      clientId: formData.clientId,
+      clientName: formData.clientName,
+      assessmentType: formData.assessmentType,
+      manufacturerLocationId: String(formData.factoryId),
+      location: formData.location,
+      manufacturer: formData.manufacturerName,
+      status: status as 'Open' | 'Closed',
     };
 
-    const additionalFactories: FactoryLocation[] = [];
-    const additionalLogs: ActivityLog[] = [];
-
-    for (const [index, subLocation] of subLocations.entries()) {
-        let subCoords = locationMap.get(`sub-${index}`) || { latitude: 0, longitude: 0 };
-        if (subCoords.latitude === 0 && subCoords.longitude === 0 && !this.isCoordinateInput(subLocation.location)) {
-          subCoords = this.buildFallbackCoordinates(subLocation.location, locationData, index);
-        }
-
-        const { city: subCity, country: subCountry, fullLocation: subFullLocation } = this.parseLocationParts(subLocation.location);
-        const subFactoryId = this.warRoomService.generateManufacturerLocationId(companyName, subLocation.name || '', subCity || subLocation.location);
-        const factoryName = subLocation.name || `${companyName} - ${subCity}`;
-        const factoryStatus = this.mapSubLocationStatusToNode(subLocation.status);
-
-        const subFactory: FactoryLocation = {
-          id: subFactoryId,
-          parentGroupId,
-          subsidiaryId,
-          name: factoryName,
-          city: subCity || 'Unknown',
-          country: subCountry,
-          coordinates: subCoords,
-          status: factoryStatus,
-          syncStability: factoryStatus === 'INACTIVE' ? 72 : 96,
-          assets: 0,
-          incidents: 0,
-          description: formData.description?.trim() || undefined,
-          logo: logoValue,
-        };
-
-        additionalFactories.push(subFactory);
-
-        // Connection to Hub
-        if (this.isValidCoordinates(subCoords) && this.isValidCoordinates(locationData)) {
-          this.warRoomService.addTransitRoute({
-            id: `route-hub-${subFactoryId}-${Date.now()}`,
-            from: subFactoryId,
-            to: factoryId,
-            fromCoordinates: subCoords,
-            toCoordinates: locationData,
-            animated: true,
-            strokeColor: '#0ea5e9',
-            strokeWidth: 1.5,
-            dashArray: '3,3',
-          });
-        }
-
-        const logStatus = this.mapSubLocationStatusToLog(subLocation.status);
-        additionalLogs.push({
-          id: `log-${subFactoryId}`,
-          timestamp: new Date(),
-          status: logStatus,
-          title: `${companyName.toUpperCase()} | ${factoryName.toUpperCase()}`,
-          description: logStatus === 'WARNING' ? 'INACTIVE // DISPATCHED' : 'ACTIVE',
-          parentGroupId,
-          subsidiaryId,
-          factoryId: subFactoryId,
-          location: subFullLocation,
-          logo: logoValue,
+    this.addCompanyInFlight = true;
+    this.projectService.addProject(project).subscribe({
+      next: () => {
+        this.projectService.refreshProjects();
+        this.projectRoutesRefreshTrigger.update((n) => n + 1);
+        this.addCompanyModalRef()?.handleSuccess(
+          `Successfully added project "${formData.projectName}" for ${formData.clientName}.`
+        );
+        this.toastr.success(`Project "${formData.projectName}" added.`, 'PROJECT REGISTERED', {
+          timeOut: 5000,
+          progressBar: true,
+          closeButton: true,
         });
-      }
-
-      // 5. Finalize Subsidiary
-      const newSubsidiary: SubsidiaryCompany = {
-        id: subsidiaryId,
-        parentGroupId,
-        name: companyName.toUpperCase(),
-        status: formData.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
-        metrics: { assetCount: 0, incidentCount: 0, syncStability: 98 },
-        factories: [newFactory, ...additionalFactories],
-        hubs: [{
-          id: `hub-${subsidiaryId}-${Date.now()}`,
-          code: hubCode,
-          companyId: subsidiaryId,
-          companyName: companyName.toUpperCase(),
-          status: 'ACTIVE',
-          capacity: '100% CAP',
-          capacityPercentage: 100,
-          statusColor: 'text-tactical-green',
-          capColor: 'text-tactical-green',
-        }],
-        quantumChart: { dataPoints: [85, 88, 90, 92, 89, 91], highlightedIndex: 3 },
-        logo: logoValue,
-        description: formData.description?.trim() || undefined,
-        location: fullLocation || undefined,
-      };
-
-      this.warRoomService.addSubsidiary(newSubsidiary);
-
-      // Sync to CompanyLocationService for address management and project linking
-      this.companyLocationService.addCompany({
-        name: companyName,
-        description: formData.description?.trim(),
-      }).subscribe({
-        next: (company) => {
-          this.companyLocationService.addLocation({
-            companyId: company.id,
-            fullStreetAddress: fullLocation || `${city}, ${country}`,
-            city: city || 'Unknown',
-            country: country || undefined,
-            coordinates: this.isValidCoordinates(locationData) ? locationData : undefined,
-            manufacturerLocationId: factoryId,
-          }).subscribe();
-          for (const [index, subLocation] of subLocations.entries()) {
-            const { city: subCity, country: subCountry, fullLocation: subFullLocation } = this.parseLocationParts(subLocation.location);
-            const subFactory = additionalFactories[index];
-            if (subFactory) {
-              this.companyLocationService.addLocation({
-                companyId: company.id,
-                fullStreetAddress: subFullLocation || `${subCity}, ${subCountry}`,
-                city: subCity || 'Unknown',
-                country: subCountry || undefined,
-                manufacturerLocationId: subFactory.id,
-              }).subscribe();
-            }
-          }
-        },
-      });
-
-      this.warRoomService.addActivityLog({
-        id: `log-${factoryId}`,
-        timestamp: new Date(),
-        status: 'ACTIVE',
-        title: `${companyName.toUpperCase()} | ${city.toUpperCase()}`,
-        description: formData.description?.trim() || 'SYSTEM INITIALIZED',
-        parentGroupId,
-        subsidiaryId,
-        factoryId,
-        location: fullLocation,
-        logo: logoValue,
-      });
-      additionalLogs.forEach(log => this.warRoomService.addActivityLog(log));
-
-      // Reset filters to show new data
-      this.resetFilters();
-      this.warRoomService.setFactoryFilterSubsidiaryId(null);
-
-      // Signal success to modal
-      this.addCompanyModalRef()?.handleSuccess(
-        `Successfully connected ${formData.companyName} with ${1 + (formData.subLocations?.length || 0)} locations.`
-      );
-
-      // Show success notification
-      const totalLocations = 1 + (formData.subLocations?.length || 0);
-      this.toastr.success(`Successfully connected ${formData.companyName} with ${totalLocations} locations.`, 'BOOTSTRAP COMPLETE', {
-        timeOut: 5000,
-        progressBar: true,
-        closeButton: true
-      });
-
-      this.warRoomService.setMapViewMode('factory');
-      this.warRoomService.selectEntity({ level: 'factory', id: factoryId, parentGroupId, subsidiaryId, factoryId });
-      this.warRoomService.requestPanToEntity(factoryId);
-      this.showPanel('log');
-
-      this.announce('Company ' + formData.companyName + ' added successfully.');
-
-      // Delayed close
-      this.addCompanyModalRef()?.closeAfterSuccess();
-  }
-
-  private generateHubCode(companyName: string): string {
-    const words = companyName.toUpperCase().split(/\s+/);
-    if (words.length >= 2) {
-      const firstChar = words[0][0] ?? '';
-      const secondWord = words[1];
-      const secondChar = secondWord.charAt(0) ?? '';
-      const thirdChar = secondWord.length > 1 ? secondWord.charAt(1) : secondWord.charAt(0);
-      return (firstChar + secondChar + thirdChar).substring(0, 3);
-    }
-    return companyName.toUpperCase().substring(0, 3).padEnd(3, 'X');
+        this.addCompanyModalRef()?.closeAfterSuccess();
+        this.announce(`Project ${formData.projectName} added.`);
+      },
+      error: (error) => {
+        console.error('Critical error adding project:', error);
+        this.addCompanyModalRef()?.handleError('Failed to add project. Please try again.');
+        this.toastr.error(
+          error instanceof Error ? error.message : 'A fatal system error occurred.',
+          'REGISTRATION FAILED',
+          { timeOut: 8000, closeButton: true, disableTimeOut: true }
+        );
+      },
+      complete: () => {
+        this.addCompanyInFlight = false;
+      },
+    });
   }
 
   private announce(message: string): void {

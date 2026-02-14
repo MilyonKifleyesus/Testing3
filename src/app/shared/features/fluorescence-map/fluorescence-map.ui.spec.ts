@@ -9,6 +9,7 @@ import { WarRoomService } from '../../../shared/services/fluorescence-map.servic
 import { WarRoomRealtimeService } from '../../../shared/services/fluorescence-map-realtime.service';
 import { ToastrService } from 'ngx-toastr';
 import { AddCompanyModalComponent } from './components/add-company-modal/add-company-modal.component';
+import { getFirstClient, getFirstFactoryOption } from '../../testing/test-data';
 import { ActivityLog, FactoryLocation, ParentGroup, SubsidiaryCompany } from '../../../shared/models/fluorescence-map.interface';
 
 describe('WarRoomComponent UI (responsive + a11y)', () => {
@@ -233,13 +234,12 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
     expect(modalOverlay).toBeTruthy();
 
     const modalComponent = fixture.debugElement.query(By.directive(AddCompanyModalComponent)).componentInstance as AddCompanyModalComponent;
-    const overflowLocations = Array.from({ length: 18 }).map((_, index) => ({
-      name: `Site ${index + 1}`,
-      location: `Location ${index + 1}`,
-      status: 'ACTIVE' as const,
-    }));
-    modalComponent.subLocations.set(overflowLocations);
-    modalComponent.description.set('Long description '.repeat(40));
+    modalComponent.clientId.set(getFirstClient().id);
+    modalComponent.selectedFactory.set(getFirstFactoryOption());
+    modalComponent.projectName.set('Test Project');
+    modalComponent.assessmentType.set('New Build');
+    modalComponent.currentStep.set(4);
+    modalComponent.notes.set('Long notes '.repeat(40));
     fixture.detectChanges();
 
     const modalContainer = modalOverlay.querySelector('.modal-container') as HTMLElement;
