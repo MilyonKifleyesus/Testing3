@@ -4,7 +4,7 @@ import * as chartData from '../../../shared/data/dashboard';
 import * as busPulseData from '../../../shared/data/bus-pulse-dashboard';
 import { defaultClientProfile } from '../../../shared/data/client-profiles-dashboard';
 import { clientProjects, clientVehicles } from '../../../shared/data/client-projects-vehicles';
-import { projectStats, getProjectStats, getProjectVehicleStats } from '../../../shared/data/client-tickets-assets';
+import { projectStats } from '../../../shared/data/client-tickets-assets';
 import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { NgCircleProgressModule } from 'ng-circle-progress';
@@ -13,19 +13,15 @@ import { SpkApexChartsComponent } from '../../../@spk/reusable-charts/spk-apex-c
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-
-// ========== Data Model: Universal Widget Contract ==========
-// Each widget has a unique ID, title, and flexible content type
-export interface DashboardWidget {
-  id: string;                    // Unique identifier for the widget
-  title: string;                 // Display title
-  subtitle: string;              // Description/subtitle
-  type: 'chart' | 'stat' | 'gauge' | 'treemap' | 'heatmap' | 'timeline' | 'bar'; // Content type
-  chartOptions?: any;            // Chart configuration (flexible placeholder)
-  width: number;                 // Grid columns (1-12)
-  height: number;                // Height in pixels
-  order: number;                 // Display order
-}
+import { AuthService } from '../../../shared/services/auth.service';
+import { ClientDashboardService } from '../../../shared/services/client-dashboard.service';
+import {
+  ClientDashboardResponse,
+  DashboardWidget,
+  ProjectStats,
+  RecentActivity,
+  TicketsByStatusData,
+} from '../../../shared/models/client-dashboard.models';
 
 const DEFAULT_WIDGET_LAYOUT: Array<Pick<DashboardWidget, 'id' | 'width' | 'height' | 'order'>> = [
   { id: 'widget-1', width: 4, height: 400, order: 1 },
@@ -67,10 +63,13 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     showFilters = false; // Controls visibility of filter dropdowns
 
     ngOnInit(): void {
+        this.applyCurrentUserProfile();
       this.applyFilters();
       this.initializeWidgets();
       this.loadLayoutFromStorage();
       this.filterProjects();
+      this.loadDashboardData();
+      this.logSupplementalApiData();
       // Add global mouse event listeners for resize
       document.addEventListener('mousemove', this.onMouseMove.bind(this));
       document.addEventListener('mouseup', this.onMouseUp.bind(this));
@@ -94,6 +93,8 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   // This is the "brain" that manages all widgets
   // Scoped only to this component (not global)
   widgets: DashboardWidget[] = [];
+
+  private projectStatsData: ProjectStats[] = projectStats;
   
   // Local storage key for persistence
   private readonly STORAGE_KEY = 'buspulse_client_dashboard_layout';
@@ -112,7 +113,11 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   // Activities Modal state
   showActivitiesModal: boolean = false;
 
-  constructor(private modalService: NgbModal) {
+  constructor(
+    private modalService: NgbModal,
+    private authService: AuthService,
+    private dashboardService: ClientDashboardService,
+  ) {
     // Listen for ESC key to close fullscreen
     document.addEventListener('keydown', (event: KeyboardEvent) => {
       if (event.key === 'Escape' && this.fullscreenWidgetId) {
@@ -165,7 +170,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   }
 
   // Dynamic stats based on selected project
-  currentProjectStats = getProjectStats('all');
+  currentProjectStats: ProjectStats = projectStats[0];
 
   private observeChartContainers(): void {
     // Trigger chart redraw after DOM updates
@@ -332,6 +337,69 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     ];
 
     this.widgets = defaultWidgets;
+  }
+
+  private loadDashboardData(): void {
+    const clientId = this.authService.currentUserValue?.clientId ?? 0;
+
+    console.log('Client dashboard clientId:', clientId, this.authService.currentUserValue);
+
+    this.dashboardService.getClientDashboard(clientId).subscribe({
+      next: (response) => {
+        this.applyDashboardResponse(response);
+      },
+      error: (error) => {
+        console.error('Failed to load client dashboard data:', error);
+      }
+    });
+  }
+
+  private applyDashboardResponse(response: ClientDashboardResponse): void {
+    if (response.clientProfile) {
+      this.clientProfile = response.clientProfile;
+    }
+
+    this.applyCurrentUserProfile();
+
+    if (response.filters?.projects?.length) {
+      this.projects = response.filters.projects;
+      this.filteredProjects = this.projects;
+      this.filteredProjectsForFilter = this.projects.filter(p => p.id !== 'all');
+    }
+
+    if (response.filters?.vehicles?.length) {
+      this.vehicles = response.filters.vehicles;
+    }
+
+    if (response.projectStats?.length) {
+      this.projectStatsData = response.projectStats;
+      this.currentProjectStats = this.getProjectStatsByProjectId(this.selectedProject);
+    }
+
+    if (response.ticketsByStatus) {
+      this.ticketsByStatusBar = this.buildTicketsByStatusBar(response.ticketsByStatus);
+    }
+
+    if (response.widgets?.length) {
+      this.widgets = response.widgets.map((widget) =>
+        widget.id === 'widget-9'
+          ? { ...widget, chartOptions: this.ticketsByStatusBar }
+          : widget
+      );
+    } else {
+      this.widgets = this.widgets.map((widget) =>
+        widget.id === 'widget-9'
+          ? { ...widget, chartOptions: this.ticketsByStatusBar }
+          : widget
+      );
+    }
+
+    if (response.recentActivities?.length) {
+      this.recentActivities = response.recentActivities;
+    }
+
+    this.loadLayoutFromStorage();
+    this.filterProjects();
   }
 
   // ========== Persistence: Synchronization with Local Storage ==========
@@ -510,10 +578,10 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   // ========== Reset Dashboard to Default ==========
   resetDashboard(): void {
     // Reset filters to default (first project)
-    this.selectedProject = this.filteredProjectsForFilter[0]?.id || 'proj1';
+    this.selectedProject = this.filteredProjectsForFilter[0]?.id || 'all';
     this.selectedVehicle = 'all';
     // Update stats based on reset values
-    this.currentProjectStats = getProjectVehicleStats(this.selectedProject, this.selectedVehicle) as any;
+    this.currentProjectStats = this.getProjectVehicleStats(this.selectedProject, this.selectedVehicle);
     // Reset widget layout
     localStorage.removeItem(this.STORAGE_KEY);
     this.initializeWidgets();
@@ -542,6 +610,76 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   // Client Profile Data - Now from shared data file
   public clientProfile = defaultClientProfile;
+
+  private applyCurrentUserProfile(): void {
+    const currentUser = this.authService.currentUserValue;
+    if (!currentUser) return;
+
+    this.clientProfile = {
+      ...this.clientProfile,
+      name: currentUser.username || this.clientProfile.name,
+      clientId: String(currentUser.userId ?? this.clientProfile.clientId),
+      email: currentUser.email ?? this.clientProfile.email,
+    };
+  }
+
+  private logSupplementalApiData(): void {
+    const currentUser = this.authService.currentUserValue;
+    const clientId = currentUser?.clientId;
+    const userId = currentUser?.userId;
+
+    this.dashboardService.getProjects({ clientId }).subscribe({
+      next: (response) => {
+        console.log('Projects response:', response);
+        const items = Array.isArray(response?.items)
+          ? response.items
+          : Array.isArray(response)
+            ? response
+            : [];
+
+        const apiProjects = items
+          .map((item: any) => ({
+            id: String(item?.id ?? ''),
+            name: item?.name ?? `Project ${item?.id ?? ''}`
+          }))
+          .filter((project: { id: string }) => project.id);
+
+        this.projects = [{ id: 'all', name: 'All Projects' }, ...apiProjects];
+        this.filteredProjects = this.projects;
+        this.filteredProjectsForFilter = this.projects.filter(p => p.id !== 'all');
+
+        if (this.showFilters && this.selectedProject === 'all') {
+          this.selectedProject = this.filteredProjectsForFilter[0]?.id ?? 'all';
+        }
+      },
+      error: (error) => console.error('Projects request failed:', error),
+    });
+
+    this.dashboardService.getVehicles({ clientId }).subscribe({
+      next: (response) => console.log('Vehicles response:', response),
+      error: (error) => console.error('Vehicles request failed:', error),
+    });
+
+    this.dashboardService.getTickets({ userId }).subscribe({
+      next: (response) => console.log('Tickets response:', response),
+      error: (error) => console.error('Tickets request failed:', error),
+    });
+
+    this.dashboardService.getTicketsDashboard({ userId }).subscribe({
+      next: (response) => console.log('Tickets dashboard response:', response),
+      error: (error) => console.error('Tickets dashboard request failed:', error),
+    });
+
+    const projectId = Number(this.selectedProject);
+    if (!Number.isFinite(projectId) || projectId <= 0) {
+      return;
+    }
+
+    this.dashboardService.getProjectVehicles(projectId, { clientId, userId }).subscribe({
+      next: (response) => console.log('Project vehicles response:', response),
+      error: (error) => console.error('Project vehicles request failed:', error),
+    });
+  }
 
   // Dashboard Statistics
   public dashboardStats = {
@@ -664,14 +802,14 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   onProjectChange(projectId: string): void {
     this.selectedProject = projectId;
     // Update stats based on selected project and vehicle
-    this.currentProjectStats = getProjectVehicleStats(projectId, this.selectedVehicle) as any;
+    this.currentProjectStats = this.getProjectVehicleStats(projectId, this.selectedVehicle);
     this.applyFilters();
   }
 
   onVehicleChange(vehicleId: string): void {
     this.selectedVehicle = vehicleId;
     // Update stats based on selected project and vehicle
-    this.currentProjectStats = getProjectVehicleStats(this.selectedProject, vehicleId) as any;
+    this.currentProjectStats = this.getProjectVehicleStats(this.selectedProject, vehicleId);
     this.applyFilters();
   }
 
@@ -679,86 +817,124 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     if (this.showFilters) {
       // When toggle is turned ON, set default to first project (not "all")
       if (this.selectedProject === 'all') {
-        this.selectedProject = this.filteredProjectsForFilter[0]?.id || 'proj1';
-        this.currentProjectStats = getProjectVehicleStats(this.selectedProject, this.selectedVehicle) as any;
+        this.selectedProject = this.filteredProjectsForFilter[0]?.id || 'all';
+        this.currentProjectStats = this.getProjectVehicleStats(this.selectedProject, this.selectedVehicle);
       }
     } else {
       // When toggle is turned OFF, reset to "all"
       this.selectedProject = 'all';
       this.selectedVehicle = 'all';
-      this.currentProjectStats = getProjectStats('all');
+      this.currentProjectStats = this.getProjectStatsByProjectId('all');
       this.applyDefaultWidgetLayout();
     }
   }
 
+  private getProjectStatsByProjectId(projectId: string): ProjectStats {
+    return this.projectStatsData.find(p => p.projectId === projectId) ?? this.projectStatsData[0];
+  }
+
+  private getProjectVehicleStats(projectId: string, vehicleId: string): ProjectStats {
+    const project = this.getProjectStatsByProjectId(projectId);
+    if (!project || vehicleId === 'all') return project;
+
+    const vehicle = project.vehicles.find(v => v.vehicleId === vehicleId);
+    if (!vehicle) return project;
+
+    return {
+      ...project,
+      totalTickets: vehicle.totalTickets,
+      totalAssets: vehicle.totalAssets,
+      ticketsChangePercentage: vehicle.ticketsChangePercentage,
+      assetsChangePercentage: vehicle.assetsChangePercentage,
+      ticketsStatus: vehicle.ticketsStatus,
+      assetsStatus: vehicle.assetsStatus,
+      vehicleName: vehicle.vehicleName
+    };
+  }
+
   // Tickets by Status - Horizontal Bar (inhouse ApexCharts) - Redesigned like "Most Viewed Brands"
-  ticketsByStatusBar = {
-    chart: {
-      type: 'bar',
-      height: 400,
-      toolbar: { show: false },
-      sparkline: { enabled: false }
-    },
-    plotOptions: {
-      bar: {
-        horizontal: true,
-        barHeight: '65%',
-        borderRadius: 3,
-        dataLabels: {
-          position: 'right'
-        }
-      }
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: function (val: number) { 
-        return val + '%'; 
+  ticketsByStatusBar = this.buildTicketsByStatusBar();
+
+  private buildTicketsByStatusBar(data?: TicketsByStatusData): any {
+    const categories = data?.categories ?? [
+      'Open Tickets',
+      'In Progress',
+      'Resolved',
+      'Escalated',
+      'Closed',
+      'On Hold',
+      'Reopened'
+    ];
+    const values = data?.values ?? [28.5, 22.3, 18.7, 12.4, 10.2, 5.1, 2.8];
+
+    return {
+      chart: {
+        type: 'bar',
+        height: 400,
+        toolbar: { show: false },
+        sparkline: { enabled: false }
       },
-      offsetX: 8,
-      style: { 
-        colors: ['#495057'],
-        fontSize: '12px',
-        fontWeight: 600
-      }
-    },
-    xaxis: {
-      categories: ['Open Tickets', 'In Progress', 'Resolved', 'Escalated', 'Closed', 'On Hold', 'Reopened'],
-      labels: { 
+      plotOptions: {
+        bar: {
+          horizontal: true,
+          barHeight: '65%',
+          borderRadius: 3,
+          dataLabels: {
+            position: 'right'
+          }
+        }
+      },
+      dataLabels: {
+        enabled: true,
+        formatter: function (val: number) { 
+          return val + '%'; 
+        },
+        offsetX: 8,
         style: { 
-          colors: '#6c757d',
-          fontSize: '13px'
+          colors: ['#495057'],
+          fontSize: '12px',
+          fontWeight: 600
         }
       },
-      axisBorder: { show: false },
-      axisTicks: { show: false }
-    },
-    series: [
-      { 
-        name: 'Tickets (%)',
-        data: [28.5, 22.3, 18.7, 12.4, 10.2, 5.1, 2.8]
+      xaxis: {
+        categories,
+        labels: { 
+          style: { 
+            colors: '#6c757d',
+            fontSize: '13px'
+          }
+        },
+        axisBorder: { show: false },
+        axisTicks: { show: false }
+      },
+      series: [
+        { 
+          name: 'Tickets (%)',
+          data: values
+        }
+      ],
+      colors: ['#0d6efd', '#0dcaf0', '#198754', '#ffc107', '#fd7e14', '#6f42c1', '#e83e8c'],
+      grid: { 
+        borderColor: 'rgba(0,0,0,0.05)',
+        xaxis: { lines: { show: true } },
+        yaxis: { lines: { show: false } }
+      },
+      tooltip: {
+        y: { 
+          formatter: function (val: number) { return val.toFixed(1) + '%'; },
+          title: { formatter: function() { return ''; } }
+        }
+      },
+      legend: { show: false },
+      states: {
+        hover: { filter: { type: 'darken', value: 0.15 } },
+        active: { filter: { type: 'darken', value: 0.15 } }
       }
-    ],
-    colors: ['#0d6efd', '#0dcaf0', '#198754', '#ffc107', '#fd7e14', '#6f42c1', '#e83e8c'],
-    grid: { 
-      borderColor: 'rgba(0,0,0,0.05)',
-      xaxis: { lines: { show: true } },
-      yaxis: { lines: { show: false } }
-    },
-    tooltip: {
-      y: { 
-        formatter: function (val: number) { return val.toFixed(1) + '%'; },
-        title: { formatter: function() { return ''; } }
-      }
-    },
-    legend: { show: false },
-    states: {
-      hover: { filter: { type: 'darken', value: 0.15 } },
-      active: { filter: { type: 'darken', value: 0.15 } }
-    }
-  };
+    };
+  }
 
   // ========== Recent Activities Data ==========
-  recentActivities = [
+  recentActivities: RecentActivity[] = [
     {
       lastSync: '2026-01-26 10:30 AM',
       ticketsGenerated: 5,

@@ -84,11 +84,12 @@ export class LoginComponent {
         .loginWithEmail(this.email, this.password)
         .then((user: any) => {
           console.log('Login user object:', user);
+          const role = (user?.role ?? '').toLowerCase().trim();
           // Navigate based on user role
-          if (user?.role === 'superadmin') {
+          if (role === 'superadmin') {
             console.log('Navigating to admin dashboard');
             this.router.navigate(['/admin/dashboard']);
-          } else if (user?.role === 'client' || user?.role === 'user') {
+          } else if (role === 'client' || role === 'user') {
             console.log('Navigating to client dashboard');
             this.router.navigate(['/client/dashboard']);
           } else {

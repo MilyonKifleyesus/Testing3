@@ -643,71 +643,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.applyFilters();
   }
 
-  // Tickets by Status - Horizontal Bar (inhouse ApexCharts) - Redesigned like "Most Viewed Brands"
-  ticketsByStatusBar = {
-    chart: {
-      type: 'bar',
-      height: 400,
-      toolbar: { show: false },
-      sparkline: { enabled: false }
-    },
-    plotOptions: {
-      bar: {
-        horizontal: true,
-        barHeight: '65%',
-        borderRadius: 3,
-        dataLabels: {
-          position: 'right'
-        }
-      }
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: function (val: number) { 
-        return val + '%'; 
-      },
-      offsetX: 8,
-      style: { 
-        colors: ['#495057'],
-        fontSize: '12px',
-        fontWeight: 600
-      }
-    },
-    xaxis: {
-      categories: ['Open Tickets', 'In Progress', 'Resolved', 'Escalated', 'Closed', 'On Hold', 'Reopened'],
-      labels: { 
-        style: { 
-          colors: '#6c757d',
-          fontSize: '13px'
-        }
-      },
-      axisBorder: { show: false },
-      axisTicks: { show: false }
-    },
-    series: [
-      { 
-        name: 'Tickets (%)',
-        data: [28.5, 22.3, 18.7, 12.4, 10.2, 5.1, 2.8]
-      }
-    ],
-    colors: ['#0d6efd', '#0dcaf0', '#198754', '#ffc107', '#fd7e14', '#6f42c1', '#e83e8c'],
-    grid: { 
-      borderColor: 'rgba(0,0,0,0.05)',
-      xaxis: { lines: { show: true } },
-      yaxis: { lines: { show: false } }
-    },
-    tooltip: {
-      y: { 
-        formatter: function (val: number) { return val.toFixed(1) + '%'; },
-        title: { formatter: function() { return ''; } }
-      }
-    },
-    legend: { show: false },
-    states: {
-      hover: { filter: { type: 'darken', value: 0.15 } },
-      active: { filter: { type: 'darken', value: 0.15 } }
-    }
-  };
+  // Tickets by Status - Horizontal Bar (shared ApexCharts config)
+  ticketsByStatusBar = busPulseData.buildTicketsByStatusBar();
 
   // ========== Recent Activities Data ==========
   recentActivities = [

@@ -1,18 +1,27 @@
+import type { TicketsByStatusData } from '../models/client-dashboard.models';
+
 // BusPulse Dashboard Data - Fleet Management System
 
 // Text color constant for data labels - dark for readability on light backgrounds
 const DATA_LABEL_COLOR = '#212529'; // Using Bootstrap's dark gray color for consistency
 
 // Color palette constants for consistent theming across all charts
-const PRIMARY_GREEN_COLORS_2 = ['#7cba7f', '#a9d5ab'];
-const PRIMARY_GREEN_COLORS_4 = ['#609764', '#589a5c', '#7cba7f', '#a9d5ab'];
-const PRIMARY_GREEN_COLORS_3 = ['#589a5c', '#7cba7f', '#a9d5ab'];
+const PRIMARY_GREEN_COLORS_2 = ['#609764', '#95c097'];
+const PRIMARY_GREEN_COLORS_4 = ['#609764', '#95c097', '#cfead0', '#e0ece2'];
+const PRIMARY_GREEN_COLORS_3 = ['#609764', '#95c097', '#cfead0'];
 const PRIMARY_GREEN_COLORS_6 = ['#1b5e20', '#2e7d32', '#388e3c', '#4caf50', '#66bb6a', '#81c784'];
-const PRIMARY_GREEN_COLORS_3_ALT = ['#1b5e20', '#2e7d32', '#4caf50'];
+const PRIMARY_GREEN_COLORS_3_ALT = ['#609764', '#95c097', '#cfead0'];
 const BLUE_ACCENT_COLORS = ['#4099ff', '#00d4ff', '#50c878'];
 const SINGLE_GREEN_DARK = ['#2e7d32'];
 const SINGLE_GREEN_LIGHT = ['#66bb6a'];
 const SINGLE_GREEN_MEDIUM = ['#388e3c'];
+const TICKETS_STATUS_GREEN_COLORS = ['#609764', '#95c097', '#cfead0', '#e0ece2', '#66bb6a', '#81c784', '#d1f2d6'];
+const TICKETS_STATUS_BAR_COLOR = ['#609764'];
+const PROJECTS_BY_STATION_HEATMAP_RANGES = [
+  { from: 1, to: 2, color: '#cfead0', name: 'Low' },
+  { from: 2, to: 3, color: '#609764', name: 'Medium' },
+  { from: 3, to: 4, color: '#1b5e20', name: 'High' }
+];
 
 /**
  * 1. Open and Closed Projects (Donut Chart)
@@ -28,7 +37,7 @@ export const openClosedProjectsChart = {
   },
   dataLabels: { enabled: true, style: { colors: [DATA_LABEL_COLOR], fontSize: '13px', fontWeight: 600 } },
   legend: { position: 'bottom', fontSize: '13px', fontFamily: 'Poppins, sans-serif', fontWeight: 500 },
-  stroke: { show: true, curve: 'smooth', lineCap: 'round', colors: ['#fff'], width: 2, dashArray: 0 },
+  stroke: { show: true, curve: 'smooth', lineCap: 'round', colors: ['#ff0000'], width: 2, dashArray: 0 },
   plotOptions: {
     pie: {
       expandOnClick: false,
@@ -117,7 +126,13 @@ export const defectsByAreaTreemap = {
     sparkline: { enabled: false },
     dropShadow: { enabled: true, enabledOnSeries: undefined, top: 3, left: 0, blur: 3, color: '#000', opacity: 0.1 }
   },
-  dataLabels: { enabled: true, style: { fontSize: '12px', fontFamily: 'Poppins, sans-serif' } },
+  dataLabels: {
+    enabled: true,
+    formatter: function (text: string) {
+      return text;
+    },
+    style: { fontSize: '12px', fontFamily: 'Poppins, sans-serif' }
+  },
   legend: { position: 'bottom', fontSize: '13px', fontFamily: 'Poppins, sans-serif' },
   plotOptions: {
     treemap: {
@@ -151,7 +166,11 @@ export const defectsByStationChart = {
       dataLabels: { position: 'top' }
     }
   },
-  dataLabels: { enabled: false },
+  dataLabels: {
+    enabled: true,
+    formatter: function (val: number) { return val.toFixed(1); },
+    style: { colors: ['#ffffff'], fontSize: '11px', fontWeight: 600 }
+  },
   stroke: { show: true, width: 0, colors: ['transparent'] },
   xaxis: {
     categories: ['Station A', 'Station B', 'Station C', 'Station D', 'Station E', 'Station F', 'Station G', 'Station H'],
@@ -170,15 +189,21 @@ export const defectsByStationChart = {
  */
 export const repeatedDefectsGauge = {
   series: [68],
-  chart: { height: 280, type: 'radialBar', sparkline: { enabled: false } },
+  chart: {
+    height: 280,
+    type: 'radialBar',
+    sparkline: { enabled: false },
+    dropShadow: { enabled: true, enabledOnSeries: undefined, top: 3, left: 0, blur: 3, color: '#000', opacity: 0.3 }
+  },
   plotOptions: {
     radialBar: {
       startAngle: -90,
       endAngle: 90,
       hollow: { size: '35%' },
+      track: { background: '#fff', strokeWidth: '100%', margin: 2 },
       dataLabels: {
-        name: { show: true, offsetY: 10, color: '#495057', fontSize: '13px', fontFamily: 'Poppins' },
-        value: { show: true, color: '#212529', fontSize: '28px', fontWeight: 'bold', offsetY: -20, fontFamily: 'Poppins' }
+        name: { show: true, offsetY: 10, color: '#495057', fontSize: '13px', fontFamily: 'Poppins, sans-serif' },
+        value: { show: true, color: '#212529', fontSize: '28px', fontWeight: 'bold', offsetY: -20, fontFamily: 'Poppins, sans-serif' }
       }
     }
   },
@@ -191,15 +216,21 @@ export const repeatedDefectsGauge = {
  */
 export const safetyCriticalDefectsGauge = {
   series: [42],
-  chart: { height: 280, type: 'radialBar', sparkline: { enabled: false } },
+  chart: {
+    height: 280,
+    type: 'radialBar',
+    sparkline: { enabled: false },
+    dropShadow: { enabled: true, enabledOnSeries: undefined, top: 3, left: 0, blur: 3, color: '#000', opacity: 0.3 }
+  },
   plotOptions: {
     radialBar: {
       startAngle: -90,
       endAngle: 90,
       hollow: { size: '35%' },
+      track: { background: '#fff', strokeWidth: '100%', margin: 2 },
       dataLabels: {
-        name: { show: true, offsetY: 10, color: '#495057', fontSize: '13px', fontFamily: 'Poppins' },
-        value: { show: true, color: '#212529', fontSize: '28px', fontWeight: 'bold', offsetY: -20, fontFamily: 'Poppins' }
+        name: { show: true, offsetY: 10, color: '#495057', fontSize: '13px', fontFamily: 'Poppins, sans-serif' },
+        value: { show: true, color: '#212529', fontSize: '28px', fontWeight: 'bold', offsetY: -20, fontFamily: 'Poppins, sans-serif' }
       }
     }
   },
@@ -258,7 +289,14 @@ export const projectsByAreaStackedChart = {
     dropShadow: { enabled: true, enabledOnSeries: undefined, top: 3, left: 0, blur: 3, color: '#000', opacity: 0.1 }
   },
   responsive: [{ breakpoint: 480, options: { legend: { position: 'bottom' } } }],
-  plotOptions: { bar: { horizontal: false, columnWidth: '50%', borderRadius: 4 } },
+  plotOptions: {
+    bar: {
+      horizontal: false,
+      columnWidth: '50%',
+      borderRadius: 4,
+      dataLabels: { position: 'center' }
+    }
+  },
   xaxis: {
     categories: ['Project 1', 'Project 2', 'Project 3', 'Project 4', 'Project 5'],
     axisBorder: { show: false },
@@ -266,9 +304,15 @@ export const projectsByAreaStackedChart = {
     labels: { style: { fontSize: '12px', fontFamily: 'Poppins, sans-serif' } }
   },
   yaxis: { title: { text: 'Avg Defects', style: { fontSize: '13px', fontFamily: 'Poppins, sans-serif' } } },
-  dataLabels: { enabled: false },
+  dataLabels: {
+    enabled: true,
+    formatter: function (val: number) { return val.toFixed(1); },
+    offsetY: 0,
+    style: { colors: ['#ffffff'], fontSize: '11px', fontWeight: 600 },
+    dropShadow: { enabled: false }
+  },
   fill: { opacity: 1 },
-  colors: BLUE_ACCENT_COLORS,
+  colors: PRIMARY_GREEN_COLORS_3_ALT,
   legend: { position: 'top', fontSize: '13px', fontFamily: 'Poppins, sans-serif' }
 };
 
@@ -320,11 +364,7 @@ export const projectsByStationHeatmap = {
       radius: 0,
       useFillColorAsStroke: true,
       colorScale: {
-        ranges: [
-          { from: 1, to: 2, color: '#66bb6a', name: 'Low' },
-          { from: 2, to: 3, color: '#fbc02d', name: 'Medium' },
-          { from: 3, to: 4, color: '#c62828', name: 'High' }
-        ]
+        ranges: PROJECTS_BY_STATION_HEATMAP_RANGES
       }
     }
   },
@@ -461,6 +501,85 @@ export const projectMagnitudeBubble = {
   },
   colors: SINGLE_GREEN_DARK,
   legend: { position: 'bottom', fontSize: '13px', fontFamily: 'Poppins, sans-serif' }
+};
+
+/**
+ * 14. Tickets by Status (Horizontal Bar Chart)
+ */
+export const buildTicketsByStatusBar = (data?: TicketsByStatusData) => {
+  const categories = data?.categories ?? [
+    'Open Tickets',
+    'In Progress',
+    'Resolved',
+    'Escalated',
+    'Closed',
+    'On Hold',
+    'Reopened'
+  ];
+  const values = data?.values ?? [28.5, 22.3, 18.7, 12.4, 10.2, 5.1, 2.8];
+
+  return {
+    chart: {
+      type: 'bar',
+      height: 400,
+      toolbar: { show: false },
+      sparkline: { enabled: false }
+    },
+    plotOptions: {
+      bar: {
+        horizontal: true,
+        barHeight: '65%',
+        borderRadius: 3,
+        dataLabels: { position: 'right' }
+      }
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: function (val: number) {
+        return val + '%';
+      },
+      offsetX: 8,
+      style: {
+        colors: ['var(--default-text-color)'],
+        fontSize: '12px',
+        fontWeight: 600
+      }
+    },
+    xaxis: {
+      categories,
+      labels: {
+        style: {
+          colors: '#6c757d',
+          fontSize: '13px'
+        }
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    series: [
+      {
+        name: 'Tickets (%)',
+        data: values
+      }
+    ],
+    colors: TICKETS_STATUS_BAR_COLOR,
+    grid: {
+      borderColor: 'rgba(0,0,0,0.05)',
+      xaxis: { lines: { show: true } },
+      yaxis: { lines: { show: false } }
+    },
+    tooltip: {
+      y: {
+        formatter: function (val: number) { return val.toFixed(1) + '%'; },
+        title: { formatter: function () { return ''; } }
+      }
+    },
+    legend: { show: false },
+    states: {
+      hover: { filter: { type: 'darken', value: 0.15 } },
+      active: { filter: { type: 'darken', value: 0.15 } }
+    }
+  };
 };
 
 // Summary Statistics

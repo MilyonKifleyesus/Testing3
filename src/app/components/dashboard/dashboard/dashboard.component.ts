@@ -315,7 +315,7 @@ export class DashboardComponent {
     },
     dataLabels: {
       enabled: true,
-      style: { colors: ['#6c757d'] },
+      style: { colors: ['var(--default-text-color)'] },
       formatter: function (val: number) { return val + ''; }
     },
     xaxis: {

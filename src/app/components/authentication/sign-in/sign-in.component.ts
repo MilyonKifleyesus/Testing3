@@ -52,13 +52,14 @@ export class SignInComponent implements OnInit {
 
     this.authService.loginWithRole(username, password).subscribe({
       next: (user: CurrentUser) => {
+        const role = (user.role || 'admin').toLowerCase().trim();
         // Load menu based on user role
-        this.navService.loadMenuByRole(user.role || 'admin');
+        this.navService.loadMenuByRole(role);
         
         // Navigate based on role
-        if (user.role === 'superadmin') {
+        if (role === 'superadmin') {
           this.router.navigate(['/admin/dashboard']);
-        } else if (user.role === 'client' || user.role === 'user') {
+        } else if (role === 'client' || role === 'user') {
           this.router.navigate(['/client/dashboard']);
         } else {
           this.router.navigate(['/dashboard']);
