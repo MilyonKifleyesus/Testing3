@@ -1292,6 +1292,54 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.routePreviewVersion.set(this.routePreviewStorage.previewSaved());
       this.routePreviewStorage.download(projectId, projectName);
       this.toastr.success('Route preview saved and downloaded.', 'CAPTURED');
+    } else {
+      this.showCaptureFailureToastWithRetry(projectId, projectName);
+    }
+  }
+
+  /**
+   * Waits for the route to appear in projectRoutes, then captures. Used after adding a project
+   * when routes may not be populated yet. Polls until route exists or max attempts reached.
+   */
+  private waitForRouteThenCapture(
+    projectId: string,
+    projectName: string | undefined,
+    initialDelayMs: number,
+    pollIntervalMs: number,
+    maxAttempts: number
+  ): void {
+    let attempts = 0;
+    const tryCapture = (): void => {
+      attempts++;
+      const loading = this.projectRoutesLoading();
+      const routes = this.projectRoutes();
+      const route = routes.find((r) => r.projectId === projectId);
+      const routeReady = route?.fromCoordinates && route?.toCoordinates;
+
+      if (!loading && routeReady) {
+        void this.captureAndStoreForProject(projectId, projectName);
+        return;
+      }
+      if (attempts >= maxAttempts) {
+        this.showCaptureFailureToastWithRetry(projectId, projectName);
+        return;
+      }
+      setTimeout(tryCapture, pollIntervalMs);
+    };
+    setTimeout(tryCapture, initialDelayMs);
+  }
+
+  /** Shows capture-failure toast with tap-to-retry. */
+  private showCaptureFailureToastWithRetry(projectId: string, projectName?: string): void {
+    const toast = this.toastr.warning(
+      'No route available to capture. Tap to retry.',
+      'Cannot capture',
+      { timeOut: 8000, closeButton: true, extendedTimeOut: 3000 }
+    );
+    if (toast?.onTap) {
+      toast.onTap.subscribe(() => {
+        this.waitForRouteThenCapture(projectId, projectName, 500, 400, 6);
+      });
     }
   }
 
@@ -1336,7 +1384,6 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     const routes = this.projectRoutes();
     const route = routes.find((r) => r.projectId === projectId);
     if (!route?.fromCoordinates || !route?.toCoordinates) {
-      this.toastr.warning('No route available to capture.', 'Cannot capture');
       return null;
     }
     const map = this.mapComponent();
@@ -1706,15 +1753,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   onAddCompanyModalClose(): void {
     if (this.addProjectSucceededBeforeClose) {
-      const cleared = {
-        ...this.filterApplied(),
-        clientIds: [],
-        manufacturerIds: [],
-        projectTypeIds: [],
-        status: 'all' as FilterStatus,
-      };
-      this.filterApplied.set(cleared);
-      this.filterDraft.set({ ...this.filterDraft(), ...cleared });
+      this.clearAllFilters();
       this.addProjectSucceededBeforeClose = false;
     }
     this.addCompanyModalVisible.set(false);
@@ -1763,16 +1802,8 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         this.warRoomService.setMapViewMode('project');
         this.selectedProjectId.set(null);
 
-        // Clear project filters so the new project is not excluded from routes
-        const cleared = {
-          ...this.filterApplied(),
-          clientIds: [],
-          manufacturerIds: [],
-          projectTypeIds: [],
-          status: 'all' as FilterStatus,
-        };
-        this.filterApplied.set(cleared);
-        this.filterDraft.set({ ...this.filterDraft(), ...cleared });
+        // Clear all filters so the new project is visible among all routes
+        this.clearAllFilters();
         this.addProjectSucceededBeforeClose = true;
 
         this.projectService.refreshProjects();
@@ -1788,16 +1819,29 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         this.addCompanyModalRef()?.closeAfterSuccess();
         this.announce(`Project ${formData.projectName} added.`);
 
-        // After modal closes and routes refresh, pan map to show the new route
-        setTimeout(() => {
+        // After modal closes and routes refresh, fit map to all routes for global view
+        const fitMapToRoutes = (): void => {
           const routes = this.projectRoutes();
-          const newRoute = routes.find((r) => r.projectId === String(createdProject.id));
-          if (newRoute && this.mapComponent()) {
-            this.mapComponent().fitBoundsToRoutes([newRoute]);
+          const map = this.mapComponent();
+          if (routes.length > 0 && map) {
+            map.fitBoundsToRoutes(routes);
+          } else {
+            const newRoute = routes.find((r) => r.projectId === String(createdProject.id));
+            if (newRoute && map) {
+              map.fitBoundsToRoutes([newRoute]);
+            }
           }
-        }, 800);
+        };
+        setTimeout(fitMapToRoutes, 800);
+        setTimeout(fitMapToRoutes, 1800); // Retry if routes not yet populated
 
-        setTimeout(() => this.captureAndStoreForProject(String(createdProject.id), createdProject.projectName), 1500);
+        this.waitForRouteThenCapture(
+          String(createdProject.id),
+          createdProject.projectName,
+          800,
+          400,
+          6
+        );
       },
       error: (error) => {
         console.error('Critical error adding project:', error);
