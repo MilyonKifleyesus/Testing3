@@ -131,6 +131,24 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   max-width: 100vw;
 }
 
+.war-room-container.map-expanded {
+  position: fixed;
+  top: 52px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1100;
+  width: 100vw;
+  max-width: 100vw;
+  height: calc(100vh - 52px);
+  max-height: calc(100vh - 52px);
+
+  .map-action-bar {
+    top: 10px;
+    right: 10px;
+  }
+}
+
 .war-room-main {
   display: flex;
   flex: 1;

@@ -1,4 +1,4 @@
-<div class="war-room-container" [class.route-screenshot-mode]="screenshotMode()">
+<div class="war-room-container" [class.route-screenshot-mode]="screenshotMode()" [class.map-expanded]="mapExpanded()">
   <div class="visually-hidden" aria-live="polite" aria-atomic="true">{{ announcementMessage() }}</div>
   <!-- TestSprite marker stability assertions - visible for automation -->
   @if (markerStabilityMessage()) {

@@ -85,6 +85,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   private readonly ADD_PROJECT_SEEN_KEY = 'war-room-add-project-seen';
   private readonly TIPS_HINT_SEEN_KEY = 'war-room-tips-hint-seen';
   private readonly MAP_EXPANDED_CLASS = 'war-room-map-expanded';
+  private readonly MAP_EXPANDED_SCROLL_LOCK_STYLE = 'hidden';
   private addProjectPulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private tipsHintTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private lastFocusedElement: HTMLElement | null = null;
@@ -854,7 +855,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.tipsHintTimeoutId = null;
     }
 
-    document.body?.classList.remove(this.MAP_EXPANDED_CLASS);
+    this.applyMapExpandedDomState(false);
   }
 
   private dismissAddProjectPulse(): void {
@@ -964,13 +965,21 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   toggleMapExpanded(): void {
     const next = !this.mapExpanded();
     this.mapExpanded.set(next);
-    document.body?.classList.toggle(this.MAP_EXPANDED_CLASS, next);
+    this.applyMapExpandedDomState(next);
     if (next) {
       this.panelVisible.set(false);
       this.announce('Map expanded.');
     } else {
       this.announce('Map returned to standard view.');
     }
+  }
+
+  private applyMapExpandedDomState(expanded: boolean): void {
+    if (!document.body) {
+      return;
+    }
+    document.body.classList.toggle(this.MAP_EXPANDED_CLASS, expanded);
+    document.body.style.overflow = expanded ? this.MAP_EXPANDED_SCROLL_LOCK_STYLE : '';
   }
 
   onSaveChanges(): void {
