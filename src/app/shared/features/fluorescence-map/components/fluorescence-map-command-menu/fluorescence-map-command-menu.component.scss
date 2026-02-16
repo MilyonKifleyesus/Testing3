@@ -46,6 +46,19 @@
   transform: rotate(45deg);
 }
 
+.command-fab.fab-pulse {
+  animation: fab-pulse 2s ease-in-out infinite;
+}
+
+@keyframes fab-pulse {
+  0%, 100% {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 8px rgba(0, 255, 65, 0.2);
+  }
+}
+
 .command-actions {
   display: flex;
   flex-direction: column;

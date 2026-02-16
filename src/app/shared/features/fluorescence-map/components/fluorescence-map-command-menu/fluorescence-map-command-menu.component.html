@@ -1,42 +1,43 @@
 <div class="command-menu" [class.expanded]="expanded()">
-  <button type="button" class="command-fab" (click)="toggle()"
+  <button type="button" class="command-fab" [class.fab-pulse]="showPulse()" (click)="toggle()"
     [attr.aria-label]="expanded() ? 'Close command menu' : 'Open command menu'"
-    [attr.aria-expanded]="expanded()">
+    [attr.aria-expanded]="expanded()"
+    title="Quick actions: Add Project, Panels, Filters, and more">
     <i class="fe fe-plus" aria-hidden="true"></i>
   </button>
 
   @if (expanded()) {
   <div class="command-actions">
-    <button type="button" class="command-action" (click)="onAction('addCompany')" aria-label="Add Project">
+    <button type="button" class="command-action" (click)="onAction('addCompany')" aria-label="Add Project" title="Add Project">
       <i class="fe fe-plus-circle" aria-hidden="true"></i>
       <span>Add Project</span>
     </button>
-    <button type="button" class="command-action" (click)="onAction('panels')" aria-label="Panels">
+    <button type="button" class="command-action" (click)="onAction('panels')" aria-label="Panels" title="Show Activity Log and Hub Status">
       <i class="fe fe-layers" aria-hidden="true"></i>
       <span>Panels</span>
     </button>
-    <button type="button" class="command-action" (click)="onAction('filters')" aria-label="Filters">
+    <button type="button" class="command-action" (click)="onAction('filters')" aria-label="Filters" title="Open filter panel">
       <i class="fe fe-filter" aria-hidden="true"></i>
       <span>Filters</span>
     </button>
-    <button type="button" class="command-action" (click)="onAction('projectList')" aria-label="Project List">
+    <button type="button" class="command-action" (click)="onAction('projectList')" aria-label="Project List" title="View project list">
       <i class="fe fe-list" aria-hidden="true"></i>
       <span>Project List</span>
     </button>
-    <button type="button" class="command-action" (click)="onAction('tactical')" aria-label="Tactical">
+    <button type="button" class="command-action" (click)="onAction('tactical')" aria-label="Tactical" title="Tactical: Map-only focus mode">
       <i class="fe fe-crosshair" aria-hidden="true"></i>
       <span>Tactical</span>
     </button>
-    <button type="button" class="command-action" (click)="onAction('expandMap')" aria-label="Expand Map">
+    <button type="button" class="command-action" (click)="onAction('expandMap')" aria-label="Expand Map" title="Expand map to full width">
       <i class="fe fe-maximize-2" aria-hidden="true"></i>
       <span>Expand Map</span>
     </button>
-    <button type="button" class="command-action" (click)="onAction('captureRoute')" aria-label="Capture Route Preview">
+    <button type="button" class="command-action" (click)="onAction('captureRoute')" aria-label="Capture Route Preview" title="Capture route preview screenshot">
       <i class="fe fe-camera" aria-hidden="true"></i>
       <span>Capture Route Preview</span>
     </button>
     @if (hasSelectedClient()) {
-    <button type="button" class="command-action" (click)="onAction('captureClientProjects')" aria-label="Capture All Client Projects">
+    <button type="button" class="command-action" (click)="onAction('captureClientProjects')" aria-label="Capture All Client Projects" title="Capture all projects for selected client">
       <i class="fe fe-camera" aria-hidden="true"></i>
       <span>Capture All Client Projects</span>
     </button>

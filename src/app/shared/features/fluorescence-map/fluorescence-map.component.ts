@@ -49,6 +49,7 @@ const createDefaultFilters = (): WarRoomFilters => ({
 /** Persisted state schema - supports both legacy filters-only and extended state */
 interface WarRoomPersistedState {
   mapViewMode?: MapViewMode;
+  panelVisible?: boolean;
   parentCompanyIds?: string[];
   status?: FilterStatus;
   regions?: string[];
@@ -659,14 +660,16 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       };
     });
 
-    // Save filters and view mode on change (after hydration to avoid overwriting)
+    // Save filters, view mode, and panel visibility on change (after hydration to avoid overwriting)
     effect(() => {
       if (!this.hasHydratedFromStorage) return;
       const filters = this.filterApplied();
       const viewMode = this.mapViewMode();
+      const panelVisible = this.panelVisible();
       const state: WarRoomPersistedState = {
         ...filters,
         mapViewMode: viewMode,
+        panelVisible,
       };
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(state));
     });
@@ -779,9 +782,16 @@ export class WarRoomComponent implements OnInit, OnDestroy {
           this.savedMapViewMode.set(parsed.mapViewMode);
           this.warRoomService.setMapViewMode(parsed.mapViewMode);
         }
+        // Restore panel visibility from persisted state
+        if (typeof parsed.panelVisible === 'boolean') {
+          this.panelVisible.set(parsed.panelVisible);
+        }
       } catch (e) {
         console.warn('Failed to parse saved state', e);
       }
+    } else {
+      // First-time user: show sidebar by default for better discoverability
+      this.panelVisible.set(true);
     }
 
     this.hasHydratedFromStorage = true;
@@ -1753,6 +1763,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   onAddCompanyModalClose(): void {
     if (this.addProjectSucceededBeforeClose) {
+      this.warRoomService.selectEntity(null);
       this.clearAllFilters();
       this.addProjectSucceededBeforeClose = false;
     }
@@ -1800,10 +1811,11 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       next: (createdProject) => {
         // Ensure map shows the new project: switch to Project view, clear selection, and clear project filters
         this.warRoomService.setMapViewMode('project');
+        this.warRoomService.selectEntity(null);
         this.selectedProjectId.set(null);
 
-        // Clear all filters so the new project is visible among all routes
-        this.clearAllFilters();
+        // Clear all filters so the new project is visible among all routes (defer to avoid timing races)
+        setTimeout(() => this.clearAllFilters(), 0);
         this.addProjectSucceededBeforeClose = true;
 
         this.projectService.refreshProjects();

@@ -44,7 +44,8 @@
           <button type="button" class="btn btn-white btn-icon-text btn-sm map-filter-btn" (click)="toggleFiltersPanel()"
             [class.btn-primary-transparent]="filtersPanelVisible()"
             [attr.aria-label]="(filtersPanelVisible() ? 'Close' : 'Open') + ' filters' + (activeFilterCount() > 0 ? ' (' + activeFilterCount() + ' active)' : '')"
-            [attr.aria-expanded]="filtersPanelVisible()">
+            [attr.aria-expanded]="filtersPanelVisible()"
+            title="Filter map by company, client, region, or status. Changes apply immediately.">
             <i class="fe fe-filter me-2 fs-14" aria-hidden="true"></i> Filter
             @if (activeFilterCount() > 0) {
             <span class="badge bg-primary-transparent ms-1" aria-hidden="true">{{ activeFilterCount() }}</span>
@@ -77,20 +78,23 @@
         aria-label="Map panels and layout controls">
         <button type="button" class="map-action-btn" (click)="togglePanels()" [class.active]="panelVisible()"
           [attr.aria-label]="panelVisible() ? 'Hide panels' : 'Show panels'" [attr.aria-expanded]="panelVisible()"
-          aria-controls="war-room-overlay-panel">
+          aria-controls="war-room-overlay-panel"
+          title="Show Activity Log and Hub Status">
           <i class="fe fe-layers me-2" aria-hidden="true"></i>
           <span>{{ panelVisible() ? 'Hide Panels' : 'Panels' }}</span>
         </button>
         <button type="button" class="map-action-btn" (click)="toggleMapExpanded()" [class.active]="mapExpanded()"
           [attr.aria-label]="mapExpanded() ? 'Exit expanded map view' : 'Expand map'"
-          [attr.aria-pressed]="mapExpanded()">
+          [attr.aria-pressed]="mapExpanded()"
+          title="Expand map to full width">
           <i class="fe" [class.fe-maximize-2]="!mapExpanded()" [class.fe-minimize-2]="mapExpanded()"
             aria-hidden="true"></i>
           <span>{{ mapExpanded() ? 'Exit Expand' : 'Expand Map' }}</span>
         </button>
         <button type="button" class="map-action-btn" (click)="toggleTacticalMode()" [class.active]="tacticalMode()"
           [attr.aria-label]="tacticalMode() ? 'Exit tactical mode' : 'Enter tactical mode'"
-          [attr.aria-pressed]="tacticalMode()">
+          [attr.aria-pressed]="tacticalMode()"
+          title="Map-only focus mode">
           <i class="fe fe-crosshair" aria-hidden="true"></i>
           <span>Tactical</span>
         </button>
@@ -98,7 +102,7 @@
       @if (!tacticalMode()) {
       <div id="war-room-filters-panel" class="war-room-filters card custom-card" [class.open]="filtersPanelVisible()">
         <div class="card-header d-flex align-items-center justify-content-between">
-          <h6 class="main-content-label mb-0">Open Filters</h6>
+          <h6 class="main-content-label mb-0">Manage Filters</h6>
           <div class="d-flex align-items-center gap-2">
             @if (activeFilterCount() > 0) {
             <button type="button" class="btn btn-link btn-sm p-0 text-danger" (click)="resetFilters()">Clear
@@ -108,6 +112,7 @@
           </div>
         </div>
         <div class="card-body">
+          <p class="filters-panel-hint text-muted fs-12 mb-3">Select options below to filter the map. Changes apply immediately.</p>
           <div class="filters-section">
             <button type="button" class="filter-section-header" (click)="toggleFilterSection('companies')"
               [attr.aria-expanded]="expandedFilterSection() === 'companies'">
@@ -245,8 +250,9 @@
               }
             </div>
           </div>
+          <p class="filters-helper-text text-muted fs-12 mb-2">Filters apply as you select. Click Done to close.</p>
           <div class="filters-actions d-flex gap-2">
-            <button type="button" class="btn btn-primary flex-fill" (click)="applyFilters()">Apply Filters</button>
+            <button type="button" class="btn btn-primary flex-fill" (click)="applyFilters()">Done</button>
             <button type="button" class="btn btn-outline-primary flex-fill" (click)="resetFilters()">Reset All</button>
           </div>
         </div>
@@ -368,12 +374,14 @@
       <div class="sidebar-view-level" role="group" aria-label="Activity log view">
         <button type="button" class="sidebar-level-btn" [class.active]="logPanelMode() === 'client'"
           (click)="setLogPanelMode('client')" role="radio" [attr.aria-checked]="logPanelMode() === 'client'"
-          aria-label="View clients with projects">
+          aria-label="View clients with projects"
+          title="View clients with their projects">
           Client
         </button>
         <button type="button" class="sidebar-level-btn" [class.active]="logPanelMode() === 'manufacturer'"
           (click)="setLogPanelMode('manufacturer')" role="radio" [attr.aria-checked]="logPanelMode() === 'manufacturer'"
-          aria-label="View manufacturer hierarchy">
+          aria-label="View manufacturer hierarchy"
+          title="View manufacturer hierarchy (parent companies and factories)">
           Manufacturer
         </button>
       </div>

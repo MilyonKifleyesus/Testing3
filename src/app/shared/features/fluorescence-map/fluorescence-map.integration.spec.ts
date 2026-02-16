@@ -298,6 +298,7 @@ describe('WarRoomComponent Integration', () => {
 
         expect(toastrMock.success).toHaveBeenCalled();
         expect(component.addCompanyModalVisible()).toBeFalse();
+        expect(component.filterApplied().clientIds).toEqual([]);
     }));
 
     it('completes the add project flow with loading and success', fakeAsync(() => {

@@ -9,7 +9,8 @@
         <p class="modal-subtitle">Adding a project creates a connection line on the map between the client and factory.</p>
       </div>
       <div class="modal-header-actions">
-        <button type="button" class="btn-load-sample" (click)="loadSampleData()" [disabled]="isSubmitting()">
+        <button type="button" class="btn-load-sample" (click)="loadSampleData()" [disabled]="isSubmitting()"
+          title="Fill form with sample data to quickly try adding a project">
           Load Sample
         </button>
         <button class="modal-close-btn" type="button" (click)="onClose()" aria-label="Close modal"
