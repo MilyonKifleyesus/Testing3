@@ -630,6 +630,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   private zoomTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private skipInitialAutoZoom = true;
   private addCompanyInFlight = false;
+  private addProjectSucceededBeforeClose = false;
 
   constructor() {
     effect(() => {
@@ -1704,6 +1705,17 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   }
 
   onAddCompanyModalClose(): void {
+    if (this.addProjectSucceededBeforeClose) {
+      const cleared = {
+        ...this.filterApplied(),
+        clientIds: [],
+        manufacturerIds: [],
+        projectTypeIds: [],
+      };
+      this.filterApplied.set(cleared);
+      this.filterDraft.set({ ...this.filterDraft(), ...cleared });
+      this.addProjectSucceededBeforeClose = false;
+    }
     this.addCompanyModalVisible.set(false);
     this.addCompanyModalPreselectedFactoryId.set(null);
     this.restoreFocusAfterModalClose();
@@ -1759,6 +1771,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         };
         this.filterApplied.set(cleared);
         this.filterDraft.set({ ...this.filterDraft(), ...cleared });
+        this.addProjectSucceededBeforeClose = true;
 
         this.projectService.refreshProjects();
         this.projectRoutesRefreshTrigger.update((n) => n + 1);

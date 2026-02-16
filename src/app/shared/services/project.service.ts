@@ -214,20 +214,50 @@ function applyFilters(projects: Project[], filters?: ProjectFilters): Project[] 
   providedIn: 'root',
 })
 export class ProjectService {
-  constructor(
-    private http: HttpClient,
-    private clientService: ClientService
-  ) { }
-
   /** Path to sample JSON when not using API */
   private readonly SAMPLE_JSON_PATH = 'assets/data/projects.json';
   private readonly FACTORIES_PATH = 'assets/data/factories.json';
   private readonly FACTORY_MAPPING_PATH = 'assets/data/factory-id-mapping.json';
+  private readonly ADDED_PROJECTS_STORAGE_KEY = 'war-room-added-projects';
 
   private readonly projectsRefresh$ = new Subject<void>();
 
   /** In-memory cache for projects added when useProjectApi is false (JSON mode) */
   private addedProjectsCache: Project[] = [];
+  private addedProjectsHydrated = false;
+
+  constructor(
+    private http: HttpClient,
+    private clientService: ClientService
+  ) {
+    this.hydrateAddedProjectsFromStorage();
+  }
+
+  private hydrateAddedProjectsFromStorage(): void {
+    if (this.addedProjectsHydrated || environment.useProjectApi) return;
+    this.addedProjectsHydrated = true;
+    try {
+      const raw = localStorage.getItem(this.ADDED_PROJECTS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown;
+        const arr = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' && 'projects' in parsed ? (parsed as { projects: unknown[] }).projects : []);
+        this.addedProjectsCache = (arr || []).filter(
+          (p): p is Project => p != null && typeof p === 'object' && 'id' in p && 'clientId' in p
+        );
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  private persistAddedProjectsToStorage(): void {
+    if (environment.useProjectApi) return;
+    try {
+      localStorage.setItem(this.ADDED_PROJECTS_STORAGE_KEY, JSON.stringify(this.addedProjectsCache));
+    } catch {
+      // Ignore quota or other storage errors
+    }
+  }
 
   getFactoriesWithManufacturers(): Observable<FactoryOption[]> {
     return this.http
@@ -418,11 +448,13 @@ export class ProjectService {
           const nextId = allIds.length > 0 ? Math.max(0, ...allIds) + 1 : 1;
           const newProject = { ...project, id: nextId } as Project;
           this.addedProjectsCache.push(newProject);
+          this.persistAddedProjectsToStorage();
           return newProject;
         }),
         catchError(() => {
           const newProject = { ...project, id: Date.now() } as Project;
           this.addedProjectsCache.push(newProject);
+          this.persistAddedProjectsToStorage();
           return of(newProject);
         }),
         delay(100)
