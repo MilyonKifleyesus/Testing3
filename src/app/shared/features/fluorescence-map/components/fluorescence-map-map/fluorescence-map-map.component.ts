@@ -140,6 +140,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   readonly routeStroke = computed(() => this.getRouteColor());
   readonly routeFill = computed(() => this.getRouteColor());
   readonly mapLoadError = signal<string | null>(null);
+  /** Raw technical error for debugging; shown in overlay when available */
+  readonly mapLoadErrorDetail = signal<string | null>(null);
 
   // Services
   private warRoomService = inject(WarRoomService);
@@ -284,8 +286,26 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   retryMapLoad(): void {
     this.mapLoadError.set(null);
+    this.mapLoadErrorDetail.set(null);
     this.initMapRetryCount = 0;
     this.initMap();
+  }
+
+  private static isWebGLSupported(): boolean {
+    if (typeof window === 'undefined' || !window.WebGLRenderingContext) return false;
+    try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+      return !!(ctx && typeof (ctx as WebGLRenderingContext).getParameter === 'function');
+    } catch {
+      return false;
+    }
+  }
+
+  private setMapError(userMessage: string, technicalDetail?: string): void {
+    this.mapLoadError.set(userMessage);
+    this.mapLoadErrorDetail.set(technicalDetail ?? null);
+    this.toastr.error(userMessage, 'Map failed to load');
   }
 
   ngOnDestroy(): void {
@@ -563,18 +583,21 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   private initMap(): void {
     const container = this.getMapContainer();
     if (!container) {
-      const msg = 'Map container not found';
-      this.mapLoadError.set(msg);
-      this.toastr.error(msg, 'Map failed to load');
+      this.setMapError('Map container not found.');
+      return;
+    }
+
+    if (!WarRoomMapComponent.isWebGLSupported()) {
+      this.setMapError(
+        'Interactive map unavailable. WebGL is required but could not be initialized.'
+      );
       return;
     }
 
     const rect = container.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) {
       if (this.initMapRetryCount >= WarRoomMapComponent.INIT_MAP_MAX_RETRIES) {
-        const msg = 'Map container has no dimensions. Please refresh the page.';
-        this.mapLoadError.set(msg);
-        this.toastr.error(msg, 'Map failed to load');
+        this.setMapError('Map container has no dimensions. Please refresh the page.');
         this.initMapRetryCount = 0;
         return;
       }
@@ -589,21 +612,26 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     try {
       this.mapInstance = this.createMap(container);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Map initialization failed';
-      this.mapLoadError.set(msg);
-      this.toastr.error(msg, 'Map failed to load');
+      const raw = err instanceof Error ? err.message : String(err);
+      this.setMapError(
+        'Map could not load. This may be due to WebGL being disabled or unsupported.',
+        raw
+      );
       return;
     }
 
     this.mapInstance.on('error', (e) => {
-      const msg = (e.error as Error)?.message ?? 'Map failed to load';
-      this.mapLoadError.set(msg);
-      this.toastr.error(msg, 'Map failed to load');
+      const raw = (e.error as Error)?.message ?? 'Map failed to load';
+      this.setMapError(
+        'Map could not load. This may be due to WebGL being disabled or unsupported.',
+        raw
+      );
     });
 
     this.mapInstance.on('load', () => {
       if (this.destroyed) return;
       this.mapLoadError.set(null);
+      this.mapLoadErrorDetail.set(null);
       this.mapLoaded = true;
       this.updateContainerRect();
       this.scheduleOverlayUpdate(true);

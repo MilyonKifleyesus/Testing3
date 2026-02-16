@@ -361,35 +361,6 @@ $bp-desktop: 1199.98px;
   flex: 1;
 }
 
-.modal-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.btn-load-sample {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #64748B;
-  background: transparent;
-  border: 1px dashed #94A3B8;
-  border-radius: 0.35rem;
-  padding: 0.35rem 0.6rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover:not(:disabled) {
-    color: #2D6A4F;
-    border-color: #2D6A4F;
-    background: rgba(45, 106, 79, 0.08);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
 .modal-title {
   // Modal title matching website structure
   margin-block-end: 0;
@@ -1168,6 +1139,8 @@ $bp-desktop: 1199.98px;
 .required-indicator {
   color: #DC2626;
   margin-left: 0.25rem;
+  font-size: 1em;
+  font-weight: 600;
 }
 
 .form-input {

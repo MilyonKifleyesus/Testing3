@@ -253,6 +253,16 @@
       </div>
       }
 
+      <!-- Tactical mode: top-right Exit button (prominent, easy to find) -->
+      @if (tacticalMode()) {
+      <div class="war-room-exit-tactical-top" role="group" aria-label="Exit tactical mode">
+        <button type="button" class="btn btn-sm war-room-exit-tactical-btn" (click)="toggleTacticalMode()"
+          aria-label="Exit tactical mode" title="Exit tactical mode (Esc)">
+          <i class="fe fe-crosshair me-2" aria-hidden="true"></i>
+          <span>Exit Tactical</span>
+        </button>
+      </div>
+      }
       <!-- Bottom-center view toggle pill (tactical mode only) -->
       @if (tacticalMode()) {
       <div class="war-room-view-toggle-bottom" role="toolbar" aria-label="Map view mode">
@@ -268,8 +278,9 @@
             [attr.aria-checked]="mapViewMode() === 'factory'" aria-label="Factory view">Factory</button>
         </div>
         <button type="button" class="btn btn-sm map-view-exit-tactical ms-2" (click)="toggleTacticalMode()"
-          aria-label="Exit tactical mode" title="Exit tactical mode">
-          <i class="fe fe-x" aria-hidden="true"></i>
+          aria-label="Exit tactical mode" title="Exit tactical mode (Esc)">
+          <span>Exit</span>
+          <i class="fe fe-x ms-1" aria-hidden="true"></i>
         </button>
       </div>
       }

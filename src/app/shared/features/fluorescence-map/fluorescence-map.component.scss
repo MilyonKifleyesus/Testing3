@@ -89,7 +89,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   --cm-border: rgba(148, 163, 184, 0.18);
   --cm-border-strong: rgba(0, 255, 65, 0.5);
   --cm-text: #e2e8f0;
-  --cm-muted: rgba(226, 232, 240, 0.6);
+  --cm-muted: rgba(226, 232, 240, 0.85);
   --cm-primary: #00ff41;
   --cm-primary-soft: rgba(0, 255, 65, 0.12);
   --cm-accent: #f59e0b;
@@ -105,7 +105,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   --primary05: rgba(0, 255, 65, 0.35);
   --default-background: #04070a;
   --custom-white: rgba(8, 12, 16, 0.92);
-  --text-muted: rgba(226, 232, 240, 0.6);
+  --text-muted: rgba(226, 232, 240, 0.85);
   --default-border: rgba(148, 163, 184, 0.24);
   --gray-4: rgba(226, 232, 240, 0.35);
   --gray-5: rgba(226, 232, 240, 0.55);
@@ -391,11 +391,41 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   box-shadow: var(--cm-shadow);
 }
 
-.map-view-exit-tactical {
-  color: var(--cm-muted);
-  background: transparent;
-  border: 1px solid var(--cm-border);
+// Top-right Exit Tactical button (prominent, mirrors map-action-bar placement)
+.war-room-exit-tactical-top {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 35;
+}
+
+.war-room-exit-tactical-btn {
+  @extend .glass;
+  color: var(--cm-text);
+  border: 1px solid var(--cm-border-strong);
   border-radius: var(--cm-radius-sm);
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: var(--cm-danger);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--cm-primary);
+    outline-offset: 2px;
+  }
+}
+
+.map-view-exit-tactical {
+  color: var(--cm-text);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  padding: 0.35rem 0.6rem;
+  font-weight: 500;
 
   &:hover {
     background: rgba(239, 68, 68, 0.18);
@@ -409,7 +439,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 
   .form-label {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--cm-muted);
@@ -445,21 +475,21 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   .form-label {
     margin: 0;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--cm-muted);
   }
 
   .filter-summary {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     color: var(--cm-muted);
     margin-left: auto;
     margin-right: 0.5rem;
   }
 
   .filter-chevron {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     color: var(--cm-muted);
     transition: transform 0.2s ease;
 
@@ -476,6 +506,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 
   .form-check-label {
     color: var(--cm-text);
+    font-size: 0.8rem;
   }
 
   .form-check-input {
@@ -486,7 +517,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 .filters-actions {
   .btn {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -511,7 +542,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 
   .btn {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     border-width: 1px;

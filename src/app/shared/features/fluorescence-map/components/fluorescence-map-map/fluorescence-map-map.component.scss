@@ -124,16 +124,69 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  background-color: rgba(0, 0, 0, 0.75);
-  color: #fff;
   padding: 1.5rem;
-  text-align: center;
+  background-color: rgba(0, 0, 0, 0.82);
+  background-image: url('https://a.basemaps.cartocdn.com/dark_all/0/0/0.png');
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+}
 
-  p {
-    margin: 0;
-    max-width: 400px;
+.map-error-content {
+  max-width: 420px;
+  text-align: center;
+  background: rgba(8, 12, 16, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: var(--cm-radius, 12px);
+  padding: 1.5rem;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+
+.map-error-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.map-error-message {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: rgba(226, 232, 240, 0.95);
+}
+
+.map-error-hint {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: rgba(226, 232, 240, 0.8);
+}
+
+.map-error-details {
+  margin: 0 0 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+
+  summary {
+    cursor: pointer;
+    color: rgba(226, 232, 240, 0.7);
   }
+
+  code {
+    display: block;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 0.35rem;
+    font-size: 0.7rem;
+    word-break: break-word;
+    color: rgba(226, 232, 240, 0.85);
+  }
+}
+
+.map-error-retry {
+  margin-top: 0.25rem;
 }
 
 .map-container {

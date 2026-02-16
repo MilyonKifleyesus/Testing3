@@ -73,7 +73,7 @@
           Choose the client this project will be associated with. The project will create a connection line from this client to the selected factory on the map.
         </p>
         <div class="form-field">
-          <label class="form-label" for="client-select">Client</label>
+          <label class="form-label" for="client-select">Client<span class="required-indicator" aria-hidden="true">*</span></label>
           <ng-select id="client-select" class="form-select-ng"
             [items]="clients()"
             bindLabel="name"
@@ -99,7 +99,7 @@
           Choose the manufacturer factory location for this project.
         </p>
         <div class="form-field">
-          <label class="form-label" for="factory-select">Factory</label>
+          <label class="form-label" for="factory-select">Factory<span class="required-indicator" aria-hidden="true">*</span></label>
           <ng-select id="factory-select" class="form-select-ng"
             [items]="factoryOptions()"
             bindLabel="label"
@@ -124,13 +124,13 @@
           Enter the project name, assessment type, and status.
         </p>
         <div class="form-field">
-          <label class="form-label" for="project-name">Project Name</label>
+          <label class="form-label" for="project-name">Project Name<span class="required-indicator" aria-hidden="true">*</span></label>
           <input type="text" id="project-name" class="form-input" placeholder="e.g., Nova - LE96 40FT"
             [value]="projectName()" (input)="projectName.set($any($event.target).value)"
             [disabled]="isSubmitting()" />
         </div>
         <div class="form-field">
-          <label class="form-label" for="assessment-type">Assessment Type</label>
+          <label class="form-label" for="assessment-type">Assessment Type<span class="required-indicator" aria-hidden="true">*</span></label>
           <ng-select id="assessment-type" class="form-select-ng"
             [items]="projectTypes()"
             [clearable]="true"

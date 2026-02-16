@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, inject, viewChild, effect, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, inject, viewChild, effect, computed, HostListener } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { WarRoomService } from '../../../shared/services/fluorescence-map.service';
@@ -1201,6 +1201,13 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.projectHudVisible.set(false);
     }
     this.announce(next ? 'Tactical mode on. Map only view.' : 'Tactical mode off.');
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.tacticalMode() && !this.addCompanyModalVisible()) {
+      this.toggleTacticalMode();
+    }
   }
 
   /**

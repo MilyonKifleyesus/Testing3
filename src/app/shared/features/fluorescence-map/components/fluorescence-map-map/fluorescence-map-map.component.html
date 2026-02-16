@@ -23,9 +23,19 @@
   </app-war-room-map-tooltip>
 
   @if (mapLoadError()) {
-  <div class="map-error-overlay">
-    <p>{{ mapLoadError() }}</p>
-    <button type="button" class="btn btn-primary btn-sm" (click)="retryMapLoad()">Retry</button>
+  <div class="map-error-overlay" role="alert" aria-live="polite">
+    <div class="map-error-content">
+      <h3 class="map-error-title">Map Could Not Load</h3>
+      <p class="map-error-message">{{ mapLoadError() }}</p>
+      <p class="map-error-hint">Try enabling hardware acceleration in your browser settings, or refresh the page. If the problem persists, try a different browser.</p>
+      @if (mapLoadErrorDetail()) {
+      <details class="map-error-details">
+        <summary>Technical details</summary>
+        <code>{{ mapLoadErrorDetail() }}</code>
+      </details>
+      }
+      <button type="button" class="btn btn-primary btn-sm map-error-retry" (click)="retryMapLoad()">Retry</button>
+    </div>
   </div>
   }
 
