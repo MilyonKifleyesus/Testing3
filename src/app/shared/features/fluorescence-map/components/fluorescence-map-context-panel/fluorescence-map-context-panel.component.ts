@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { WarRoomService } from '../../../../services/fluorescence-map.service';
 import { ClientService } from '../../../../services/client.service';
 import { ProjectService } from '../../../../services/project.service';
+import { RoutePreviewStorageService } from '../../../../services/route-preview-storage.service';
 import { FleetSelection } from '../../../../models/fluorescence-map.interface';
 import { Project } from '../../../../models/project.model';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -18,10 +19,12 @@ export class WarRoomContextPanelComponent {
   private readonly warRoomService = inject(WarRoomService);
   private readonly clientService = inject(ClientService);
   private readonly projectService = inject(ProjectService);
+  private readonly routePreviewStorage = inject(RoutePreviewStorageService);
 
   selectedEntity = input<FleetSelection | null>(null);
   selectedProjectId = input<string | null>(null);
   selectedRouteId = input<string | null>(null);
+  routePreviewVersion = input<number>(0);
 
   private readonly clientsSignal = toSignal(this.clientService.getClients(), { initialValue: [] });
 
@@ -72,4 +75,13 @@ export class WarRoomContextPanelComponent {
   });
 
   readonly hasContent = computed(() => !!this.contextData());
+
+  getRoutePreviewUrl(projectId: string | number): string | null {
+    void this.routePreviewVersion();
+    return this.routePreviewStorage.get(String(projectId));
+  }
+
+  downloadRoutePreview(projectId: string | number, projectName?: string): void {
+    this.routePreviewStorage.download(String(projectId), projectName);
+  }
 }

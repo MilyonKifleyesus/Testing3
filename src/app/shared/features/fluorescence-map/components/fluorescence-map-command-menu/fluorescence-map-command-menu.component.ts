@@ -1,7 +1,7 @@
-import { Component, signal, output } from '@angular/core';
+import { Component, input, signal, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-export type CommandAction = 'addCompany' | 'panels' | 'filters' | 'projectList' | 'tactical' | 'expandMap';
+export type CommandAction = 'addCompany' | 'panels' | 'filters' | 'projectList' | 'tactical' | 'expandMap' | 'captureRoute' | 'captureClientProjects';
 
 @Component({
   selector: 'app-war-room-command-menu',
@@ -12,6 +12,8 @@ export type CommandAction = 'addCompany' | 'panels' | 'filters' | 'projectList' 
 })
 export class WarRoomCommandMenuComponent {
   readonly expanded = signal<boolean>(false);
+  hasSelectedProject = input<boolean>(false);
+  hasSelectedClient = input<boolean>(false);
   actionTriggered = output<CommandAction>();
 
   toggle(): void {

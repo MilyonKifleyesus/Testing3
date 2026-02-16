@@ -23,4 +23,6 @@ export interface Project {
   userAccess?: string[];
   /** 0-100 for mini-progress bar in Project HUD */
   progress?: number;
+  /** Base64 data URL or blob URL for route preview image (Uber-style) */
+  routePreviewImageUrl?: string;
 }

@@ -31,6 +31,16 @@
       <i class="fe fe-maximize-2" aria-hidden="true"></i>
       <span>Expand Map</span>
     </button>
+    <button type="button" class="command-action" (click)="onAction('captureRoute')" aria-label="Capture Route Preview">
+      <i class="fe fe-camera" aria-hidden="true"></i>
+      <span>Capture Route Preview</span>
+    </button>
+    @if (hasSelectedClient()) {
+    <button type="button" class="command-action" (click)="onAction('captureClientProjects')" aria-label="Capture All Client Projects">
+      <i class="fe fe-camera" aria-hidden="true"></i>
+      <span>Capture All Client Projects</span>
+    </button>
+    }
   </div>
   }
 </div>

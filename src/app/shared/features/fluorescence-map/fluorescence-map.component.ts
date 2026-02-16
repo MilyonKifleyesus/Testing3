@@ -17,6 +17,7 @@ import { WarRoomContextPanelComponent } from './components/fluorescence-map-cont
 import { WarRoomCommandMenuComponent, CommandAction } from './components/fluorescence-map-command-menu/fluorescence-map-command-menu.component';
 import { AddCompanyModalComponent, ProjectFormData } from './components/add-company-modal/add-company-modal.component';
 import { ToastrService } from 'ngx-toastr';
+import { RoutePreviewStorageService } from '../../../shared/services/route-preview-storage.service';
 import { OperationalStatus } from '../../../shared/models/fluorescence-map.interface';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
@@ -91,6 +92,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   private projectService = inject(ProjectService);
   private companyLocationService = inject(CompanyLocationService);
   private toastr = inject(ToastrService);
+  private routePreviewStorage = inject(RoutePreviewStorageService);
 
   readonly clientsSignal = toSignal(this.clientService.getClients(), { initialValue: [] });
   readonly projectTypesSignal = toSignal(this.projectService.getProjectTypes(), { initialValue: [] });
@@ -100,6 +102,10 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly projectTypeOptionsSignal = toSignal(this.projectService.getProjectTypeOptionsWithCounts(), { initialValue: [] });
   readonly projectRoutes = signal<ProjectRoute[]>([]);
   readonly selectedProjectId = signal<string | null>(null);
+  /** When true, hide UI for clean route screenshot capture */
+  readonly screenshotMode = signal(false);
+  /** Increments when a route preview is saved; used to refresh thumbnails in panels */
+  readonly routePreviewVersion = signal(0);
   readonly projectRoutesForMap = computed(() => {
     const viewMode = this.mapViewMode();
     if (viewMode === 'client' || viewMode === 'factory') {
@@ -111,6 +117,13 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       return routes;
     }
     return routes.filter((route) => route.projectId === selectedId);
+  });
+
+  /** True when a client is selected and has at least one route to capture. */
+  readonly hasSelectedClientWithRoutes = computed(() => {
+    const selection = this.selectedEntity();
+    const routes = this.projectRoutes();
+    return selection?.level === 'client' && routes.some((r) => r.fromNodeId === selection.id);
   });
 
   readonly projectsSignal = toSignal(this.projectService.getProjectsWithRefresh(), { initialValue: [] as Project[] });
@@ -1240,7 +1253,127 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       case 'expandMap':
         this.toggleMapExpanded();
         break;
+      case 'captureRoute': {
+        const pid = this.selectedProjectId();
+        const projects = this.projectsSignal();
+        const getProjectName = (id: string) => projects.find((p) => String(p.id) === id)?.projectName;
+        if (pid) {
+          this.captureAndStoreForProject(pid, getProjectName(pid));
+        } else {
+          const routes = this.projectRoutes();
+          const first = routes[0];
+          if (first) {
+            this.selectedProjectId.set(first.projectId);
+            this.captureAndStoreForProject(first.projectId, getProjectName(first.projectId));
+          } else {
+            this.toastr.warning('Select a project or route first, or add a project with a route.', 'No route to capture');
+          }
+        }
+        break;
+      }
+      case 'captureClientProjects': {
+        const selection = this.selectedEntity();
+        if (selection?.level === 'client') {
+          this.captureAndStoreForClient(selection.id);
+        } else {
+          this.toastr.warning('Select a client first to capture all their projects.', 'No client selected');
+        }
+        break;
+      }
     }
+  }
+
+  /** Captures route screenshot for project, stores it, and shows toast. Optionally triggers download. */
+  async captureAndStoreForProject(projectId: string, projectName?: string): Promise<void> {
+    const dataUrl = await this.captureRouteScreenshotForProject(projectId);
+    if (dataUrl) {
+      this.routePreviewStorage.set(projectId, dataUrl);
+      this.routePreviewVersion.set(this.routePreviewStorage.previewSaved());
+      this.routePreviewStorage.download(projectId, projectName);
+      this.toastr.success('Route preview saved and downloaded.', 'CAPTURED');
+    }
+  }
+
+  /** Captures all routes for a client into one screenshot, stores it, and triggers download. */
+  async captureAndStoreForClient(clientId: string): Promise<void> {
+    const dataUrl = await this.captureClientScreenshot(clientId);
+    if (dataUrl) {
+      const storageKey = `client-${clientId}`;
+      this.routePreviewStorage.set(storageKey, dataUrl);
+      this.routePreviewVersion.set(this.routePreviewStorage.previewSaved());
+      const clients = this.clientsSignal();
+      const clientName = clients.find((c) => c.id === clientId)?.name ?? clientId;
+      this.routePreviewStorage.download(storageKey, `${clientName}-all-projects`);
+      this.toastr.success('All client projects captured and downloaded.', 'CAPTURED');
+    }
+  }
+
+  /** Captures a clean map screenshot for all routes belonging to the given client. Returns data URL or null. */
+  private async captureClientScreenshot(clientId: string): Promise<string | null> {
+    const routes = this.projectRoutes().filter((r) => r.fromNodeId === clientId);
+    if (!routes.length) {
+      this.toastr.warning('No routes available for this client.', 'Cannot capture');
+      return null;
+    }
+    const map = this.mapComponent();
+    this.screenshotMode.set(true);
+    try {
+      await new Promise((r) => setTimeout(r, 100));
+      const blob = await map.captureRoutesScreenshot(routes);
+      return await this.blobToDataUrl(blob);
+    } catch (err) {
+      this.toastr.error('Failed to capture client projects.', 'Error');
+      console.error('Client capture failed:', err);
+      return null;
+    } finally {
+      this.screenshotMode.set(false);
+    }
+  }
+
+  /** Captures a clean map screenshot for the given project's route. Returns data URL or null. */
+  private async captureRouteScreenshotForProject(projectId: string): Promise<string | null> {
+    const routes = this.projectRoutes();
+    const route = routes.find((r) => r.projectId === projectId);
+    if (!route?.fromCoordinates || !route?.toCoordinates) {
+      this.toastr.warning('No route available to capture.', 'Cannot capture');
+      return null;
+    }
+    const map = this.mapComponent();
+    this.selectedProjectId.set(projectId);
+    this.screenshotMode.set(true);
+    try {
+      await new Promise((r) => setTimeout(r, 100));
+      const blob = await map.captureRouteScreenshot(route);
+      return await this.blobToDataUrl(blob);
+    } catch (err) {
+      this.toastr.error('Failed to capture route.', 'Error');
+      console.error('Route capture failed:', err);
+      return null;
+    } finally {
+      this.screenshotMode.set(false);
+    }
+  }
+
+  private blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result as string);
+      fr.onerror = () => reject(fr.error);
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  onRoutePreviewRequested(projectId: string): void {
+    const projectName = this.projectsSignal().find((p) => String(p.id) === projectId)?.projectName;
+    setTimeout(() => this.captureAndStoreForProject(projectId, projectName), 500);
+  }
+
+  onClientCaptureRequested(clientId: string): void {
+    this.warRoomService.selectEntity({ level: 'client', id: clientId });
+    this.filterDraft.update((f) => ({ ...f, clientIds: [clientId] }));
+    this.filterApplied.set({ ...this.filterApplied(), clientIds: [clientId] });
+    this.projectRoutesRefreshTrigger.update((n) => n + 1);
+    setTimeout(() => this.captureAndStoreForClient(clientId), 1500);
   }
 
   onRouteSelected(payload: { routeId: string; projectId?: string }): void {
@@ -1612,7 +1745,21 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
     this.addCompanyInFlight = true;
     this.projectService.addProject(project).subscribe({
-      next: () => {
+      next: (createdProject) => {
+        // Ensure map shows the new project: switch to Project view, clear selection, and clear project filters
+        this.warRoomService.setMapViewMode('project');
+        this.selectedProjectId.set(null);
+
+        // Clear project filters so the new project is not excluded from routes
+        const cleared = {
+          ...this.filterApplied(),
+          clientIds: [],
+          manufacturerIds: [],
+          projectTypeIds: [],
+        };
+        this.filterApplied.set(cleared);
+        this.filterDraft.set({ ...this.filterDraft(), ...cleared });
+
         this.projectService.refreshProjects();
         this.projectRoutesRefreshTrigger.update((n) => n + 1);
         this.addCompanyModalRef()?.handleSuccess(
@@ -1625,6 +1772,17 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         });
         this.addCompanyModalRef()?.closeAfterSuccess();
         this.announce(`Project ${formData.projectName} added.`);
+
+        // After modal closes and routes refresh, pan map to show the new route
+        setTimeout(() => {
+          const routes = this.projectRoutes();
+          const newRoute = routes.find((r) => r.projectId === String(createdProject.id));
+          if (newRoute && this.mapComponent()) {
+            this.mapComponent().fitBoundsToRoutes([newRoute]);
+          }
+        }, 800);
+
+        setTimeout(() => this.captureAndStoreForProject(String(createdProject.id), createdProject.projectName), 1500);
       },
       error: (error) => {
         console.error('Critical error adding project:', error);

@@ -1,6 +1,7 @@
 <div class="war-room-map-container" [attr.data-theme-mode]="currentTheme()">
-  <!-- Grid Overlay -->
+  @if (!screenshotMode()) {
   <div class="grid-overlay"></div>
+  }
 
   <!-- Map Container: overlays inside #war-room-map so (0,0) matches MapLibre project() – stops marker/logo drift on zoom -->
   <div class="map-container" (click)="clearPinned()" (contextmenu)="onMapContextMenu($event)">
@@ -14,9 +15,11 @@
       </app-war-room-map-markers>
     </div>
 
+    @if (!screenshotMode()) {
     <app-war-room-map-controls [fullscreen]="fullscreenState()" [zoomLevel]="currentZoomLevel()"
       (zoomChange)="setZoomTo($event)" (zoomIn)="zoomIn()" (zoomOut)="zoomOut()"
       (toggleFullscreen)="toggleFullscreen()"></app-war-room-map-controls>
+    }
   </div>
 
   <app-war-room-map-tooltip [tooltip]="tooltipVm()" (logoError)="onTooltipLogoError($event)">

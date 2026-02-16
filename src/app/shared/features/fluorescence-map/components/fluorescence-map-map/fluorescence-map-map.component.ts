@@ -58,6 +58,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   transitRoutes = input<TransitRoute[]>([]);
   projectRoutes = input<ProjectRoute[]>([]);
   filterStatus = input<'all' | 'active' | 'inactive'>('all');
+  /** When true, hide controls and grid overlay for clean route screenshot capture */
+  screenshotMode = input(false);
 
   // Outputs
   nodeSelected = output<WarRoomNode | undefined>();
@@ -688,6 +690,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       bearing: this.defaultView.bearing,
       minZoom: 0.5,
       maxZoom: 14,
+      canvasContextAttributes: { preserveDrawingBuffer: true }, // Required for canvas.toDataURL() export
     });
     this.currentZoomLevel.set(this.defaultView.zoom);
     return map;
@@ -1086,6 +1089,135 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
     const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
     this.mapInstance.fitBounds([sw, ne], { padding, duration: 800 });
+  }
+
+  /**
+   * Captures a clean screenshot of the map showing the given route, including route line and markers.
+   * Composites: base map canvas + route paths + endpoint markers (overlays are DOM, not in canvas).
+   */
+  public captureRouteScreenshot(route: ProjectRoute): Promise<Blob> {
+    return this.captureRoutesScreenshot([route]);
+  }
+
+  /**
+   * Captures a clean screenshot of the map showing all given routes (e.g. all projects for a client).
+   * Fits bounds to all routes, composites base map + route paths + endpoint markers.
+   */
+  public captureRoutesScreenshot(routes: ProjectRoute[]): Promise<Blob> {
+    return new Promise<Blob>((resolve, reject) => {
+      if (!this.mapInstance || !this.mapLoaded || this.destroyed) {
+        reject(new Error('Map not ready for capture'));
+        return;
+      }
+      if (!routes?.length) {
+        reject(new Error('No routes to capture'));
+        return;
+      }
+      const map = this.mapInstance;
+      this.fitBoundsToRoutes(routes, 80);
+      const timeout = setTimeout(() => {
+        map.off('idle', onIdle);
+        reject(new Error('Map capture timed out'));
+      }, 5000);
+      const onIdle = () => {
+        clearTimeout(timeout);
+        map.off('idle', onIdle);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            try {
+              resolve(this.compositeRoutesScreenshot(routes));
+            } catch (err) {
+              reject(err instanceof Error ? err : new Error(String(err)));
+            }
+          });
+        });
+      };
+      map.once('idle', onIdle);
+    });
+  }
+
+  /** Composites base map + route paths + endpoint markers into a single PNG. */
+  private compositeRoutesScreenshot(routes: ProjectRoute[]): Blob {
+    const map = this.mapInstance!;
+    const canvas = map.getCanvas();
+    const w = canvas.width;
+    const h = canvas.height;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = w;
+    offscreen.height = h;
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) throw new Error('Could not get 2D context');
+
+    ctx.drawImage(canvas, 0, 0);
+
+    const projectIds = new Set(routes.map((r) => r.projectId));
+    const routeVms = this.routesVm().filter((r) => r.projectId && projectIds.has(r.projectId));
+    const markerPixels = this.markerPixelCoordinates();
+
+    for (const rv of routeVms) {
+      ctx.strokeStyle = rv.strokeColor ?? '#00C853';
+      ctx.lineWidth = (rv.strokeWidth ?? 2) * 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      try {
+        const path = new Path2D(rv.path);
+        ctx.stroke(path);
+      } catch {
+        ctx.beginPath();
+        ctx.moveTo(rv.start.x, rv.start.y);
+        ctx.lineTo(rv.end.x, rv.end.y);
+        ctx.stroke();
+      }
+
+      const rad = 8;
+      ctx.fillStyle = rv.strokeColor ?? '#00C853';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(rv.start.x, rv.start.y, rad, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(rv.end.x, rv.end.y, rad, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    const drawMarker = (x: number, y: number, color: string) => {
+      ctx.fillStyle = color;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    };
+    const drawnMarkerPositions = new Set<string>();
+    for (const route of routes) {
+      const fromPos = markerPixels.get(route.fromNodeId);
+      const toPos = markerPixels.get(route.toNodeId);
+      const key = (x: number, y: number) => `${Math.round(x)},${Math.round(y)}`;
+      if (fromPos && !drawnMarkerPositions.has(key(fromPos.x, fromPos.y))) {
+        drawnMarkerPositions.add(key(fromPos.x, fromPos.y));
+        drawMarker(fromPos.x, fromPos.y, '#0ea5e9');
+      }
+      if (toPos && !drawnMarkerPositions.has(key(toPos.x, toPos.y))) {
+        drawnMarkerPositions.add(key(toPos.x, toPos.y));
+        drawMarker(toPos.x, toPos.y, '#0ea5e9');
+      }
+    }
+
+    return this.dataUrlToBlob(offscreen.toDataURL('image/png'));
+  }
+
+  private dataUrlToBlob(dataUrl: string): Blob {
+    const parts = dataUrl.split(',');
+    const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
+    const bstr = atob(parts[1] ?? '');
+    const n = bstr.length;
+    const u8 = new Uint8Array(n);
+    for (let i = 0; i < n; i++) u8[i] = bstr.charCodeAt(i);
+    return new Blob([u8], { type: mime });
   }
 
   private isHub(node: WarRoomNode): boolean {

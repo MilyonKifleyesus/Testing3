@@ -25,6 +25,11 @@
           }
           <span class="client-list-name flex-grow-1 text-start">{{ item.name }}</span>
           <span class="client-list-count badge bg-primary-transparent">{{ item.projectCount }} {{ item.projectCount === 1 ? 'project' : 'projects' }}</span>
+          <button type="button" class="btn btn-sm btn-icon btn-outline-primary client-capture-btn"
+            (click)="onCaptureAllClientProjects(item.id, $event)"
+            [attr.aria-label]="'Capture all projects for ' + item.name" title="Capture all projects">
+            <i class="fe fe-camera" aria-hidden="true"></i>
+          </button>
         </button>
 
         @if (isExpanded(item.id)) {
@@ -76,6 +81,15 @@
               [attr.aria-label]="'Show ' + project.projectName + ' on map'"
               (keydown.enter)="onProjectClick(project, $event)"
               (keydown.space)="onProjectClick(project, $event); $event.preventDefault()">
+              @if (getRoutePreviewUrl(project.id); as previewUrl) {
+              <div class="project-route-preview-wrap" (click)="$event.stopPropagation()">
+                <img [src]="previewUrl" alt="Route preview" class="project-route-preview-thumb" />
+                <button type="button" class="project-route-download-btn" (click)="downloadRoutePreview(project.id, project.projectName)"
+                  aria-label="Download route preview" title="Download">
+                  <i class="fe fe-download" aria-hidden="true"></i>
+                </button>
+              </div>
+              }
               <span class="project-name">{{ project.projectName }}</span>
               @if (getFactoryName(project)) {
               <span class="project-factory">{{ getFactoryName(project) }}</span>

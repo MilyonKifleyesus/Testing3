@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ProjectService } from '../../../../services/project.service';
 import { WarRoomService } from '../../../../services/fluorescence-map.service';
+import { RoutePreviewStorageService } from '../../../../services/route-preview-storage.service';
 import { ToastrService } from 'ngx-toastr';
 import { Project, ProjectStatus } from '../../../../models/project.model';
 import { catchError, of } from 'rxjs';
@@ -25,6 +26,7 @@ export interface ClientWithProjects {
 export class WarRoomClientsPanelComponent {
   private projectService = inject(ProjectService);
   private warRoomService = inject(WarRoomService);
+  private routePreviewStorage = inject(RoutePreviewStorageService);
   private toastr = inject(ToastrService);
   private destroyRef = inject(DestroyRef);
 
@@ -33,10 +35,14 @@ export class WarRoomClientsPanelComponent {
   selectedEntity = input<{ level?: string; id?: string } | null>(null);
   /** When this changes, client project caches are invalidated (e.g. after adding a project) */
   projectsRefreshTrigger = input<number>(0);
+  /** Increments when a route preview is saved; used to refresh thumbnails */
+  routePreviewVersion = input<number>(0);
 
   clientSelected = output<string>();
   projectSelected = output<Project>();
   saveComplete = output<void>();
+  routePreviewRequested = output<string>();
+  clientCaptureRequested = output<string>();
 
   readonly expandedClientIds = signal<Set<string>>(new Set());
   readonly projectsByClientId = signal<Map<string, Project[]>>(new Map());
@@ -106,8 +112,14 @@ export class WarRoomClientsPanelComponent {
   onClientClick(clientId: string, event: Event): void {
     const target = event.target as HTMLElement;
     if (target.closest('button[data-edit-btn]')) return;
+    if (target.closest('.client-capture-btn')) return;
     this.toggleExpand(clientId);
     this.clientSelected.emit(clientId);
+  }
+
+  onCaptureAllClientProjects(clientId: string, event: Event): void {
+    event.stopPropagation();
+    this.clientCaptureRequested.emit(clientId);
   }
 
   onProjectClick(project: Project, event: Event): void {
@@ -220,6 +232,7 @@ export class WarRoomClientsPanelComponent {
           this.cancelEditProject(String(project.id));
           this.invalidateClientCache(project.clientId);
           this.saveComplete.emit();
+          this.routePreviewRequested.emit(String(project.id));
           this.toastr.success('Project saved.', 'SAVED');
         },
         error: () => {
@@ -298,6 +311,7 @@ export class WarRoomClientsPanelComponent {
         next: () => {
           clientIdsToInvalidate.add(project.clientId);
           succeededIds.add(projectIdStr);
+          this.routePreviewRequested.emit(projectIdStr);
           successCount++;
           completed++;
           maybeFinish();
@@ -322,5 +336,15 @@ export class WarRoomClientsPanelComponent {
 
   idStr(id: string | number): string {
     return String(id);
+  }
+
+  getRoutePreviewUrl(projectId: string | number): string | null {
+    void this.routePreviewVersion();
+    return this.routePreviewStorage.get(String(projectId));
+  }
+
+  downloadRoutePreview(projectId: string | number, projectName?: string): void {
+    const ok = this.routePreviewStorage.download(String(projectId), projectName);
+    if (!ok) this.toastr.warning('No route preview to download.', 'Download');
   }
 }

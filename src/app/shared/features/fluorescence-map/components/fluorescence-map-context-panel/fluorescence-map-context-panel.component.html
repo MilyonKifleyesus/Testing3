@@ -4,6 +4,16 @@
     @switch (data.type) {
       @case ('project') {
         <div class="context-section">
+          @if (getRoutePreviewUrl(data.project.id); as previewUrl) {
+          <div class="context-route-preview-wrap">
+            <img [src]="previewUrl" alt="Route preview" class="context-route-preview" />
+            <button type="button" class="context-route-download-btn"
+              (click)="downloadRoutePreview(data.project.id, data.project.projectName)"
+              aria-label="Download route preview" title="Download route preview">
+              <i class="fe fe-download" aria-hidden="true"></i> Download
+            </button>
+          </div>
+          }
           <h6 class="context-title">Project</h6>
           <div class="context-detail">{{ data.project.projectName }}</div>
           <div class="context-meta">{{ data.client?.name ?? '—' }} → {{ data.factory?.name ?? data.project.manufacturer ?? '—' }}</div>

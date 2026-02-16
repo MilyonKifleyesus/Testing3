@@ -1,4 +1,4 @@
-<div class="war-room-container">
+<div class="war-room-container" [class.route-screenshot-mode]="screenshotMode()">
   <div class="visually-hidden" aria-live="polite" aria-atomic="true">{{ announcementMessage() }}</div>
   <!-- TestSprite marker stability assertions - visible for automation -->
   @if (markerStabilityMessage()) {
@@ -295,15 +295,19 @@
       }
       @if (selectedProjectId() || selectedEntity()) {
       <div class="war-room-context-panel-wrapper">
-        <app-war-room-context-panel [selectedEntity]="selectedEntity()" [selectedProjectId]="selectedProjectId()" />
+        <app-war-room-context-panel [selectedEntity]="selectedEntity()" [selectedProjectId]="selectedProjectId()"
+          [routePreviewVersion]="routePreviewVersion()" />
       </div>
       }
 
       @if (!tacticalMode()) {
-      <app-war-room-command-menu (actionTriggered)="onCommandAction($event)" />
+      <app-war-room-command-menu [hasSelectedProject]="!!selectedProjectId()"
+        [hasSelectedClient]="hasSelectedClientWithRoutes()"
+        (actionTriggered)="onCommandAction($event)" />
       }
 
-      <app-war-room-map class="war-room-map-fill" [nodes]="filteredNodes()" [selectedEntity]="selectedEntity()"
+      <app-war-room-map class="war-room-map-fill" [screenshotMode]="screenshotMode()"
+        [nodes]="filteredNodes()" [selectedEntity]="selectedEntity()"
         [transitRoutes]="filteredTransitRoutes()" [projectRoutes]="projectRoutesForMap()"
         [filterStatus]="filterApplied().status" (nodeSelected)="onNodeSelected($event)"
         (routeSelected)="onRouteSelected($event)" (zoomStable)="onMapZoomStable($event)"
@@ -341,7 +345,7 @@
     </div>
 
     <!-- Sidebar -->
-    @if (!tacticalMode()) {
+    @if (!tacticalMode() && !screenshotMode()) {
     <aside id="war-room-overlay-panel" class="war-room-sidebar" [class.open]="panelVisible()"
       [attr.aria-hidden]="!panelVisible()">
       <div class="sidebar-tabs" role="tablist" aria-label="War room panels">
@@ -411,9 +415,12 @@
           } @else {
           <app-war-room-clients-panel [clientsWithProjects]="clientsWithProjects()" [editMode]="activityLogEditMode()"
             [selectedEntity]="selectedEntity()" [projectsRefreshTrigger]="projectRoutesRefreshTrigger()"
+            [routePreviewVersion]="routePreviewVersion()"
             (clientSelected)="onClientSelected($event)"
             (projectSelected)="onProjectHudSelected($event)"
-            (saveComplete)="onClientPanelSaveComplete()"></app-war-room-clients-panel>
+            (saveComplete)="onClientPanelSaveComplete()"
+            (routePreviewRequested)="onRoutePreviewRequested($event)"
+            (clientCaptureRequested)="onClientCaptureRequested($event)"></app-war-room-clients-panel>
           }
         </section>
 
