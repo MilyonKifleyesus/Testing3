@@ -54,7 +54,7 @@ async def run_test():
         elem = frame.locator('xpath=html/body/app-root/app-full-layout/div/div/div/app-dashboard/div[1]/app-war-room/div/main/div/div[1]/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
-        # -> Select the 'Marcopolo' company checkbox (index 2381), click 'Apply Filters' (index 784), then interact with the map (index 1175) and extract visible marker labels to verify all markers belong to Marcopolo.
+        # -> Select the 'Marcopolo' company checkbox (index 2381), click 'Close Filters' (index 784), then interact with the map (index 1175) and extract visible marker labels to verify all markers belong to Marcopolo.
         frame = context.pages[-1]
         # Click element
         elem = frame.locator('xpath=html/body/app-root/app-full-layout/div/div/div/app-dashboard/div[1]/app-war-room/div/main/div/div[3]/div[2]/div[1]/div/div[6]/input').nth(0)

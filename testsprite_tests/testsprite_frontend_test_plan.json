@@ -291,7 +291,7 @@
       },
       {
         "type": "action",
-        "description": "Click 'Apply Filters'."
+        "description": "Click 'Close Filters'."
       },
       {
         "type": "assertion",
@@ -337,7 +337,7 @@
       },
       {
         "type": "action",
-        "description": "Click 'Apply Filters'."
+        "description": "Click 'Close Filters'."
       },
       {
         "type": "assertion",

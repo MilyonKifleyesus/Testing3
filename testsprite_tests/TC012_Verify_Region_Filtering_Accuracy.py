@@ -54,7 +54,7 @@ async def run_test():
         elem = frame.locator('xpath=html/body/app-root/app-full-layout/div/div/div/app-dashboard/div[1]/app-war-room/div/main/div/div[1]/button').nth(0)
         await page.wait_for_timeout(3000); await elem.click(timeout=5000)
         
-        # -> Select the 'North America' region checkbox, click 'Apply Filters', wait for map update, then extract page content to verify presence of Canada/USA/Mexico and absence of Turkey/Germany.
+        # -> Select the 'North America' region checkbox, click 'Close Filters', wait for map update, then extract page content to verify presence of Canada/USA/Mexico and absence of Turkey/Germany.
         frame = context.pages[-1]
         # Click element
         elem = frame.locator('xpath=html/body/app-root/app-full-layout/div/div/div/app-dashboard/div[1]/app-war-room/div/main/div/div[3]/div[2]/div[3]/div/div[1]/input').nth(0)

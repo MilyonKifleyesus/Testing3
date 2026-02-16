@@ -19,6 +19,13 @@
       <!-- Single toolbar: view toggle + active filters in one compact strip (hidden in tactical mode) -->
       @if (!tacticalMode()) {
       <div class="war-room-map-toolbar" role="toolbar" aria-label="Map view and filters">
+        @if (showTipsHint()) {
+        <div class="onboarding-tips-hint card custom-card p-2 d-flex align-items-center justify-content-between gap-2"
+          role="status" aria-live="polite">
+          <span class="text-muted fs-12">Tip: Switch views with Project/Client/Factory. Panels for Activity Log. Tactical View for map-only. FAB for quick actions.</span>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="dismissTipsHint()" aria-label="Dismiss tip">Got it</button>
+        </div>
+        }
         <div class="map-view-toggle card custom-card d-flex align-items-center gap-2 p-2">
           <div class="btn-group btn-group-sm" role="radiogroup" aria-label="Map view mode selection">
             <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'project'"
@@ -56,8 +63,7 @@
           </button>
         </div>
         @if (activeFilters().length > 0) {
-        <div class="active-filters-bar d-flex flex-wrap align-items-center gap-2">
-          <span class="text-muted fs-12 fw-medium text-uppercase me-1">Active Filters:</span>
+        <div class="active-filters-bar d-flex flex-wrap align-items-center gap-2" role="group" aria-label="Active filters">
           @for (filter of activeFilters(); track filter.value) {
           <span
             class="badge bg-primary-transparent text-primary d-flex align-items-center gap-2 px-3 py-2 rounded-pill border border-primary-transparent">
@@ -98,11 +104,11 @@
             <span>{{ mapExpanded() ? 'Exit Expand' : 'Expand Map' }}</span>
           </button>
           <button type="button" class="map-action-btn" (click)="toggleTacticalMode()" [class.active]="tacticalMode()"
-            [attr.aria-label]="tacticalMode() ? 'Exit focus mode' : 'Enter focus mode'"
+            [attr.aria-label]="tacticalMode() ? 'Exit tactical view' : 'Enter tactical view'"
             [attr.aria-pressed]="tacticalMode()"
-            title="Focus mode: Map-only view, hide toolbar">
+            title="Tactical View: Map-only view, hide toolbar">
             <i class="fe fe-crosshair" aria-hidden="true"></i>
-            <span>Focus</span>
+            <span>Tactical View</span>
           </button>
         </div>
       </div>
@@ -257,7 +263,7 @@
               }
             </div>
           </div>
-          <p class="filters-helper-text text-muted fs-12 mb-2">Filters apply as you select. Click Close Filters when finished.</p>
+          <p class="filters-helper-text text-muted fs-12 mb-2">Filters apply instantly as you select. Close Filters only closes the panel.</p>
           <div class="filters-actions d-flex gap-2">
             <button type="button" class="btn btn-primary flex-fill" (click)="applyFilters()">Close Filters</button>
             <button type="button" class="btn btn-outline-primary flex-fill" (click)="resetFilters()">Reset All</button>
@@ -266,13 +272,13 @@
       </div>
       }
 
-      <!-- Focus mode: top-right Exit button (prominent, easy to find) -->
+      <!-- Tactical View: top-right Exit button (prominent, easy to find) -->
       @if (tacticalMode()) {
-      <div class="war-room-exit-tactical-top" role="group" aria-label="Exit focus mode">
+      <div class="war-room-exit-tactical-top" role="group" aria-label="Exit tactical view">
         <button type="button" class="btn btn-sm war-room-exit-tactical-btn" (click)="toggleTacticalMode()"
-          aria-label="Exit focus mode" title="Exit focus mode (Esc)">
+          aria-label="Exit tactical view" title="Exit Tactical View (Esc)">
           <i class="fe fe-crosshair me-2" aria-hidden="true"></i>
-          <span>Exit Focus</span>
+          <span>Exit Tactical View</span>
         </button>
       </div>
       }
@@ -291,7 +297,7 @@
             [attr.aria-checked]="mapViewMode() === 'factory'" aria-label="Factory view">Factory</button>
         </div>
         <button type="button" class="btn btn-sm map-view-exit-tactical ms-2" (click)="toggleTacticalMode()"
-          aria-label="Exit focus mode" title="Exit focus mode (Esc)">
+          aria-label="Exit tactical view" title="Exit Tactical View (Esc)">
           <span>Exit</span>
           <i class="fe fe-x ms-1" aria-hidden="true"></i>
         </button>

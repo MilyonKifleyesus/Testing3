@@ -83,8 +83,10 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   private readonly STORAGE_KEY = 'war-room-state-v1';
   private readonly LEGACY_STORAGE_KEY = 'war-room-filters-v1';
   private readonly ADD_PROJECT_SEEN_KEY = 'war-room-add-project-seen';
+  private readonly TIPS_HINT_SEEN_KEY = 'war-room-tips-hint-seen';
   private readonly MAP_EXPANDED_CLASS = 'war-room-map-expanded';
   private addProjectPulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private tipsHintTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private lastFocusedElement: HTMLElement | null = null;
   private hasHydratedFromStorage = false;
   private readonly savedMapViewMode = signal<MapViewMode | null>(null);
@@ -195,6 +197,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   /** First-visit pulse on Add Project button for discoverability */
   readonly addProjectPulse = signal<boolean>(false);
+
+  /** First-time onboarding hint for key controls */
+  readonly showTipsHint = signal<boolean>(false);
 
   readonly parentCompanyOptions = computed(() => {
     const statusFilter = this.filterDraft().status;
@@ -805,6 +810,12 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.addProjectPulseTimeoutId = setTimeout(() => this.dismissAddProjectPulse(), 5000);
     }
 
+    // First-time onboarding hint for view modes, Panels, Tactical View, FAB
+    if (typeof localStorage !== 'undefined' && !localStorage.getItem(this.TIPS_HINT_SEEN_KEY)) {
+      this.showTipsHint.set(true);
+      this.tipsHintTimeoutId = setTimeout(() => this.dismissTipsHint(), 6000);
+    }
+
     this.hasHydratedFromStorage = true;
 
     // Start real-time updates
@@ -838,6 +849,11 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.addProjectPulseTimeoutId = null;
     }
 
+    if (this.tipsHintTimeoutId != null) {
+      clearTimeout(this.tipsHintTimeoutId);
+      this.tipsHintTimeoutId = null;
+    }
+
     document.body?.classList.remove(this.MAP_EXPANDED_CLASS);
   }
 
@@ -849,6 +865,18 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     if (this.addProjectPulseTimeoutId != null) {
       clearTimeout(this.addProjectPulseTimeoutId);
       this.addProjectPulseTimeoutId = null;
+    }
+  }
+
+  /** Called from template when user dismisses first-time tips */
+  dismissTipsHint(): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(this.TIPS_HINT_SEEN_KEY, '1');
+    }
+    this.showTipsHint.set(false);
+    if (this.tipsHintTimeoutId != null) {
+      clearTimeout(this.tipsHintTimeoutId);
+      this.tipsHintTimeoutId = null;
     }
   }
 
@@ -1251,7 +1279,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.panelVisible.set(false);
       this.projectHudVisible.set(false);
     }
-    this.announce(next ? 'Focus mode on. Map only view.' : 'Focus mode off.');
+    this.announce(next ? 'Tactical view on. Map only view.' : 'Tactical view off.');
   }
 
   @HostListener('document:keydown.escape')

@@ -162,6 +162,10 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   z-index: 1;
 }
 
+// Toolbar rhythm: consistent spacing and font sizing across Add Project, Filter, map-action controls
+$toolbar-gap: 0.5rem;
+$toolbar-font-size: 0.75rem;
+
 // Single toolbar strip: view toggle + active filters (compact, minimal white space)
 .war-room-map-toolbar {
   position: absolute;
@@ -172,7 +176,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 0.75rem;
+  gap: $toolbar-gap 0.75rem;
   max-height: 5rem;
   overflow: visible;
   pointer-events: none;
@@ -182,6 +186,12 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   }
 }
 
+.onboarding-tips-hint {
+  flex-shrink: 0;
+  max-width: 100%;
+  @extend .glass;
+}
+
 .map-view-toggle {
   position: relative;
   top: auto;
@@ -189,7 +199,9 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   z-index: 1;
   display: inline-flex;
   align-items: center;
+  gap: $toolbar-gap;
   flex-shrink: 0;
+  padding: $toolbar-gap;
   @extend .glass;
   border-radius: var(--cm-radius);
   box-shadow: var(--cm-shadow);
@@ -200,7 +212,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 .map-view-btn {
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 0.75rem;
+  font-size: $toolbar-font-size;
   font-family: 'JetBrains Mono', monospace;
   display: inline-flex;
   align-items: center;
@@ -261,7 +273,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   position: relative;
   white-space: nowrap;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  font-size: $toolbar-font-size;
   letter-spacing: 0.08em;
   background: rgba(8, 12, 16, 0.7);
   border: 1px solid var(--cm-border);
@@ -294,7 +306,7 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   z-index: 36;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: $toolbar-gap;
   flex-wrap: wrap;
   transition: opacity 0.2s ease, visibility 0.2s ease;
 
@@ -310,9 +322,9 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 .map-action-group {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: $toolbar-gap;
   flex-wrap: wrap;
-  padding: 0.2rem 0.4rem;
+  padding: $toolbar-gap * 0.4 $toolbar-gap * 0.8;
   border-radius: var(--cm-radius-sm, 8px);
   background: rgba(8, 12, 16, 0.5);
   border: 1px solid var(--cm-border);
@@ -321,14 +333,14 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
 .map-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.65rem;
+  gap: $toolbar-gap * 0.8;
+  padding: $toolbar-gap * 0.8 $toolbar-gap * 1.3;
   border-radius: 0.5rem;
   border: 1px solid var(--cm-border);
   background: rgba(8, 12, 16, 0.78);
   color: var(--cm-text);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
+  font-size: $toolbar-font-size;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;

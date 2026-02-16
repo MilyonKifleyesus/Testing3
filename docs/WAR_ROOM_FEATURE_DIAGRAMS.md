@@ -58,7 +58,7 @@ graph TB
     F[Project Type]
     G[Status: All, Active, Inactive]
     H[Regions]
-    I[Apply Filters]
+    I[Close Filters]
     J[Reset All]
     K[Active Filters Bar]
     L[Map and Panels Update]
