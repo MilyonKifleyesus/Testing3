@@ -1,10 +1,13 @@
 <div class="command-menu" [class.expanded]="expanded()">
-  <button type="button" class="command-fab" [class.fab-pulse]="showPulse()" (click)="toggle()"
-    [attr.aria-label]="expanded() ? 'Close command menu' : 'Open command menu'"
-    [attr.aria-expanded]="expanded()"
-    title="Quick actions: Add Project, Panels, Filters, and more">
-    <i class="fe fe-plus" aria-hidden="true"></i>
-  </button>
+  <div class="command-fab-wrapper">
+    <span class="command-fab-hover-label" aria-hidden="true">Quick Actions</span>
+    <button type="button" class="command-fab" [class.fab-pulse]="showPulse()" (click)="toggle()"
+      [attr.aria-label]="expanded() ? 'Close command menu' : 'Open command menu'"
+      [attr.aria-expanded]="expanded()"
+      title="Quick actions: Add Project, Panels, Filters, and more">
+      <i class="fe fe-plus" aria-hidden="true"></i>
+    </button>
+  </div>
 
   @if (expanded()) {
   <div class="command-actions">
@@ -24,9 +27,9 @@
       <i class="fe fe-list" aria-hidden="true"></i>
       <span>Project List</span>
     </button>
-    <button type="button" class="command-action" (click)="onAction('tactical')" aria-label="Tactical" title="Tactical: Map-only focus mode">
+    <button type="button" class="command-action" (click)="onAction('tactical')" aria-label="Focus" title="Focus mode: Map-only view, hide toolbar">
       <i class="fe fe-crosshair" aria-hidden="true"></i>
-      <span>Tactical</span>
+      <span>Focus</span>
     </button>
     <button type="button" class="command-action" (click)="onAction('expandMap')" aria-label="Expand Map" title="Expand map to full width">
       <i class="fe fe-maximize-2" aria-hidden="true"></i>

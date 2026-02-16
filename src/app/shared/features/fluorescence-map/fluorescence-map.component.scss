@@ -237,6 +237,26 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   }
 }
 
+.view-mode-legend {
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.map-add-project-btn.add-project-pulse {
+  animation: add-project-pulse 2s ease-in-out infinite;
+}
+
+@keyframes add-project-pulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 6px rgba(0, 255, 65, 0.25);
+  }
+}
+
 .map-filter-btn {
   position: relative;
   white-space: nowrap;
@@ -285,6 +305,17 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   }
 
   max-width: calc(100% - 3.5rem);
+}
+
+.map-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--cm-radius-sm, 8px);
+  background: rgba(8, 12, 16, 0.5);
+  border: 1px solid var(--cm-border);
 }
 
 .map-action-btn {

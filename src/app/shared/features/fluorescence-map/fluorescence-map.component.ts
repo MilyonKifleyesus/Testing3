@@ -82,7 +82,9 @@ interface WarRoomPersistedState {
 export class WarRoomComponent implements OnInit, OnDestroy {
   private readonly STORAGE_KEY = 'war-room-state-v1';
   private readonly LEGACY_STORAGE_KEY = 'war-room-filters-v1';
+  private readonly ADD_PROJECT_SEEN_KEY = 'war-room-add-project-seen';
   private readonly MAP_EXPANDED_CLASS = 'war-room-map-expanded';
+  private addProjectPulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private lastFocusedElement: HTMLElement | null = null;
   private hasHydratedFromStorage = false;
   private readonly savedMapViewMode = signal<MapViewMode | null>(null);
@@ -190,6 +192,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   /** Project list HUD: hidden by default, shown when user clicks Project List in command menu */
   readonly projectHudVisible = signal<boolean>(false);
+
+  /** First-visit pulse on Add Project button for discoverability */
+  readonly addProjectPulse = signal<boolean>(false);
 
   readonly parentCompanyOptions = computed(() => {
     const statusFilter = this.filterDraft().status;
@@ -794,6 +799,12 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.panelVisible.set(true);
     }
 
+    // First-visit pulse on Add Project button
+    if (typeof localStorage !== 'undefined' && !localStorage.getItem(this.ADD_PROJECT_SEEN_KEY)) {
+      this.addProjectPulse.set(true);
+      this.addProjectPulseTimeoutId = setTimeout(() => this.dismissAddProjectPulse(), 5000);
+    }
+
     this.hasHydratedFromStorage = true;
 
     // Start real-time updates
@@ -822,7 +833,23 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.zoomTimeoutId = null;
     }
 
+    if (this.addProjectPulseTimeoutId != null) {
+      clearTimeout(this.addProjectPulseTimeoutId);
+      this.addProjectPulseTimeoutId = null;
+    }
+
     document.body?.classList.remove(this.MAP_EXPANDED_CLASS);
+  }
+
+  private dismissAddProjectPulse(): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(this.ADD_PROJECT_SEEN_KEY, '1');
+    }
+    this.addProjectPulse.set(false);
+    if (this.addProjectPulseTimeoutId != null) {
+      clearTimeout(this.addProjectPulseTimeoutId);
+      this.addProjectPulseTimeoutId = null;
+    }
   }
 
   /**
@@ -1224,7 +1251,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       this.panelVisible.set(false);
       this.projectHudVisible.set(false);
     }
-    this.announce(next ? 'Tactical mode on. Map only view.' : 'Tactical mode off.');
+    this.announce(next ? 'Focus mode on. Map only view.' : 'Focus mode off.');
   }
 
   @HostListener('document:keydown.escape')
@@ -1754,6 +1781,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
 
   onAddCompanyRequested(): void {
+    if (this.addProjectPulse()) {
+      this.dismissAddProjectPulse();
+    }
     const active = document.activeElement;
     this.lastFocusedElement = active instanceof HTMLElement ? active : null;
     this.addCompanyModalPreselectedFactoryId.set(null);
