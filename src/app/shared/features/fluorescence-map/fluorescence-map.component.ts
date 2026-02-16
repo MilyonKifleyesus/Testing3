@@ -1711,6 +1711,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         clientIds: [],
         manufacturerIds: [],
         projectTypeIds: [],
+        status: 'all' as FilterStatus,
       };
       this.filterApplied.set(cleared);
       this.filterDraft.set({ ...this.filterDraft(), ...cleared });
@@ -1768,6 +1769,7 @@ export class WarRoomComponent implements OnInit, OnDestroy {
           clientIds: [],
           manufacturerIds: [],
           projectTypeIds: [],
+          status: 'all' as FilterStatus,
         };
         this.filterApplied.set(cleared);
         this.filterDraft.set({ ...this.filterDraft(), ...cleared });
