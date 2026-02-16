@@ -15,7 +15,6 @@ import {
     ActivityLog,
     FactoryLocation,
     ParentGroup,
-    ProjectRoute,
     SubsidiaryCompany,
     TransitRoute
 } from '../../../shared/models/fluorescence-map.interface';
@@ -421,52 +420,6 @@ describe('WarRoomComponent Integration', () => {
 
         expect(component.filteredNodes().length).toBe(2);
         expect(component.filteredTransitRoutes().length).toBe(1);
-    }));
-
-    it('colors project routes based on filter status', fakeAsync(() => {
-        resetServiceState();
-
-        const baseProjectRoute: ProjectRoute = {
-            id: 'project-route-1',
-            projectId: 'project-1',
-            fromNodeId: 'client-a',
-            toNodeId: 'factory-a',
-            status: 'Open',
-            fromCoordinates: { latitude: 43.7, longitude: -79.4 },
-            toCoordinates: { latitude: 45.4, longitude: -75.7 },
-        };
-
-        const setFilterStatus = (
-            status: 'all' | 'active' | 'inactive',
-            expectedColor: string,
-            routeStatus: 'Open' | 'Closed' | 'Delayed'
-        ) => {
-            component.filterApplied.set({
-                parentCompanyIds: [],
-                status,
-                regions: [],
-                clientIds: [],
-                manufacturerIds: [],
-                projectTypeIds: [],
-            });
-            fixture.detectChanges();
-
-            component.projectRoutes.set([{ ...baseProjectRoute, status: routeStatus }]);
-            fixture.detectChanges();
-
-            const mapComponent = fixture.debugElement.query(By.directive(WarRoomMapComponent)).componentInstance as WarRoomMapComponent;
-            (mapComponent as any).syncOverlays(false);
-            flushMicrotasks();
-            tick(1);
-            fixture.detectChanges();
-            const routes = mapComponent.routesVm();
-            expect(routes.length).toBe(1);
-            expect(routes[0].strokeColor).toBe(expectedColor);
-        };
-
-        setFilterStatus('all', '#00C853', 'Open');
-        setFilterStatus('active', '#00C853', 'Open');
-        setFilterStatus('inactive', '#D50000', 'Closed');
     }));
 
     it('syncs log selections with map highlighting and persists selection across view toggles', fakeAsync(() => {

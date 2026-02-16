@@ -1,7 +1,7 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { WarRoomComponent } from './fluorescence-map.component';
 import { WarRoomMapComponent } from './components/fluorescence-map-map/fluorescence-map-map.component';
 import { WarRoomService } from '../../../shared/services/fluorescence-map.service';
@@ -19,6 +19,7 @@ describe('WarRoomComponent (unit)', () => {
   let fixture: ComponentFixture<WarRoomComponent>;
   let component: WarRoomComponent;
   let warRoomService: WarRoomService;
+  let httpMock: HttpTestingController;
 
   const realtimeServiceMock = {
     startRealTimeUpdates: jasmine.createSpy('startRealTimeUpdates'),
@@ -164,6 +165,7 @@ describe('WarRoomComponent (unit)', () => {
   });
 
   beforeEach(async () => {
+    jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
     spyOn(WarRoomMapComponent.prototype as any, 'createMap').and.returnValue(createMapStub());
     spyOn(WarRoomMapComponent.prototype as any, 'setupResizeObserver').and.stub();
     spyOn(WarRoomMapComponent.prototype as any, 'setupFullscreenListeners').and.stub();
@@ -186,12 +188,19 @@ describe('WarRoomComponent (unit)', () => {
     }).compileComponents();
 
     localStorage.clear();
+    httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(WarRoomComponent);
     component = fixture.componentInstance;
     warRoomService = TestBed.inject(WarRoomService);
     fixture.detectChanges();
+    // Flush any HTTP requests (clients.json, projects.json, etc.)
+    const clientsReq = httpMock.match((r) => r.url.includes('clients.json'));
+    clientsReq.forEach((req) => req.flush({ clients: [] }));
+    const projectsReq = httpMock.match((r) => r.url.includes('projects.json') || (r.url.includes('projects') && !r.url.includes('factories')));
+    projectsReq.forEach((req) => req.flush({ projects: [] }));
     await fixture.whenStable();
   });
+
 
   const setServiceState = (parentGroups: ParentGroup[], routes: TransitRoute[]) => {
     const serviceAny = warRoomService as any;

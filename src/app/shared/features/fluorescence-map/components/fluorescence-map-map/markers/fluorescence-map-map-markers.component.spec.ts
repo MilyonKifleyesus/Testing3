@@ -27,7 +27,7 @@ describe('WarRoomMapMarkersComponent', () => {
     subLabel: 'Test City / ACTIVE',
     initials: 'NO',
     hasLogo: true,
-    logoPath: '/assets/images/logo.png',
+    logoPath: '/assets/images/svgs/user.svg',
     isSelected: false,
     isHovered: false,
     isHub: false,

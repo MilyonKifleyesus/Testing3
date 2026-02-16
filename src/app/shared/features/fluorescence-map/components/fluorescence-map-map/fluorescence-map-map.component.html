@@ -25,6 +25,14 @@
   <app-war-room-map-tooltip [tooltip]="tooltipVm()" (logoError)="onTooltipLogoError($event)">
   </app-war-room-map-tooltip>
 
+  @if (mapLoading() && !mapLoadError()) {
+  <div class="map-loading-overlay" role="status" aria-live="polite" aria-label="Loading map">
+    <div class="map-loading-content">
+      <span class="spinner-border spinner-border-sm text-primary me-2" aria-hidden="true"></span>
+      <span>Loading map...</span>
+    </div>
+  </div>
+  }
   @if (mapLoadError()) {
   <div class="map-error-overlay" role="alert" aria-live="polite">
     <div class="map-error-content">

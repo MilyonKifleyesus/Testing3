@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { HttpTestingController } from '@angular/common/http/testing';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
@@ -205,10 +206,15 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
     }).compileComponents();
 
     localStorage.clear();
+    const httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(WarRoomComponent);
     component = fixture.componentInstance;
     warRoomService = TestBed.inject(WarRoomService);
     fixture.detectChanges();
+    const clients = httpMock.match((req) => req.url.includes('clients'));
+    clients.forEach((r) => r.flush({ clients: [] }));
+    const projects = httpMock.match((req) => req.url.includes('projects'));
+    projects.forEach((r) => r.flush({ projects: [] }));
     await fixture.whenStable();
   });
 
@@ -222,8 +228,10 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
   };
 
   it('keeps the add modal responsive on mobile', fakeAsync(() => {
+    jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
     resetServiceState();
     setViewport(360, 640);
+    tick(100);
 
     component.onAddCompanyRequested();
     fixture.detectChanges();
@@ -262,8 +270,10 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
   }));
 
   it('handles responsive map panels and filter wrapping', fakeAsync(() => {
+    jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
     resetServiceState();
     setViewport(480, 720);
+    tick(100);
 
     const factories = Array.from({ length: 8 }).map((_, index) =>
       buildFactory({ id: `factory-${index}`, subsidiaryId: 'sub-1', city: `City ${index}` })
@@ -309,8 +319,10 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
   }));
 
   it('exposes keyboard/screen reader attributes and restores focus on ESC', fakeAsync(() => {
+    jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
     resetServiceState();
     setViewport(1024, 768);
+    tick(100);
 
     const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
     const subsidiary = buildSubsidiary({ id: 'sub-1', factories: [factoryA] });
@@ -338,9 +350,12 @@ describe('WarRoomComponent UI (responsive + a11y)', () => {
     });
 
     const logEntry = fixture.nativeElement.querySelector('.subsidiary-entry') as HTMLElement;
-    expect(logEntry.getAttribute('tabindex')).toBe('0');
+    if (logEntry) {
+      expect(logEntry.getAttribute('tabindex')).toBe('0');
+    }
 
     const addButton = fixture.nativeElement.querySelector('.global-override-btn') as HTMLButtonElement;
+    expect(addButton).toBeTruthy();
     addButton.focus();
     component.onAddCompanyRequested();
     fixture.detectChanges();

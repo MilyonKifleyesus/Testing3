@@ -144,6 +144,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   readonly mapLoadError = signal<string | null>(null);
   /** Raw technical error for debugging; shown in overlay when available */
   readonly mapLoadErrorDetail = signal<string | null>(null);
+  /** True while map is initializing; false once load event fires */
+  readonly mapLoading = signal(true);
 
   // Services
   private warRoomService = inject(WarRoomService);
@@ -205,9 +207,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       const routes = this.transitRoutes();
       const projectRoutes = this.projectRoutes();
       const status = this.filterStatus();
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map-map.component.ts:projectRoutesEffect',message:'Map received projectRoutes',data:{projectRoutesCount:projectRoutes.length,transitRoutesCount:routes?.length??0},hypothesisId:'H_E',timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       void selected;
       void hovered;
       void routes;
@@ -305,6 +304,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   }
 
   private setMapError(userMessage: string, technicalDetail?: string): void {
+    this.mapLoading.set(false);
     this.mapLoadError.set(userMessage);
     this.mapLoadErrorDetail.set(technicalDetail ?? null);
     this.toastr.error(userMessage, 'Map failed to load');
@@ -635,6 +635,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       this.mapLoadError.set(null);
       this.mapLoadErrorDetail.set(null);
       this.mapLoaded = true;
+      this.mapLoading.set(false);
       this.updateContainerRect();
       this.scheduleOverlayUpdate(true);
 

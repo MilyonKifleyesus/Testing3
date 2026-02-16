@@ -650,11 +650,6 @@ export class ProjectService {
             });
           }
         }
-        // #region agent log
-        if (projects.length > 0 || skipped.length > 0) {
-          fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'project.service.ts:getProjectsForMap',message:'Route resolution',data:{projectsCount:projects.length,routesCreated:routes.length,skippedCount:skipped.length,skippedSample:skipped.slice(0,5),clientKeys:Array.from(clientCoordinates.keys()).slice(0,10),factoryKeys:Array.from(factoryCoordinates.keys()).slice(0,10)},hypothesisId:'H_C',hypothesisId2:'H_D',timestamp:Date.now()})}).catch(()=>{});
-        }
-        // #endregion
         return routes;
       })
     );

@@ -6,6 +6,7 @@ import { WarRoomMapMathService } from './services/fluorescence-map-map-math.serv
 import { WarRoomService } from '../../../../../shared/services/fluorescence-map.service';
 import { AppStateService } from '../../../../../shared/services/app-state.service';
 import { ToastrService } from 'ngx-toastr';
+import { ProjectRoute } from '../../../../../shared/models/fluorescence-map.interface';
 
 describe('WarRoomMapComponent logic helpers', () => {
   let component: WarRoomMapComponent;
@@ -87,6 +88,42 @@ describe('WarRoomMapComponent logic helpers', () => {
     const state = (component as any).getPinLodState(1.0, true);
     expect(state.isFullDetail).toBeTrue();
     expect(state.lodClass).toBe('lod-high');
+  });
+
+  it('buildRouteFeatures assigns strokeColor based on filter status and route status', () => {
+    const baseProjectRoute: ProjectRoute = {
+      id: 'project-route-1',
+      projectId: 'project-1',
+      fromNodeId: 'client-a',
+      toNodeId: 'factory-a',
+      status: 'Open',
+      fromCoordinates: { latitude: 43.7, longitude: -79.4 },
+      toCoordinates: { latitude: 45.4, longitude: -75.7 },
+    };
+
+    (component as any).projectRoutes = signal([{ ...baseProjectRoute, status: 'Open' }]);
+    (component as any).filterStatus = signal('all');
+    (component as any).selectedEntity = signal(null);
+    (component as any).transitRoutes = signal([]);
+
+    let features = (component as any).buildRouteFeatures([]);
+    expect(features.features.length).toBe(1);
+    expect(features.features[0].properties.strokeColor).toBe('#00C853');
+
+    (component as any).projectRoutes = signal([{ ...baseProjectRoute, status: 'Closed' }]);
+    (component as any).filterStatus = signal('all');
+    features = (component as any).buildRouteFeatures([]);
+    expect(features.features[0].properties.strokeColor).toBe('#D50000');
+
+    (component as any).projectRoutes = signal([{ ...baseProjectRoute, status: 'Open' }]);
+    (component as any).filterStatus = signal('active');
+    features = (component as any).buildRouteFeatures([]);
+    expect(features.features[0].properties.strokeColor).toBe('#00C853');
+
+    (component as any).projectRoutes = signal([{ ...baseProjectRoute, status: 'Closed' }]);
+    (component as any).filterStatus = signal('inactive');
+    features = (component as any).buildRouteFeatures([]);
+    expect(features.features[0].properties.strokeColor).toBe('#D50000');
   });
 
   it('projectLatLngToMapSpace scales linearly with viewBox size', () => {

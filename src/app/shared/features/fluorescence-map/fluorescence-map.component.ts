@@ -189,6 +189,10 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   readonly filterDraft = signal<WarRoomFilters>(createDefaultFilters());
   readonly filterApplied = signal<WarRoomFilters>(createDefaultFilters());
   readonly expandedFilterSection = signal<'companies' | 'client' | 'manufacturer' | 'projectType' | null>(null);
+  readonly companyFilterSearch = signal('');
+  readonly clientFilterSearch = signal('');
+  readonly manufacturerFilterSearch = signal('');
+  readonly projectTypeFilterSearch = signal('');
 
   // Tactical mode: map-only view with bottom-center view toggle
   readonly tacticalMode = signal<boolean>(false);
@@ -211,6 +215,34 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         name: subsidiary.name,
         count: subsidiary.factories.length,
       }));
+  });
+
+  readonly filteredParentCompanyOptions = computed(() => {
+    const options = this.parentCompanyOptions();
+    const q = this.companyFilterSearch().toLowerCase().trim();
+    if (!q) return options;
+    return options.filter((o) => o.name.toLowerCase().includes(q));
+  });
+
+  readonly filteredClientOptions = computed(() => {
+    const options = this.clientOptionsSignal();
+    const q = this.clientFilterSearch().toLowerCase().trim();
+    if (!q) return options;
+    return options.filter((o) => o.name.toLowerCase().includes(q));
+  });
+
+  readonly filteredManufacturerOptions = computed(() => {
+    const options = this.manufacturerOptionsSignal();
+    const q = this.manufacturerFilterSearch().toLowerCase().trim();
+    if (!q) return options;
+    return options.filter((o) => o.name.toLowerCase().includes(q));
+  });
+
+  readonly filteredProjectTypeOptions = computed(() => {
+    const options = this.projectTypeOptionsSignal();
+    const q = this.projectTypeFilterSearch().toLowerCase().trim();
+    if (!q) return options;
+    return options.filter((o) => o.name.toLowerCase().includes(q));
   });
 
   /** Clients that have at least one project, for the Client view in the activity log panel */
@@ -690,14 +722,11 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       const factories = this.factories();
       const filters = this.filterApplied();
       void this.projectRoutesRefreshTrigger();
-      // #region agent log
       if (!clients?.length || !factories?.length) {
-        fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:projectRoutesEffect',message:'Early return: missing clients or factories',data:{clientsCount:clients?.length??0,factoriesCount:factories?.length??0},hypothesisId:'H_A',timestamp:Date.now()})}).catch(()=>{});
         this.projectRoutes.set([]);
         this.projectRoutesLoading.set(false);
         return;
       }
-      // #endregion
       this.projectRoutesLoading.set(true);
       const clientCoords = new Map(
         clients
@@ -720,9 +749,6 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       const sub = this.projectService
         .getProjectsForMap(clientCoords, factoryCoords, projectFilters)
         .subscribe((routes) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:projectRoutesSubscribe',message:'Routes received from getProjectsForMap',data:{routesCount:routes.length,sampleProjectIds:routes.slice(0,3).map(r=>r.projectId)},hypothesisId:'H_A',hypothesisId2:'H_C',timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           this.projectRoutes.set(routes);
           this.projectRoutesLoading.set(false);
         });
@@ -730,16 +756,6 @@ export class WarRoomComponent implements OnInit, OnDestroy {
         sub.unsubscribe();
         this.projectRoutesLoading.set(false);
       };
-    });
-
-    effect(() => {
-      const viewMode = this.mapViewMode();
-      const selectedId = this.selectedProjectId();
-      const routes = this.projectRoutes();
-      const forMap = this.projectRoutesForMap();
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:projectRoutesForMapEffect',message:'projectRoutesForMap state',data:{viewMode,selectedId,routesCount:routes.length,forMapCount:forMap.length},hypothesisId:'H_B',hypothesisId2:'H_D',timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
     });
 
     // Fit map bounds to show client + routes when a client is selected and routes have loaded
@@ -1508,9 +1524,6 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     const routesAtClick = this.projectRoutes().length;
     const clientsCount = this.clientsSignal()?.length ?? 0;
     const factoriesCount = this.factories().length;
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:onProjectHudSelected',message:'Project clicked',data:{projectId:String(project.id),routesAtClick,clientsCount,factoriesCount},hypothesisId:'H_B',timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     this.selectedProjectId.set(String(project.id));
     if (project.manufacturerLocationId) {
       this.warRoomService.selectEntity({
