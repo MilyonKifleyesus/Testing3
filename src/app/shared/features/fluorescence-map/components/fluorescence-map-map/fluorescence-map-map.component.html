@@ -1,0 +1,69 @@
+<div class="war-room-map-container" [attr.data-theme-mode]="currentTheme()">
+  @if (!screenshotMode()) {
+  <div class="grid-overlay"></div>
+  }
+
+  <!-- Map Container: overlays inside #war-room-map so (0,0) matches MapLibre project() – stops marker/logo drift on zoom -->
+  <div class="map-container" (click)="clearPinned()" (contextmenu)="onMapContextMenu($event)">
+    <div #mapContainer id="war-room-map" class="war-room-map-inner">
+      <app-fluorescence-map-map-routes [routes]="routesVm()" [routeStroke]="routeStroke()" [routeFill]="routeFill()"
+        (routeSelected)="onRouteSelected($event)">
+      </app-fluorescence-map-map-routes>
+      <app-fluorescence-map-map-markers [markers]="markersVm()" [pixelCoordinates]="markerPixelCoordinates()"
+        (markerClick)="handleMarkerClick($event)" (markerHover)="onMarkerHovered($event)"
+        (logoError)="onMarkerLogoError($event)">
+      </app-fluorescence-map-map-markers>
+    </div>
+
+    @if (!screenshotMode()) {
+    <app-fluorescence-map-map-controls [fullscreen]="fullscreenState()" [zoomLevel]="currentZoomLevel()"
+      (zoomChange)="setZoomTo($event)" (zoomIn)="zoomIn()" (zoomOut)="zoomOut()"
+      (toggleFullscreen)="toggleFullscreen()"></app-fluorescence-map-map-controls>
+    }
+  </div>
+
+  <app-fluorescence-map-map-tooltip [tooltip]="tooltipVm()" (logoError)="onTooltipLogoError($event)">
+  </app-fluorescence-map-map-tooltip>
+
+  @if (mapLoading() && !mapLoadError()) {
+  <div class="map-loading-overlay" role="status" aria-live="polite" aria-label="Loading map">
+    <div class="map-loading-content">
+      <span class="spinner-border spinner-border-sm text-primary me-2" aria-hidden="true"></span>
+      <span>Loading map...</span>
+    </div>
+  </div>
+  }
+  @if (mapLoadError() && !mapErrorDismissed()) {
+  <div class="map-error-overlay" role="alert" aria-live="polite">
+    <div class="map-error-content">
+      <h3 class="map-error-title">Map Could Not Load</h3>
+      <p class="map-error-message">{{ mapLoadError() }}</p>
+      <p class="map-error-hint">Try enabling hardware acceleration in your browser settings, or refresh the page. If the problem persists, try a different browser.</p>
+      @if (mapLoadErrorDetail()) {
+      <details class="map-error-details">
+        <summary>Technical details</summary>
+        <code>{{ mapLoadErrorDetail() }}</code>
+      </details>
+      }
+      <div class="map-error-actions d-flex gap-2 justify-content-center flex-wrap">
+        @if (!mapErrorUnrecoverable()) {
+        <button type="button" class="btn btn-primary btn-sm map-error-retry" (click)="retryMapLoad()">Retry</button>
+        }
+        <button type="button" class="btn btn-outline-light btn-sm" (click)="dismissMapError()"
+          aria-label="Dismiss and continue without map">Dismiss</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  @if (contextMenuVisible()) {
+  <div class="map-context-menu" [style.left.px]="contextMenuPosition().x" [style.top.px]="contextMenuPosition().y"
+    (click)="$event.stopPropagation()" role="menu">
+    <button type="button" class="map-context-menu-item" (click)="onContextMenuAddProject()"
+      aria-label="Add new project">
+      <i class="fe fe-plus-circle" aria-hidden="true"></i>
+      <span>Add Project</span>
+    </button>
+  </div>
+  }
+</div>

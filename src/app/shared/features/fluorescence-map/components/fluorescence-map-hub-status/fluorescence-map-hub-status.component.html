@@ -1,0 +1,49 @@
+<div class="hub-status-container">
+  <div class="hub-status-header">
+    <h2 class="section-title">ACTIVE HUB STATUS</h2>
+  </div>
+
+  <div class="hub-status-grid">
+    @for (hub of hubs(); track hub.id) {
+      <div class="hub-status-card" [class]="getHubBorderClass(hub.status)"
+        [style.--hub-accent]="getHubAccentColor(hub.status)">
+        <p class="hub-code">{{ hub.code }}</p>
+        <div class="hub-status-row">
+          <span class="material-symbols-outlined hub-status-icon" aria-hidden="true">
+            {{ getHubStatusIcon(hub.status) }}
+          </span>
+          <span class="hub-status-label">{{ getHubStatusLabel(hub.status) }}</span>
+        </div>
+        <p class="hub-capacity">{{ hub.capacity }}</p>
+      </div>
+    }
+  </div>
+
+  <!-- Quantum Sync Stability Chart -->
+  @if (quantumChart(); as chart) {
+    <div class="quantum-chart-container">
+      <p class="quantum-chart-title">QUANTUM SYNC STABILITY</p>
+      <div class="quantum-chart" role="img" [attr.aria-label]="quantumChartAriaLabel()">
+        @for (value of chart.dataPoints; track $index) {
+          <div
+            class="quantum-bar"
+            [class.highlighted]="$index === chart.highlightedIndex"
+            [style.height.%]="value"
+          ></div>
+        }
+      </div>
+      <div class="quantum-chart-footer">
+        <span>-24H HISTORY</span>
+        <span>LIVE STREAM</span>
+      </div>
+    </div>
+  }
+
+  <!-- Global Override Button -->
+  <div class="global-override-section">
+    <button class="global-override-btn" type="button" (click)="onAddCompany()"
+      aria-label="Add company to map">
+      ADD COMPANY
+    </button>
+  </div>
+</div>

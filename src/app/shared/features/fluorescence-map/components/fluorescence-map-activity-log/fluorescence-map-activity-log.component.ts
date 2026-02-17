@@ -1,0 +1,676 @@
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, OnDestroy, ViewChild, computed, effect, inject, input, output, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import {
+  ActivityLog,
+  ParentGroup,
+  SubsidiaryCompany,
+  FactoryLocation,
+  FleetSelection,
+  MapViewMode,
+  OperationalStatus,
+  NodeStatus,
+} from '../../../../../shared/models/fluorescence-map.interface';
+import { WarRoomService } from '../../../../../shared/services/fluorescence-map.service';
+
+export type ProjectStatusDisplay = 'active' | 'inactive' | 'none';
+
+@Component({
+  selector: 'app-war-room-activity-log',
+  imports: [CommonModule],
+  templateUrl: './fluorescence-map-activity-log.component.html',
+  styleUrl: './fluorescence-map-activity-log.component.scss',
+})
+export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
+  parentGroups = input.required<ParentGroup[]>();
+  activityLogs = input.required<ActivityLog[]>();
+  projectStatusByFactoryId = input<Map<string, ProjectStatusDisplay>>(new Map());
+  selectedEntity = input<FleetSelection | null>(null);
+  editMode = input<boolean>(false);
+  mapViewMode = input<MapViewMode>('parent');
+  isBusy = input<boolean>(false);
+
+  selectionChange = output<FleetSelection>();
+  editModeChange = output<boolean>();
+  factoryDetailsUpdated = output<{
+    factoryId: string;
+    name: string;
+    location: string;
+    description: string;
+    status: NodeStatus;
+  }>();
+  readonly subsidiaryDetailsUpdated = output<{ subsidiaryId: string; name: string; location: string; description: string; status: OperationalStatus }>();
+  readonly batchUpdateRequested = output<{
+    factories: Array<{ factoryId: string; name: string; location: string; description: string; status: NodeStatus }>;
+    subsidiaries: Array<{ subsidiaryId: string; name: string; location: string; description: string; status: OperationalStatus }>;
+  }>();
+  subsidiaryDeleted = output<string>();
+  factoryDeleted = output<string>();
+  addProjectForFactory = output<{ factoryId: string; subsidiaryId: string }>();
+
+  @ViewChild('logList', { static: false }) logList?: ElementRef<HTMLElement>;
+  private viewReady = false;
+  private refreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private lastExpandedForSelection: { level: string; id: string } | null = null;
+
+  readonly expandedParents = signal<string[]>([]);
+  readonly expandedSubsidiaries = signal<string[]>([]);
+  readonly refreshing = signal<boolean>(false);
+  readonly factoryListExpanded = signal<Record<string, boolean>>({});
+  readonly noProjectSitesExpanded = signal<Record<string, boolean>>({});
+  private readonly factoryCollapseThreshold = 3;
+
+  // Multi-item draft storage
+  readonly factoryDrafts = signal<Map<string, { name: string; location: string; description: string; status: NodeStatus }>>(new Map());
+  readonly subsidiaryDrafts = signal<Map<string, { name: string; location: string; description: string; status: OperationalStatus }>>(new Map());
+
+  readonly editingFactoryId = signal<string | null>(null);
+  readonly editingSubsidiaryId = signal<string | null>(null);
+  readonly factoryValidationErrors = signal<Map<string, string>>(new Map());
+
+  readonly manufacturerSearchQuery = signal<string>('');
+
+  readonly filteredParentGroupsForDisplay = computed(() => {
+    const groups = this.parentGroups();
+    const q = this.manufacturerSearchQuery().trim().toLowerCase();
+    if (!q) return groups;
+    return groups
+      .map((g) => ({
+        ...g,
+        subsidiaries: g.subsidiaries.filter((s) => s.name.toLowerCase().includes(q)),
+      }))
+      .filter((g) => g.subsidiaries.length > 0);
+  });
+
+  readonly searchMatchCount = computed(() => {
+    const filtered = this.filteredParentGroupsForDisplay();
+    return filtered.reduce((sum, g) => sum + g.subsidiaries.length, 0);
+  });
+
+  readonly latestLogByFactory = computed(() => {
+    const logs = this.activityLogs();
+    const map = new Map<string, ActivityLog>();
+
+    for (const log of logs) {
+      const existing = map.get(log.factoryId);
+      if (!existing) {
+        map.set(log.factoryId, log);
+        continue;
+      }
+      const existingDate = typeof existing.timestamp === 'string' ? new Date(existing.timestamp) : existing.timestamp;
+      const logDate = typeof log.timestamp === 'string' ? new Date(log.timestamp) : log.timestamp;
+      if (logDate.getTime() > existingDate.getTime()) {
+        map.set(log.factoryId, log);
+      }
+    }
+
+    return map;
+  });
+
+  constructor() {
+    effect(() => {
+      const groups = this.parentGroups();
+      if (groups.length > 0 && this.expandedParents().length === 0) {
+        this.expandedParents.set(groups.map((group) => group.id));
+      }
+    });
+
+    effect(() => {
+      const selection = this.selectedEntity();
+      if (!selection) return;
+      const key = { level: selection.level, id: selection.id };
+      const last = this.lastExpandedForSelection;
+      const isNewSelection = !last || last.level !== key.level || last.id !== key.id;
+      if (isNewSelection) {
+        this.lastExpandedForSelection = key;
+        this.ensureExpandedForSelection(selection);
+      }
+      this.scrollToSelection(selection);
+    });
+
+    effect(() => {
+      this.parentGroups();
+      this.activityLogs();
+      this.mapViewMode();
+      this.softRefresh();
+    });
+  }
+
+  ngAfterViewInit(): void {
+    this.viewReady = true;
+    const selection = this.selectedEntity();
+    if (selection) {
+      this.scrollToSelection(selection);
+    }
+    this.softRefresh();
+  }
+
+  ngOnDestroy(): void {
+    if (this.refreshTimeoutId) {
+      clearTimeout(this.refreshTimeoutId);
+      this.refreshTimeoutId = null;
+    }
+  }
+
+  formatTimestamp(timestamp: Date | string): string {
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
+  refreshLayout(): void {
+    this.queueRefresh(true);
+  }
+
+  isSelected(level: FleetSelection['level'], id: string): boolean {
+    const selection = this.selectedEntity();
+    return !!selection && selection.level === level && selection.id === id;
+  }
+
+  isParentExpanded(parentId: string): boolean {
+    return this.expandedParents().includes(parentId);
+  }
+
+  isSubsidiaryExpanded(subsidiaryId: string): boolean {
+    return this.expandedSubsidiaries().includes(subsidiaryId);
+  }
+
+  isFactoryListExpanded(subsidiaryId: string): boolean {
+    return this.factoryListExpanded()[subsidiaryId] ?? false;
+  }
+
+  toggleFactoryList(subsidiaryId: string): void {
+    this.factoryListExpanded.update((current) => ({
+      ...current,
+      [subsidiaryId]: !current[subsidiaryId],
+    }));
+  }
+
+  hasNoProjectsButHasSites(subsidiary: SubsidiaryCompany): boolean {
+    return this.getProjectStatusForSubsidiary(subsidiary) === 'none' && subsidiary.factories.length > 0;
+  }
+
+  isNoProjectSitesExpanded(subsidiaryId: string): boolean {
+    return this.noProjectSitesExpanded()[subsidiaryId] ?? false;
+  }
+
+  toggleNoProjectSites(subsidiaryId: string): void {
+    this.noProjectSitesExpanded.update((current) => ({
+      ...current,
+      [subsidiaryId]: !current[subsidiaryId],
+    }));
+  }
+
+  toggleParent(parentId: string): void {
+    this.expandedParents.update((current) =>
+      current.includes(parentId) ? current.filter((id) => id !== parentId) : [...current, parentId]
+    );
+  }
+
+  toggleSubsidiary(subsidiaryId: string): void {
+    this.expandedSubsidiaries.update((current) =>
+      current.includes(subsidiaryId)
+        ? current.filter((id) => id !== subsidiaryId)
+        : [...current, subsidiaryId]
+    );
+  }
+
+  onParentHover(group: ParentGroup, isEntering: boolean): void {
+    if (isEntering) {
+      this.warRoomService.setHoveredEntity({
+        level: 'parent',
+        id: group.id,
+        parentGroupId: group.id
+      });
+    } else {
+      this.warRoomService.setHoveredEntity(null);
+    }
+  }
+
+  onParentClick(group: ParentGroup): void {
+    const selection: FleetSelection = { level: 'parent', id: group.id, parentGroupId: group.id };
+    this.selectionChange.emit(selection);
+    this.warRoomService.requestPanToEntity(group.id);
+  }
+
+  onSubsidiaryHover(subsidiary: SubsidiaryCompany, isEntering: boolean): void {
+    if (isEntering) {
+      this.warRoomService.setHoveredEntity({
+        level: 'subsidiary',
+        id: subsidiary.id,
+        parentGroupId: subsidiary.parentGroupId,
+        subsidiaryId: subsidiary.id,
+      });
+    } else {
+      this.warRoomService.setHoveredEntity(null);
+    }
+  }
+
+  onSubsidiaryClick(subsidiary: SubsidiaryCompany): void {
+    if (this.mapViewMode() !== 'subsidiary' && this.mapViewMode() !== 'project' && this.mapViewMode() !== 'client') {
+      return;
+    }
+    this.toggleSubsidiary(subsidiary.id);
+    const selection: FleetSelection = {
+      level: 'subsidiary',
+      id: subsidiary.id,
+      parentGroupId: subsidiary.parentGroupId,
+      subsidiaryId: subsidiary.id,
+    };
+    this.selectionChange.emit(selection);
+    this.warRoomService.requestPanToEntity(subsidiary.id);
+  }
+
+  onFactoryHover(factory: FactoryLocation, isEntering: boolean): void {
+    if (isEntering) {
+      this.warRoomService.setHoveredEntity({
+        level: 'factory',
+        id: factory.id,
+        parentGroupId: factory.parentGroupId,
+        subsidiaryId: factory.subsidiaryId,
+        factoryId: factory.id,
+      });
+    } else {
+      this.warRoomService.setHoveredEntity(null);
+    }
+  }
+
+  onFactoryClick(factory: FactoryLocation): void {
+    const selection: FleetSelection = {
+      level: 'factory',
+      id: factory.id,
+      parentGroupId: factory.parentGroupId,
+      subsidiaryId: factory.subsidiaryId,
+      factoryId: factory.id,
+    };
+    this.selectionChange.emit(selection);
+    this.warRoomService.requestPanToEntity(factory.id);
+  }
+
+  toggleEditMode(): void {
+    this.editModeChange.emit(!this.editMode());
+    this.cancelEditFactory();
+    this.cancelEditSubsidiary();
+  }
+
+  isEditingFactory(factoryId: string): boolean {
+    return this.editingFactoryId() === factoryId;
+  }
+
+  isEditingSubsidiary(subsidiaryId: string): boolean {
+    return this.editingSubsidiaryId() === subsidiaryId;
+  }
+
+  startEditFactory(factory: FactoryLocation): void {
+    const latestLog = this.getLatestLog(factory.id);
+    this.editingFactoryId.set(factory.id);
+    if (factory.subsidiaryId) {
+      this.expandedSubsidiaries.update((current) =>
+        current.includes(factory.subsidiaryId) ? current : [...current, factory.subsidiaryId]
+      );
+    }
+
+    // Initialize draft if not exists
+    if (!this.factoryDrafts().has(factory.id)) {
+      this.updateFactoryDraft(factory.id, {
+        name: factory.name,
+        location: [factory.city, factory.country].filter(Boolean).join(', '),
+        description: latestLog?.description || factory.description || '',
+        status: factory.status
+      });
+    }
+  }
+
+  startEditSubsidiary(subsidiary: SubsidiaryCompany): void {
+    this.editingSubsidiaryId.set(subsidiary.id);
+    this.expandedSubsidiaries.update((current) =>
+      current.includes(subsidiary.id) ? current : [...current, subsidiary.id]
+    );
+
+    // Initialize draft if not exists
+    if (!this.subsidiaryDrafts().has(subsidiary.id)) {
+      this.updateSubsidiaryDraft(subsidiary.id, {
+        name: subsidiary.name,
+        location: subsidiary.location || this.getSubsidiaryLocation(subsidiary),
+        description: subsidiary.description || '',
+        status: subsidiary.status
+      });
+    }
+  }
+
+  private updateFactoryDraft(id: string, updates: Partial<{ name: string; location: string; description: string; status: NodeStatus }>): void {
+    const drafts = new Map(this.factoryDrafts());
+    const existing = drafts.get(id) || { name: '', location: '', description: '', status: 'ACTIVE' };
+    drafts.set(id, { ...existing, ...updates });
+    this.factoryDrafts.set(drafts);
+  }
+
+  private updateSubsidiaryDraft(id: string, updates: Partial<{ name: string; location: string; description: string; status: OperationalStatus }>): void {
+    const drafts = new Map(this.subsidiaryDrafts());
+    const existing = drafts.get(id) || { name: '', location: '', description: '', status: 'ACTIVE' };
+    drafts.set(id, { ...existing, ...updates });
+    this.subsidiaryDrafts.set(drafts);
+  }
+
+  onNameInput(event: Event, factoryId: string): void {
+    const target = event.target as HTMLInputElement | null;
+    this.updateFactoryDraft(factoryId, { name: target?.value ?? '' });
+    this.clearFactoryValidationError(factoryId);
+  }
+
+  onLocationInput(event: Event, factoryId: string): void {
+    const target = event.target as HTMLInputElement | null;
+    this.updateFactoryDraft(factoryId, { location: target?.value ?? '' });
+  }
+
+  onSubsidiaryNameInput(event: Event, subsidiaryId: string): void {
+    const target = event.target as HTMLInputElement | null;
+    this.updateSubsidiaryDraft(subsidiaryId, { name: target?.value ?? '' });
+  }
+
+  onSubsidiaryLocationInput(event: Event, subsidiaryId: string): void {
+    const target = event.target as HTMLInputElement | null;
+    this.updateSubsidiaryDraft(subsidiaryId, { location: target?.value ?? '' });
+  }
+
+  onSubsidiaryDescriptionInput(event: Event, subsidiaryId: string): void {
+    const target = event.target as HTMLTextAreaElement | null;
+    this.updateSubsidiaryDraft(subsidiaryId, { description: target?.value ?? '' });
+  }
+
+  onFactoryStatusChange(event: Event, factoryId: string): void {
+    const target = event.target as HTMLSelectElement | null;
+    const value = target?.value as NodeStatus | undefined;
+    if (value) {
+      this.updateFactoryDraft(factoryId, { status: value });
+    }
+  }
+
+  onSubsidiaryStatusChange(event: Event, subsidiaryId: string): void {
+    const target = event.target as HTMLSelectElement | null;
+    const value = target?.value as OperationalStatus | undefined;
+    if (value) {
+      this.updateSubsidiaryDraft(subsidiaryId, { status: value });
+    }
+  }
+
+  onDescriptionInput(event: Event, factoryId: string): void {
+    const target = event.target as HTMLTextAreaElement | null;
+    this.updateFactoryDraft(factoryId, { description: target?.value ?? '' });
+  }
+
+  saveFactoryDetails(factoryId: string): void {
+    const draft = this.factoryDrafts().get(factoryId);
+    if (!draft || !draft.name.trim()) {
+      this.setFactoryValidationError(factoryId, 'Factory name is required before saving.');
+      return;
+    }
+    this.clearFactoryValidationError(factoryId);
+
+    this.factoryDetailsUpdated.emit({
+      factoryId,
+      name: draft.name.trim(),
+      location: draft.location.trim(),
+      description: draft.description.trim(),
+      status: draft.status
+    });
+
+    this.removeFromDrafts('factory', factoryId);
+    this.editingFactoryId.set(null);
+  }
+
+  saveSubsidiaryDetails(subsidiaryId: string): void {
+    const draft = this.subsidiaryDrafts().get(subsidiaryId);
+    if (!draft || !draft.name.trim()) {
+      return;
+    }
+
+    this.subsidiaryDetailsUpdated.emit({
+      subsidiaryId,
+      name: draft.name.trim(),
+      location: draft.location.trim(),
+      description: draft.description.trim(),
+      status: draft.status
+    });
+
+    this.removeFromDrafts('subsidiary', subsidiaryId);
+    this.editingSubsidiaryId.set(null);
+  }
+
+  cancelEditFactory(): void {
+    if (this.editingFactoryId()) {
+      this.removeFromDrafts('factory', this.editingFactoryId()!);
+      this.editingFactoryId.set(null);
+    }
+  }
+
+  cancelEditSubsidiary(): void {
+    if (this.editingSubsidiaryId()) {
+      this.removeFromDrafts('subsidiary', this.editingSubsidiaryId()!);
+      this.editingSubsidiaryId.set(null);
+    }
+  }
+
+  saveAllDrafts(): void {
+    const factoryUpdates = Array.from(this.factoryDrafts().entries())
+      .filter(([_, draft]) => draft.name.trim().length > 0)
+      .map(([id, draft]) => ({ factoryId: id, ...draft }));
+
+    const subsidiaryUpdates = Array.from(this.subsidiaryDrafts().entries())
+      .filter(([_, draft]) => draft.name.trim().length > 0)
+      .map(([id, draft]) => ({ subsidiaryId: id, ...draft }));
+
+    if (factoryUpdates.length === 0 && subsidiaryUpdates.length === 0) {
+      this.clearAllDrafts();
+      return;
+    }
+
+    // We emit the batch updates. The parent component will handle the persistence.
+    // To satisfy the requirement of preserving drafts on failure, we don't clear them here anymore.
+    // Instead, we added a clearDrafts() method for the parent to call.
+    this.batchUpdateRequested.emit({ factories: factoryUpdates, subsidiaries: subsidiaryUpdates });
+  }
+
+  clearAllDrafts(): void {
+    this.factoryDrafts.set(new Map());
+    this.subsidiaryDrafts.set(new Map());
+    this.editingFactoryId.set(null);
+    this.editingSubsidiaryId.set(null);
+  }
+
+  private removeFromDrafts(type: 'factory' | 'subsidiary', id: string): void {
+    if (type === 'factory') {
+      const drafts = new Map(this.factoryDrafts());
+      drafts.delete(id);
+      this.factoryDrafts.set(drafts);
+    } else {
+      const drafts = new Map(this.subsidiaryDrafts());
+      drafts.delete(id);
+      this.subsidiaryDrafts.set(drafts);
+    }
+  }
+
+  private setFactoryValidationError(factoryId: string, message: string): void {
+    this.factoryValidationErrors.update((existing) => {
+      const next = new Map(existing);
+      next.set(factoryId, message);
+      return next;
+    });
+  }
+
+  private clearFactoryValidationError(factoryId: string): void {
+    this.factoryValidationErrors.update((existing) => {
+      if (!existing.has(factoryId)) return existing;
+      const next = new Map(existing);
+      next.delete(factoryId);
+      return next;
+    });
+  }
+
+  hasValidFactoryName(factoryId: string): boolean {
+    return !!this.factoryDrafts().get(factoryId)?.name?.trim();
+  }
+
+  requestDeleteSubsidiary(subsidiaryId: string): void {
+    this.subsidiaryDeleted.emit(subsidiaryId);
+  }
+
+  requestDeleteFactory(factoryId: string): void {
+    this.factoryDeleted.emit(factoryId);
+  }
+
+  getLatestLog(factoryId: string): ActivityLog | null {
+    return this.latestLogByFactory().get(factoryId) || null;
+  }
+
+  getSubsidiaryLocation(subsidiary: SubsidiaryCompany): string {
+    const factory = subsidiary.factories[0];
+    if (!factory) return '';
+    return this.formatLocation(factory.city, factory.country);
+  }
+
+  formatLocation(city: string, country?: string): string {
+    if (!city && !country) return 'Unknown';
+    if (!city) return country || 'Unknown';
+    return country ? `${city}, ${country}` : city;
+  }
+
+  getSubsidiaryDisplayLocation(subsidiary: SubsidiaryCompany): string {
+    return (subsidiary.location || this.getSubsidiaryLocation(subsidiary) || '').trim();
+  }
+
+  shouldShowFactoryLocation(factory: FactoryLocation, parent: SubsidiaryCompany): boolean {
+    const parentLocation = this.normalizeLocation(this.getSubsidiaryDisplayLocation(parent));
+    const factoryLocation = this.normalizeLocation(this.formatLocation(factory.city, factory.country));
+    return !parentLocation || !factoryLocation || parentLocation !== factoryLocation;
+  }
+
+  getFactoryLocationLabel(factory: FactoryLocation, parent: SubsidiaryCompany): string {
+    if (this.shouldShowFactoryLocation(factory, parent)) {
+      return this.formatLocation(factory.city, factory.country);
+    }
+    return 'Same location as parent';
+  }
+
+  shouldCollapseFactories(subsidiary: SubsidiaryCompany): boolean {
+    return subsidiary.factories.length > this.factoryCollapseThreshold;
+  }
+
+  getVisibleFactories(subsidiary: SubsidiaryCompany): FactoryLocation[] {
+    if (!this.shouldCollapseFactories(subsidiary) || this.isFactoryListExpanded(subsidiary.id)) {
+      return subsidiary.factories;
+    }
+    return subsidiary.factories.slice(0, this.factoryCollapseThreshold);
+  }
+
+  getHiddenFactoryCount(subsidiary: SubsidiaryCompany): number {
+    if (!this.shouldCollapseFactories(subsidiary)) return 0;
+    return Math.max(0, subsidiary.factories.length - this.factoryCollapseThreshold);
+  }
+
+  getProjectStatusForFactory(factoryId: string): ProjectStatusDisplay {
+    return this.projectStatusByFactoryId().get(factoryId) ?? 'none';
+  }
+
+  getProjectStatusForSubsidiary(subsidiary: SubsidiaryCompany): ProjectStatusDisplay {
+    return subsidiary.factories.reduce<ProjectStatusDisplay>((acc, f) => {
+      const s = this.getProjectStatusForFactory(f.id);
+      if (s === 'active') return 'active';
+      if (s === 'inactive' && acc !== 'active') return 'inactive';
+      return acc;
+    }, 'none');
+  }
+
+  getStatusClass(projectStatus: ProjectStatusDisplay): string {
+    if (projectStatus === 'active') return 'status-active';
+    if (projectStatus === 'inactive') return 'status-inactive';
+    return 'status-unassigned';
+  }
+
+  formatStatusLabel(projectStatus: ProjectStatusDisplay): string {
+    if (projectStatus === 'active') return 'ACTIVE';
+    if (projectStatus === 'inactive') return 'INACTIVE';
+    return 'NO PROJECT ASSIGNED';
+  }
+
+  private normalizeLocation(value: string): string {
+    return value.trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  getStatusIcon(projectStatus: ProjectStatusDisplay): string {
+    if (projectStatus === 'active') return 'check_circle';
+    if (projectStatus === 'inactive') return 'cancel';
+    return 'help_outline';
+  }
+
+  private warRoomService = inject(WarRoomService);
+  private cdr = inject(ChangeDetectorRef);
+  private ensureExpandedForSelection(selection: FleetSelection): void {
+    if (selection.parentGroupId) {
+      this.expandedParents.update((current) =>
+        current.includes(selection.parentGroupId!) ? current : [...current, selection.parentGroupId!]
+      );
+    }
+
+    if (selection.subsidiaryId) {
+      this.expandedSubsidiaries.update((current) =>
+        current.includes(selection.subsidiaryId!) ? current : [...current, selection.subsidiaryId!]
+      );
+    }
+  }
+
+  private scrollToSelection(selection: FleetSelection): void {
+    if (!this.viewReady) return;
+    const container = this.logList?.nativeElement;
+    if (!container) return;
+
+    const entry = container.querySelector(`[data-entity-id="${selection.level}:${selection.id}"]`) as HTMLElement | null;
+    if (!entry) return;
+
+    requestAnimationFrame(() => {
+      const containerRect = container.getBoundingClientRect();
+      const entryRect = entry.getBoundingClientRect();
+      const currentScrollTop = container.scrollTop;
+      const entryOffsetTop = entryRect.top - containerRect.top + currentScrollTop;
+      const targetScrollTop = entryOffsetTop - container.clientHeight / 2 + entry.clientHeight / 2;
+      container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+    });
+  }
+
+  private softRefresh(): void {
+    if (!this.viewReady) return;
+    requestAnimationFrame(() => {
+      const selection = this.selectedEntity();
+      if (selection) {
+        this.scrollToSelection(selection);
+      }
+    });
+  }
+
+  private queueRefresh(showOverlay: boolean): void {
+    if (!this.viewReady) return;
+    if (this.refreshTimeoutId) {
+      clearTimeout(this.refreshTimeoutId);
+    }
+    if (showOverlay) {
+      this.refreshing.set(true);
+      this.cdr.detectChanges();
+    }
+    requestAnimationFrame(() => {
+      const selection = this.selectedEntity();
+      if (selection) {
+        this.scrollToSelection(selection);
+      }
+    });
+    this.refreshTimeoutId = setTimeout(() => {
+      if (showOverlay) {
+        this.refreshing.set(false);
+      }
+      this.refreshTimeoutId = null;
+    }, 350);
+  }
+}
