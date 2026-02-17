@@ -17,6 +17,16 @@
     border-bottom: 1px solid rgba(0, 255, 65, 0.2);
     color: var(--cm-text);
   }
+
+  .status-legend-icon {
+    font-size: 0.85rem;
+    color: var(--cm-muted);
+    cursor: help;
+
+    &:hover {
+      color: rgba(0, 255, 65, 0.8);
+    }
+  }
 }
 
 .manufacturer-search-wrap {
@@ -33,6 +43,10 @@
     font-size: 0.85rem;
     color: var(--cm-muted);
     pointer-events: none;
+  }
+
+  &.has-query .manufacturer-search-input {
+    padding-right: 1.75rem;
   }
 
   .manufacturer-search-input {
@@ -54,6 +68,36 @@
       box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.15);
     }
   }
+
+  .manufacturer-search-clear {
+    position: absolute;
+    right: 0.35rem;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0.2rem;
+    background: transparent;
+    border: none;
+    color: var(--cm-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      color: var(--cm-text);
+      background: rgba(148, 163, 184, 0.15);
+    }
+
+    .fe {
+      font-size: 0.9rem;
+    }
+  }
+}
+
+.search-feedback {
+  font-size: 0.7rem;
+  white-space: nowrap;
 }
 
 .activity-log-header-actions {
@@ -620,6 +664,15 @@
   justify-content: center;
   gap: 0.35rem;
   text-decoration: none;
+  transition: color 0.15s ease, background 0.15s ease;
+
+  .view-factories-chevron {
+    transition: transform 0.2s ease;
+  }
+
+  &.expanded .view-factories-chevron {
+    transform: rotate(180deg);
+  }
 
   &:hover {
     color: #00ff41;
@@ -665,8 +718,8 @@
     text-align: left;
 
     &:hover {
-      border-color: rgba(0, 255, 65, 0.4);
-      background: rgba(0, 255, 65, 0.06);
+      border-color: rgba(0, 255, 65, 0.5);
+      background: rgba(0, 255, 65, 0.1);
     }
 
     &.active {
@@ -793,10 +846,17 @@
     flex-wrap: wrap;
     gap: 0.5rem;
     cursor: pointer;
+    padding: 0.25rem 0;
+    border-radius: 0.35rem;
     transition: background 0.15s ease;
 
     &:hover {
       background: rgba(0, 255, 65, 0.1);
+    }
+
+    &:focus-visible {
+      outline: 2px solid rgba(0, 255, 65, 0.6);
+      outline-offset: 2px;
     }
   }
 

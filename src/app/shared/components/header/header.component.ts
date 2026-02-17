@@ -268,6 +268,13 @@ collapse: any;
             html?.getAttribute('data-toggled') == 'open' ? 'close' : 'open'
           );
         }
+        this.cdr.detectChanges();
+      }
+
+      isSidebarCollapsed(): boolean {
+        const html = this.elementRef.nativeElement?.ownerDocument?.documentElement;
+        const toggled = html?.getAttribute('data-toggled') ?? '';
+        return !!toggled && (toggled.includes('close') || toggled.includes('closed'));
       }
       rightsidebar(){
         document.querySelector(".right-sidebar-canvas")?.classList.toggle("show");

@@ -207,6 +207,10 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   /** First-time onboarding hint for key controls */
   readonly showTipsHint = signal<boolean>(false);
 
+  /** Show "Return to previous view" button after auto-zoom to entity */
+  readonly showReturnToPreviousView = signal<boolean>(false);
+  private returnToPreviousViewTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
   readonly parentCompanyOptions = computed(() => {
     const statusFilter = this.filterDraft().status;
     return this.subsidiaries()
@@ -1968,6 +1972,25 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   }
 
   /** Called when map zoom has been idle 2s - shows status for TestSprite marker stability assertions */
+  onMapZoomedToEntity(): void {
+    if (this.returnToPreviousViewTimeoutId) {
+      clearTimeout(this.returnToPreviousViewTimeoutId);
+    }
+    this.showReturnToPreviousView.set(true);
+    this.returnToPreviousViewTimeoutId = setTimeout(() => {
+      this.showReturnToPreviousView.set(false);
+      this.returnToPreviousViewTimeoutId = null;
+    }, 5000);
+  }
+
+  onPreviousViewRestored(): void {
+    if (this.returnToPreviousViewTimeoutId) {
+      clearTimeout(this.returnToPreviousViewTimeoutId);
+      this.returnToPreviousViewTimeoutId = null;
+    }
+    this.showReturnToPreviousView.set(false);
+  }
+
   onMapZoomStable(zoom: number): void {
     const nearInitial = Math.abs(zoom - 1.8) < 0.3;
     const msg = nearInitial

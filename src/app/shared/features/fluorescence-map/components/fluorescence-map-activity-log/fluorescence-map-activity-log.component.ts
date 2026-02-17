@@ -80,6 +80,11 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
       .filter((g) => g.subsidiaries.length > 0);
   });
 
+  readonly searchMatchCount = computed(() => {
+    const filtered = this.filteredParentGroupsForDisplay();
+    return filtered.reduce((sum, g) => sum + g.subsidiaries.length, 0);
+  });
+
   readonly latestLogByFactory = computed(() => {
     const logs = this.activityLogs();
     const map = new Map<string, ActivityLog>();

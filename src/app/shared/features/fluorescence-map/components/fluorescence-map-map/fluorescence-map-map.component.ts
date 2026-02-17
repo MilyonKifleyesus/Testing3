@@ -15,6 +15,7 @@ import { WarRoomMapMarkersComponent } from './markers/fluorescence-map-map-marke
 import { ToastrService } from 'ngx-toastr';
 import { isValidCoordinates } from '../../../../utils/coordinate.utils';
 import { environment } from '../../../../../../environments/environment';
+import html2canvas from 'html2canvas';
 
 interface RouteFeatureProperties {
   strokeWidth: number;
@@ -67,6 +68,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   routeSelected = output<{ routeId: string; projectId?: string }>();
   zoomStable = output<number>();
   addProjectRequested = output<void>();
+  zoomedToEntity = output<void>();
+  previousViewRestored = output<void>();
 
   @ViewChild('mapContainer', { static: false }) mapContainerRef!: ElementRef<HTMLDivElement>;
 
@@ -81,6 +84,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   private overlayEnsureCoords = false;
   private selectionZoomTimeoutId: any = null;
   private zoomStableTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private previousViewState: { center: [number, number]; zoom: number } | null = null;
   private initMapRetryCount = 0;
   private static readonly INIT_MAP_MAX_RETRIES = 10;
 
@@ -709,6 +713,9 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       maxZoom: 14,
       attributionControl: false,
     });
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix-3',hypothesisId:'H9',location:'fluorescence-map-map.component.ts:createMap',message:'Map instance created for capture diagnostics',data:{theme:this.currentTheme(),style:this.getMapStyleUrl(this.currentTheme()),webgl:this.getWebGlContextInfo(map.getCanvas())},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     this.currentZoomLevel.set(this.defaultView.zoom);
     return map;
   }
@@ -965,7 +972,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       isPinned,
       anchor,
       pinScale: scale,
-      showPinLabel: zoomFactor >= this.LOD_PIN_LABEL_THRESHOLD,
+      // During screenshot capture, force labels on even when fit-bounds zoom is low.
+      showPinLabel: this.screenshotMode() || zoomFactor >= this.LOD_PIN_LABEL_THRESHOLD,
       displayCoordinates,
     };
   }
@@ -1101,12 +1109,34 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    this.mapInstance.flyTo({
+    const map = this.mapInstance;
+    const center = map.getCenter();
+    const currentZoom = map.getZoom();
+    this.previousViewState = {
+      center: [center.lng, center.lat],
+      zoom: currentZoom,
+    };
+
+    map.flyTo({
       center: [target.coordinates.longitude, target.coordinates.latitude],
       zoom,
       duration: 1000,
       essential: true,
     });
+
+    this.zoomedToEntity.emit();
+  }
+
+  restorePreviousView(): void {
+    if (!this.previousViewState || !this.mapInstance || !this.mapLoaded) return;
+    const { center, zoom } = this.previousViewState;
+    this.previousViewState = null;
+    this.mapInstance.flyTo({ center, zoom, duration: 600, essential: true });
+    this.previousViewRestored.emit();
+  }
+
+  hasPreviousView(): boolean {
+    return this.previousViewState !== null;
   }
 
   fitBoundsToRoutes(routes: ProjectRoute[]): void {
@@ -1135,9 +1165,16 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     if (!this.mapInstance || !this.mapLoaded) {
       throw new Error('Map is not ready to capture.');
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix',hypothesisId:'H3',location:'fluorescence-map-map.component.ts:captureRoutesScreenshot:entry',message:'Capture route screenshot started',data:{routesCount:routes.length,mapLoaded:this.mapLoaded,isStyleLoaded:this.mapInstance.isStyleLoaded(),zoom:this.mapInstance.getZoom(),markersCount:this.markersVm().length,visiblePinLabels:this.markersVm().filter((m)=>m.showPinLabel).length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     this.fitBoundsToRoutes(routes);
     await this.waitForMapIdle(1800);
-    return await this.captureCanvasAsBlob();
+    await this.waitForOverlayPaint();
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix',hypothesisId:'H3',location:'fluorescence-map-map.component.ts:captureRoutesScreenshot:postWait',message:'Capture route screenshot after map settle',data:{isStyleLoaded:this.mapInstance.isStyleLoaded(),zoom:this.mapInstance.getZoom(),center:this.mapInstance.getCenter()},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return await this.captureCompositeMapAsBlob();
   }
 
   private waitForMapIdle(timeoutMs: number): Promise<void> {
@@ -1178,6 +1215,292 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         resolve(blob);
       }, 'image/png');
     });
+  }
+
+  private async captureMapContainerAsBlob(): Promise<Blob> {
+    const mapContainer = this.mapContainerRef?.nativeElement;
+    if (!mapContainer) {
+      return this.captureCanvasAsBlob();
+    }
+
+    try {
+      const canvas = await html2canvas(mapContainer, {
+        backgroundColor: null,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        scale: Math.max(window.devicePixelRatio || 1, 1),
+      });
+
+      return await this.canvasToBlob(canvas);
+    } catch (error) {
+      console.warn('Falling back to canvas-only map capture:', error);
+      return this.captureCanvasAsBlob();
+    }
+  }
+
+  /**
+   * Capture map canvas (tiles/labels) and DOM overlays (routes/markers) separately,
+   * then composite them into one image so both render reliably in exports.
+   */
+  private async captureCompositeMapAsBlob(): Promise<Blob> {
+    const baseMapCanvas = this.mapInstance?.getCanvas();
+    const mapContainer = this.mapContainerRef?.nativeElement;
+    if (!baseMapCanvas || !mapContainer) {
+      return this.captureCanvasAsBlob();
+    }
+
+    try {
+      const baseSnapshot = await this.captureBaseMapSnapshotCanvas(baseMapCanvas);
+      const overlayCanvas = await this.captureOverlayOnlyCanvas(mapContainer, baseMapCanvas);
+      const composite = document.createElement('canvas');
+      composite.width = baseMapCanvas.width;
+      composite.height = baseMapCanvas.height;
+      const ctx = composite.getContext('2d');
+      if (!ctx) {
+        throw new Error('Failed to initialize composite canvas context.');
+      }
+
+      ctx.drawImage(baseSnapshot, 0, 0, composite.width, composite.height);
+      ctx.drawImage(overlayCanvas, 0, 0, composite.width, composite.height);
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix',hypothesisId:'H4',location:'fluorescence-map-map.component.ts:captureCompositeMapAsBlob',message:'Composite canvas built',data:{base:this.getCanvasSample(baseSnapshot),overlay:this.getCanvasSample(overlayCanvas),composite:this.getCanvasSample(composite)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      return await this.canvasToBlob(composite);
+    } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix',hypothesisId:'H4',location:'fluorescence-map-map.component.ts:captureCompositeMapAsBlob:catch',message:'Composite capture failed',data:{error:error instanceof Error?error.message:String(error)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      console.warn('Falling back to container capture after composite failure:', error);
+      return this.captureMapContainerAsBlob();
+    }
+  }
+
+  private async captureOverlayOnlyCanvas(
+    mapContainer: HTMLDivElement,
+    baseMapCanvas: HTMLCanvasElement
+  ): Promise<HTMLCanvasElement> {
+    const routesHost = mapContainer.querySelector('app-war-room-map-routes') as HTMLElement | null;
+    const markersHost = mapContainer.querySelector('app-war-room-map-markers') as HTMLElement | null;
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix-2',hypothesisId:'H6',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas:hosts',message:'Overlay host presence and bounds',data:{routesHost:!!routesHost,markersHost:!!markersHost,routesRect:routesHost?this.getElementRect(routesHost):null,markersRect:markersHost?this.getElementRect(markersHost):null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    if (routesHost && markersHost) {
+      const composedOverlay = document.createElement('canvas');
+      composedOverlay.width = baseMapCanvas.width;
+      composedOverlay.height = baseMapCanvas.height;
+      const composedCtx = composedOverlay.getContext('2d');
+      if (!composedCtx) {
+        throw new Error('Failed to initialize overlay composition context.');
+      }
+
+      const routesCanvas = await this.captureElementCanvas(routesHost);
+      const markersCanvas = await this.captureElementCanvas(markersHost);
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix-2',hypothesisId:'H6',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas:overlaySizes',message:'Overlay canvas sizes before draw',data:{routesCanvas:this.getCanvasSample(routesCanvas),markersCanvas:this.getCanvasSample(markersCanvas),targetWidth:composedOverlay.width,targetHeight:composedOverlay.height},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      if (routesCanvas.width > 0 && routesCanvas.height > 0) {
+        composedCtx.drawImage(routesCanvas, 0, 0, composedOverlay.width, composedOverlay.height);
+      } else {
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'post-fix',hypothesisId:'H6',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas:skipRoutes',message:'Skipped route overlay draw due zero-sized canvas',data:{routesCanvas:this.getCanvasSample(routesCanvas)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+      }
+      if (markersCanvas.width > 0 && markersCanvas.height > 0) {
+        composedCtx.drawImage(markersCanvas, 0, 0, composedOverlay.width, composedOverlay.height);
+      } else {
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'post-fix',hypothesisId:'H6',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas:skipMarkers',message:'Skipped marker overlay draw due zero-sized canvas',data:{markersCanvas:this.getCanvasSample(markersCanvas)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+      }
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'post-fix',hypothesisId:'H6',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas:composedTransparent',message:'Overlay composed from route and marker hosts',data:{routes:this.getCanvasSample(routesCanvas),markers:this.getCanvasSample(markersCanvas),overlay:this.getCanvasSample(composedOverlay)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      return composedOverlay;
+    }
+
+    const previousVisibility = baseMapCanvas.style.visibility;
+    baseMapCanvas.style.visibility = 'hidden';
+    try {
+      const overlay = await html2canvas(mapContainer, {
+        backgroundColor: null,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        scale: Math.max(window.devicePixelRatio || 1, 1),
+      });
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix',hypothesisId:'H2',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas',message:'Overlay-only canvas captured',data:{baseVisibilityBeforeHide:previousVisibility,overlay:this.getCanvasSample(overlay)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      return overlay;
+    } finally {
+      baseMapCanvas.style.visibility = previousVisibility;
+    }
+  }
+
+  private captureElementCanvas(element: HTMLElement): Promise<HTMLCanvasElement> {
+    let captureTarget = element;
+    const hostRect = element.getBoundingClientRect();
+    if ((hostRect.width === 0 || hostRect.height === 0) && element.firstElementChild instanceof HTMLElement) {
+      const childRect = element.firstElementChild.getBoundingClientRect();
+      if (childRect.width > 0 && childRect.height > 0) {
+        captureTarget = element.firstElementChild;
+      }
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'post-fix',hypothesisId:'H8',location:'fluorescence-map-map.component.ts:captureElementCanvas:entry',message:'Capture element canvas entry',data:{hostTag:element.tagName.toLowerCase(),hostRect:this.getElementRect(element),targetTag:captureTarget.tagName.toLowerCase(),targetRect:this.getElementRect(captureTarget)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return html2canvas(captureTarget, {
+      backgroundColor: null,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      scale: Math.max(window.devicePixelRatio || 1, 1),
+    });
+  }
+
+  private async captureBaseMapSnapshotCanvas(baseMapCanvas: HTMLCanvasElement): Promise<HTMLCanvasElement> {
+    const snapshot = document.createElement('canvas');
+    snapshot.width = baseMapCanvas.width;
+    snapshot.height = baseMapCanvas.height;
+    const snapshotCtx = snapshot.getContext('2d');
+    if (!snapshotCtx) {
+      throw new Error('Failed to initialize base snapshot canvas context.');
+    }
+    snapshotCtx.drawImage(baseMapCanvas, 0, 0, snapshot.width, snapshot.height);
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix-3',hypothesisId:'H9',location:'fluorescence-map-map.component.ts:captureBaseMapSnapshotCanvas',message:'Base map snapshot sampled',data:{webgl:this.getWebGlContextInfo(baseMapCanvas),baseCanvas:this.getCanvasCoverage(baseMapCanvas),snapshot:this.getCanvasCoverage(snapshot)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return snapshot;
+  }
+
+  private canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('Failed to create image from rendered map container.'));
+          return;
+        }
+        resolve(blob);
+      }, 'image/png');
+    });
+  }
+
+  private waitForOverlayPaint(): Promise<void> {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  }
+
+  private getCanvasSample(canvas: HTMLCanvasElement): {
+    width: number;
+    height: number;
+    samplePixel: [number, number, number, number] | null;
+  } {
+    const width = canvas.width ?? 0;
+    const height = canvas.height ?? 0;
+    if (width <= 0 || height <= 0) {
+      return { width, height, samplePixel: null };
+    }
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return { width, height, samplePixel: null };
+    }
+    const x = Math.max(0, Math.floor(width / 2));
+    const y = Math.max(0, Math.floor(height / 2));
+    try {
+      const px = context.getImageData(x, y, 1, 1).data;
+      return { width, height, samplePixel: [px[0], px[1], px[2], px[3]] };
+    } catch {
+      return { width, height, samplePixel: null };
+    }
+  }
+
+  private getCanvasCoverage(canvas: HTMLCanvasElement): {
+    width: number;
+    height: number;
+    samplePixel: [number, number, number, number] | null;
+    alphaSamples: number[];
+  } {
+    const base = this.getCanvasSample(canvas);
+    if (!base.samplePixel) {
+      return { ...base, alphaSamples: [] };
+    }
+    const width = canvas.width ?? 0;
+    const height = canvas.height ?? 0;
+    const context = canvas.getContext('2d');
+    if (!context || width <= 0 || height <= 0) {
+      return { ...base, alphaSamples: [] };
+    }
+    const points: Array<[number, number]> = [
+      [Math.floor(width * 0.2), Math.floor(height * 0.2)],
+      [Math.floor(width * 0.5), Math.floor(height * 0.2)],
+      [Math.floor(width * 0.8), Math.floor(height * 0.2)],
+      [Math.floor(width * 0.2), Math.floor(height * 0.5)],
+      [Math.floor(width * 0.5), Math.floor(height * 0.5)],
+      [Math.floor(width * 0.8), Math.floor(height * 0.5)],
+      [Math.floor(width * 0.2), Math.floor(height * 0.8)],
+      [Math.floor(width * 0.5), Math.floor(height * 0.8)],
+      [Math.floor(width * 0.8), Math.floor(height * 0.8)],
+    ];
+    const alphaSamples: number[] = [];
+    for (const [x, y] of points) {
+      try {
+        alphaSamples.push(context.getImageData(x, y, 1, 1).data[3]);
+      } catch {
+        alphaSamples.push(-1);
+      }
+    }
+    return { ...base, alphaSamples };
+  }
+
+  private getWebGlContextInfo(canvas: HTMLCanvasElement): {
+    contextType: string | null;
+    preserveDrawingBuffer: boolean | null;
+    alpha: boolean | null;
+  } {
+    try {
+      const gl2 = canvas.getContext('webgl2') as WebGLRenderingContext | null;
+      if (gl2) {
+        const attrs = gl2.getContextAttributes();
+        return {
+          contextType: 'webgl2',
+          preserveDrawingBuffer: attrs?.preserveDrawingBuffer ?? null,
+          alpha: attrs?.alpha ?? null,
+        };
+      }
+      const gl = canvas.getContext('webgl') as WebGLRenderingContext | null;
+      if (gl) {
+        const attrs = gl.getContextAttributes();
+        return {
+          contextType: 'webgl',
+          preserveDrawingBuffer: attrs?.preserveDrawingBuffer ?? null,
+          alpha: attrs?.alpha ?? null,
+        };
+      }
+    } catch {
+      return { contextType: null, preserveDrawingBuffer: null, alpha: null };
+    }
+    return { contextType: null, preserveDrawingBuffer: null, alpha: null };
+  }
+
+  private getElementRect(element: HTMLElement): {
+    width: number;
+    height: number;
+    clientWidth: number;
+    clientHeight: number;
+    offsetWidth: number;
+    offsetHeight: number;
+  } {
+    const rect = element.getBoundingClientRect();
+    return {
+      width: Number(rect.width.toFixed(2)),
+      height: Number(rect.height.toFixed(2)),
+      clientWidth: element.clientWidth,
+      clientHeight: element.clientHeight,
+      offsetWidth: element.offsetWidth,
+      offsetHeight: element.offsetHeight,
+    };
   }
 
   private isHub(node: WarRoomNode): boolean {

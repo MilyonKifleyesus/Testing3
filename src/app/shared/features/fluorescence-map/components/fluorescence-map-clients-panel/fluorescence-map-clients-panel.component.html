@@ -1,15 +1,32 @@
 <div class="clients-with-projects-container card custom-card">
-  <div class="card-header">
+  <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
     <h6 class="main-content-label mb-0">Clients with Projects</h6>
+    @if (clientsWithProjects().length > 5) {
+    <div class="client-search-wrap" [class.has-query]="clientSearchQuery()">
+      <i class="fe fe-search client-search-icon" aria-hidden="true"></i>
+      <input type="text" class="form-control form-control-sm client-search-input"
+        placeholder="Search clients..."
+        [value]="clientSearchQuery()"
+        (input)="clientSearchQuery.set($any($event.target).value)"
+        aria-label="Search clients"
+        title="Search updates as you type" />
+      @if (clientSearchQuery()) {
+      <button type="button" class="client-search-clear" (click)="clientSearchQuery.set('')"
+        aria-label="Clear search">
+        <i class="fe fe-x" aria-hidden="true"></i>
+      </button>
+      }
+    </div>
+    }
   </div>
   <div class="card-body p-0">
     <div class="clients-with-projects-list list-group list-group-flush">
-      @if (clientsWithProjects().length === 0) {
+      @if (filteredClientsForDisplay().length === 0) {
       <div class="clients-empty-state text-muted p-4 text-center">
-        No clients with projects
+        {{ clientSearchQuery().trim() ? 'No matches' : 'No clients with projects' }}
       </div>
       } @else {
-      @for (item of clientsWithProjects(); track item.id) {
+      @for (item of filteredClientsForDisplay(); track item.id) {
       <div class="client-row" [class.expanded]="isExpanded(item.id)">
         <button
           type="button"

@@ -1,4 +1,4 @@
-import { Component, DestroyRef, effect, inject, input, output, signal, isDevMode } from '@angular/core';
+import { Component, DestroyRef, effect, inject, input, output, signal, computed, isDevMode } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ProjectService } from '../../../../services/project.service';
@@ -46,6 +46,14 @@ export class WarRoomClientsPanelComponent {
 
   readonly expandedClientIds = signal<Set<string>>(new Set());
   readonly projectsByClientId = signal<Map<string, Project[]>>(new Map());
+  readonly clientSearchQuery = signal<string>('');
+
+  readonly filteredClientsForDisplay = computed(() => {
+    const clients = this.clientsWithProjects();
+    const q = this.clientSearchQuery().trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter((c) => c.name.toLowerCase().includes(q));
+  });
 
   constructor() {
     effect(() => {

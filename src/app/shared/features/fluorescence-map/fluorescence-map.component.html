@@ -356,7 +356,19 @@
         [transitRoutes]="filteredTransitRoutes()" [projectRoutes]="projectRoutesForMap()"
         [filterStatus]="filterApplied().status" (nodeSelected)="onNodeSelected($event)"
         (routeSelected)="onRouteSelected($event)" (zoomStable)="onMapZoomStable($event)"
-        (addProjectRequested)="onAddCompanyRequested()"></app-war-room-map>
+        (addProjectRequested)="onAddCompanyRequested()"
+        (zoomedToEntity)="onMapZoomedToEntity()"
+        (previousViewRestored)="onPreviousViewRestored()"></app-war-room-map>
+
+      @if (!tacticalMode() && showReturnToPreviousView() && mapComponent()) {
+      <button type="button" class="btn btn-sm war-room-return-previous-btn"
+        (click)="mapComponent()!.restorePreviousView()"
+        aria-label="Return to previous map view"
+        title="Return to previous map view">
+        <i class="fe fe-arrow-left" aria-hidden="true"></i>
+        Return to previous view
+      </button>
+      }
 
       @if (filteredNodes().length === 0) {
       <div
@@ -425,7 +437,7 @@
         <button type="button" class="sidebar-level-btn" [class.active]="logPanelMode() === 'manufacturer'"
           (click)="setLogPanelMode('manufacturer')" role="radio" [attr.aria-checked]="logPanelMode() === 'manufacturer'"
           aria-label="View manufacturer hierarchy"
-          title="View manufacturer hierarchy (parent companies and factories)">
+          title="View manufacturers: parent companies and their factory sites">
           <i class="fe fe-briefcase" aria-hidden="true"></i>
           Manufacturer
         </button>
@@ -438,7 +450,8 @@
           <div class="sidebar-edit-actions d-flex flex-column gap-2 mb-3">
             @if (!activityLogEditMode()) {
             <button type="button" class="sidebar-edit-toggle" (click)="activityLogEditMode.set(true)"
-              [attr.aria-label]="'Switch to edit mode'">
+              aria-label="Enable editing of manufacturer assignments and site configurations"
+              title="Enable editing of manufacturer assignments and site configurations">
               EDIT MODE
             </button>
             } @else {
@@ -455,6 +468,7 @@
             }
           </div>
 
+          <div class="panel-log-content" [attr.data-mode]="logPanelMode()">
           @if (logPanelMode() === 'manufacturer') {
           <app-war-room-activity-log [parentGroups]="filteredParentGroups()" [activityLogs]="filteredActivityLogs()"
             [projectStatusByFactoryId]="projectStatusByFactoryId()" [selectedEntity]="selectedEntity()"
@@ -475,6 +489,7 @@
             (routePreviewRequested)="onRoutePreviewRequested($event)"
             (clientCaptureRequested)="onClientCaptureRequested($event)"></app-war-room-clients-panel>
           }
+          </div>
         </section>
 
         <section id="war-room-panel-hub" role="tabpanel" [attr.aria-labelledby]="'war-room-tab-hub'"

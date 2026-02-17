@@ -1,17 +1,37 @@
 <div class="activity-log-container card custom-card">
   <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-    <h6 class="main-content-label mb-0">Critical Operation Log</h6>
+    <h6 class="main-content-label mb-0 d-flex align-items-center gap-1">
+      Critical Operation Log
+      <i class="fe fe-info status-legend-icon" aria-hidden="true"
+        title="ACTIVE = has projects; INACTIVE = has inactive projects; NO PROJECT ASSIGNED = no projects linked"></i>
+    </h6>
     <div class="activity-log-header-actions d-flex align-items-center gap-2 flex-wrap">
-      <div class="manufacturer-search-wrap">
+      <div class="manufacturer-search-wrap" [class.has-query]="manufacturerSearchQuery()">
         <i class="fe fe-search manufacturer-search-icon" aria-hidden="true"></i>
         <input type="text" class="form-control form-control-sm manufacturer-search-input"
           placeholder="Search manufacturers..."
           [value]="manufacturerSearchQuery()"
           (input)="manufacturerSearchQuery.set($any($event.target).value)"
-          aria-label="Search manufacturers" />
+          aria-label="Search manufacturers"
+          title="Search updates as you type" />
+        @if (manufacturerSearchQuery()) {
+        <button type="button" class="manufacturer-search-clear" (click)="manufacturerSearchQuery.set('')"
+          aria-label="Clear search">
+          <i class="fe fe-x" aria-hidden="true"></i>
+        </button>
+        }
       </div>
+      @if (manufacturerSearchQuery().trim()) {
+      <span class="search-feedback text-muted fs-11" role="status">
+        @if (searchMatchCount() === 0) {
+        No matches
+        } @else {
+        {{ searchMatchCount() }} {{ searchMatchCount() === 1 ? 'manufacturer' : 'manufacturers' }}
+        }
+      </span>
+      }
       <button type="button" class="btn btn-sm btn-outline-secondary refresh-log-btn" (click)="refreshLayout()"
-        aria-label="Refresh operation log layout">
+        aria-label="Refresh data" title="Update list and data">
         <i class="fe fe-refresh-cw" aria-hidden="true"></i>
         <span>Refresh</span>
       </button>
@@ -56,8 +76,8 @@
               [class.status-active]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-active'"
               [class.status-inactive]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-inactive'"
               [class.status-unassigned]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-unassigned'"
-              [attr.title]="getProjectStatusForSubsidiary(subsidiary) === 'none' ? 'No projects linked to this manufacturer' : null"
-              [attr.aria-label]="formatStatusLabel(getProjectStatusForSubsidiary(subsidiary)) + (getProjectStatusForSubsidiary(subsidiary) === 'none' ? '. No projects linked to this manufacturer.' : '')">
+              [attr.title]="getProjectStatusForSubsidiary(subsidiary) === 'none' ? 'No projects linked to this manufacturer. Click Edit mode to add a project.' : null"
+              [attr.aria-label]="formatStatusLabel(getProjectStatusForSubsidiary(subsidiary)) + (getProjectStatusForSubsidiary(subsidiary) === 'none' ? '. No projects linked to this manufacturer. Click Edit mode to add a project.' : '')">
               {{ formatStatusLabel(getProjectStatusForSubsidiary(subsidiary)) }}
             </span>
             @if (editMode()) {
@@ -106,9 +126,11 @@
             } @else if (hasNoProjectsButHasSites(subsidiary)) {
             <div class="factory-empty-state text-muted">No active projects assigned to any sites for this manufacturer.</div>
             <button type="button" class="btn btn-link view-factories-toggle"
+              [class.expanded]="isNoProjectSitesExpanded(subsidiary.id)"
               (click)="toggleNoProjectSites(subsidiary.id); $event.stopPropagation()"
-              [attr.aria-label]="isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + subsidiary.factories.length + ' sites'">
-              {{ isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + subsidiary.factories.length + ' sites' }}
+              [attr.aria-label]="isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + subsidiary.factories.length + ' ' + (subsidiary.factories.length === 1 ? 'site' : 'sites')">
+              <i class="fe fe-chevron-down view-factories-chevron" aria-hidden="true"></i>
+              {{ isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + subsidiary.factories.length + ' ' + (subsidiary.factories.length === 1 ? 'site' : 'sites') }}
             </button>
             @if (isNoProjectSitesExpanded(subsidiary.id)) {
             @for (factory of getVisibleFactories(subsidiary); track factory.id) {
@@ -164,8 +186,8 @@
                   [class.status-active]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-active'"
                   [class.status-inactive]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-inactive'"
                   [class.status-unassigned]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-unassigned'"
-                  [attr.title]="getProjectStatusForFactory(factory.id) === 'none' ? 'No projects linked to this site' : null"
-                  [attr.aria-label]="formatStatusLabel(getProjectStatusForFactory(factory.id)) + (getProjectStatusForFactory(factory.id) === 'none' ? '. No projects linked to this site.' : '')">
+                  [attr.title]="getProjectStatusForFactory(factory.id) === 'none' ? 'No projects linked to this site. Click Edit mode to add a project.' : null"
+                  [attr.aria-label]="formatStatusLabel(getProjectStatusForFactory(factory.id)) + (getProjectStatusForFactory(factory.id) === 'none' ? '. No projects linked to this site. Click Edit mode to add a project.' : '')">
                   {{ formatStatusLabel(getProjectStatusForFactory(factory.id)) }}
                 </span>
                 @if (editMode()) {
@@ -241,8 +263,8 @@
                   [class.status-active]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-active'"
                   [class.status-inactive]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-inactive'"
                   [class.status-unassigned]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-unassigned'"
-                  [attr.title]="getProjectStatusForFactory(factory.id) === 'none' ? 'No projects linked to this site' : null"
-                  [attr.aria-label]="formatStatusLabel(getProjectStatusForFactory(factory.id)) + (getProjectStatusForFactory(factory.id) === 'none' ? '. No projects linked to this site.' : '')">
+                  [attr.title]="getProjectStatusForFactory(factory.id) === 'none' ? 'No projects linked to this site. Click Edit mode to add a project.' : null"
+                  [attr.aria-label]="formatStatusLabel(getProjectStatusForFactory(factory.id)) + (getProjectStatusForFactory(factory.id) === 'none' ? '. No projects linked to this site. Click Edit mode to add a project.' : '')">
                   {{ formatStatusLabel(getProjectStatusForFactory(factory.id)) }}
                 </span>
                 @if (editMode()) {

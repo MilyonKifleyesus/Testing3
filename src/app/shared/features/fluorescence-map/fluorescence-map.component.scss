@@ -438,6 +438,34 @@ $toolbar-font-size: 0.75rem;
   }
 }
 
+// Return to previous view button (after auto-zoom)
+.war-room-return-previous-btn {
+  position: absolute;
+  top: 4rem;
+  left: 0.75rem;
+  z-index: 29;
+  @extend .glass;
+  color: var(--cm-text);
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+
+  &:hover {
+    background: rgba(0, 255, 65, 0.12);
+    border-color: rgba(0, 255, 65, 0.5);
+    color: #f8fff9;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(0, 255, 65, 0.9);
+    outline-offset: 2px;
+  }
+}
+
 // Context panel overlay - repositions when sidebar is open to avoid overlap
 .war-room-context-panel-wrapper {
   position: absolute;
@@ -711,10 +739,10 @@ $toolbar-font-size: 0.75rem;
   background: rgba(8, 12, 16, 0.72);
   color: var(--cm-muted);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 0.4rem 0.55rem;
+  padding: 0.5rem 0.65rem;
   border-radius: 0.5rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -732,8 +760,9 @@ $toolbar-font-size: 0.75rem;
   }
 
   &.active {
-    background: rgba(0, 255, 65, 0.18);
-    border-color: var(--cm-border-strong);
+    background: rgba(0, 255, 65, 0.22);
+    border-color: rgba(0, 255, 65, 0.7);
+    border-bottom: 2px solid rgba(0, 255, 65, 0.95);
     color: #f8fff9;
     font-weight: 700;
   }
@@ -766,6 +795,8 @@ $toolbar-font-size: 0.75rem;
   gap: 0.25rem;
   margin-top: 0.5rem;
   width: 100%;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
 }
 
 .sidebar-level-btn {
@@ -887,6 +918,19 @@ $toolbar-font-size: 0.75rem;
   flex: 1;
   min-height: 0;
   overflow: visible;
+}
+
+.panel-log-content {
+  animation: panelContentFade 0.18s ease;
+}
+
+@keyframes panelContentFade {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 // ---- Toggle buttons matching website button structure ----
