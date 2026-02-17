@@ -11,8 +11,5 @@
   "include": [
     "src/**/*.spec.ts",
     "src/**/*.d.ts"
-  ],
-  "exclude": [
-    "src/app/shared/features/fluorescence-map/fluorescence-map.integration.spec.ts"
   ]
 }

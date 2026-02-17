@@ -19,6 +19,4 @@ export const fluorescenceMapRoutes: Routes = [
   imports: [RouterModule.forChild(fluorescenceMapRoutes)],
   exports: [RouterModule],
 })
-export class FluorescenceMapRoutingModule {
-  static routes = fluorescenceMapRoutes;
-}
+export class FluorescenceMapRoutingModule {}

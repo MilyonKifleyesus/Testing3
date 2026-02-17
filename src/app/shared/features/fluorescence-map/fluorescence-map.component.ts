@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, inject, viewChild, effect, computed, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, inject, viewChild, effect, computed, HostListener, isDevMode } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { WarRoomService } from '../../../shared/services/fluorescence-map.service';
@@ -19,6 +19,7 @@ import { AddCompanyModalComponent, ProjectFormData } from './components/add-comp
 import { ToastrService } from 'ngx-toastr';
 import { RoutePreviewStorageService } from '../../../shared/services/route-preview-storage.service';
 import { OperationalStatus } from '../../../shared/models/fluorescence-map.interface';
+import { isValidCoordinates } from '../../../shared/utils/coordinate.utils';
 
 type FilterStatus = 'all' | 'active' | 'inactive';
 
@@ -595,13 +596,6 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     const nodes = this.filteredNodes();
     const filteredNodeIds = new Set(nodes.map(n => n.id));
 
-    const isValidCoordinates = (coords?: { latitude: number; longitude: number } | null): boolean => {
-      if (!coords) return false;
-      if (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) return false;
-      if (coords.latitude === 0 && coords.longitude === 0) return false;
-      return true;
-    };
-
     const lookup = this.nodeLookup();
     const findNode = (id: string): Node | undefined => {
       const nid = (id ?? '').toLowerCase();
@@ -718,14 +712,11 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       const factories = this.factories();
       const filters = this.filterApplied();
       void this.projectRoutesRefreshTrigger();
-      // #region agent log
       if (!clients?.length || !factories?.length) {
-        fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:projectRoutesEffect',message:'Early return: missing clients or factories',data:{clientsCount:clients?.length??0,factoriesCount:factories?.length??0},hypothesisId:'H_A',timestamp:Date.now()})}).catch(()=>{});
         this.projectRoutes.set([]);
         this.projectRoutesLoading.set(false);
         return;
       }
-      // #endregion
       this.projectRoutesLoading.set(true);
       const clientCoords = new Map(
         clients
@@ -748,9 +739,6 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       const sub = this.projectService
         .getProjectsForMap(clientCoords, factoryCoords, projectFilters)
         .subscribe((routes) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:projectRoutesSubscribe',message:'Routes received from getProjectsForMap',data:{routesCount:routes.length,sampleProjectIds:routes.slice(0,3).map(r=>r.projectId)},hypothesisId:'H_A',hypothesisId2:'H_C',timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           this.projectRoutes.set(routes);
           this.projectRoutesLoading.set(false);
         });
@@ -760,15 +748,6 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       };
     });
 
-    effect(() => {
-      const viewMode = this.mapViewMode();
-      const selectedId = this.selectedProjectId();
-      const routes = this.projectRoutes();
-      const forMap = this.projectRoutesForMap();
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:projectRoutesForMapEffect',message:'projectRoutesForMap state',data:{viewMode,selectedId,routesCount:routes.length,forMapCount:forMap.length},hypothesisId:'H_B',hypothesisId2:'H_D',timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-    });
 
     // Fit map bounds to show client + routes when a client is selected and routes have loaded
     effect(() => {
@@ -826,7 +805,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
           this.panelVisible.set(parsed.panelVisible);
         }
       } catch (e) {
-        console.warn('Failed to parse saved state', e);
+        if (isDevMode()) {
+          console.warn('Failed to parse saved state', e);
+        }
       }
     } else {
       // First-time user: show sidebar by default for better discoverability
@@ -1203,13 +1184,10 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       ...this.filterApplied(),
       status
     });
-
-    console.log(`[WarRoom] Status filter changed to: ${status} [Applied Instantly]`);
   }
 
   applyFilters(): void {
     const draft = this.filterDraft();
-    console.log('[WarRoom] Applying Filters:', draft);
 
     this.filterApplied.set({
       parentCompanyIds: [...draft.parentCompanyIds],
@@ -1536,9 +1514,6 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     const routesAtClick = this.projectRoutes().length;
     const clientsCount = this.clientsSignal()?.length ?? 0;
     const factoriesCount = this.factories().length;
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map.component.ts:onProjectHudSelected',message:'Project clicked',data:{projectId:String(project.id),routesAtClick,clientsCount,factoriesCount},hypothesisId:'H_B',timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     this.selectedProjectId.set(String(project.id));
     if (project.manufacturerLocationId) {
       this.warRoomService.selectEntity({
@@ -1624,7 +1599,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
       try {
         coordinates = await this.warRoomService.parseLocationInput(location);
       } catch (error) {
-        console.warn('Failed to parse updated location. Keeping existing coordinates.', error);
+        if (isDevMode()) {
+          console.warn('Failed to parse updated location. Keeping existing coordinates.', error);
+        }
       }
     }
 

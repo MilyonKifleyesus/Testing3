@@ -8,6 +8,13 @@ export const environment = {
   useProjectApi: false,
   /** Load clients from assets/data/clients.json; when false, use mock clients */
   useClientJson: true,
+  /** Geocoding API base URL for resolving location strings to coordinates */
+  geocodeApiUrl: 'https://geocoding-api.open-meteo.com/v1/search',
+  /** MapLibre style URLs by theme (Carto basemaps) */
+  mapStyles: {
+    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  },
   firebase: {
     apiKey: "***************************************",
     authDomain: "************************",

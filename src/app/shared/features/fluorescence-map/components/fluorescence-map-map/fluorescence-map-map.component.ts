@@ -13,6 +13,8 @@ import { MarkerVm, MarkerNodeType } from './fluorescence-map-map.vm';
 import { WarRoomMapRoutesComponent, RouteVm } from './routes/fluorescence-map-map-routes.component';
 import { WarRoomMapMarkersComponent } from './markers/fluorescence-map-map-markers.component';
 import { ToastrService } from 'ngx-toastr';
+import { isValidCoordinates } from '../../../../utils/coordinate.utils';
+import { environment } from '../../../../../../environments/environment';
 
 interface RouteFeatureProperties {
   strokeWidth: number;
@@ -97,11 +99,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   /** Pin label shows when zoomFactor >= this. Lower = label appears earlier when zooming in; higher = only when more zoomed in. */
   private readonly LOD_PIN_LABEL_THRESHOLD = 1.8;
 
-  /** Map style URLs by theme (Carto basemaps). */
-  private readonly MAP_STYLE = {
-    light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-    dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-  } as const;
+  /** Map style URLs by theme (from environment). */
+  private readonly MAP_STYLE = environment.mapStyles;
 
   // ----- Marker size tuning (adjust these to change how big markers are) -----
   /** Overall marker size. Bigger number = bigger markers (e.g. 1.25). Smaller = smaller (e.g. 0.75). */
@@ -200,9 +199,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       const routes = this.transitRoutes();
       const projectRoutes = this.projectRoutes();
       const status = this.filterStatus();
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map-map.component.ts:projectRoutesEffect',message:'Map received projectRoutes',data:{projectRoutesCount:projectRoutes.length,transitRoutesCount:routes?.length??0},hypothesisId:'H_E',timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       void selected;
       void hovered;
       void routes;
@@ -376,12 +372,12 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
     await Promise.all(
       candidates.map(async ({ node, label }) => {
-        if (this.isValidCoordinates(node.coordinates)) {
+        if (isValidCoordinates(node.coordinates)) {
           return;
         }
         try {
           const coords = await this.geocodeLocation(label);
-          if (this.isValidCoordinates(coords)) {
+          if (isValidCoordinates(coords)) {
             node.coordinates = { latitude: coords.latitude, longitude: coords.longitude };
           }
         } catch {
@@ -398,15 +394,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     return city || country || '';
   }
 
-  private isValidCoordinates(coords?: { latitude: number; longitude: number } | null): boolean {
-    if (!coords) return false;
-    if (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) return false;
-    if (coords.latitude === 0 && coords.longitude === 0) return false;
-    return true;
-  }
-
   private getNodesWithValidCoordinates(nodes: WarRoomNode[]): WarRoomNode[] {
-    return nodes.filter((node) => this.isValidCoordinates(node.coordinates));
+    return nodes.filter((node) => isValidCoordinates(node.coordinates));
   }
 
   private async geocodeLocation(location: string): Promise<{ latitude: number; longitude: number }> {
@@ -418,7 +407,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
     const request = (async () => {
       const geocodeUrl =
-        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}` +
+        `${environment.geocodeApiUrl}?name=${encodeURIComponent(location)}` +
         `&count=1&language=en&format=json`;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -965,7 +954,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       return { top: cached.y, left: cached.x };
     }
 
-    if (this.mapInstance && this.isValidCoordinates(node.coordinates)) {
+    if (this.mapInstance && isValidCoordinates(node.coordinates)) {
       const point = this.mapInstance.project([node.coordinates.longitude, node.coordinates.latitude]);
       return { top: point.y, left: point.x };
     }
@@ -1034,7 +1023,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       node.parentGroupId === entityId
     );
 
-    if (!target || !this.isValidCoordinates(target.coordinates)) {
+    if (!target || !isValidCoordinates(target.coordinates)) {
       if (!this.mapInstance || !this.mapLoaded) {
         this.pendingZoomEntityId = entityId;
       }
@@ -1059,11 +1048,11 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const bounds = new maplibregl.LngLatBounds();
     let hasBounds = false;
     for (const route of routes) {
-      if (this.isValidCoordinates(route.fromCoordinates)) {
+      if (isValidCoordinates(route.fromCoordinates)) {
         bounds.extend([route.fromCoordinates.longitude, route.fromCoordinates.latitude]);
         hasBounds = true;
       }
-      if (this.isValidCoordinates(route.toCoordinates)) {
+      if (isValidCoordinates(route.toCoordinates)) {
         bounds.extend([route.toCoordinates.longitude, route.toCoordinates.latitude]);
         hasBounds = true;
       }
@@ -1200,10 +1189,10 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const projectRoutes = this.projectRoutes();
     if (projectRoutes?.length) {
       for (const route of projectRoutes) {
-        if (this.nodeMatchesProjectRouteEndpoint(node, route.toNodeId, true) && this.isValidCoordinates(route.toCoordinates)) {
+        if (this.nodeMatchesProjectRouteEndpoint(node, route.toNodeId, true) && isValidCoordinates(route.toCoordinates)) {
           return { longitude: route.toCoordinates.longitude, latitude: route.toCoordinates.latitude };
         }
-        if (this.nodeMatchesProjectRouteEndpoint(node, route.fromNodeId, false) && this.isValidCoordinates(route.fromCoordinates)) {
+        if (this.nodeMatchesProjectRouteEndpoint(node, route.fromNodeId, false) && isValidCoordinates(route.fromCoordinates)) {
           return { longitude: route.fromCoordinates.longitude, latitude: route.fromCoordinates.latitude };
         }
       }
@@ -1214,10 +1203,10 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       return node.coordinates;
     }
     for (const route of routes) {
-      if (this.nodeMatchesEndpointId(node, route.from, nodes) && this.isValidCoordinates(route.fromCoordinates)) {
+      if (this.nodeMatchesEndpointId(node, route.from, nodes) && isValidCoordinates(route.fromCoordinates)) {
         return { longitude: route.fromCoordinates.longitude, latitude: route.fromCoordinates.latitude };
       }
-      if (this.nodeMatchesEndpointId(node, route.to, nodes) && this.isValidCoordinates(route.toCoordinates)) {
+      if (this.nodeMatchesEndpointId(node, route.to, nodes) && isValidCoordinates(route.toCoordinates)) {
         return { longitude: route.toCoordinates.longitude, latitude: route.toCoordinates.latitude };
       }
     }
@@ -1278,7 +1267,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const addProjectRouteFeatures = (): void => {
       if (!projectRoutes.length) return;
       for (const route of projectRoutes) {
-        if (!this.isValidCoordinates(route.fromCoordinates) || !this.isValidCoordinates(route.toCoordinates)) continue;
+        if (!isValidCoordinates(route.fromCoordinates) || !isValidCoordinates(route.toCoordinates)) continue;
         const highlighted = !!selected && (
           route.fromNodeId === selected.id ||
           route.toNodeId === selected.id ||
@@ -1374,11 +1363,11 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       let fromCoords = fromNode?.coordinates;
       let toCoords = toNode?.coordinates;
 
-      if (!this.isValidCoordinates(fromCoords) && this.isValidCoordinates(route.fromCoordinates)) {
+      if (!isValidCoordinates(fromCoords) && isValidCoordinates(route.fromCoordinates)) {
         fromCoords = route.fromCoordinates;
       }
 
-      if (!this.isValidCoordinates(toCoords) && this.isValidCoordinates(route.toCoordinates)) {
+      if (!isValidCoordinates(toCoords) && isValidCoordinates(route.toCoordinates)) {
         toCoords = route.toCoordinates;
       }
 

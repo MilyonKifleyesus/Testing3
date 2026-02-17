@@ -1,4 +1,4 @@
-import { Component, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, input, output, signal, isDevMode } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ProjectService } from '../../../../services/project.service';
@@ -84,7 +84,9 @@ export class WarRoomClientsPanelComponent {
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         catchError((err) => {
-          console.warn('Failed to load projects for client', clientId, err);
+          if (isDevMode()) {
+            console.warn('Failed to load projects for client', clientId, err);
+          }
           return of([] as Project[]);
         })
       )
