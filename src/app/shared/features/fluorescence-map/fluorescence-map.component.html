@@ -419,12 +419,14 @@
           (click)="setLogPanelMode('client')" role="radio" [attr.aria-checked]="logPanelMode() === 'client'"
           aria-label="View clients with projects"
           title="View clients with their projects">
+          <i class="fe fe-users" aria-hidden="true"></i>
           Client
         </button>
         <button type="button" class="sidebar-level-btn" [class.active]="logPanelMode() === 'manufacturer'"
           (click)="setLogPanelMode('manufacturer')" role="radio" [attr.aria-checked]="logPanelMode() === 'manufacturer'"
           aria-label="View manufacturer hierarchy"
           title="View manufacturer hierarchy (parent companies and factories)">
+          <i class="fe fe-briefcase" aria-hidden="true"></i>
           Manufacturer
         </button>
       </div>

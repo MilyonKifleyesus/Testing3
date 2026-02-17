@@ -1,7 +1,15 @@
 <div class="activity-log-container card custom-card">
-  <div class="card-header d-flex align-items-center justify-content-between">
+  <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
     <h6 class="main-content-label mb-0">Critical Operation Log</h6>
-    <div class="activity-log-header-actions d-flex align-items-center gap-2">
+    <div class="activity-log-header-actions d-flex align-items-center gap-2 flex-wrap">
+      <div class="manufacturer-search-wrap">
+        <i class="fe fe-search manufacturer-search-icon" aria-hidden="true"></i>
+        <input type="text" class="form-control form-control-sm manufacturer-search-input"
+          placeholder="Search manufacturers..."
+          [value]="manufacturerSearchQuery()"
+          (input)="manufacturerSearchQuery.set($any($event.target).value)"
+          aria-label="Search manufacturers" />
+      </div>
       <button type="button" class="btn btn-sm btn-outline-secondary refresh-log-btn" (click)="refreshLayout()"
         aria-label="Refresh operation log layout">
         <i class="fe fe-refresh-cw" aria-hidden="true"></i>
@@ -14,7 +22,7 @@
     <div class="activity-log-entries list-group list-group-flush manufacturers-compact-list"
       [class.edit-mode-active]="editMode()"
       [attr.aria-busy]="refreshing() || isBusy()" #logList>
-      @for (group of parentGroups(); track group.id) {
+      @for (group of filteredParentGroupsForDisplay(); track group.id) {
       <div class="hierarchy-group" [attr.data-entity-id]="'parent:' + group.id">
         @for (subsidiary of group.subsidiaries; track subsidiary.id) {
         <div class="manufacturer-row" [class.expanded]="isSubsidiaryExpanded(subsidiary.id)">
@@ -47,7 +55,9 @@
             <span class="manufacturer-status-pill"
               [class.status-active]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-active'"
               [class.status-inactive]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-inactive'"
-              [class.status-unassigned]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-unassigned'">
+              [class.status-unassigned]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-unassigned'"
+              [attr.title]="getProjectStatusForSubsidiary(subsidiary) === 'none' ? 'No projects linked to this manufacturer' : null"
+              [attr.aria-label]="formatStatusLabel(getProjectStatusForSubsidiary(subsidiary)) + (getProjectStatusForSubsidiary(subsidiary) === 'none' ? '. No projects linked to this manufacturer.' : '')">
               {{ formatStatusLabel(getProjectStatusForSubsidiary(subsidiary)) }}
             </span>
             @if (editMode()) {
@@ -91,6 +101,9 @@
           </div>
           } @else {
           <div class="factory-list">
+            @if (getVisibleFactories(subsidiary).length === 0) {
+            <div class="factory-empty-state text-muted">No sites for this manufacturer</div>
+            } @else {
             @for (factory of getVisibleFactories(subsidiary); track factory.id) {
             <div class="factory-row" [class.editing]="editMode() && isEditingFactory(factory.id)">
               @if (editMode() && isEditingFactory(factory.id)) {
@@ -143,7 +156,9 @@
                 <span class="manufacturer-status-pill"
                   [class.status-active]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-active'"
                   [class.status-inactive]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-inactive'"
-                  [class.status-unassigned]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-unassigned'">
+                  [class.status-unassigned]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-unassigned'"
+                  [attr.title]="getProjectStatusForFactory(factory.id) === 'none' ? 'No projects linked to this site' : null"
+                  [attr.aria-label]="formatStatusLabel(getProjectStatusForFactory(factory.id)) + (getProjectStatusForFactory(factory.id) === 'none' ? '. No projects linked to this site.' : '')">
                   {{ formatStatusLabel(getProjectStatusForFactory(factory.id)) }}
                 </span>
                 @if (editMode()) {
@@ -163,6 +178,7 @@
               {{ isFactoryListExpanded(subsidiary.id) ? 'Hide factories' : 'View all factories' }}
               <span class="count-badge">({{ getHiddenFactoryCount(subsidiary) }})</span>
             </button>
+            }
             }
           </div>
           }

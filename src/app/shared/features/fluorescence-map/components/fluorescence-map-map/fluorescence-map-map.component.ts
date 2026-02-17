@@ -911,7 +911,11 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     const nodeLevel = node.level ?? 'factory';
     const isHQ = node.id === 'fleetzero' || node.name?.toLowerCase().includes('fleetzero');
     const isSelected = !!selected && node.companyId === selected.id && selected.level === nodeLevel;
-    const isHovered = !!hovered && (node.companyId === hovered.id || node.id === hovered.id);
+    const isHovered = !!hovered && (
+      node.companyId === hovered.id ||
+      node.id === hovered.id ||
+      (hovered.level === 'subsidiary' && node.subsidiaryId === hovered.id)
+    );
     const isPinned = this.pinnedNodeId() === node.id;
 
     const zoomFactor = this.getZoomFactor(zoom);

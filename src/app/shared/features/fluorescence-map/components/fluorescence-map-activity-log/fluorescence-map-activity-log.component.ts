@@ -65,6 +65,20 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   readonly editingFactoryId = signal<string | null>(null);
   readonly editingSubsidiaryId = signal<string | null>(null);
 
+  readonly manufacturerSearchQuery = signal<string>('');
+
+  readonly filteredParentGroupsForDisplay = computed(() => {
+    const groups = this.parentGroups();
+    const q = this.manufacturerSearchQuery().trim().toLowerCase();
+    if (!q) return groups;
+    return groups
+      .map((g) => ({
+        ...g,
+        subsidiaries: g.subsidiaries.filter((s) => s.name.toLowerCase().includes(q)),
+      }))
+      .filter((g) => g.subsidiaries.length > 0);
+  });
+
   readonly latestLogByFactory = computed(() => {
     const logs = this.activityLogs();
     const map = new Map<string, ActivityLog>();
