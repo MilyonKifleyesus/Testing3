@@ -712,10 +712,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       minZoom: 0.5,
       maxZoom: 14,
       attributionControl: false,
+      canvasContextAttributes: { preserveDrawingBuffer: true },
     });
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix-3',hypothesisId:'H9',location:'fluorescence-map-map.component.ts:createMap',message:'Map instance created for capture diagnostics',data:{theme:this.currentTheme(),style:this.getMapStyleUrl(this.currentTheme()),webgl:this.getWebGlContextInfo(map.getCanvas())},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     this.currentZoomLevel.set(this.defaultView.zoom);
     return map;
   }
@@ -1165,24 +1163,17 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     if (!this.mapInstance || !this.mapLoaded) {
       throw new Error('Map is not ready to capture.');
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix',hypothesisId:'H3',location:'fluorescence-map-map.component.ts:captureRoutesScreenshot:entry',message:'Capture route screenshot started',data:{routesCount:routes.length,mapLoaded:this.mapLoaded,isStyleLoaded:this.mapInstance.isStyleLoaded(),zoom:this.mapInstance.getZoom(),markersCount:this.markersVm().length,visiblePinLabels:this.markersVm().filter((m)=>m.showPinLabel).length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     this.fitBoundsToRoutes(routes);
-    await this.waitForMapIdle(1800);
+    await this.ensureMapIsReady();
     await this.waitForOverlayPaint();
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix',hypothesisId:'H3',location:'fluorescence-map-map.component.ts:captureRoutesScreenshot:postWait',message:'Capture route screenshot after map settle',data:{isStyleLoaded:this.mapInstance.isStyleLoaded(),zoom:this.mapInstance.getZoom(),center:this.mapInstance.getCenter()},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return await this.captureCompositeMapAsBlob();
   }
 
-  private waitForMapIdle(timeoutMs: number): Promise<void> {
-    return new Promise((resolve) => {
-      if (!this.mapInstance) {
-        resolve();
-        return;
-      }
+  private async ensureMapIsReady(): Promise<void> {
+    const map = this.mapInstance;
+    if (!map) return;
+    await new Promise<void>((resolve) => {
+      const timeoutMs = 1800;
       let settled = false;
       const timer = setTimeout(() => {
         if (settled) return;
@@ -1196,7 +1187,13 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         clearTimeout(timer);
         resolve();
       };
-      this.mapInstance.once('idle', onIdle);
+      map.once('idle', onIdle);
+    });
+    const mapAfterIdle = this.mapInstance;
+    if (!mapAfterIdle) return;
+    mapAfterIdle.triggerRepaint();
+    await new Promise<void>((resolve) => {
+      mapAfterIdle.once('render', () => resolve());
     });
   }
 
@@ -1250,8 +1247,19 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       return this.captureCanvasAsBlob();
     }
 
+    const maxRetries = 3;
+    let baseSnapshot: HTMLCanvasElement | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      baseSnapshot = await this.captureBaseMapSnapshotCanvas(baseMapCanvas);
+      if (!this.isCanvasBlank(baseSnapshot)) break;
+      if (attempt < maxRetries - 1) {
+        this.mapInstance?.triggerRepaint();
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+
     try {
-      const baseSnapshot = await this.captureBaseMapSnapshotCanvas(baseMapCanvas);
       const overlayCanvas = await this.captureOverlayOnlyCanvas(mapContainer, baseMapCanvas);
       const composite = document.createElement('canvas');
       composite.width = baseMapCanvas.width;
@@ -1261,19 +1269,44 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         throw new Error('Failed to initialize composite canvas context.');
       }
 
-      ctx.drawImage(baseSnapshot, 0, 0, composite.width, composite.height);
+      if (baseSnapshot && !this.isCanvasBlank(baseSnapshot)) {
+        ctx.drawImage(baseSnapshot, 0, 0, composite.width, composite.height);
+      } else {
+        this.toastr.warning(
+          'Basemap capture failed. Exporting overlays only. Please try again or refresh if the issue persists.',
+          'Capture Warning'
+        );
+        const bg = this.currentTheme() === 'dark' ? '#1a1a1a' : '#f5f5f5';
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, composite.width, composite.height);
+      }
       ctx.drawImage(overlayCanvas, 0, 0, composite.width, composite.height);
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix',hypothesisId:'H4',location:'fluorescence-map-map.component.ts:captureCompositeMapAsBlob',message:'Composite canvas built',data:{base:this.getCanvasSample(baseSnapshot),overlay:this.getCanvasSample(overlayCanvas),composite:this.getCanvasSample(composite)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return await this.canvasToBlob(composite);
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix',hypothesisId:'H4',location:'fluorescence-map-map.component.ts:captureCompositeMapAsBlob:catch',message:'Composite capture failed',data:{error:error instanceof Error?error.message:String(error)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       console.warn('Falling back to container capture after composite failure:', error);
       return this.captureMapContainerAsBlob();
     }
+  }
+
+  private isCanvasBlank(canvas: HTMLCanvasElement): boolean {
+    const ctx = canvas.getContext('2d');
+    if (!ctx || canvas.width <= 0 || canvas.height <= 0) return true;
+    const samples: Array<[number, number]> = [
+      [canvas.width / 2, canvas.height / 2],
+      [canvas.width / 4, canvas.height / 4],
+      [3 * canvas.width / 4, canvas.height / 4],
+      [canvas.width / 4, 3 * canvas.height / 4],
+      [3 * canvas.width / 4, 3 * canvas.height / 4],
+    ];
+    for (const [x, y] of samples) {
+      try {
+        const pixel = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+        if (pixel[3] > 0) return false;
+      } catch {
+        return true;
+      }
+    }
+    return true;
   }
 
   private async captureOverlayOnlyCanvas(
@@ -1282,9 +1315,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   ): Promise<HTMLCanvasElement> {
     const routesHost = mapContainer.querySelector('app-war-room-map-routes') as HTMLElement | null;
     const markersHost = mapContainer.querySelector('app-war-room-map-markers') as HTMLElement | null;
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix-2',hypothesisId:'H6',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas:hosts',message:'Overlay host presence and bounds',data:{routesHost:!!routesHost,markersHost:!!markersHost,routesRect:routesHost?this.getElementRect(routesHost):null,markersRect:markersHost?this.getElementRect(markersHost):null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     if (routesHost && markersHost) {
       const composedOverlay = document.createElement('canvas');
       composedOverlay.width = baseMapCanvas.width;
@@ -1296,43 +1326,25 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
       const routesCanvas = await this.captureElementCanvas(routesHost);
       const markersCanvas = await this.captureElementCanvas(markersHost);
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix-2',hypothesisId:'H6',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas:overlaySizes',message:'Overlay canvas sizes before draw',data:{routesCanvas:this.getCanvasSample(routesCanvas),markersCanvas:this.getCanvasSample(markersCanvas),targetWidth:composedOverlay.width,targetHeight:composedOverlay.height},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       if (routesCanvas.width > 0 && routesCanvas.height > 0) {
         composedCtx.drawImage(routesCanvas, 0, 0, composedOverlay.width, composedOverlay.height);
-      } else {
-        // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'post-fix',hypothesisId:'H6',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas:skipRoutes',message:'Skipped route overlay draw due zero-sized canvas',data:{routesCanvas:this.getCanvasSample(routesCanvas)},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
       }
       if (markersCanvas.width > 0 && markersCanvas.height > 0) {
         composedCtx.drawImage(markersCanvas, 0, 0, composedOverlay.width, composedOverlay.height);
-      } else {
-        // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'post-fix',hypothesisId:'H6',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas:skipMarkers',message:'Skipped marker overlay draw due zero-sized canvas',data:{markersCanvas:this.getCanvasSample(markersCanvas)},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'post-fix',hypothesisId:'H6',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas:composedTransparent',message:'Overlay composed from route and marker hosts',data:{routes:this.getCanvasSample(routesCanvas),markers:this.getCanvasSample(markersCanvas),overlay:this.getCanvasSample(composedOverlay)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return composedOverlay;
     }
 
     const previousVisibility = baseMapCanvas.style.visibility;
     baseMapCanvas.style.visibility = 'hidden';
     try {
-      const overlay = await html2canvas(mapContainer, {
+      return await html2canvas(mapContainer, {
         backgroundColor: null,
         useCORS: true,
         allowTaint: false,
         logging: false,
         scale: Math.max(window.devicePixelRatio || 1, 1),
       });
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix',hypothesisId:'H2',location:'fluorescence-map-map.component.ts:captureOverlayOnlyCanvas',message:'Overlay-only canvas captured',data:{baseVisibilityBeforeHide:previousVisibility,overlay:this.getCanvasSample(overlay)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      return overlay;
     } finally {
       baseMapCanvas.style.visibility = previousVisibility;
     }
@@ -1347,9 +1359,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
         captureTarget = element.firstElementChild;
       }
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'post-fix',hypothesisId:'H8',location:'fluorescence-map-map.component.ts:captureElementCanvas:entry',message:'Capture element canvas entry',data:{hostTag:element.tagName.toLowerCase(),hostRect:this.getElementRect(element),targetTag:captureTarget.tagName.toLowerCase(),targetRect:this.getElementRect(captureTarget)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return html2canvas(captureTarget, {
       backgroundColor: null,
       useCORS: true,
@@ -1368,9 +1377,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       throw new Error('Failed to initialize base snapshot canvas context.');
     }
     snapshotCtx.drawImage(baseMapCanvas, 0, 0, snapshot.width, snapshot.height);
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId:'pre-fix-3',hypothesisId:'H9',location:'fluorescence-map-map.component.ts:captureBaseMapSnapshotCanvas',message:'Base map snapshot sampled',data:{webgl:this.getWebGlContextInfo(baseMapCanvas),baseCanvas:this.getCanvasCoverage(baseMapCanvas),snapshot:this.getCanvasCoverage(snapshot)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return snapshot;
   }
 
@@ -1390,117 +1396,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     return new Promise((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
-  }
-
-  private getCanvasSample(canvas: HTMLCanvasElement): {
-    width: number;
-    height: number;
-    samplePixel: [number, number, number, number] | null;
-  } {
-    const width = canvas.width ?? 0;
-    const height = canvas.height ?? 0;
-    if (width <= 0 || height <= 0) {
-      return { width, height, samplePixel: null };
-    }
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return { width, height, samplePixel: null };
-    }
-    const x = Math.max(0, Math.floor(width / 2));
-    const y = Math.max(0, Math.floor(height / 2));
-    try {
-      const px = context.getImageData(x, y, 1, 1).data;
-      return { width, height, samplePixel: [px[0], px[1], px[2], px[3]] };
-    } catch {
-      return { width, height, samplePixel: null };
-    }
-  }
-
-  private getCanvasCoverage(canvas: HTMLCanvasElement): {
-    width: number;
-    height: number;
-    samplePixel: [number, number, number, number] | null;
-    alphaSamples: number[];
-  } {
-    const base = this.getCanvasSample(canvas);
-    if (!base.samplePixel) {
-      return { ...base, alphaSamples: [] };
-    }
-    const width = canvas.width ?? 0;
-    const height = canvas.height ?? 0;
-    const context = canvas.getContext('2d');
-    if (!context || width <= 0 || height <= 0) {
-      return { ...base, alphaSamples: [] };
-    }
-    const points: Array<[number, number]> = [
-      [Math.floor(width * 0.2), Math.floor(height * 0.2)],
-      [Math.floor(width * 0.5), Math.floor(height * 0.2)],
-      [Math.floor(width * 0.8), Math.floor(height * 0.2)],
-      [Math.floor(width * 0.2), Math.floor(height * 0.5)],
-      [Math.floor(width * 0.5), Math.floor(height * 0.5)],
-      [Math.floor(width * 0.8), Math.floor(height * 0.5)],
-      [Math.floor(width * 0.2), Math.floor(height * 0.8)],
-      [Math.floor(width * 0.5), Math.floor(height * 0.8)],
-      [Math.floor(width * 0.8), Math.floor(height * 0.8)],
-    ];
-    const alphaSamples: number[] = [];
-    for (const [x, y] of points) {
-      try {
-        alphaSamples.push(context.getImageData(x, y, 1, 1).data[3]);
-      } catch {
-        alphaSamples.push(-1);
-      }
-    }
-    return { ...base, alphaSamples };
-  }
-
-  private getWebGlContextInfo(canvas: HTMLCanvasElement): {
-    contextType: string | null;
-    preserveDrawingBuffer: boolean | null;
-    alpha: boolean | null;
-  } {
-    try {
-      const gl2 = canvas.getContext('webgl2') as WebGLRenderingContext | null;
-      if (gl2) {
-        const attrs = gl2.getContextAttributes();
-        return {
-          contextType: 'webgl2',
-          preserveDrawingBuffer: attrs?.preserveDrawingBuffer ?? null,
-          alpha: attrs?.alpha ?? null,
-        };
-      }
-      const gl = canvas.getContext('webgl') as WebGLRenderingContext | null;
-      if (gl) {
-        const attrs = gl.getContextAttributes();
-        return {
-          contextType: 'webgl',
-          preserveDrawingBuffer: attrs?.preserveDrawingBuffer ?? null,
-          alpha: attrs?.alpha ?? null,
-        };
-      }
-    } catch {
-      return { contextType: null, preserveDrawingBuffer: null, alpha: null };
-    }
-    return { contextType: null, preserveDrawingBuffer: null, alpha: null };
-  }
-
-  private getElementRect(element: HTMLElement): {
-    width: number;
-    height: number;
-    clientWidth: number;
-    clientHeight: number;
-    offsetWidth: number;
-    offsetHeight: number;
-  } {
-    const rect = element.getBoundingClientRect();
-    return {
-      width: Number(rect.width.toFixed(2)),
-      height: Number(rect.height.toFixed(2)),
-      clientWidth: element.clientWidth,
-      clientHeight: element.clientHeight,
-      offsetWidth: element.offsetWidth,
-      offsetHeight: element.offsetHeight,
-    };
   }
 
   private isHub(node: WarRoomNode): boolean {
