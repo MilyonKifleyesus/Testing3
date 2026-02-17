@@ -339,7 +339,7 @@
       </div>
       }
       @if (selectedProjectId() || selectedEntity()) {
-      <div class="war-room-context-panel-wrapper">
+      <div class="war-room-context-panel-wrapper" [class.sidebar-open]="panelVisible()">
         <app-war-room-context-panel [selectedEntity]="selectedEntity()" [selectedProjectId]="selectedProjectId()"
           [routePreviewVersion]="routePreviewVersion()" />
       </div>

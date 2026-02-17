@@ -56,6 +56,7 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   readonly expandedSubsidiaries = signal<string[]>([]);
   readonly refreshing = signal<boolean>(false);
   readonly factoryListExpanded = signal<Record<string, boolean>>({});
+  readonly noProjectSitesExpanded = signal<Record<string, boolean>>({});
   private readonly factoryCollapseThreshold = 3;
 
   // Multi-item draft storage
@@ -178,6 +179,21 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
 
   toggleFactoryList(subsidiaryId: string): void {
     this.factoryListExpanded.update((current) => ({
+      ...current,
+      [subsidiaryId]: !current[subsidiaryId],
+    }));
+  }
+
+  hasNoProjectsButHasSites(subsidiary: SubsidiaryCompany): boolean {
+    return this.getProjectStatusForSubsidiary(subsidiary) === 'none' && subsidiary.factories.length > 0;
+  }
+
+  isNoProjectSitesExpanded(subsidiaryId: string): boolean {
+    return this.noProjectSitesExpanded()[subsidiaryId] ?? false;
+  }
+
+  toggleNoProjectSites(subsidiaryId: string): void {
+    this.noProjectSitesExpanded.update((current) => ({
       ...current,
       [subsidiaryId]: !current[subsidiaryId],
     }));

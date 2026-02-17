@@ -438,13 +438,18 @@ $toolbar-font-size: 0.75rem;
   }
 }
 
-// Context panel overlay
+// Context panel overlay - repositions when sidebar is open to avoid overlap
 .war-room-context-panel-wrapper {
   position: absolute;
   top: 4rem;
   right: 0.75rem;
   z-index: 30;
   pointer-events: auto;
+  transition: right 0.2s ease;
+
+  &.sidebar-open {
+    right: calc(320px + 12px + 1rem);
+  }
 }
 
 // Project HUD overlay
@@ -769,13 +774,13 @@ $toolbar-font-size: 0.75rem;
   background: rgba(8, 12, 16, 0.72);
   color: var(--cm-text);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 0.4rem 0.6rem;
   border-radius: 0.5rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s ease, transform 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -785,6 +790,7 @@ $toolbar-font-size: 0.75rem;
     background: rgba(0, 255, 65, 0.16);
     border-color: rgba(0, 255, 65, 0.6);
     color: #f8fff9;
+    transform: scale(1.02);
   }
 
   &:focus-visible {
@@ -799,6 +805,7 @@ $toolbar-font-size: 0.75rem;
     color: #f8fff9;
     font-weight: 700;
     box-shadow: 0 0 8px rgba(0, 255, 65, 0.2);
+    border-left: 3px solid rgba(0, 255, 65, 0.9);
   }
 
   .fe {
