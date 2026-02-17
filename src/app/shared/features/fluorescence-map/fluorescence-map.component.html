@@ -70,7 +70,7 @@
         </div>
         @if (activeFilters().length > 0) {
         <div class="active-filters-bar d-flex flex-wrap align-items-center gap-2" role="group" aria-label="Active filters">
-          @for (filter of activeFilters(); track filter.value) {
+          @for (filter of activeFilters(); track filter.type + ':' + filter.value) {
           <span
             class="badge bg-primary-transparent text-primary d-flex align-items-center gap-2 px-3 py-2 rounded-pill border border-primary-transparent">
             {{ filter.label }}

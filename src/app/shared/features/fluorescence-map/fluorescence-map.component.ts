@@ -844,6 +844,17 @@ export class WarRoomComponent implements OnInit, OnDestroy {
     }
   });
 
+  /** Effect to ensure mapViewMode allows manufacturer panel clicks (subsidiary/factory) when in manufacturer mode */
+  private readonly syncMapViewForManufacturerEffect = effect(() => {
+    const mode = this.logPanelMode();
+    if (mode === 'manufacturer') {
+      const current = this.mapViewMode();
+      if (current !== 'subsidiary' && current !== 'project' && current !== 'client') {
+        this.warRoomService.setMapViewMode('subsidiary');
+      }
+    }
+  });
+
   ngOnDestroy(): void {
     // Stop real-time updates
     this.realtimeService.stopRealTimeUpdates();
@@ -951,6 +962,9 @@ export class WarRoomComponent implements OnInit, OnDestroy {
 
   setLogPanelMode(mode: 'client' | 'manufacturer'): void {
     this.logPanelMode.set(mode);
+    if (mode === 'manufacturer') {
+      this.warRoomService.setMapViewMode('subsidiary');
+    }
   }
 
   onClientSelected(clientId: string): void {
@@ -1237,6 +1251,11 @@ export class WarRoomComponent implements OnInit, OnDestroy {
   resetFilters(): void {
     this.filterDraft.set(createDefaultFilters());
     this.filterApplied.set(createDefaultFilters());
+    this.expandedFilterSection.set(null);
+    this.companyFilterSearch.set('');
+    this.clientFilterSearch.set('');
+    this.manufacturerFilterSearch.set('');
+    this.projectTypeFilterSearch.set('');
   }
 
   clearAllFilters(): void {

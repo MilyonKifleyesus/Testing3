@@ -334,4 +334,27 @@ describe('WarRoomMapComponent logic helpers', () => {
     });
     expect(routes[0].path).not.toBe(routes[1].path);
   });
+
+  it('dismissMapError sets mapErrorDismissed so overlay can be hidden', () => {
+    (component as any).mapLoadError.set('Map failed');
+    expect(component.mapErrorDismissed()).toBeFalse();
+    component.dismissMapError();
+    expect(component.mapErrorDismissed()).toBeTrue();
+  });
+
+  it('retryMapLoad does nothing when mapErrorUnrecoverable is true', () => {
+    (component as any).mapLoadError.set('WebGL disabled');
+    (component as any).mapErrorUnrecoverable.set(true);
+    component.retryMapLoad();
+    expect(component.mapLoadError()).toBe('WebGL disabled');
+    expect(component.mapErrorUnrecoverable()).toBeTrue();
+  });
+
+  it('isUnrecoverableMapError detects GL_VENDOR disabled errors', () => {
+    const fn = (component as any).isUnrecoverableMapError.bind(component);
+    expect(fn('Error', 'GL_VENDOR is disabled')).toBeTrue();
+    expect(fn('WebGL disabled', '')).toBeTrue();
+    expect(fn('Could not create WebGL context', '')).toBeTrue();
+    expect(fn('Network timeout', '')).toBeFalse();
+  });
 });

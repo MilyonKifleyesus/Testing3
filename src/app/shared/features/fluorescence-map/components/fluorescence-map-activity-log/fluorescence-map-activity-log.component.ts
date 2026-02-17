@@ -50,6 +50,7 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   @ViewChild('logList', { static: false }) logList?: ElementRef<HTMLElement>;
   private viewReady = false;
   private refreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private lastExpandedForSelection: { level: string; id: string } | null = null;
 
   readonly expandedParents = signal<string[]>([]);
   readonly expandedSubsidiaries = signal<string[]>([]);
@@ -95,7 +96,13 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       const selection = this.selectedEntity();
       if (!selection) return;
-      this.ensureExpandedForSelection(selection);
+      const key = { level: selection.level, id: selection.id };
+      const last = this.lastExpandedForSelection;
+      const isNewSelection = !last || last.level !== key.level || last.id !== key.id;
+      if (isNewSelection) {
+        this.lastExpandedForSelection = key;
+        this.ensureExpandedForSelection(selection);
+      }
       this.scrollToSelection(selection);
     });
 
@@ -211,6 +218,7 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
     if (this.mapViewMode() !== 'subsidiary' && this.mapViewMode() !== 'project' && this.mapViewMode() !== 'client') {
       return;
     }
+    this.toggleSubsidiary(subsidiary.id);
     const selection: FleetSelection = {
       level: 'subsidiary',
       id: subsidiary.id,
@@ -264,6 +272,11 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   startEditFactory(factory: FactoryLocation): void {
     const latestLog = this.getLatestLog(factory.id);
     this.editingFactoryId.set(factory.id);
+    if (factory.subsidiaryId) {
+      this.expandedSubsidiaries.update((current) =>
+        current.includes(factory.subsidiaryId) ? current : [...current, factory.subsidiaryId]
+      );
+    }
 
     // Initialize draft if not exists
     if (!this.factoryDrafts().has(factory.id)) {
@@ -278,6 +291,9 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
 
   startEditSubsidiary(subsidiary: SubsidiaryCompany): void {
     this.editingSubsidiaryId.set(subsidiary.id);
+    this.expandedSubsidiaries.update((current) =>
+      current.includes(subsidiary.id) ? current : [...current, subsidiary.id]
+    );
 
     // Initialize draft if not exists
     if (!this.subsidiaryDrafts().has(subsidiary.id)) {

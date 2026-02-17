@@ -136,6 +136,11 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   readonly mapLoadError = signal<string | null>(null);
   readonly mapLoadErrorDetail = signal<string | null>(null);
   readonly mapLoading = signal<boolean>(true);
+  /** When true, user dismissed the error overlay; non-map UI remains usable. */
+  readonly mapErrorDismissed = signal<boolean>(false);
+  /** When true, retry will not help (e.g. WebGL unsupported); Retry is disabled. */
+  readonly mapErrorUnrecoverable = signal<boolean>(false);
+  private mapErrorToastShown = false;
   readonly contextMenuVisible = signal<boolean>(false);
   readonly contextMenuPosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -278,11 +283,18 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   }
 
   retryMapLoad(): void {
+    if (this.mapErrorUnrecoverable()) return;
     this.mapLoadError.set(null);
     this.mapLoadErrorDetail.set(null);
+    this.mapErrorDismissed.set(false);
+    this.mapErrorUnrecoverable.set(false);
     this.mapLoading.set(true);
     this.initMapRetryCount = 0;
     this.initMap();
+  }
+
+  dismissMapError(): void {
+    this.mapErrorDismissed.set(true);
   }
 
   ngOnDestroy(): void {
@@ -541,25 +553,65 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     return this.mapContainerRef?.nativeElement ?? document.getElementById('war-room-map');
   }
 
+  /**
+   * Preflight check: WebGL must be available for MapLibre. Returns false when
+   * WebGL is disabled (e.g. GL_VENDOR disabled) or unsupported.
+   */
+  private isWebglSupported(): boolean {
+    if (typeof window === 'undefined' || !window.WebGLRenderingContext) return false;
+    const canvas = document.createElement('canvas');
+    try {
+      const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+      return !!(gl && typeof (gl as WebGLRenderingContext).getParameter === 'function');
+    } catch {
+      return false;
+    }
+  }
+
+  private setMapError(msg: string, detail: string | null, unrecoverable: boolean, showToast: boolean): void {
+    this.mapLoadError.set(msg);
+    this.mapLoadErrorDetail.set(detail);
+    this.mapLoading.set(false);
+    this.mapErrorUnrecoverable.set(unrecoverable);
+    if (showToast && !this.mapErrorToastShown) {
+      this.mapErrorToastShown = true;
+      this.toastr.error(msg, 'Map failed to load');
+    }
+  }
+
+  /** Detect errors that indicate WebGL is disabled or unsupported; retry will not help. */
+  private isUnrecoverableMapError(msg: string, detail: string): boolean {
+    const combined = `${msg} ${detail}`.toLowerCase();
+    return (
+      combined.includes('gl_vendor') ||
+      (combined.includes('webgl') && combined.includes('disabled')) ||
+      (combined.includes('context') && combined.includes('lost')) ||
+      combined.includes('not supported') ||
+      combined.includes('could not create webgl')
+    );
+  }
+
   private initMap(): void {
     const container = this.getMapContainer();
     if (!container) {
-      const msg = 'Map container not found';
-      this.mapLoadError.set(msg);
-      this.mapLoadErrorDetail.set('Map container element was not found in the DOM.');
-      this.mapLoading.set(false);
-      this.toastr.error(msg, 'Map failed to load');
+      this.setMapError(
+        'Map container not found',
+        'Map container element was not found in the DOM.',
+        true,
+        true
+      );
       return;
     }
 
     const rect = container.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) {
       if (this.initMapRetryCount >= WarRoomMapComponent.INIT_MAP_MAX_RETRIES) {
-        const msg = 'Map container has no dimensions. Please refresh the page.';
-        this.mapLoadError.set(msg);
-        this.mapLoadErrorDetail.set(`Container rect: ${rect.width}x${rect.height}`);
-        this.mapLoading.set(false);
-        this.toastr.error(msg, 'Map failed to load');
+        this.setMapError(
+          'Map container has no dimensions. Please refresh the page.',
+          `Container rect: ${rect.width}x${rect.height}`,
+          false,
+          true
+        );
         this.initMapRetryCount = 0;
         return;
       }
@@ -571,25 +623,33 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     }
     this.initMapRetryCount = 0;
 
+    if (!this.isWebglSupported()) {
+      this.setMapError(
+        'WebGL is not available. The map requires hardware-accelerated graphics.',
+        'Try enabling hardware acceleration in your browser settings, or use a different browser.',
+        true,
+        true
+      );
+      return;
+    }
+
     try {
       this.mapLoading.set(true);
       this.mapInstance = this.createMap(container);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Map initialization failed';
-      this.mapLoadError.set(msg);
-      this.mapLoadErrorDetail.set(err instanceof Error ? (err.stack ?? err.message) : String(err));
-      this.mapLoading.set(false);
-      this.toastr.error(msg, 'Map failed to load');
+      const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+      const unrecoverable = this.isUnrecoverableMapError(msg, detail);
+      this.setMapError(msg, detail, unrecoverable, true);
       return;
     }
 
     this.mapInstance.on('error', (e) => {
       const msg = (e.error as Error)?.message ?? 'Map failed to load';
-      this.mapLoadError.set(msg);
       const errorObj = e.error as Error | undefined;
-      this.mapLoadErrorDetail.set(errorObj?.stack ?? errorObj?.message ?? null);
-      this.mapLoading.set(false);
-      this.toastr.error(msg, 'Map failed to load');
+      const detail = errorObj?.stack ?? errorObj?.message ?? null;
+      const unrecoverable = this.isUnrecoverableMapError(msg, String(detail ?? ''));
+      this.setMapError(msg, detail, unrecoverable, true);
     });
 
     this.mapInstance.on('load', () => {
@@ -597,6 +657,8 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       this.mapLoading.set(false);
       this.mapLoadError.set(null);
       this.mapLoadErrorDetail.set(null);
+      this.mapErrorDismissed.set(false);
+      this.mapErrorUnrecoverable.set(false);
       this.mapLoaded = true;
       this.updateContainerRect();
       this.scheduleOverlayUpdate(true);

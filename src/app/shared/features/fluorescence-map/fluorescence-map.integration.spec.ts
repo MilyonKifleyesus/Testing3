@@ -448,6 +448,77 @@ describe('WarRoomComponent Integration', () => {
         expect(component.filteredTransitRoutes().length).toBe(1);
     }));
 
+    it('Reset All clears all filters, checkboxes, badges, and active filter bar', fakeAsync(() => {
+        resetServiceState();
+
+        const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1', city: 'Austin' });
+        const subsidiaryA = buildSubsidiary({ id: 'sub-1', factories: [factoryA] });
+        const parentGroup = buildParentGroup([subsidiaryA]);
+        const serviceAny = warRoomService as any;
+        serviceAny._parentGroups.set([parentGroup]);
+        warRoomService.setMapViewMode('factory');
+
+        component.filterApplied.set({
+            parentCompanyIds: ['sub-1'],
+            status: 'active',
+            regions: ['Europe'],
+            clientIds: [],
+            manufacturerIds: [],
+            projectTypeIds: [],
+        });
+        component.filterDraft.set({
+            parentCompanyIds: ['sub-1'],
+            status: 'active',
+            regions: ['Europe'],
+            clientIds: [],
+            manufacturerIds: [],
+            projectTypeIds: [],
+        });
+        fixture.detectChanges();
+
+        expect(component.activeFilterCount()).toBeGreaterThan(0);
+        expect(component.activeFilters().length).toBeGreaterThan(0);
+
+        component.resetFilters();
+        fixture.detectChanges();
+
+        expect(component.activeFilterCount()).toBe(0);
+        expect(component.activeFilters().length).toBe(0);
+        expect(component.filterApplied().parentCompanyIds.length).toBe(0);
+        expect(component.filterApplied().status).toBe('all');
+        expect(component.filterApplied().regions.length).toBe(0);
+        expect(component.filterDraft().parentCompanyIds.length).toBe(0);
+        expect(component.filterDraft().status).toBe('all');
+    }));
+
+    it('clearAllFilters and resetFilters produce identical state', fakeAsync(() => {
+        resetServiceState();
+        component.filterApplied.set({
+            parentCompanyIds: ['sub-1'],
+            status: 'active',
+            regions: [],
+            clientIds: [],
+            manufacturerIds: [],
+            projectTypeIds: [],
+        });
+        component.filterDraft.set({
+            parentCompanyIds: ['sub-1'],
+            status: 'active',
+            regions: [],
+            clientIds: [],
+            manufacturerIds: [],
+            projectTypeIds: [],
+        });
+        fixture.detectChanges();
+
+        component.clearAllFilters();
+        fixture.detectChanges();
+
+        expect(component.activeFilterCount()).toBe(0);
+        expect(component.filterApplied().status).toBe('all');
+        expect(component.filterDraft().status).toBe('all');
+    }));
+
     it('colors project routes based on filter status', fakeAsync(() => {
         resetServiceState();
 
