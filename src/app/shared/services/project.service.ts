@@ -127,6 +127,9 @@ function resolveClientId(api: ApiProject, clients: Client[]): string | null {
   return c?.id ?? cm.toLowerCase().replace(/\s+/g, '-');
 }
 
+/**
+ * Maps API status to UI status. Active/Inactive are normalized to Open/Closed for HUD badges and filters.
+ */
 function mapApiStatus(apiStatus: string | null | undefined): ProjectStatus | null {
   if (apiStatus === 'Closed' || apiStatus === 'Inactive') return 'Closed';
   if (apiStatus === 'Delayed') return 'Delayed';
@@ -152,13 +155,22 @@ function mapApiProjectToProject(
   let location: string | undefined;
   let manufacturerLocationId: string | undefined;
 
+  const hasExplicitManufacturer = api.manufacturer != null && String(api.manufacturer).trim() !== '';
+  const hasExplicitLocation = api.location != null && String(api.location).trim() !== '';
+
   if (norm.factoryId != null) {
     const factory = factories.find((f) => f.factory_id === norm.factoryId);
+    const factoryManufacturer = factory
+      ? manufacturers.find((m) => m.manufacturer_id === factory.manufacturer_id)?.manufacturer_name
+      : undefined;
+    let factoryLocation: string | undefined;
     if (factory) {
-      manufacturer = manufacturers.find((m) => m.manufacturer_id === factory.manufacturer_id)?.manufacturer_name;
       const parts = [factory.city, factory.state_province, factory.country].filter(Boolean);
-      location = parts.length > 0 ? parts.join(', ') : factory.factory_location_name;
+      factoryLocation = parts.length > 0 ? parts.join(', ') : factory.factory_location_name;
     }
+
+    manufacturer = hasExplicitManufacturer ? api.manufacturer! : (factoryManufacturer ?? api.manufacturer ?? undefined);
+    location = hasExplicitLocation ? api.location! : (factoryLocation ?? api.location ?? undefined);
     manufacturerLocationId =
       factoryIdToWarRoom[String(norm.factoryId)] ?? api.manufacturerLocationId ?? String(norm.factoryId);
   } else {

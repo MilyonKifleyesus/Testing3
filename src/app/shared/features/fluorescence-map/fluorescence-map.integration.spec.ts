@@ -4,17 +4,17 @@ import { WarRoomMapComponent } from './components/fluorescence-map-map/fluoresce
 import { WarRoomService } from '../../../shared/services/fluorescence-map.service';
 import { WarRoomRealtimeService } from '../../../shared/services/fluorescence-map-realtime.service';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { By } from '@angular/platform-browser';
 import { ToastrService } from 'ngx-toastr';
-import { AddCompanyModalComponent, ProjectFormData } from './components/add-company-modal/add-company-modal.component';
-import { getFirstClient, getFirstFactoryOption } from '../../testing/test-data';
+import { AddCompanyModalComponent, CompanyFormData } from './components/add-company-modal/add-company-modal.component';
 import maplibregl from 'maplibre-gl';
 import {
     ActivityLog,
     FactoryLocation,
     ParentGroup,
+    ProjectRoute,
     SubsidiaryCompany,
     TransitRoute
 } from '../../../shared/models/fluorescence-map.interface';
@@ -269,87 +269,134 @@ describe('WarRoomComponent Integration', () => {
         serviceAny._selectedEntity.set(null);
     };
 
-    it('should add project via onProjectAdded', fakeAsync(() => {
+    it('should verify sub-location entries appear on the map', fakeAsync(() => {
         resetServiceState();
-        component.onAddCompanyRequested();
-        fixture.detectChanges();
-
-        const firstClient = getFirstClient();
-        const firstFactory = getFirstFactoryOption();
-        const testProjectData: ProjectFormData = {
-            clientId: firstClient.id,
-            clientName: firstClient.name,
-            factoryId: firstFactory.factoryId,
-            manufacturerId: firstFactory.manufacturerId,
-            manufacturerName: firstFactory.manufacturerName,
-            projectName: 'Integration Test Project',
-            assessmentType: 'New Build',
-            status: 'Active',
+        const testCompanyData: CompanyFormData = {
+            companyName: 'Integration Test Corp',
+            location: 'New York, USA',
+            status: 'ACTIVE',
+            description: 'Test Description',
+            subLocations: [
+                {
+                    name: 'LA Branch',
+                    location: 'Los Angeles, USA',
+                    status: 'ACTIVE'
+                }
+            ]
         };
 
-        component.onProjectAdded(testProjectData);
+        let done = false;
+        component.onCompanyAdded(testCompanyData).then(() => {
+            done = true;
+        });
 
-        const httpMock = TestBed.inject(HttpTestingController);
-        const projectsReqs = httpMock.match((r) => r.url.includes('projects.json') || r.url.includes('projects'));
-        projectsReqs.forEach((req) => req.flush({ projects: [] }));
-        tick(2500);
+        // Flush microtasks (signatures of parseLocationInput mock are async)
+        flush();
+        tick(100);
         fixture.detectChanges();
 
-        expect(toastrMock.success).toHaveBeenCalled();
-        expect(component.addCompanyModalVisible()).toBeFalse();
-        expect(component.filterApplied().clientIds).toEqual([]);
+        expect(done).toBeTrue();
+
+        const subsidiaries = component.subsidiaries();
+        const newSub = subsidiaries.find(s => s.name === 'INTEGRATION TEST CORP');
+        expect(newSub).toBeTruthy('Subsidiary should be created');
+
+        if (newSub) {
+            expect(newSub.factories.length).toBe(2, 'Should have 2 factories (Main + Sub)');
+
+            const mainFactory = newSub.factories.find(f => f.city.includes('New York'));
+            const subFactory = newSub.factories.find(f => f.name.includes('LA Branch'));
+
+            expect(mainFactory).toBeTruthy('Main factory should exist');
+            expect(subFactory).toBeTruthy('Sub-location factory should exist');
+
+            expect(mainFactory!.coordinates.latitude).toBeCloseTo(40.7128, 1);
+            expect(subFactory!.coordinates.latitude).toBeCloseTo(34.0522, 1);
+        }
     }));
 
-    it('completes the add project flow with loading and success', fakeAsync(() => {
+    it('completes the add company flow with loading and new connections', fakeAsync(() => {
         resetServiceState();
 
         const baseFactory = buildFactory({ id: 'factory-base', subsidiaryId: 'sub-1' });
         const baseSubsidiary = buildSubsidiary({ id: 'sub-1', factories: [baseFactory] });
+        const baseGroup = buildParentGroup([baseSubsidiary]);
+        const factoryB = buildFactory({ id: 'factory-b', subsidiaryId: 'sub-2', coordinates: { latitude: 43.6532, longitude: -79.3832 } });
+        const subsidiaryB = buildSubsidiary({ id: 'sub-2', factories: [factoryB] });
+        const baseRoute: TransitRoute = {
+            id: 'route-existing',
+            from: baseFactory.id,
+            to: factoryB.id,
+            fromCoordinates: baseFactory.coordinates,
+            toCoordinates: factoryB.coordinates,
+            animated: true,
+        };
+
         const serviceAny = warRoomService as any;
-        serviceAny._parentGroups.set([buildParentGroup([baseSubsidiary])]);
+        serviceAny._parentGroups.set([buildParentGroup([baseSubsidiary, subsidiaryB])]);
+        serviceAny._transitRoutes.set([baseRoute]);
         warRoomService.setMapViewMode('factory');
 
-        const httpMock = TestBed.inject(HttpTestingController);
         fixture.detectChanges();
+
+        const factoriesBefore = warRoomService.factories().length;
+        const routesBefore = warRoomService.transitRoutes().map((route) => route.id);
+
+        let resolveLocation: (value: { latitude: number; longitude: number }) => void;
+        const locationPromise = new Promise<{ latitude: number; longitude: number }>((resolve) => {
+            resolveLocation = resolve;
+        });
+        (warRoomService.parseLocationInput as jasmine.Spy).and.returnValue(locationPromise);
 
         component.onAddCompanyRequested();
         fixture.detectChanges();
-        tick(200);
 
         const modalOverlay = fixture.nativeElement.querySelector('.modal-overlay');
         expect(modalOverlay).toBeTruthy();
 
-        const modalComponent = fixture.debugElement.query(By.directive(AddCompanyModalComponent)).componentInstance as AddCompanyModalComponent;
-        const firstClient = getFirstClient();
-        const firstFactory = getFirstFactoryOption();
-        modalComponent.clientId.set(firstClient.id);
-        modalComponent.goToStep(2);
-        fixture.detectChanges();
+        const companyInput = modalOverlay.querySelector('#target-company-name') as HTMLInputElement;
+        companyInput.value = 'Nova Integration';
+        companyInput.dispatchEvent(new Event('input'));
 
-        modalComponent.selectedFactory.set(firstFactory);
-        modalComponent.goToStep(3);
-        fixture.detectChanges();
-
-        modalComponent.projectName.set('Nova Integration Project');
-        modalComponent.assessmentType.set('New Build');
-        modalComponent.projectStatus.set('Active');
-        modalComponent.goToStep(4);
+        const locationInput = modalOverlay.querySelector('#target-location') as HTMLInputElement;
+        locationInput.value = 'Chicago, USA';
+        locationInput.dispatchEvent(new Event('input'));
         fixture.detectChanges();
 
         const submitButton = modalOverlay.querySelector('.btn-execute') as HTMLButtonElement;
-        expect(submitButton).toBeTruthy();
         submitButton.click();
         fixture.detectChanges();
 
-        expect(modalComponent.submissionState()).toBe('SUBMITTING');
+        expect(component.addCompanyModalVisible()).toBeTrue();
+        expect(submitButton.disabled).toBeTrue();
+        expect(modalOverlay.querySelector('.spinner-border')).toBeTruthy();
 
-        const projectsReqs = httpMock.match((r) => r.url.includes('projects.json') || r.url.includes('projects'));
-        projectsReqs.forEach((req) => req.flush({ projects: [] }));
-        tick(500);
+        tick(150);
+        fixture.detectChanges();
+        expect(component.addCompanyModalVisible()).toBeTrue();
+
+        resolveLocation!({ latitude: 41.8781, longitude: -87.6298 });
+        flushMicrotasks();
+        tick();
         fixture.detectChanges();
 
+        const modalComponent = fixture.debugElement.query(By.directive(AddCompanyModalComponent)).componentInstance as AddCompanyModalComponent;
         expect(modalComponent.submissionState()).toBe('SUCCESS');
-        expect(toastrMock.success).toHaveBeenCalled();
+
+        const factoriesAfter = warRoomService.factories().length;
+        expect(factoriesAfter).toBe(factoriesBefore + 1);
+
+        const routesAfter = warRoomService.transitRoutes().map((route) => route.id);
+        routesBefore.forEach((id) => expect(routesAfter).toContain(id));
+        expect(routesAfter.length).toBeGreaterThanOrEqual(routesBefore.length);
+        expect(routesAfter.some((id) => id.startsWith('route-fleetzero-'))).toBeFalse();
+
+        tick(200); // Allow RAF to process markers
+        fixture.detectChanges();
+
+        const mapComponent = fixture.debugElement.query(By.directive(WarRoomMapComponent)).componentInstance;
+        const markerCount = mapComponent.markersVm().length;
+        expect(markerCount).toBe(component.filteredNodes().length);
 
         tick(2000);
         fixture.detectChanges();
@@ -420,6 +467,52 @@ describe('WarRoomComponent Integration', () => {
 
         expect(component.filteredNodes().length).toBe(2);
         expect(component.filteredTransitRoutes().length).toBe(1);
+    }));
+
+    it('colors project routes based on filter status', fakeAsync(() => {
+        resetServiceState();
+
+        const baseProjectRoute: ProjectRoute = {
+            id: 'project-route-1',
+            projectId: 'project-1',
+            fromNodeId: 'client-a',
+            toNodeId: 'factory-a',
+            status: 'Open',
+            fromCoordinates: { latitude: 43.7, longitude: -79.4 },
+            toCoordinates: { latitude: 45.4, longitude: -75.7 },
+        };
+
+        const setFilterStatus = (
+            status: 'all' | 'active' | 'inactive',
+            expectedColor: string,
+            routeStatus: 'Open' | 'Closed' | 'Delayed'
+        ) => {
+            component.filterApplied.set({
+                parentCompanyIds: [],
+                status,
+                regions: [],
+                clientIds: [],
+                manufacturerIds: [],
+                projectTypeIds: [],
+            });
+            fixture.detectChanges();
+
+            component.projectRoutes.set([{ ...baseProjectRoute, status: routeStatus }]);
+            fixture.detectChanges();
+
+            const mapComponent = fixture.debugElement.query(By.directive(WarRoomMapComponent)).componentInstance as WarRoomMapComponent;
+            (mapComponent as any).syncOverlays(false);
+            flushMicrotasks();
+            tick(1);
+            fixture.detectChanges();
+            const routes = mapComponent.routesVm();
+            expect(routes.length).toBe(1);
+            expect(routes[0].strokeColor).toBe(expectedColor);
+        };
+
+        setFilterStatus('all', '#00C853', 'Open');
+        setFilterStatus('active', '#00C853', 'Open');
+        setFilterStatus('inactive', '#D50000', 'Closed');
     }));
 
     it('syncs log selections with map highlighting and persists selection across view toggles', fakeAsync(() => {

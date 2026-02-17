@@ -1,4 +1,4 @@
-import { Component, input, output, AfterViewInit, OnDestroy, inject, effect, signal, computed, ViewChild, ElementRef, HostListener } from '@angular/core';
+import { Component, input, output, AfterViewInit, OnDestroy, inject, effect, signal, computed, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
 import { Node as WarRoomNode, FleetSelection, TransitRoute, ProjectRoute } from '../../../../models/fluorescence-map.interface';
@@ -53,20 +53,17 @@ interface RouteFeatureCollection {
 })
 export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   // Inputs
+  screenshotMode = input<boolean>(false);
   nodes = input<WarRoomNode[]>([]);
   selectedEntity = input<FleetSelection | null>(null);
   transitRoutes = input<TransitRoute[]>([]);
   projectRoutes = input<ProjectRoute[]>([]);
   filterStatus = input<'all' | 'active' | 'inactive'>('all');
-  /** When true, hide controls and grid overlay for clean route screenshot capture */
-  screenshotMode = input(false);
 
   // Outputs
   nodeSelected = output<WarRoomNode | undefined>();
   routeSelected = output<{ routeId: string; projectId?: string }>();
-  /** Emitted when map has been idle after zoom for 2s - for TestSprite marker stability assertions. Payload: current zoom level. */
   zoomStable = output<number>();
-  /** Emitted when user selects "Add Project" from map context menu */
   addProjectRequested = output<void>();
 
   @ViewChild('mapContainer', { static: false }) mapContainerRef!: ElementRef<HTMLDivElement>;
@@ -94,10 +91,6 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   /** Current map zoom level (0.5–14) for slider binding. */
   readonly currentZoomLevel = signal(1.8);
-
-  /** Context menu state for right-click "Add Project" */
-  readonly contextMenuVisible = signal(false);
-  readonly contextMenuPosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
 
   private readonly LOD_LOGO_ONLY_THRESHOLD = 1.2;
   private readonly LOD_FULL_DETAIL_THRESHOLD = 2.5;
@@ -142,10 +135,10 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   readonly routeStroke = computed(() => this.getRouteColor());
   readonly routeFill = computed(() => this.getRouteColor());
   readonly mapLoadError = signal<string | null>(null);
-  /** Raw technical error for debugging; shown in overlay when available */
   readonly mapLoadErrorDetail = signal<string | null>(null);
-  /** True while map is initializing; false once load event fires */
-  readonly mapLoading = signal(true);
+  readonly mapLoading = signal<boolean>(true);
+  readonly contextMenuVisible = signal<boolean>(false);
+  readonly contextMenuPosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Services
   private warRoomService = inject(WarRoomService);
@@ -207,6 +200,9 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       const routes = this.transitRoutes();
       const projectRoutes = this.projectRoutes();
       const status = this.filterStatus();
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/ab8d750c-0ce1-4995-ad04-76d44750784f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'fluorescence-map-map.component.ts:projectRoutesEffect',message:'Map received projectRoutes',data:{projectRoutesCount:projectRoutes.length,transitRoutesCount:routes?.length??0},hypothesisId:'H_E',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       void selected;
       void hovered;
       void routes;
@@ -288,26 +284,9 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   retryMapLoad(): void {
     this.mapLoadError.set(null);
     this.mapLoadErrorDetail.set(null);
+    this.mapLoading.set(true);
     this.initMapRetryCount = 0;
     this.initMap();
-  }
-
-  private static isWebGLSupported(): boolean {
-    if (typeof window === 'undefined' || !window.WebGLRenderingContext) return false;
-    try {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
-      return !!(ctx && typeof (ctx as WebGLRenderingContext).getParameter === 'function');
-    } catch {
-      return false;
-    }
-  }
-
-  private setMapError(userMessage: string, technicalDetail?: string): void {
-    this.mapLoading.set(false);
-    this.mapLoadError.set(userMessage);
-    this.mapLoadErrorDetail.set(technicalDetail ?? null);
-    this.toastr.error(userMessage, 'Map failed to load');
   }
 
   ngOnDestroy(): void {
@@ -515,21 +494,12 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
 
   clearPinned(): void {
     this.pinnedNodeId.set(null);
-  }
-
-  @HostListener('document:keydown.escape')
-  onEscapeKey(): void {
-    this.contextMenuVisible.set(false);
-  }
-
-  @HostListener('document:click')
-  onDocumentClick(): void {
     this.contextMenuVisible.set(false);
   }
 
   onMapContextMenu(event: MouseEvent): void {
+    if (this.screenshotMode()) return;
     event.preventDefault();
-    event.stopPropagation();
     this.contextMenuPosition.set({ x: event.clientX, y: event.clientY });
     this.contextMenuVisible.set(true);
   }
@@ -585,21 +555,22 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
   private initMap(): void {
     const container = this.getMapContainer();
     if (!container) {
-      this.setMapError('Map container not found.');
-      return;
-    }
-
-    if (!WarRoomMapComponent.isWebGLSupported()) {
-      this.setMapError(
-        'Interactive map unavailable. WebGL is required but could not be initialized.'
-      );
+      const msg = 'Map container not found';
+      this.mapLoadError.set(msg);
+      this.mapLoadErrorDetail.set('Map container element was not found in the DOM.');
+      this.mapLoading.set(false);
+      this.toastr.error(msg, 'Map failed to load');
       return;
     }
 
     const rect = container.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) {
       if (this.initMapRetryCount >= WarRoomMapComponent.INIT_MAP_MAX_RETRIES) {
-        this.setMapError('Map container has no dimensions. Please refresh the page.');
+        const msg = 'Map container has no dimensions. Please refresh the page.';
+        this.mapLoadError.set(msg);
+        this.mapLoadErrorDetail.set(`Container rect: ${rect.width}x${rect.height}`);
+        this.mapLoading.set(false);
+        this.toastr.error(msg, 'Map failed to load');
         this.initMapRetryCount = 0;
         return;
       }
@@ -612,30 +583,32 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     this.initMapRetryCount = 0;
 
     try {
+      this.mapLoading.set(true);
       this.mapInstance = this.createMap(container);
     } catch (err) {
-      const raw = err instanceof Error ? err.message : String(err);
-      this.setMapError(
-        'Map could not load. This may be due to WebGL being disabled or unsupported.',
-        raw
-      );
+      const msg = err instanceof Error ? err.message : 'Map initialization failed';
+      this.mapLoadError.set(msg);
+      this.mapLoadErrorDetail.set(err instanceof Error ? (err.stack ?? err.message) : String(err));
+      this.mapLoading.set(false);
+      this.toastr.error(msg, 'Map failed to load');
       return;
     }
 
     this.mapInstance.on('error', (e) => {
-      const raw = (e.error as Error)?.message ?? 'Map failed to load';
-      this.setMapError(
-        'Map could not load. This may be due to WebGL being disabled or unsupported.',
-        raw
-      );
+      const msg = (e.error as Error)?.message ?? 'Map failed to load';
+      this.mapLoadError.set(msg);
+      const errorObj = e.error as Error | undefined;
+      this.mapLoadErrorDetail.set(errorObj?.stack ?? errorObj?.message ?? null);
+      this.mapLoading.set(false);
+      this.toastr.error(msg, 'Map failed to load');
     });
 
     this.mapInstance.on('load', () => {
       if (this.destroyed) return;
+      this.mapLoading.set(false);
       this.mapLoadError.set(null);
       this.mapLoadErrorDetail.set(null);
       this.mapLoaded = true;
-      this.mapLoading.set(false);
       this.updateContainerRect();
       this.scheduleOverlayUpdate(true);
 
@@ -655,15 +628,7 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       if (!this.mapLoaded) return;
       this.currentZoomLevel.set(this.mapInstance!.getZoom());
       this.scheduleOverlayUpdate(false);
-    });
-
-    this.mapInstance.on('zoomend', () => {
-      if (!this.mapLoaded || this.destroyed) return;
-      if (this.zoomStableTimeoutId) clearTimeout(this.zoomStableTimeoutId);
-      this.zoomStableTimeoutId = setTimeout(() => {
-        this.zoomStableTimeoutId = null;
-        if (!this.destroyed) this.zoomStable.emit(this.mapInstance!.getZoom());
-      }, 2000);
+      this.scheduleZoomStableEmit();
     });
 
     this.mapInstance.on('moveend', () => {
@@ -691,10 +656,21 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
       bearing: this.defaultView.bearing,
       minZoom: 0.5,
       maxZoom: 14,
-      canvasContextAttributes: { preserveDrawingBuffer: true }, // Required for canvas.toDataURL() export
+      attributionControl: false,
     });
     this.currentZoomLevel.set(this.defaultView.zoom);
     return map;
+  }
+
+  private scheduleZoomStableEmit(): void {
+    if (this.zoomStableTimeoutId) {
+      clearTimeout(this.zoomStableTimeoutId);
+    }
+    this.zoomStableTimeoutId = setTimeout(() => {
+      if (!this.mapInstance || this.destroyed) return;
+      this.zoomStable.emit(this.mapInstance.getZoom());
+      this.zoomStableTimeoutId = null;
+    }, 2000);
   }
 
   private setupResizeObserver(): void {
@@ -1078,147 +1054,75 @@ export class WarRoomMapComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  /** Fit map bounds to show all route endpoints (client + factories). */
-  public fitBoundsToRoutes(routes: ProjectRoute[], padding = 50): void {
+  fitBoundsToRoutes(routes: ProjectRoute[]): void {
     if (!this.mapInstance || !this.mapLoaded || !routes?.length) return;
-    const lngs: number[] = [];
-    const lats: number[] = [];
-    for (const r of routes) {
-      lngs.push(r.fromCoordinates.longitude, r.toCoordinates.longitude);
-      lats.push(r.fromCoordinates.latitude, r.toCoordinates.latitude);
+    const bounds = new maplibregl.LngLatBounds();
+    let hasBounds = false;
+    for (const route of routes) {
+      if (this.isValidCoordinates(route.fromCoordinates)) {
+        bounds.extend([route.fromCoordinates.longitude, route.fromCoordinates.latitude]);
+        hasBounds = true;
+      }
+      if (this.isValidCoordinates(route.toCoordinates)) {
+        bounds.extend([route.toCoordinates.longitude, route.toCoordinates.latitude]);
+        hasBounds = true;
+      }
     }
-    const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
-    const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
-    this.mapInstance.fitBounds([sw, ne], { padding, duration: 800 });
+    if (!hasBounds) return;
+    this.mapInstance.fitBounds(bounds, { padding: 80, duration: 800, maxZoom: 10 });
   }
 
-  /**
-   * Captures a clean screenshot of the map showing the given route, including route line and markers.
-   * Composites: base map canvas + route paths + endpoint markers (overlays are DOM, not in canvas).
-   */
-  public captureRouteScreenshot(route: ProjectRoute): Promise<Blob> {
+  async captureRouteScreenshot(route: ProjectRoute): Promise<Blob> {
     return this.captureRoutesScreenshot([route]);
   }
 
-  /**
-   * Captures a clean screenshot of the map showing all given routes (e.g. all projects for a client).
-   * Fits bounds to all routes, composites base map + route paths + endpoint markers.
-   */
-  public captureRoutesScreenshot(routes: ProjectRoute[]): Promise<Blob> {
-    return new Promise<Blob>((resolve, reject) => {
-      if (!this.mapInstance || !this.mapLoaded || this.destroyed) {
-        reject(new Error('Map not ready for capture'));
+  async captureRoutesScreenshot(routes: ProjectRoute[]): Promise<Blob> {
+    if (!this.mapInstance || !this.mapLoaded) {
+      throw new Error('Map is not ready to capture.');
+    }
+    this.fitBoundsToRoutes(routes);
+    await this.waitForMapIdle(1800);
+    return await this.captureCanvasAsBlob();
+  }
+
+  private waitForMapIdle(timeoutMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.mapInstance) {
+        resolve();
         return;
       }
-      if (!routes?.length) {
-        reject(new Error('No routes to capture'));
-        return;
-      }
-      const map = this.mapInstance;
-      this.fitBoundsToRoutes(routes, 80);
-      const timeout = setTimeout(() => {
-        map.off('idle', onIdle);
-        reject(new Error('Map capture timed out'));
-      }, 5000);
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        this.mapInstance?.off('idle', onIdle);
+        resolve();
+      }, timeoutMs);
       const onIdle = () => {
-        clearTimeout(timeout);
-        map.off('idle', onIdle);
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            try {
-              resolve(this.compositeRoutesScreenshot(routes));
-            } catch (err) {
-              reject(err instanceof Error ? err : new Error(String(err)));
-            }
-          });
-        });
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve();
       };
-      map.once('idle', onIdle);
+      this.mapInstance.once('idle', onIdle);
     });
   }
 
-  /** Composites base map + route paths + endpoint markers into a single PNG. */
-  private compositeRoutesScreenshot(routes: ProjectRoute[]): Blob {
-    const map = this.mapInstance!;
-    const canvas = map.getCanvas();
-    const w = canvas.width;
-    const h = canvas.height;
-    const offscreen = document.createElement('canvas');
-    offscreen.width = w;
-    offscreen.height = h;
-    const ctx = offscreen.getContext('2d');
-    if (!ctx) throw new Error('Could not get 2D context');
-
-    ctx.drawImage(canvas, 0, 0);
-
-    const projectIds = new Set(routes.map((r) => r.projectId));
-    const routeVms = this.routesVm().filter((r) => r.projectId && projectIds.has(r.projectId));
-    const markerPixels = this.markerPixelCoordinates();
-
-    for (const rv of routeVms) {
-      ctx.strokeStyle = rv.strokeColor ?? '#00C853';
-      ctx.lineWidth = (rv.strokeWidth ?? 2) * 2;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      try {
-        const path = new Path2D(rv.path);
-        ctx.stroke(path);
-      } catch {
-        ctx.beginPath();
-        ctx.moveTo(rv.start.x, rv.start.y);
-        ctx.lineTo(rv.end.x, rv.end.y);
-        ctx.stroke();
+  private captureCanvasAsBlob(): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const canvas = this.mapInstance?.getCanvas();
+      if (!canvas) {
+        reject(new Error('Map canvas not available.'));
+        return;
       }
-
-      const rad = 8;
-      ctx.fillStyle = rv.strokeColor ?? '#00C853';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(rv.start.x, rv.start.y, rad, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(rv.end.x, rv.end.y, rad, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    }
-
-    const drawMarker = (x: number, y: number, color: string) => {
-      ctx.fillStyle = color;
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(x, y, 12, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    };
-    const drawnMarkerPositions = new Set<string>();
-    for (const route of routes) {
-      const fromPos = markerPixels.get(route.fromNodeId);
-      const toPos = markerPixels.get(route.toNodeId);
-      const key = (x: number, y: number) => `${Math.round(x)},${Math.round(y)}`;
-      if (fromPos && !drawnMarkerPositions.has(key(fromPos.x, fromPos.y))) {
-        drawnMarkerPositions.add(key(fromPos.x, fromPos.y));
-        drawMarker(fromPos.x, fromPos.y, '#0ea5e9');
-      }
-      if (toPos && !drawnMarkerPositions.has(key(toPos.x, toPos.y))) {
-        drawnMarkerPositions.add(key(toPos.x, toPos.y));
-        drawMarker(toPos.x, toPos.y, '#0ea5e9');
-      }
-    }
-
-    return this.dataUrlToBlob(offscreen.toDataURL('image/png'));
-  }
-
-  private dataUrlToBlob(dataUrl: string): Blob {
-    const parts = dataUrl.split(',');
-    const mime = parts[0].match(/:(.*?);/)?.[1] ?? 'image/png';
-    const bstr = atob(parts[1] ?? '');
-    const n = bstr.length;
-    const u8 = new Uint8Array(n);
-    for (let i = 0; i < n; i++) u8[i] = bstr.charCodeAt(i);
-    return new Blob([u8], { type: mime });
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('Failed to create image from map canvas.'));
+          return;
+        }
+        resolve(blob);
+      }, 'image/png');
+    });
   }
 
   private isHub(node: WarRoomNode): boolean {
