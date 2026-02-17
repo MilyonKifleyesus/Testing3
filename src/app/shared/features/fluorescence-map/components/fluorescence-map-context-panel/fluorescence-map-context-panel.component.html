@@ -1,0 +1,52 @@
+@if (hasContent()) {
+<div class="context-panel">
+  @if (contextData(); as data) {
+    @switch (data.type) {
+      @case ('project') {
+        <div class="context-section">
+          @if (getRoutePreviewUrl(data.project.id); as previewUrl) {
+          <div class="context-route-preview-wrap">
+            <img [src]="previewUrl" alt="Route preview" class="context-route-preview" />
+            <button type="button" class="context-route-download-btn"
+              (click)="downloadRoutePreview(data.project.id, data.project.projectName)"
+              aria-label="Download route preview" title="Download route preview">
+              <i class="fe fe-download" aria-hidden="true"></i> Download
+            </button>
+          </div>
+          }
+          <h6 class="context-title">Project</h6>
+          <div class="context-detail">{{ data.project.projectName }}</div>
+          <div class="context-meta">{{ data.client?.name ?? '—' }} → {{ data.factory?.name ?? data.project.manufacturer ?? '—' }}</div>
+          <span class="context-badge" [ngClass]="'status-' + (data.project.status ?? 'Open').toLowerCase()">{{ data.project.status ?? 'Open' }}</span>
+          @if (data.project.progress !== undefined) {
+          <div class="context-progress">
+            <div class="progress-bar" [style.width.%]="data.project.progress"></div>
+          </div>
+          <span class="context-progress-label">{{ data.project.progress }}%</span>
+          }
+        </div>
+      }
+      @case ('factory') {
+        <div class="context-section">
+          <h6 class="context-title">Factory</h6>
+          <div class="context-detail">{{ data.factory?.name ?? '—' }}</div>
+          <div class="context-meta">{{ data.factory?.city ?? 'Unknown city' }}{{ data.factory?.country ? ', ' + data.factory?.country : '' }}</div>
+          @if (data.linkedProjects.length > 0) {
+          <div class="context-links">{{ data.linkedProjects.length }} project(s)</div>
+          }
+        </div>
+      }
+      @case ('client') {
+        <div class="context-section">
+          <h6 class="context-title">Client</h6>
+          <div class="context-detail">{{ data.client?.name ?? '—' }}</div>
+          <div class="context-meta">{{ data.client?.code ?? '' }}</div>
+          @if (data.linkedProjects.length > 0) {
+          <div class="context-links">{{ data.linkedProjects.length }} project(s)</div>
+          }
+        </div>
+      }
+    }
+  }
+</div>
+}

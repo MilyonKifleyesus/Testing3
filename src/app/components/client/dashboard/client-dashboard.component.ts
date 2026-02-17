@@ -15,6 +15,7 @@ import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AuthService } from '../../../shared/services/auth.service';
 import { ClientDashboardService } from '../../../shared/services/client-dashboard.service';
+import { FluorescenceMapComponent } from '../../../shared/features/fluorescence-map/fluorescence-map.component';
 import {
   ClientDashboardResponse,
   DashboardWidget,
@@ -53,7 +54,8 @@ const DEFAULT_WIDGET_LAYOUT: Array<Pick<DashboardWidget, 'id' | 'width' | 'heigh
     CommonModule, 
     FormsModule,
     DragDropModule,
-    NgOptimizedImage
+    NgOptimizedImage,
+    FluorescenceMapComponent
   ],
   templateUrl: './client-dashboard.component.html',
   styleUrls: ['./client-dashboard.component.scss']

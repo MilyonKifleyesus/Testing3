@@ -1,0 +1,47 @@
+import { Component, input, output } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+export interface RouteVm {
+  id: string;
+  path: string;
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  index: number;
+  beginOffset: string;
+  highlighted: boolean;
+  strokeWidth: number;
+  dashArray?: string;
+  /** Per-route stroke color for project routes (energy conduit styling) */
+  strokeColor?: string;
+  /** Project ID for project routes (enables route click → select project) */
+  projectId?: string;
+}
+
+@Component({
+  selector: 'app-fluorescence-map-map-routes',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './fluorescence-map-map-routes.component.html',
+  styleUrls: ['./fluorescence-map-map-routes.component.scss'],
+})
+export class FluorescenceMapMapRoutesComponent {
+  routes = input<RouteVm[]>([]);
+  routeStroke = input<string>('#0ea5e9');
+  routeFill = input<string>('#0ea5e9');
+  routeSelected = output<{ routeId: string; projectId?: string }>();
+
+  onRouteClick(route: RouteVm, event: MouseEvent): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.routeSelected.emit({ routeId: route.id, projectId: route.projectId });
+  }
+
+  onRouteKeydown(route: RouteVm, event: KeyboardEvent): void {
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+      if (event.key !== 'Enter') {
+        event.preventDefault();
+      }
+      this.onRouteClick(route, event as unknown as MouseEvent);
+    }
+  }
+}
