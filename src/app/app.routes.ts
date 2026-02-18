@@ -22,7 +22,7 @@ export const App_Route: Route[] = [
   {
     path: 'auth/login',
     loadComponent: () =>
-      import('../app/authentication/login/login.component').then((m) => m.LoginComponent)
+      import('./components/authentication/sign-in/sign-in.component').then((m) => m.SignInComponent)
   },
   // No cart route present
   {
