@@ -52,7 +52,13 @@ export class SignInComponent implements OnInit {
 
     this.authService.loginWithRole(username, password).subscribe({
       next: (user: CurrentUser) => {
-        const role = (user.role || 'admin').toLowerCase().trim();
+        const rawRole = (user.role ?? '').trim();
+        if (!rawRole) {
+          this.errorMessage = 'Account has no role assigned. Please contact your administrator.';
+          this.loading = false;
+          return;
+        }
+        const role = rawRole.toLowerCase();
         // Load menu based on user role
         this.navService.loadMenuByRole(role);
         
