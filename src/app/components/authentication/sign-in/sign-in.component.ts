@@ -55,19 +55,15 @@ export class SignInComponent implements OnInit {
         const role = (user.role || 'admin').toLowerCase().trim();
         // Load menu based on user role
         this.navService.loadMenuByRole(role);
-        
-        // Navigate based on role
-        if (role === 'superadmin') {
-          this.router.navigate(['/admin/dashboard']);
-        } else if (role === 'client' || role === 'user') {
-          this.router.navigate(['/client/dashboard']);
-        } else {
-          this.router.navigate(['/dashboard']);
-        }
+
+        const redirectUrl = this.authService.getRedirectUrlByRole(role);
+        this.router.navigate([redirectUrl]);
+        this.loginForm.patchValue({ password: '' });
         this.loading = false;
       },
       error: (error: any) => {
         this.errorMessage = error.message || 'Invalid username or password';
+        this.loginForm.patchValue({ password: '' });
         this.loading = false;
       }
     });

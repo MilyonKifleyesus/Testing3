@@ -6,6 +6,7 @@ import { SwitcherService } from '../../services/switcher.service';
 import { NgbModal, NgbOffcanvas } from '@ng-bootstrap/ng-bootstrap';
 import { SwitcherComponent } from '../switcher/switcher.component';
 import { AppStateService } from '../../services/app-state.service';
+import { AuthService } from '../../services/auth.service';
 interface Item {
   id: number;
   name: string;
@@ -21,7 +22,7 @@ interface Item {
 })
 export class HeaderComponent implements OnInit {
   profile = {
-    name: 'Aditya Kumar',
+    name: 'User',
     role: 'Admin'
   };
   Selection=[
@@ -55,6 +56,7 @@ collapse: any;
     public modalService:NgbModal,
     public switcherService: SwitcherService,
     private elementRef:ElementRef,public renderer:Renderer2, private appStateService: AppStateService,
+    private authService: AuthService,
   ) {
     this.layoutSubscription = layoutService.changeEmitted.subscribe(
       direction => {
@@ -84,6 +86,11 @@ collapse: any;
       emit = !emit
       this.switcherService.emitSwitcherChange(emit);
     }
+  }
+
+  onLogout(event: Event): void {
+    event.preventDefault();
+    this.authService.logout();
   }
       // Theme color Mode
     
@@ -285,10 +292,29 @@ collapse: any;
   public text!: string;
   public SearchResultEmpty:boolean = false;
   ngOnInit(): void {
+    this.applyProfileFromAuthUser();
+
     this.navServices.items.subscribe((menuItems) => {
       this.items = menuItems;
     });
     
+  }
+
+  private applyProfileFromAuthUser(): void {
+    const user = this.authService.currentUserValue;
+    if (!user) {
+      return;
+    }
+
+    const normalizedRole = String(user.role ?? '').trim().toLowerCase();
+    const roleLabel = normalizedRole
+      ? normalizedRole.charAt(0).toUpperCase() + normalizedRole.slice(1)
+      : 'Admin';
+
+    this.profile = {
+      name: String(user.username ?? '').trim() || this.profile.name,
+      role: roleLabel,
+    };
   }
     Search(searchText: string) {
       if (!searchText) return this.menuItems = [];

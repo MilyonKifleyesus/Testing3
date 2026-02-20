@@ -375,8 +375,8 @@
                             <img src="./assets/images/team/image.png" alt="img" width="32" height="32" class="rounded-circle">
                         </div>
                         <div class="d-none">
-                            <p class="fw-semibold mb-0">Angelica</p>
-                            <span class="op-7 fw-normal d-block fs-11">Web Designer</span>
+                            <p class="fw-semibold mb-0">{{ profile.name }}</p>
+                            <span class="op-7 fw-normal d-block fs-11">{{ profile.role }}</span>
                         </div>
                     </div>
                 </a>
@@ -384,8 +384,8 @@
                 <ul class="main-header-dropdown dropdown-menu pt-0 overflow-hidden header-profile-dropdown dropdown-menu-end" aria-labelledby="mainHeaderProfile" ngbDropdownMenu>
                     <Li>
                         <div class="header-navheading border-bottom">
-                            <h6 class="main-notification-title">Sonia Taylor</h6>
-                            <p class="main-notification-text mb-0">Web Designer</p>
+                            <h6 class="main-notification-title">{{ profile.name }}</h6>
+                            <p class="main-notification-text mb-0">{{ profile.role }}</p>
                         </div>
                     </Li>
                     <li><a ngbDropdownItem class="dropdown-item d-flex border-bottom" routerLink="/pages/profile"><i class="fe fe-user fs-16 align-middle me-2"></i>Profile</a></li>
@@ -393,7 +393,7 @@
                     <li><a ngbDropdownItem class="dropdown-item d-flex border-bottom border-block-end" routerLink="/pages/notifications-list"><i class="fe fe-compass fs-16 align-middle me-2"></i>Activity</a></li>
                     <li><a ngbDropdownItem class="dropdown-item d-flex border-bottom" routerLink="/pages/settings"><i class="fe fe-settings fs-16 align-middle me-2"></i>Settings</a></li>
                     <li><a ngbDropdownItem class="dropdown-item d-flex border-bottom" routerLink="/advancedui/chat"><i class="fe fe-headphones fs-16 align-middle me-2"></i>Support</a></li>
-                    <li><a ngbDropdownItem class="dropdown-item d-flex" routerLink="/custom/sign-in"><i class="fe fe-power fs-16 align-middle me-2"></i>Log Out</a></li>
+                    <li><a ngbDropdownItem class="dropdown-item d-flex" href="javascript:void(0);" (click)="onLogout($event)"><i class="fe fe-power fs-16 align-middle me-2"></i>Log Out</a></li>
                 </ul>
             </div>  
             <!-- End::header-element -->    

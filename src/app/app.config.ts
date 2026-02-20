@@ -1,8 +1,6 @@
-import { ApplicationConfig, importProvidersFrom, NgZone } from '@angular/core';
-import { RouterOutlet, provideRouter } from '@angular/router';
-import { BrowserAnimationsModule, provideAnimations } from '@angular/platform-browser/animations'
-import { BrowserModule } from '@angular/platform-browser'
-import { NoopAnimationsModule } from '@angular/platform-browser/animations'
+import { ApplicationConfig, importProvidersFrom, provideZoneChangeDetection } from '@angular/core';
+import { provideRouter } from '@angular/router';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async'
 
 import { App_Route } from './app.routes';
 import { ColorPickerModule, ColorPickerService } from 'ngx-color-picker';
@@ -21,7 +19,6 @@ import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
 
 import { TranslateLoader, TranslateModule } from '@ngx-translate/core';
 import { HTTP_INTERCEPTORS, HttpClient, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
-import { HttpClientModule } from '@angular/common/http';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { AuthInterceptor } from './shared/interceptors/auth.interceptor';
 
@@ -32,20 +29,23 @@ export function HttpLoaderFactory(http: HttpClient) {
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    provideZoneChangeDetection({ eventCoalescing: true, runCoalescing: true }),
     provideHttpClient(withInterceptorsFromDi()),
-    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },provideRouter(App_Route),RouterOutlet,ColorPickerModule,ColorPickerService,provideAnimations(), 
-    AngularFireModule,
-    AngularFireDatabaseModule,
-    AngularFirestoreModule,
-    AngularFireAuthModule,provideCharts(withDefaultRegisterables()),
+    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+    provideRouter(App_Route),
+    ColorPickerService,
+    provideAnimationsAsync(),
+    provideCharts(withDefaultRegisterables()),
   importProvidersFrom(
-    HttpClientModule,
+    ColorPickerModule,
     NgSelectModule,
-    ToastrModule.forRoot(),
     CalendarModule.forRoot({
     provide: DateAdapter,
     useFactory: adapterFactory,
   }), 
+  AngularFireAuthModule,
+  AngularFireDatabaseModule,
+  AngularFirestoreModule,
   AngularFireModule.initializeApp(environment.firebase), ToastrModule.forRoot({
     timeOut: 15000, // 15 seconds
     closeButton: true,
@@ -53,11 +53,6 @@ export const appConfig: ApplicationConfig = {
   }),
   //  NgDragDropModule.forRoot()
   NgCircleProgressModule.forRoot(),
-  ToastrModule.forRoot({
-    timeOut: 15000, // 15 seconds
-    closeButton: true,
-    progressBar: true,
-  }),
   TranslateModule.forRoot({
     defaultLanguage: 'EN',
     loader: {

@@ -8,7 +8,7 @@
       <div class="welcome-card">
         <div class="welcome-content">
           <div class="welcome-text">
-            <h2 class="welcome-title">Welcome Naeem Farooqi</h2>
+            <h2 class="welcome-title">Welcome {{ welcomeUserName }}</h2>
             <p class="welcome-subtitle">Total Fleet: {{ dashboardStats.totalVehicles }} vehicles | Inspected: {{ dashboardStats.vehiclesInspected }} | Active Projects: {{ dashboardStats.openProjects }}/{{ dashboardStats.totalProjects }}</p>
             <div class="progress-indicator mt-3">
               <div class="progress-bar-lg">
@@ -35,7 +35,7 @@
         </div>
         <div class="col-12 col-md-6 col-lg-4">
           <label for="vehicleFilter" class="form-label fw-500 mb-2">Filter by Vehicle</label>
-          <select id="vehicleFilter" class="form-select form-select-sm" [(ngModel)]="selectedVehicle" (change)="onVehicleChange(selectedVehicle)">
+          <select id="vehicleFilter" class="form-select form-select-sm" [(ngModel)]="selectedVehicle" (change)="onVehicleChange(selectedVehicle)" [disabled]="selectedProject === 'all'">
             <option *ngFor="let vehicle of vehicles" [value]="vehicle.id">{{ vehicle.name }}</option>
           </select>
         </div>
@@ -43,7 +43,7 @@
           <div class="form-check form-switch me-3">
             <input class="form-check-input" type="checkbox" id="toggleOpenClosed" [(ngModel)]="showOpenProjects" (change)="toggleOpenClosed()">
             <label class="form-check-label" for="toggleOpenClosed">
-              {{ showOpenProjects ? 'Show Open Projects' : 'Show Closed Projects' }}
+              {{ showOpenProjects ? 'Open Projects Only' : 'Include Closed Projects' }}
             </label>
           </div>
           <button class="btn btn-sm btn-success" (click)="resetDashboard()">
@@ -149,7 +149,7 @@
         
         <!-- Generic Widget Frame (Reusable Wrapper) -->
         <div 
-          *ngFor="let widget of widgets" 
+          *ngFor="let widget of widgets; trackBy: trackByWidgetId" 
           [class]="'col-12 col-md-6 col-lg-' + widget.width"
           cdkDrag
           [cdkDragData]="widget"

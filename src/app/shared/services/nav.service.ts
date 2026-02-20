@@ -24,6 +24,14 @@ export interface Menu {
 })
 export class NavService implements OnDestroy {
   private unsubscriber: Subject<any> = new Subject();
+  private readonly roleMenuAccess: Record<string, string[]> = {
+    superadmin: ['/admin'],
+    admin: ['/admin'],
+    client: ['/client/dashboard', '/client/vehicles', '/client/reports', '/client/tickets'],
+    user: ['/client/dashboard', '/client/vehicles', '/client/reports', '/client/tickets'],
+    inspector: ['/dashboard'],
+  };
+
   public screenWidth: BehaviorSubject<number> = new BehaviorSubject(
     window.innerWidth
   );
@@ -50,7 +58,7 @@ export class NavService implements OnDestroy {
   }
 
   private initializeMenuFromStorage(): void {
-    const storedUser = localStorage.getItem('currentUser');
+    const storedUser = localStorage.getItem('bp_current_user');
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser);
@@ -344,63 +352,11 @@ export class NavService implements OnDestroy {
       selected: false
     },
     {
-      path: '/client/assets',
-      title: 'Asset Requests',
-      icon: 'ti-menu',
-      type: 'link',
-      active: false,
-    },
-    {
       path: '/client/tickets',
       title: 'Tickets',
       icon: 'ti-ticket',
       type: 'link',
       active: false,
-    },
-    {
-      path: '/client/snags',
-      title: 'Snags',
-      icon: 'ti-flag',
-      type: 'link',
-      active: false,
-    },
-    {
-      path: '/client/projects',
-      title: 'Projects',
-      type: 'sub',
-      icon: 'ti-layout',
-      active: false,
-      children: [
-        {
-          path: '/client/projects/list',
-          title: 'Projects',
-          type: 'link',
-        },
-        {
-          path: '/client/projects/final-vehicle',
-          title: 'Final Vehicle',
-          type: 'link',
-        }
-      ]
-    },
-    {
-      path: '/client/stations',
-      title: 'STATIONS',
-      type: 'sub',
-      icon: 'ti-rocket',
-      active: false,
-      children: [
-        {
-          path: '/client/stations/list',
-          title: 'Station',
-          type: 'link',
-        },
-        {
-          path: '/client/stations/tracker',
-          title: 'Station Tracker',
-          type: 'link',
-        }
-      ]
     },
     {
       path: '/client/vehicles',
@@ -1017,23 +973,81 @@ export class NavService implements OnDestroy {
 
   // Get menu items based on user role
   getMenuByRole(role: string): Menu[] {
-    switch(role) {
+    const normalizedRole = (role ?? '').toLowerCase().trim();
+    let baseMenu: Menu[];
+
+    switch(normalizedRole) {
       case 'superadmin':
-        return this.SUPERADMIN_MENUITEMS;
+        baseMenu = this.SUPERADMIN_MENUITEMS;
+        break;
       case 'admin':
-        return this.MENUITEMS; // Can be customized for admin
+        baseMenu = this.SUPERADMIN_MENUITEMS;
+        break;
       case 'inspector':
-        return this.MENUITEMS; // Can be customized for inspector
+        baseMenu = this.MENUITEMS; // Can be customized for inspector
+        break;
       case 'client':
-        return this.CLIENT_MENUITEMS; // Custom menu for client
+      case 'user':
+        baseMenu = this.CLIENT_MENUITEMS; // Custom menu for client
+        break;
       default:
-        return this.MENUITEMS;
+        baseMenu = this.MENUITEMS;
+        break;
     }
+
+    const allowedPaths = this.roleMenuAccess[normalizedRole];
+    if (!allowedPaths || allowedPaths.length === 0) {
+      return this.cloneMenu(baseMenu);
+    }
+
+    return this.filterMenuByAllowedPaths(baseMenu, allowedPaths);
   }
 
   // Update menu items based on role
   loadMenuByRole(role: string): void {
     const menuItems = this.getMenuByRole(role);
     this.items.next(menuItems);
+  }
+
+  private filterMenuByAllowedPaths(menuItems: Menu[], allowedPaths: string[]): Menu[] {
+    const result: Menu[] = [];
+
+    for (const menuItem of menuItems) {
+      if (menuItem.headTitle) {
+        result.push({ ...menuItem });
+        continue;
+      }
+
+      const filteredChildren = menuItem.children?.length
+        ? this.filterMenuByAllowedPaths(menuItem.children, allowedPaths)
+        : undefined;
+
+      const hasAllowedPath = this.isPathAllowed(menuItem.path, allowedPaths);
+      const hasAllowedChildren = !!filteredChildren && filteredChildren.length > 0;
+
+      if (hasAllowedPath || hasAllowedChildren) {
+        result.push({
+          ...menuItem,
+          children: filteredChildren,
+        });
+      }
+    }
+
+    return result;
+  }
+
+  private isPathAllowed(path: string | undefined, allowedPaths: string[]): boolean {
+    if (!path) {
+      return false;
+    }
+
+    return allowedPaths.some((allowedPath) => path.startsWith(allowedPath));
+  }
+
+  private cloneMenu(menuItems: Menu[]): Menu[] {
+    return menuItems.map((menuItem) => ({
+      ...menuItem,
+      children: menuItem.children ? this.cloneMenu(menuItem.children) : undefined,
+    }));
   }
 }

@@ -26,9 +26,8 @@ export const roleGuard: CanActivateFn = (route, state) => {
   const expectedRoles = route.data['roles'] as string[];
   
   if (expectedRoles && !authService.hasRole(expectedRoles)) {
-    // Role not authorized, redirect to dashboard
-    router.navigate(['/dashboard']);
-    return false;
+    const redirectUrl = authService.getRedirectUrlByRole();
+    return router.createUrlTree([redirectUrl]);
   }
 
   return true;

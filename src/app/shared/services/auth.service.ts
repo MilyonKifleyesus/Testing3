@@ -16,6 +16,7 @@ export interface CurrentUser {
 
 const LS_TOKEN = 'bp_access_token';
 const LS_USER = 'bp_current_user';
+const LS_USER_LEGACY = 'currentUser';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -38,7 +39,6 @@ export class AuthService {
       .post<LoginResponse>(`${environment.apiBaseUrl}/auth/login`, req)
       .pipe(
         tap((res) => {
-          console.log('Auth login response:', res);
           localStorage.setItem(LS_TOKEN, res.accessToken);
           const user: CurrentUser = {
             userId: res.userId,
@@ -48,8 +48,10 @@ export class AuthService {
             clientId: res.clientId,
             isGeneralAdmin: res.isGeneralAdmin,
           };
-          localStorage.setItem(LS_USER, JSON.stringify(user));
-          this.currentUserSubject.next(user);
+          const serializedUser = JSON.stringify(this.normalizeUser(user));
+          localStorage.setItem(LS_USER, serializedUser);
+          localStorage.removeItem(LS_USER_LEGACY);
+          this.currentUserSubject.next(this.normalizeUser(user));
         }),
         finalize(() => {
           this.showLoader = false;
@@ -79,6 +81,7 @@ export class AuthService {
   logout(): void {
     localStorage.removeItem(LS_TOKEN);
     localStorage.removeItem(LS_USER);
+    localStorage.removeItem(LS_USER_LEGACY);
     this.currentUserSubject.next(null);
     this.router.navigate(['/custom/sign-in']);
   }
@@ -102,17 +105,65 @@ export class AuthService {
 
   hasRole(roles: string[]): boolean {
     const userRole = this.userRole;
+    if (!userRole) {
+      return false;
+    }
+
     const expected = roles.map((r) => (r ?? '').toLowerCase().trim());
-    return userRole ? expected.includes(userRole) : false;
+
+    if (expected.includes(userRole)) {
+      return true;
+    }
+
+    if (userRole === 'admin' && expected.includes('superadmin')) {
+      return true;
+    }
+
+    if (userRole === 'superadmin' && expected.includes('admin')) {
+      return true;
+    }
+
+    return false;
+  }
+
+  getRedirectUrlByRole(role?: string | null): string {
+    const normalizedRole = (role ?? this.userRole ?? '').toLowerCase().trim();
+
+    if (normalizedRole === 'admin' || normalizedRole === 'superadmin') {
+      return '/admin/dashboard';
+    }
+
+    if (normalizedRole === 'client' || normalizedRole === 'user') {
+      return '/client/dashboard';
+    }
+
+    return '/dashboard';
   }
 
   private readUser(): CurrentUser | null {
-    const raw = localStorage.getItem(LS_USER);
+    const raw = localStorage.getItem(LS_USER) ?? localStorage.getItem(LS_USER_LEGACY);
     if (!raw) return null;
     try {
-      return JSON.parse(raw) as CurrentUser;
+      const parsedUser = this.normalizeUser(JSON.parse(raw));
+      const serializedUser = JSON.stringify(parsedUser);
+      localStorage.setItem(LS_USER, serializedUser);
+      localStorage.removeItem(LS_USER_LEGACY);
+      return parsedUser;
     } catch {
+      localStorage.removeItem(LS_USER);
+      localStorage.removeItem(LS_USER_LEGACY);
       return null;
     }
+  }
+
+  private normalizeUser(value: any): CurrentUser {
+    return {
+      userId: Number(value?.userId ?? 0),
+      username: String(value?.username ?? '').trim(),
+      email: value?.email ? String(value.email).trim() : undefined,
+      role: String(value?.role ?? '').trim(),
+      clientId: Number(value?.clientId ?? 0),
+      isGeneralAdmin: Boolean(value?.isGeneralAdmin),
+    };
   }
 }

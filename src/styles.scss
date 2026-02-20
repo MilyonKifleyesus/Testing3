@@ -1,133 +1,16 @@
 /* You can add global styles to this file, and also import other style files */
 
-/* ========== GLOBAL TEXT RENDERING OPTIMIZATION ========== */
-/* This ensures all text across the project appears crisp and clear (4K quality) */
-* {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  font-smooth: always;
-}
-
-html, body {
+/* Keep global typography smoothing lightweight to avoid expensive full-DOM style recalculation */
+html,
+body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-/* Remove all text shadows that cause blur */
-body, body * {
-  text-shadow: none !important;
+body {
+  text-shadow: none;
 }
-
-/* Ensure no filters cause text blur */
-p, span, h1, h2, h3, h4, h5, h6, a, button, label, input, textarea, select {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  filter: none !important;
-  text-shadow: none !important;
-}
-
-/* Fix form elements text clarity */
-.form-control, .form-select, input, textarea, select {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  color: inherit;
-}
-
-/* Fix button text clarity */
-button, .btn {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
-
-/* ========== TABLE TEXT RENDERING FIX ========== */
-/* Tables and their cells need special treatment for text clarity */
-table, tbody, thead, tfoot, tr, td, th {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  text-shadow: none !important;
-  filter: none !important;
-}
-
-.table {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
-
-.table thead th,
-.table tbody td,
-.table tfoot td {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  color: inherit;
-  text-shadow: none !important;
-}
-
-.table-responsive {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* ========== LIST & MENU ITEMS TEXT FIX ========== */
-.list-group-item, .nav-link, .dropdown-item,
-.menu-item, .sidebar-menu, .breadcrumb {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  text-shadow: none !important;
-}
-
-/* ========== CARD TEXT FIX ========== */
-.card, .card-title, .card-text, .card-body, .card-header {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  text-shadow: none !important;
-}
-
-/* ========== MODAL & DIALOG TEXT FIX ========== */
-.modal, .modal-title, .modal-body, .modal-content,
-.dialog, .mat-dialog-container {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  text-shadow: none !important;
-}
-
-/* ========== BADGE & LABEL TEXT FIX ========== */
-.badge, .label, .tag {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  text-shadow: none !important;
-}
-
-/* ========== TOOLTIP TEXT FIX ========== */
-.tooltip, .bs-tooltip-top, .bs-tooltip-bottom, .bs-tooltip-left, .bs-tooltip-right,
-.mat-tooltip, .ng-tooltip {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  text-shadow: none !important;
-  color: #fff;
-}
-
-/* ========== ALERT & NOTIFICATION TEXT FIX ========== */
-.alert, .notification, .toast {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  text-shadow: none !important;
-}
-
-/* ========== END TEXT RENDERING OPTIMIZATION ========== */
 
 @import "../public/assets/css/styles.css";
 // -- Icons Css --
@@ -150,7 +33,6 @@ table, tbody, thead, tfoot, tr, td, th {
 // @ks98/modal gallery
 @import '../node_modules/@angular/cdk/overlay-prebuilt.css';
 
-@import '../node_modules/dropzone/dist/dropzone.css';
 @import'../node_modules/filepond/dist/filepond.min.css';
 @import "../node_modules/ngx-easy-table/style.css";
 

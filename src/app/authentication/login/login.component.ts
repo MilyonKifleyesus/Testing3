@@ -75,28 +75,16 @@ export class LoginComponent {
   }
 
   login() {
-    console.log(this.loginForm)
-
     // this.disabled = "btn-loading"
     this.errorMessage = '';
     if (this.validateForm(this.email, this.password)) {
       this.authservice
         .loginWithEmail(this.email, this.password)
         .then((user: any) => {
-          console.log('Login user object:', user);
-          const role = (user?.role ?? '').toLowerCase().trim();
-          // Navigate based on user role
-          if (role === 'superadmin') {
-            console.log('Navigating to admin dashboard');
-            this.router.navigate(['/admin/dashboard']);
-          } else if (role === 'client' || role === 'user') {
-            console.log('Navigating to client dashboard');
-            this.router.navigate(['/client/dashboard']);
-          } else {
-            console.log('Navigating to default dashboard');
-            this.router.navigate(['/dashboard']);
-          }
-          console.clear();
+          const redirectUrl = this.authservice.getRedirectUrlByRole(user?.role);
+          this.router.navigate([redirectUrl]);
+          this.password = '';
+          this.loginForm.patchValue({ password: '' });
           this.toastr.success('login successful','spruha', {
             timeOut: 3000,
             positionClass: 'toast-top-right',
@@ -104,6 +92,8 @@ export class LoginComponent {
         })
         .catch((_error: any) => {
           this._error = _error;
+          this.password = '';
+          this.loginForm.patchValue({ password: '' });
           this.router.navigate(['/']);
         });
      

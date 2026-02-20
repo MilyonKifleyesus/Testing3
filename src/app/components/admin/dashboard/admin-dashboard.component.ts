@@ -12,6 +12,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ConfirmModalComponent } from './confirm-modal.component';
+import { AuthService } from '../../../shared/services/auth.service';
+import {
+  DashboardProjectOption,
+  DashboardProjectsService,
+  DashboardVehicleOption,
+  DashboardVehicleOptionsResult,
+} from '../../../shared/services/dashboard-projects.service';
 
 // ========== Data Model: Universal Widget Contract ==========
 // Each widget has a unique ID, title, and flexible content type
@@ -44,32 +51,78 @@ export interface DashboardWidget {
   styleUrls: ['./admin-dashboard.component.scss']
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
-    showOpenProjects = true;
+  private readonly defaultDashboardStats = {
+    ...busPulseData.dashboardStats,
+    projectChangePercentage: 55,
+    vehicleChangePercentage: 5,
+    defectChangePercentage: 12,
+    repeatedChangePercentage: 8,
+  };
+  private readonly PROJECT_STATUS_CACHE_KEY = 'buspulse_admin_project_status_counts';
+  welcomeUserName = 'Admin';
+
+  showOpenProjects = false;
     filteredProjects: { id: string; name: string }[] = [];
+    private readonly mouseMoveHandler = (event: MouseEvent) => this.onMouseMove(event);
+    private readonly mouseUpHandler = (event: MouseEvent) => this.onMouseUp(event);
+    private readonly keydownHandler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && this.fullscreenWidgetId) {
+        this.toggleFullscreen(this.fullscreenWidgetId);
+      }
+    };
 
     ngOnInit(): void {
+      this.welcomeUserName = this.resolveWelcomeUserName();
       this.applyFilters();
       this.initializeWidgets();
+      this.hydrateProjectStatusFromCache();
       this.loadLayoutFromStorage();
+      this.loadProjectsFromApi(true);
+      this.loadVehicleTotalCount();
+      this.resetVehiclesDropdown();
       this.filterProjects();
       // ...existing code...
       // Add global mouse event listeners for resize
-      document.addEventListener('mousemove', this.onMouseMove.bind(this));
-      document.addEventListener('mouseup', this.onMouseUp.bind(this));
+      document.addEventListener('mousemove', this.mouseMoveHandler);
+      document.addEventListener('mouseup', this.mouseUpHandler);
       // Add ResizeObserver to redraw charts when container size changes
       this.observeChartContainers();
     }
 
+    private resolveWelcomeUserName(): string {
+      const user = this.authService.currentUserValue;
+
+      const username = String(user?.username ?? '').trim();
+      if (username) {
+        return username;
+      }
+
+      const email = String(user?.email ?? '').trim();
+      if (email && email.includes('@')) {
+        return email.split('@')[0];
+      }
+
+      return 'Admin';
+    }
+
     toggleOpenClosed(): void {
-      this.filterProjects();
+      this.resetDashboardStatsToDefault(true);
+      this.selectedProject = 'all';
+      this.selectedVehicle = 'all';
+      this.resetVehiclesDropdown();
+      this.applyFilters();
+      this.loadVehicleTotalCount();
+      this.loadProjectsFromApi(!this.showOpenProjects);
     }
 
     filterProjects(): void {
-      // Example: Assume projects with even id are open, odd are closed (replace with real logic)
-      if (this.showOpenProjects) {
-        this.filteredProjects = this.projects.filter(p => p.id === 'all' || p.id.endsWith('1') || p.id.endsWith('3'));
-      } else {
-        this.filteredProjects = this.projects.filter(p => p.id === 'all' || p.id.endsWith('2') || p.id.endsWith('4'));
+      this.filteredProjects = this.projects;
+
+      const selectedExists = this.filteredProjects.some(
+        (project) => project.id === this.selectedProject,
+      );
+      if (!selectedExists) {
+        this.selectedProject = 'all';
       }
     }
   
@@ -88,6 +141,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   private resizeStartWidth: number = 0;
   private resizeStartHeight: number = 0;
   private resizeHandle: 'corner' | 'right' | 'bottom' | null = null;
+  private resizeDispatchFrame: number | null = null;
   
   // Fullscreen state
   fullscreenWidgetId: string | null = null;
@@ -95,13 +149,13 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   // Activities Modal state
   showActivitiesModal: boolean = false;
 
-  constructor(private modalService: NgbModal) {
+  constructor(
+    private modalService: NgbModal,
+    private authService: AuthService,
+    private dashboardProjectsService: DashboardProjectsService,
+  ) {
     // Listen for ESC key to close fullscreen
-    document.addEventListener('keydown', (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && this.fullscreenWidgetId) {
-        this.toggleFullscreen(this.fullscreenWidgetId);
-      }
-    });
+    document.addEventListener('keydown', this.keydownHandler);
   }
 
   // ========== Filter Options ==========
@@ -117,27 +171,266 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return index;
   }
 
-  vehicles = [
-    { id: 'all', name: 'All Vehicles' },
-    { id: 'veh1', name: 'Bus-001' },
-    { id: 'veh2', name: 'Bus-002' },
-    { id: 'veh3', name: 'Bus-003' },
-    { id: 'veh4', name: 'Bus-004' },
-    { id: 'veh5', name: 'Bus-005' },
-  ];
+  trackByWidgetId(index: number, widget: DashboardWidget): string {
+    return widget.id;
+  }
+
+  vehicles = [{ id: 'all', name: 'All Vehicles' }];
 
   selectedProject = 'all';
   selectedVehicle = 'all';
+
+  private loadProjectsFromApi(includeClosed: boolean): void {
+    this.dashboardProjectsService.getProjectOptions({
+      clientId: 0,
+      projectTypeId: 0,
+      locationId: 0,
+      includeClosed,
+    }).subscribe({
+      next: (projects: DashboardProjectOption[]) => {
+        if (!projects.length) {
+          this.dashboardStats.totalProjects = 0;
+          this.dashboardStats.openProjects = 0;
+          this.updateProjectStatusChart(0, 0);
+          this.cacheProjectStatusCounts(0, 0, 0);
+          return;
+        }
+
+        this.projects = projects;
+        this.filteredProjects = projects;
+        const statusCounts = this.getProjectStatusCounts(this.projects, includeClosed);
+        this.dashboardStats.totalProjects = statusCounts.total;
+        this.dashboardStats.openProjects = statusCounts.open;
+        this.updateProjectStatusChart(statusCounts.open, statusCounts.closed);
+        this.cacheProjectStatusCounts(statusCounts.open, statusCounts.closed, statusCounts.total);
+
+        const projectExists = this.projects.some((project) => project.id === this.selectedProject);
+        if (!projectExists) {
+          this.selectedProject = 'all';
+          this.resetVehiclesDropdown();
+        }
+
+        this.applyFilters();
+        this.filterProjects();
+      },
+      error: (error: unknown) => {
+        console.error('Admin dashboard projects request failed:', error);
+        this.dashboardStats.totalProjects = 0;
+        this.dashboardStats.openProjects = 0;
+        this.updateProjectStatusChart(0, 0);
+      },
+    });
+  }
+
+  private getProjectStatusCounts(
+    projects: DashboardProjectOption[],
+    includeClosed: boolean,
+  ): { open: number; closed: number; total: number } {
+    const projectItems = projects.filter((project) => project.id !== 'all');
+
+    let open = 0;
+    let closed = 0;
+
+    for (const project of projectItems) {
+      if (project.isClosed === true) {
+        closed += 1;
+        continue;
+      }
+
+      if (project.isClosed === false) {
+        open += 1;
+        continue;
+      }
+
+      const statusText = String(project.status ?? '').trim().toLowerCase();
+
+      if (/(closed|complete|completed|inactive|archived|cancelled|canceled)/.test(statusText)) {
+        closed += 1;
+      } else {
+        open += 1;
+      }
+    }
+
+    if (!includeClosed) {
+      closed = 0;
+      open = projectItems.length;
+    }
+
+    return { open, closed, total: projectItems.length };
+  }
+
+  private updateProjectStatusChart(openCount: number, closedCount: number): void {
+    const projectWidgetIndex = this.widgets.findIndex((widget) => widget.id === 'widget-1');
+    const projectWidget = projectWidgetIndex >= 0 ? this.widgets[projectWidgetIndex] : undefined;
+    if (!projectWidget?.chartOptions) {
+      return;
+    }
+
+    const totalProjects = openCount + closedCount;
+    const currentOptions = projectWidget.chartOptions;
+
+    const updatedChartOptions = {
+      ...currentOptions,
+      series: [openCount, closedCount],
+      labels: ['Open Projects', 'Closed Projects'],
+      plotOptions: {
+        ...currentOptions?.plotOptions,
+        pie: {
+          ...currentOptions?.plotOptions?.pie,
+          donut: {
+            ...currentOptions?.plotOptions?.pie?.donut,
+            labels: {
+              ...currentOptions?.plotOptions?.pie?.donut?.labels,
+              total: {
+                ...currentOptions?.plotOptions?.pie?.donut?.labels?.total,
+                formatter: () => String(totalProjects),
+              },
+            },
+          },
+        },
+      },
+    };
+
+    projectWidget.chartOptions = updatedChartOptions;
+  }
+
+  private hydrateProjectStatusFromCache(): void {
+    try {
+      const raw = localStorage.getItem(this.PROJECT_STATUS_CACHE_KEY);
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as {
+        open?: number;
+        closed?: number;
+        total?: number;
+      };
+
+      const openCount = Number(parsed?.open ?? 0);
+      const closedCount = Number(parsed?.closed ?? 0);
+      const totalCount = Number(parsed?.total ?? openCount + closedCount);
+
+      if (
+        !Number.isFinite(openCount)
+        || !Number.isFinite(closedCount)
+        || !Number.isFinite(totalCount)
+      ) {
+        return;
+      }
+
+      this.dashboardStats.openProjects = Math.max(0, openCount);
+      this.dashboardStats.totalProjects = Math.max(0, totalCount);
+      this.updateProjectStatusChart(Math.max(0, openCount), Math.max(0, closedCount));
+    } catch {
+      // no-op
+    }
+  }
+
+  private cacheProjectStatusCounts(openCount: number, closedCount: number, totalCount: number): void {
+    try {
+      localStorage.setItem(
+        this.PROJECT_STATUS_CACHE_KEY,
+        JSON.stringify({
+          open: Math.max(0, openCount),
+          closed: Math.max(0, closedCount),
+          total: Math.max(0, totalCount),
+        }),
+      );
+    } catch {
+      // no-op
+    }
+  }
+
+  private loadAllVehiclesFromApi(): void {
+    this.dashboardProjectsService.getAllVehicleOptionsResult({ clientId: 0, page: 1, pageSize: 10000 }).subscribe({
+      next: (result: DashboardVehicleOptionsResult) => {
+        this.vehicles = result.options;
+        const fetchedCount = this.vehicles.filter((vehicle) => vehicle.id !== 'all').length;
+        this.dashboardStats.totalVehicles = Math.max(result.totalCount, fetchedCount);
+
+        const vehicleExists = this.vehicles.some((vehicle) => vehicle.id === this.selectedVehicle);
+        if (!vehicleExists) {
+          this.selectedVehicle = 'all';
+        }
+      },
+      error: (error: unknown) => {
+        console.error('Admin dashboard all vehicles request failed:', error);
+        this.vehicles = [{ id: 'all', name: 'All Vehicles' }];
+        this.selectedVehicle = 'all';
+        this.dashboardStats.totalVehicles = 0;
+      },
+    });
+  }
+
+  private loadVehicleTotalCount(): void {
+    this.dashboardProjectsService
+      .getAllVehicleOptionsResult({ clientId: 0, page: 1, pageSize: 1, includeAllOption: false })
+      .subscribe({
+        next: (result: DashboardVehicleOptionsResult) => {
+          this.dashboardStats.totalVehicles = result.totalCount;
+        },
+        error: (error: unknown) => {
+          console.error('Admin dashboard vehicle total count request failed:', error);
+          this.dashboardStats.totalVehicles = 0;
+        },
+      });
+  }
+
+  private resetVehiclesDropdown(): void {
+    this.vehicles = [{ id: 'all', name: 'Select project first' }];
+    this.selectedVehicle = 'all';
+  }
+
+  private loadVehiclesByProject(projectId: string): void {
+    const clientId = this.authService.currentUserValue?.clientId;
+    const userId = this.authService.currentUserValue?.userId;
+
+    this.dashboardProjectsService
+      .getVehicleOptionsByProjectResult(projectId, { clientId, userId })
+      .subscribe({
+        next: (result: DashboardVehicleOptionsResult) => {
+          this.vehicles = result.options;
+          const fetchedCount = this.vehicles.filter((vehicle) => vehicle.id !== 'all').length;
+          this.dashboardStats.totalVehicles = Math.max(result.totalCount, fetchedCount);
+
+          const vehicleExists = this.vehicles.some(
+            (vehicle) => vehicle.id === this.selectedVehicle,
+          );
+          if (!vehicleExists) {
+            this.selectedVehicle = 'all';
+          }
+        },
+        error: (error: unknown) => {
+          console.error('Admin dashboard project vehicles request failed:', error);
+          this.vehicles = [{ id: 'all', name: 'All Vehicles' }];
+          this.selectedVehicle = 'all';
+        },
+      });
+  }
 
   // ...existing code...
 
   private observeChartContainers(): void {
     // Trigger chart redraw after DOM updates
     setTimeout(() => {
-      const chartContainers = document.querySelectorAll('.apexcharts-canvas');
-      // Force window resize event to trigger ApexCharts resize handlers
-      window.dispatchEvent(new Event('resize'));
+      this.dispatchResizeEvent();
     }, 100);
+  }
+
+  private dispatchResizeEvent(): void {
+    window.dispatchEvent(new Event('resize'));
+  }
+
+  private dispatchResizeEventThrottled(): void {
+    if (this.resizeDispatchFrame !== null) {
+      return;
+    }
+
+    this.resizeDispatchFrame = requestAnimationFrame(() => {
+      this.dispatchResizeEvent();
+      this.resizeDispatchFrame = null;
+    });
   }
 
   ngOnDestroy(): void {
@@ -145,8 +438,14 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.saveLayoutToStorage();
     
     // Remove global event listeners
-    document.removeEventListener('mousemove', this.onMouseMove.bind(this));
-    document.removeEventListener('mouseup', this.onMouseUp.bind(this));
+    document.removeEventListener('mousemove', this.mouseMoveHandler);
+    document.removeEventListener('mouseup', this.mouseUpHandler);
+    document.removeEventListener('keydown', this.keydownHandler);
+
+    if (this.resizeDispatchFrame !== null) {
+      cancelAnimationFrame(this.resizeDispatchFrame);
+      this.resizeDispatchFrame = null;
+    }
   }
 
   // ========== Initialize Default Widget Configuration ==========
@@ -434,13 +733,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       widget.height = newHeight;
     }
     
-    // Trigger multiple resize events for ApexCharts
-    window.dispatchEvent(new Event('resize'));
-    
-    // Force chart redraw by marking for check
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 50);
+    this.dispatchResizeEventThrottled();
   }
 
   private onMouseUp(event: MouseEvent): void {
@@ -450,10 +743,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       document.body.classList.remove('is-resizing');
       document.body.style.cursor = '';
       
-      // Final resize events to ensure chart redraw
-      window.dispatchEvent(new Event('resize'));
+      this.dispatchResizeEvent();
       setTimeout(() => {
-        window.dispatchEvent(new Event('resize'));
+        this.dispatchResizeEvent();
       }, 100);
       
       // Save the new layout
@@ -516,13 +808,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   public projectMagnitudeBubble = busPulseData.projectMagnitudeBubble;
 
   // Dashboard Statistics
-  public dashboardStats = {
-    ...busPulseData.dashboardStats,
-    projectChangePercentage: 55,
-    vehicleChangePercentage: 5,
-    defectChangePercentage: 12,
-    repeatedChangePercentage: 8
-  };
+  public dashboardStats = { ...this.defaultDashboardStats };
+
+  private resetDashboardStatsToDefault(preserveLiveTotals: boolean = false): void {
+    const currentTotalProjects = this.dashboardStats.totalProjects;
+    const currentTotalVehicles = this.dashboardStats.totalVehicles;
+
+    this.dashboardStats = { ...this.defaultDashboardStats };
+
+    if (preserveLiveTotals) {
+      this.dashboardStats.totalProjects = currentTotalProjects;
+      this.dashboardStats.totalVehicles = currentTotalVehicles;
+    }
+  }
 
   // Existing chart options (for compatibility)
   public ChartOptions = chartData.ChartOptions;
@@ -628,13 +926,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   applyFilters(): void {
     // This method will be called when filters change
     // Update chart data based on selectedProject and selectedVehicle
-    console.log('Filters applied - Project:', this.selectedProject, 'Vehicle:', this.selectedVehicle);
     // You can add logic here to update the charts based on selected filters
     // For now, all charts display the same data
   }
 
   onProjectChange(projectId: string): void {
-    this.selectedProject = projectId;
+    this.selectedProject = String(projectId ?? '').trim();
+    this.selectedVehicle = 'all';
+    if (!this.selectedProject || this.selectedProject === 'all') {
+      this.resetVehiclesDropdown();
+      this.loadVehicleTotalCount();
+    } else {
+      this.loadVehiclesByProject(this.selectedProject);
+    }
     this.applyFilters();
   }
 

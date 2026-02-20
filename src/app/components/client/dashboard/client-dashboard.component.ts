@@ -15,6 +15,7 @@ import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AuthService } from '../../../shared/services/auth.service';
 import { ClientDashboardService } from '../../../shared/services/client-dashboard.service';
+import { DashboardProjectOption, DashboardProjectsService } from '../../../shared/services/dashboard-projects.service';
 import { FluorescenceMapComponent } from '../../../shared/features/fluorescence-map/fluorescence-map.component';
 import {
   ClientDashboardResponse,
@@ -63,6 +64,13 @@ const DEFAULT_WIDGET_LAYOUT: Array<Pick<DashboardWidget, 'id' | 'width' | 'heigh
 export class ClientDashboardComponent implements OnInit, OnDestroy {
     showOpenProjects = true;
     showFilters = false; // Controls visibility of filter dropdowns
+    private readonly mouseMoveHandler = (event: MouseEvent) => this.onMouseMove(event);
+    private readonly mouseUpHandler = (event: MouseEvent) => this.onMouseUp(event);
+    private readonly keydownHandler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && this.fullscreenWidgetId) {
+        this.toggleFullscreen(this.fullscreenWidgetId);
+      }
+    };
 
     ngOnInit(): void {
         this.applyCurrentUserProfile();
@@ -73,8 +81,8 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
       this.loadDashboardData();
       this.logSupplementalApiData();
       // Add global mouse event listeners for resize
-      document.addEventListener('mousemove', this.onMouseMove.bind(this));
-      document.addEventListener('mouseup', this.onMouseUp.bind(this));
+      document.addEventListener('mousemove', this.mouseMoveHandler);
+      document.addEventListener('mouseup', this.mouseUpHandler);
       // Add ResizeObserver to redraw charts when container size changes
       this.observeChartContainers();
     }
@@ -119,13 +127,10 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     private modalService: NgbModal,
     private authService: AuthService,
     private dashboardService: ClientDashboardService,
+    private dashboardProjectsService: DashboardProjectsService,
   ) {
     // Listen for ESC key to close fullscreen
-    document.addEventListener('keydown', (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && this.fullscreenWidgetId) {
-        this.toggleFullscreen(this.fullscreenWidgetId);
-      }
-    });
+    document.addEventListener('keydown', this.keydownHandler);
   }
 
   // ========== Filter Options ==========
@@ -188,8 +193,9 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.saveLayoutToStorage();
     
     // Remove global event listeners
-    document.removeEventListener('mousemove', this.onMouseMove.bind(this));
-    document.removeEventListener('mouseup', this.onMouseUp.bind(this));
+    document.removeEventListener('mousemove', this.mouseMoveHandler);
+    document.removeEventListener('mouseup', this.mouseUpHandler);
+    document.removeEventListener('keydown', this.keydownHandler);
   }
 
   // ========== Initialize Default Widget Configuration ==========
@@ -343,8 +349,6 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   private loadDashboardData(): void {
     const clientId = this.authService.currentUserValue?.clientId ?? 0;
-
-    console.log('Client dashboard clientId:', clientId, this.authService.currentUserValue);
 
     this.dashboardService.getClientDashboard(clientId).subscribe({
       next: (response) => {
@@ -630,23 +634,9 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     const clientId = currentUser?.clientId;
     const userId = currentUser?.userId;
 
-    this.dashboardService.getProjects({ clientId }).subscribe({
-      next: (response) => {
-        console.log('Projects response:', response);
-        const items = Array.isArray(response?.items)
-          ? response.items
-          : Array.isArray(response)
-            ? response
-            : [];
-
-        const apiProjects = items
-          .map((item: any) => ({
-            id: String(item?.id ?? ''),
-            name: item?.name ?? `Project ${item?.id ?? ''}`
-          }))
-          .filter((project: { id: string }) => project.id);
-
-        this.projects = [{ id: 'all', name: 'All Projects' }, ...apiProjects];
+    this.dashboardProjectsService.getProjectOptions({ clientId }).subscribe({
+      next: (projects: DashboardProjectOption[]) => {
+        this.projects = projects;
         this.filteredProjects = this.projects;
         this.filteredProjectsForFilter = this.projects.filter(p => p.id !== 'all');
 
@@ -654,21 +644,18 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
           this.selectedProject = this.filteredProjectsForFilter[0]?.id ?? 'all';
         }
       },
-      error: (error) => console.error('Projects request failed:', error),
+      error: (error: unknown) => console.error('Projects request failed:', error),
     });
 
     this.dashboardService.getVehicles({ clientId }).subscribe({
-      next: (response) => console.log('Vehicles response:', response),
       error: (error) => console.error('Vehicles request failed:', error),
     });
 
     this.dashboardService.getTickets({ userId }).subscribe({
-      next: (response) => console.log('Tickets response:', response),
       error: (error) => console.error('Tickets request failed:', error),
     });
 
     this.dashboardService.getTicketsDashboard({ userId }).subscribe({
-      next: (response) => console.log('Tickets dashboard response:', response),
       error: (error) => console.error('Tickets dashboard request failed:', error),
     });
 
@@ -678,7 +665,6 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     }
 
     this.dashboardService.getProjectVehicles(projectId, { clientId, userId }).subscribe({
-      next: (response) => console.log('Project vehicles response:', response),
       error: (error) => console.error('Project vehicles request failed:', error),
     });
   }
@@ -796,7 +782,6 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   applyFilters(): void {
     // This method will be called when filters change
     // Update chart data based on selectedProject and selectedVehicle
-    console.log('Filters applied - Project:', this.selectedProject, 'Vehicle:', this.selectedVehicle);
     // You can add logic here to update the charts based on selected filters
     // For now, all charts display the same data
   }
