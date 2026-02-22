@@ -22,7 +22,7 @@
         @if (showTipsHint()) {
         <div class="onboarding-tips-hint card custom-card p-2 d-flex align-items-center justify-content-between gap-2"
           role="status" aria-live="polite">
-          <span class="text-muted fs-12">Tip: Switch views with Project/Client/Factory. Panels for Activity Log. Tactical View for map-only. FAB for quick actions.</span>
+          <span class="text-muted fs-12">Tip: Switch views with Project/Client/Manufacturer. Panels for Activity Log. Tactical View for map-only. FAB for quick actions.</span>
           <button type="button" class="btn btn-sm btn-outline-secondary" (click)="dismissTipsHint()" aria-label="Dismiss tip">Got it</button>
         </div>
         }
@@ -38,13 +38,13 @@
               role="radio" [attr.aria-checked]="mapViewMode() === 'client'" aria-label="Switch to client view">
               Client View
             </button>
-            <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'factory'"
-              [class.btn-outline-primary]="mapViewMode() !== 'factory'" (click)="setMapViewMode('factory')" role="radio"
-              [attr.aria-checked]="mapViewMode() === 'factory'" aria-label="Switch to factory view">
-              Factory View
+            <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'manufacturer'"
+              [class.btn-outline-primary]="mapViewMode() !== 'manufacturer'" (click)="setMapViewMode('manufacturer')" role="radio"
+              [attr.aria-checked]="mapViewMode() === 'manufacturer'" aria-label="Switch to manufacturer view">
+              Manufacturer View
             </button>
           </div>
-          <span class="view-mode-legend text-muted fs-11">Project: routes · Client: clients · Factory: hubs</span>
+          <span class="view-mode-legend text-muted fs-11">Project: routes · Client: clients · Manufacturer: hubs</span>
           @if (projectRoutesLoading() && mapViewMode() === 'project') {
           <span class="text-muted fs-11 d-flex align-items-center" role="status">
             <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
@@ -61,7 +61,7 @@
             [class.btn-primary-transparent]="filtersPanelVisible()"
             [attr.aria-label]="(filtersPanelVisible() ? 'Close' : 'Open') + ' filters' + (activeFilterCount() > 0 ? ' (' + activeFilterCount() + ' active)' : '')"
             [attr.aria-expanded]="filtersPanelVisible()"
-            title="Filter map by company, client, region, or status. Changes apply immediately.">
+            title="Filter map by manufacturer, client, region, or status. Changes apply immediately.">
             <i class="fe fe-filter me-2 fs-14" aria-hidden="true"></i> Filter
             @if (activeFilterCount() > 0) {
             <span class="badge bg-primary-transparent ms-1" aria-hidden="true">{{ activeFilterCount() }}</span>
@@ -132,37 +132,6 @@
         </div>
         <div class="card-body">
           <p class="filters-panel-hint text-muted fs-12 mb-3">Select options below to filter the map. Changes apply immediately.</p>
-          <div class="filters-section">
-            <button type="button" class="filter-section-header" (click)="toggleFilterSection('companies')"
-              [attr.aria-expanded]="expandedFilterSection() === 'companies'">
-              <span class="form-label">Companies</span>
-              <span class="filter-summary">{{ filterDraft().parentCompanyIds.length ?
-                filterDraft().parentCompanyIds.length + ' selected' : 'All' }}</span>
-              <i class="fe fe-chevron-down filter-chevron"
-                [class.expanded]="expandedFilterSection() === 'companies'"></i>
-            </button>
-            @if (expandedFilterSection() === 'companies') {
-            <div class="filters-options">
-              @if (parentCompanyOptions().length > 5) {
-              <input type="search" class="form-control form-control-sm mb-2" placeholder="Search companies..."
-                [value]="companyFilterSearch()" (input)="companyFilterSearch.set($any($event.target).value)"
-                aria-label="Search companies" />
-              }
-              @for (option of filteredParentCompanyOptions(); track option.id) {
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input"
-                  [checked]="filterDraft().parentCompanyIds.includes(option.id)"
-                  (change)="toggleParentCompany(option.id)" [id]="'parent-filter-' + option.id" />
-                <label class="form-check-label w-100 d-flex justify-content-between align-items-center"
-                  [for]="'parent-filter-' + option.id">
-                  <span>{{ option.name }}</span>
-                  <span class="badge bg-primary-transparent">{{ option.count }}</span>
-                </label>
-              </div>
-              }
-            </div>
-            }
-          </div>
           <div class="filters-section">
             <button type="button" class="filter-section-header" (click)="toggleFilterSection('client')"
               [attr.aria-expanded]="expandedFilterSection() === 'client'">
@@ -255,6 +224,37 @@
             }
           </div>
           <div class="filters-section">
+            <button type="button" class="filter-section-header" (click)="toggleFilterSection('project')"
+              [attr.aria-expanded]="expandedFilterSection() === 'project'">
+              <span class="form-label">Project</span>
+              <span class="filter-summary">{{ filterDraft().projectIds.length ?
+                filterDraft().projectIds.length + ' selected' : 'All Projects' }}</span>
+              <i class="fe fe-chevron-down filter-chevron"
+                [class.expanded]="expandedFilterSection() === 'project'"></i>
+            </button>
+            @if (expandedFilterSection() === 'project') {
+            <div class="filters-options">
+              @if (projectOptionsSignal().length > 5) {
+              <input type="search" class="form-control form-control-sm mb-2" placeholder="Search projects..."
+                [value]="projectFilterSearch()" (input)="projectFilterSearch.set($any($event.target).value)"
+                aria-label="Search projects" />
+              }
+              @for (opt of filteredProjectOptions(); track opt.id) {
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input"
+                  [checked]="filterDraft().projectIds.includes(opt.id)" (change)="toggleProject(opt.id)"
+                  [id]="'project-filter-' + opt.id" />
+                <label class="form-check-label w-100 d-flex justify-content-between align-items-center"
+                  [for]="'project-filter-' + opt.id">
+                  <span>{{ opt.name }}</span>
+                  <span class="badge bg-primary-transparent">{{ opt.count }}</span>
+                </label>
+              </div>
+              }
+            </div>
+            }
+          </div>
+          <div class="filters-section">
             <label class="form-label" id="status-filter-label">Status</label>
             <div class="filters-pill-group" role="radiogroup" aria-labelledby="status-filter-label">
               <button type="button" class="btn btn-sm" [class.btn-primary]="filterDraft().status === 'all'"
@@ -318,15 +318,35 @@
           <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'client'"
             [class.btn-outline-primary]="mapViewMode() !== 'client'" (click)="setMapViewMode('client')"
             role="radio" [attr.aria-checked]="mapViewMode() === 'client'" aria-label="Client view">Client</button>
-          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'factory'"
-            [class.btn-outline-primary]="mapViewMode() !== 'factory'" (click)="setMapViewMode('factory')" role="radio"
-            [attr.aria-checked]="mapViewMode() === 'factory'" aria-label="Factory view">Factory</button>
+          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'manufacturer'"
+            [class.btn-outline-primary]="mapViewMode() !== 'manufacturer'" (click)="setMapViewMode('manufacturer')" role="radio"
+            [attr.aria-checked]="mapViewMode() === 'manufacturer'" aria-label="Manufacturer view">Manufacturer</button>
         </div>
         <button type="button" class="btn btn-sm map-view-exit-tactical ms-2" (click)="toggleTacticalMode()"
           aria-label="Exit tactical view" title="Exit Tactical View (Esc)">
           <span>Exit</span>
           <i class="fe fe-x ms-1" aria-hidden="true"></i>
         </button>
+      </div>
+      }
+
+      @if (requiredDataLoading() && !hasRequiredEndpointError()) {
+      <div class="map-data-state-banner loading" role="status" aria-live="polite">
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+        Loading backend data from Clients, Projects, Manufacturers, and Locations...
+      </div>
+      }
+      @if (hasRequiredEndpointError()) {
+      <div class="map-data-state-banner error" role="alert" aria-live="polite">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 w-100">
+          <div>
+            <strong>Failed to load required backend data.</strong>
+            @if (endpointErrorSummary()) {
+            <div class="fs-12 mt-1">{{ endpointErrorSummary() }}</div>
+            }
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" (click)="retryRequiredDataLoad()">Retry</button>
+        </div>
       </div>
       }
 
@@ -352,8 +372,8 @@
       }
 
       <app-fluorescence-map-map class="war-room-map-fill" [screenshotMode]="screenshotMode()"
-        [nodes]="filteredNodes()" [selectedEntity]="selectedEntity()"
-        [transitRoutes]="filteredTransitRoutes()" [projectRoutes]="projectRoutesForMap()"
+        [nodes]="requiredDataReady() ? filteredNodes() : []" [selectedEntity]="selectedEntity()"
+        [transitRoutes]="requiredDataReady() ? filteredTransitRoutes() : []" [projectRoutes]="requiredDataReady() ? projectRoutesForMap() : []"
         [filterStatus]="filterApplied().status" (nodeSelected)="onNodeSelected($event)"
         (routeSelected)="onRouteSelected($event)" (zoomStable)="onMapZoomStable($event)"
         (addProjectRequested)="onAddCompanyRequested()"
@@ -370,7 +390,7 @@
       </button>
       }
 
-      @if (filteredNodes().length === 0) {
+      @if (requiredDataReady() && filteredNodes().length === 0) {
       <div
         class="empty-state-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
         style="background: rgba(255,255,255,0.7); backdrop-filter: blur(2px); z-index: 10;">
@@ -384,10 +404,14 @@
           <h5 class="fw-bold mb-2">No projects or routes match current filters</h5>
           } @else if (mapViewMode() === 'client') {
           <h5 class="fw-bold mb-2">No clients match current filters</h5>
-          } @else if (mapViewMode() === 'factory') {
+          } @else if (mapViewMode() === 'manufacturer') {
           <h5 class="fw-bold mb-2">No factories or hubs match current filters</h5>
+          } @else if (mapViewMode() === 'factory') {
+          <h5 class="fw-bold mb-2">No factories match current filters</h5>
+          } @else if (mapViewMode() === 'parent') {
+          <h5 class="fw-bold mb-2">No parent manufacturers match current filters</h5>
           } @else {
-          <h5 class="fw-bold mb-2">No companies match current filters</h5>
+          <h5 class="fw-bold mb-2">No manufacturers match current filters</h5>
           }
           <p class="text-muted mb-4 fs-13">Try adjusting your region or status filters, or clear all filters to see the
             full map.</p>
@@ -400,7 +424,7 @@
       @if (addCompanyModalVisible()) {
       <app-add-company-modal #addCompanyModalRef [isVisible]="true" [useMapPositioning]="true"
         [clients]="clientsSignal()"
-        [preselectedFactoryId]="addCompanyModalPreselectedFactoryId()"
+        [preselectedManufacturerLocationId]="addCompanyModalPreselectedManufacturerLocationId()"
         (projectAdded)="onProjectAdded($event)" (close)="onAddCompanyModalClose()" />
       }
     </div>
@@ -482,10 +506,13 @@
           } @else {
           <app-fluorescence-map-clients-panel [clientsWithProjects]="clientsWithProjects()" [editMode]="activityLogEditMode()"
             [selectedEntity]="selectedEntity()" [projectsRefreshTrigger]="projectRoutesRefreshTrigger()"
+            [clientsById]="clientsById()"
+            [locationsById]="locationsById()"
             [routePreviewVersion]="routePreviewVersion()"
             (clientSelected)="onClientSelected($event)"
             (projectSelected)="onProjectHudSelected($event)"
             (saveComplete)="onClientPanelSaveComplete()"
+            (clientSaveComplete)="onClientPanelSaveComplete()"
             (routePreviewRequested)="onRoutePreviewRequested($event)"
             (clientCaptureRequested)="onClientCaptureRequested($event)"></app-fluorescence-map-clients-panel>
           }

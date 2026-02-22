@@ -1,14 +1,21 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, of, delay, map, switchMap, catchError, Subject, startWith } from 'rxjs';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable, of, map, switchMap, catchError, Subject, startWith, combineLatest, forkJoin, throwError, timeout } from 'rxjs';
 import { Project, ProjectStatus } from '../models/project.model';
 import { Client } from '../models/client.model';
-import { ProjectRoute } from '../models/fluorescence-map.interface';
+import {
+  ProjectRoute,
+  ParentGroup,
+  SubsidiaryCompany,
+  ManufacturerLocation,
+  Hub,
+  QuantumChartData,
+} from '../models/fluorescence-map.interface';
 import { ClientService } from './client.service';
+import { LocationService, ApiLocation } from './location.service';
 import { environment } from '../../../environments/environment';
 
 type ProjectEnvironmentConfig = typeof environment & {
-  useProjectApi?: boolean;
   apiBaseUrl?: string;
 };
 
@@ -24,6 +31,7 @@ export interface ProjectFilters {
   clientIds?: string[];
   manufacturerIds?: string[];
   projectTypeIds?: string[];
+  projectIds?: string[];
 }
 
 export interface FilterOptionWithCount {
@@ -45,12 +53,21 @@ export interface ApiProject {
   project_id?: number | string;
   projectName?: string;
   project_name?: string;
+  /** BusPulseApi ProjectListItemDto: project display name */
+  name?: string | null;
   client?: string | null;
   clientId?: string | null;
   assessmentType?: string | null;
   assessment_type?: string | null;
+  projectTypeName?: string | null;
+  projectType?: string | null;
+  projectTypeId?: number | null;
   location?: string | null;
+  locationId?: number | string | null;
   status?: string | null;
+  /** BusPulseApi: boolean, true = Closed, false = Open */
+  closed?: boolean;
+  lastUpdate?: string | null;
   manufacturer?: string | null;
   manufacturerLocationId?: string | null;
   manufacturer_id?: number | null;
@@ -59,12 +76,22 @@ export interface ApiProject {
 
 /** API response shape for manufacturers */
 export interface ApiManufacturer {
-  manufacturer_id: number;
-  manufacturer_name: string;
+  id: number;
+  manufacturerName: string;
+  manufacturerLogo?: string | null;
+  manufacturerLogoName?: string | null;
+  locationId?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
-/** API response shape for factories */
-export interface ApiFactory {
+export interface ApiManufacturerDetail extends ApiManufacturer {
+  uniqueId?: string | null;
+  lastUpdate?: string | null;
+}
+
+/** API response shape for manufacturer locations */
+export interface ApiManufacturerLocation {
   factory_id: number;
   manufacturer_id: number;
   factory_location_name: string;
@@ -76,14 +103,18 @@ export interface ApiFactory {
   notes?: string | null;
 }
 
-export interface FactoryIdMapping {
-  factoryIdToWarRoom: Record<string, string>;
+export interface ManufacturerLocationMapping {
+  manufacturerLocationIdToWarRoom?: Record<string, string>;
+  /** @deprecated Use manufacturerLocationIdToWarRoom */
+  factoryIdToWarRoom?: Record<string, string>;
   aliases?: Record<string, string>;
 }
 
-/** Factory option for Add Project modal dropdown */
-export interface FactoryOption {
-  factoryId: number;
+/** Manufacturer location option for Add Project modal dropdown */
+export interface ManufacturerLocationOption {
+  manufacturerLocationId: number;
+  /** @deprecated Use manufacturerLocationId */
+  factoryId?: number;
   manufacturerId: number;
   manufacturerName: string;
   label: string;
@@ -93,7 +124,29 @@ export interface FactoryOption {
   country?: string | null;
 }
 
+/** @deprecated Use ApiManufacturerLocation */
+export type ApiFactory = ApiManufacturerLocation;
+/** @deprecated Use ManufacturerLocationMapping */
+export type FactoryIdMapping = ManufacturerLocationMapping;
+/** @deprecated Use ManufacturerLocationOption */
+export type FactoryOption = ManufacturerLocationOption;
+
+function parseManufacturerLocationId(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  const n = typeof v === 'number' ? v : Number.parseInt(String(v), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseNumericId(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  const n = typeof v === 'number' ? v : Number.parseInt(String(v), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
 function normalizeApiResponse(raw: unknown): ApiProject[] {
+  if (raw && typeof raw === 'object' && 'items' in raw) {
+    return (raw as { items: ApiProject[] }).items ?? [];
+  }
   if (raw && typeof raw === 'object' && 'projects' in raw) {
     return (raw as { projects: ApiProject[] }).projects;
   }
@@ -108,28 +161,59 @@ function normalizeApiProject(api: ApiProject): {
   projectName: string;
   client: string | null;
   assessmentType: string;
+  projectTypeId: number | null;
+  locationId: number | null;
+  closed: boolean | null;
+  lastUpdate: string | null;
   status: string | null;
-  manufacturerId: number | null;
-  factoryId: number | null;
+  manufacturerLocationId: number | null;
 } {
   const id = api.project_id ?? api.id;
-  const projectName = api.project_name ?? api.projectName ?? '';
+  const projectName =
+    api.project_name ?? api.projectName ?? api.name ?? '';
   const client = api.client?.trim() ?? null;
-  const assessmentType = api.assessment_type ?? api.assessmentType ?? '';
-  const status = api.status ?? null;
-  const manufacturerId = api.manufacturer_id ?? null;
-  const factoryId = api.factory_id ?? null;
-  return { id: id ?? null, projectName, client, assessmentType, status, manufacturerId, factoryId };
+  const assessmentType =
+    api.assessment_type ??
+    api.assessmentType ??
+    api.projectTypeName ??
+    api.projectType ??
+    '';
+  const projectTypeId = parseNumericId(api.projectTypeId);
+  const locationId = parseNumericId(api.locationId);
+  const closed = typeof api.closed === 'boolean' ? api.closed : null;
+  const lastUpdate = api.lastUpdate ?? null;
+  const manufacturerLocationId =
+    parseManufacturerLocationId(api.manufacturerLocationId) ??
+    parseManufacturerLocationId(api.factory_id) ??
+    parseManufacturerLocationId(api.locationId);
+  const status =
+    typeof api.closed === 'boolean'
+      ? api.closed
+        ? 'Closed'
+        : 'Open'
+      : (api.status ?? null);
+  return {
+    id: id ?? null,
+    projectName,
+    client,
+    assessmentType,
+    projectTypeId,
+    locationId,
+    closed,
+    lastUpdate,
+    status,
+    manufacturerLocationId,
+  };
 }
 
 function resolveClientId(api: ApiProject, clients: Client[]): string | null {
-  if (api.clientId) return api.clientId;
+  if (api.clientId != null && api.clientId !== '') return String(api.clientId);
   const cm = api.client?.trim();
   if (!cm) return null;
   const c = clients.find(
     (x) => x.code?.toLowerCase() === cm.toLowerCase() || x.name?.toLowerCase() === cm.toLowerCase()
   );
-  return c?.id ?? cm.toLowerCase().replace(/\s+/g, '-');
+  return c?.id ?? null;
 }
 
 /**
@@ -146,8 +230,7 @@ function mapApiProjectToProject(
   api: ApiProject,
   clients: Client[],
   manufacturers: ApiManufacturer[] = [],
-  factories: ApiFactory[] = [],
-  factoryIdToWarRoom: Record<string, string> = {}
+  locations: ApiLocation[] = []
 ): Project | null {
   const norm = normalizeApiProject(api);
   if (norm.id == null) return null;
@@ -157,33 +240,20 @@ function mapApiProjectToProject(
   const status = mapApiStatus(norm.status);
   const client = clients.find((c) => c.id === clientId);
 
-  let manufacturer: string | undefined;
-  let location: string | undefined;
-  let manufacturerLocationId: string | undefined;
+  const manufacturerByLocation = norm.locationId != null
+    ? manufacturers.find((m) => parseNumericId(m.locationId) === norm.locationId)
+    : undefined;
+  const locationById = norm.locationId != null
+    ? locations.find((l) => l.id === norm.locationId)
+    : undefined;
 
-  const hasExplicitManufacturer = api.manufacturer != null && String(api.manufacturer).trim() !== '';
-  const hasExplicitLocation = api.location != null && String(api.location).trim() !== '';
-
-  if (norm.factoryId != null) {
-    const factory = factories.find((f) => f.factory_id === norm.factoryId);
-    const factoryManufacturer = factory
-      ? manufacturers.find((m) => m.manufacturer_id === factory.manufacturer_id)?.manufacturer_name
-      : undefined;
-    let factoryLocation: string | undefined;
-    if (factory) {
-      const parts = [factory.city, factory.state_province, factory.country].filter(Boolean);
-      factoryLocation = parts.length > 0 ? parts.join(', ') : factory.factory_location_name;
-    }
-
-    manufacturer = hasExplicitManufacturer ? api.manufacturer! : (factoryManufacturer ?? api.manufacturer ?? undefined);
-    location = hasExplicitLocation ? api.location! : (factoryLocation ?? api.location ?? undefined);
-    manufacturerLocationId =
-      factoryIdToWarRoom[String(norm.factoryId)] ?? api.manufacturerLocationId ?? String(norm.factoryId);
-  } else {
-    manufacturer = api.manufacturer ?? undefined;
-    location = api.location ?? undefined;
-    manufacturerLocationId = api.manufacturerLocationId ?? undefined;
-  }
+  const manufacturer = api.manufacturer ?? manufacturerByLocation?.manufacturerName ?? undefined;
+  const location = api.location ?? locationById?.name ?? undefined;
+  const manufacturerLocationId =
+    api.manufacturerLocationId ??
+    (norm.manufacturerLocationId != null
+      ? String(norm.manufacturerLocationId)
+      : (norm.locationId != null ? String(norm.locationId) : undefined));
 
   return {
     id: norm.id,
@@ -191,9 +261,13 @@ function mapApiProjectToProject(
     clientId,
     clientName: norm.client ?? client?.name ?? clientId,
     assessmentType: norm.assessmentType,
+    projectTypeId: norm.projectTypeId ?? undefined,
+    locationId: norm.locationId ?? undefined,
     location,
     manufacturer,
     manufacturerLocationId,
+    closed: norm.closed ?? undefined,
+    lastUpdate: norm.lastUpdate ?? undefined,
     status,
   };
 }
@@ -218,6 +292,9 @@ function applyFilters(projects: Project[], filters?: ProjectFilters): Project[] 
   } else if (filters?.projectType && filters.projectType !== 'all') {
     result = result.filter((p) => p.assessmentType === filters!.projectType);
   }
+  if (filters?.projectIds?.length) {
+    result = result.filter((p) => filters.projectIds!.includes(String(p.id)));
+  }
   if (filters?.projectStatuses?.length) {
     result = result.filter(
       (p) => p.status != null && filters.projectStatuses!.includes(p.status)
@@ -234,102 +311,120 @@ function applyFilters(projects: Project[], filters?: ProjectFilters): Project[] 
 export class ProjectService {
   private readonly envConfig = environment as ProjectEnvironmentConfig;
   private readonly API_BASE_URL = this.envConfig.apiBaseUrl ?? 'https://api.fleetpulse.net/api';
-  /** Path to sample JSON when not using API */
-  private readonly SAMPLE_JSON_PATH = 'assets/data/projects.json';
-  private readonly FACTORIES_PATH = 'assets/data/factories.json';
-  private readonly FACTORY_MAPPING_PATH = 'assets/data/factory-id-mapping.json';
-  private readonly ADDED_PROJECTS_STORAGE_KEY = 'war-room-added-projects';
 
   private readonly projectsRefresh$ = new Subject<void>();
 
-  /** In-memory cache for projects added when useProjectApi is false (JSON mode) */
-  private addedProjectsCache: Project[] = [];
-  private addedProjectsHydrated = false;
-
   constructor(
     private http: HttpClient,
-    private clientService: ClientService
-  ) {
-    this.hydrateAddedProjectsFromStorage();
-  }
+    private clientService: ClientService,
+    private locationService: LocationService
+  ) {}
 
-  private hydrateAddedProjectsFromStorage(): void {
-    if (this.addedProjectsHydrated || this.envConfig.useProjectApi === true) return;
-    try {
-      const raw = localStorage.getItem(this.ADDED_PROJECTS_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown;
-        const arr = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' && 'projects' in parsed ? (parsed as { projects: unknown[] }).projects : []);
-        this.addedProjectsCache = (arr || []).filter(
-          (p): p is Project => p != null && typeof p === 'object' && 'id' in p && 'clientId' in p
-        );
-      }
-      this.addedProjectsHydrated = true;
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  private persistAddedProjectsToStorage(): void {
-    if (this.envConfig.useProjectApi === true) return;
-    try {
-      localStorage.setItem(this.ADDED_PROJECTS_STORAGE_KEY, JSON.stringify(this.addedProjectsCache));
-    } catch {
-      // Ignore quota or other storage errors
-    }
-  }
-
-  getFactoriesWithManufacturers(): Observable<FactoryOption[]> {
+  private getManufacturersApi$(): Observable<ApiManufacturer[]> {
     return this.http
-      .get<{ manufacturers?: ApiManufacturer[]; factories?: ApiFactory[] }>(this.FACTORIES_PATH)
+      .get<{ items?: ApiManufacturer[] }>(`${this.API_BASE_URL}/Manufacturers`)
       .pipe(
-        map((data) => {
-          const manufacturers = data.manufacturers ?? [];
-          const factories = data.factories ?? [];
-          return factories.map((f) => {
-            const mfr = manufacturers.find((m) => m.manufacturer_id === f.manufacturer_id);
-            const mfrName = mfr?.manufacturer_name ?? 'Unknown';
-            const parts = [f.city, f.country].filter(Boolean);
-            const locSuffix = parts.length > 0 ? ` (${parts.join(', ')})` : '';
-            const label = `${mfrName} - ${f.factory_location_name}${locSuffix}`;
-            return {
-              factoryId: f.factory_id,
-              manufacturerId: f.manufacturer_id,
-              manufacturerName: mfrName,
-              label,
-              factory_location_name: f.factory_location_name,
-              city: f.city,
-              state_province: f.state_province,
-              country: f.country,
-            } as FactoryOption;
-          });
-        }),
-        catchError(() => of([]))
+        timeout(10000),
+        map((res) => res?.items ?? []),
+        catchError((err) => {
+          console.warn('Manufacturers API request failed, using empty fallback:', err);
+          return of([] as ApiManufacturer[]);
+        })
       );
   }
 
-  /** Resolve WarRoom factory id to FactoryOption for modal pre-selection */
-  getFactoryOptionForWarRoomId(warRoomId: string): Observable<FactoryOption | null> {
-    return this.loadFactoryMapping().pipe(
-      switchMap((mapping) =>
-        this.getFactoriesWithManufacturers().pipe(
-          map((opts) => {
-            const factoryIdToWarRoom = mapping.factoryIdToWarRoom ?? {};
-            const aliases = mapping.aliases ?? {};
-            const normalizedId = (aliases[warRoomId] ?? warRoomId).toLowerCase();
-            const entry = Object.entries(factoryIdToWarRoom).find(
-              ([, wr]) => (wr ?? '').toLowerCase() === normalizedId
-            );
-            if (!entry) {
-              return opts.find((o) => String(o.factoryId) === warRoomId) ?? null;
-            }
-            const apiId = entry[0];
-            return opts.find((o) => String(o.factoryId) === apiId) ?? null;
+  private getManufacturerById(id: string | number): Observable<ApiManufacturerDetail | null> {
+    return this.http
+      .get<ApiManufacturerDetail>(`${this.API_BASE_URL}/Manufacturers/${id}`)
+      .pipe(
+        catchError((err) => {
+          console.warn(`Manufacturer lookup failed for id=${id}:`, err);
+          return of(null);
+        })
+      );
+  }
+
+  updateManufacturer(
+    id: string | number,
+    updates: Partial<Pick<ApiManufacturerDetail, 'manufacturerName' | 'manufacturerLogo' | 'manufacturerLogoName' | 'locationId'>>
+  ): Observable<ApiManufacturerDetail | null> {
+    return this.getManufacturerById(id).pipe(
+      switchMap((existing) => {
+        if (!existing) return of(null);
+        const body = {
+          manufacturerName: updates.manufacturerName ?? existing.manufacturerName,
+          manufacturerLogo: updates.manufacturerLogo ?? existing.manufacturerLogo ?? null,
+          manufacturerLogoName: updates.manufacturerLogoName ?? existing.manufacturerLogoName ?? null,
+          locationId: updates.locationId ?? existing.locationId ?? 0,
+        };
+        return this.http.put<unknown>(`${this.API_BASE_URL}/Manufacturers/${id}`, body).pipe(
+          switchMap(() => this.getManufacturerById(id)),
+          catchError((err) => {
+            console.error(`Failed to update manufacturer id=${id}:`, err);
+            return throwError(() => err);
           })
-        )
+        );
+      })
+    );
+  }
+
+  getManufacturerLocationsWithManufacturers(): Observable<ManufacturerLocationOption[]> {
+    return forkJoin({
+      manufacturers: this.getManufacturersApi$(),
+      locations: this.locationService.getAllLocations(),
+    }).pipe(
+      map(({ manufacturers, locations }) => {
+        const manufacturerByLocationId = new Map<number, ApiManufacturer>();
+        for (const m of manufacturers) {
+          const locId = parseNumericId(m.locationId);
+          if (locId == null || manufacturerByLocationId.has(locId)) continue;
+          manufacturerByLocationId.set(locId, m);
+        }
+
+        return locations
+          .map((loc) => {
+            const mfr = manufacturerByLocationId.get(loc.id);
+            const mfrName = mfr?.manufacturerName ?? 'Unknown';
+            const label = mfr
+              ? `${mfrName} - ${loc.name}`
+              : `Location - ${loc.name}`;
+            return {
+              manufacturerLocationId: loc.id,
+              factoryId: loc.id,
+              manufacturerId: mfr?.id ?? 0,
+              manufacturerName: mfrName,
+              label,
+              factory_location_name: loc.name,
+              city: this.parseLocationName(loc.name).city,
+              state_province: null,
+              country: null,
+            } as ManufacturerLocationOption;
+          })
+          .sort((a, b) => a.label.localeCompare(b.label));
+      }),
+      catchError(() => of([]))
+    );
+  }
+
+  getFactoriesWithManufacturers(): Observable<FactoryOption[]> {
+    return this.getManufacturerLocationsWithManufacturers();
+  }
+
+  /** Resolve WarRoom factory id to FactoryOption for modal pre-selection */
+  getManufacturerLocationOptionForWarRoomId(warRoomId: string): Observable<ManufacturerLocationOption | null> {
+    return this.getManufacturerLocationsWithManufacturers().pipe(
+      map((opts) =>
+        opts.find((o) => String(o.manufacturerLocationId) === warRoomId) ??
+        opts.find((o) => String(o.factoryId) === warRoomId) ??
+        null
       ),
       catchError(() => of(null))
     );
+  }
+
+  /** Resolve WarRoom factory/manufacturer id to ManufacturerLocationOption for modal pre-selection */
+  getFactoryOptionForWarRoomId(warRoomId: string): Observable<FactoryOption | null> {
+    return this.getManufacturerLocationOptionForWarRoomId(warRoomId);
   }
 
   refreshProjects(): void {
@@ -343,212 +438,171 @@ export class ProjectService {
     );
   }
 
-  private loadFactoryMapping(): Observable<FactoryIdMapping> {
-    return this.http.get<FactoryIdMapping>(this.FACTORY_MAPPING_PATH).pipe(
-      catchError((err) => {
-        console.warn('Failed to load factory-id-mapping.json, using empty mapping:', err);
-        return of({ factoryIdToWarRoom: {}, aliases: {} });
-      })
-    );
-  }
-
-  private loadProjectsFromJson(
-    clients: Client[],
-    filters?: ProjectFilters
-  ): Observable<Project[]> {
-    const projects$ = this.http.get<unknown>(this.SAMPLE_JSON_PATH);
-    const factoriesData$ = this.http
-      .get<{ manufacturers?: ApiManufacturer[]; factories?: ApiFactory[] }>(
-        this.FACTORIES_PATH
-      )
-      .pipe(catchError(() => of({ manufacturers: [], factories: [] })));
-
-    return this.loadFactoryMapping().pipe(
-      switchMap((mapping) =>
-        projects$.pipe(
-          switchMap((raw) =>
-            factoriesData$.pipe(
-              map((cf) => {
-                const apiProjects = normalizeApiResponse(raw);
-                const manufacturers = cf.manufacturers ?? [];
-                const factories = cf.factories ?? [];
-                const factoryIdToWarRoom = mapping.factoryIdToWarRoom ?? {};
-                const projects = apiProjects
-                  .map((api) =>
-                    mapApiProjectToProject(api, clients, manufacturers, factories, factoryIdToWarRoom)
-                  )
-                  .filter((p): p is Project => p != null);
-                return applyFilters(projects, filters);
-              })
-            )
-          ),
-          catchError(() => of([] as Project[])),
-          delay(150)
-        )
-      ),
-      catchError(() => of([] as Project[]).pipe(delay(150)))
-    );
+  private getProjectsApi$(): Observable<unknown> {
+    const params = new HttpParams().set('includeClosed', 'true');
+    return this.http
+      .get<unknown>(`${this.API_BASE_URL}/Projects`, { params })
+      .pipe(
+        timeout(10000),
+        catchError((err) => {
+          console.warn('Projects API request failed, using empty fallback:', err);
+          return of([] as ApiProject[]);
+        })
+      );
   }
 
   getProjects(filters?: ProjectFilters): Observable<Project[]> {
-    if (this.envConfig.useProjectApi !== true) {
-      return this.clientService.getClients().pipe(
-        switchMap((clients) =>
-          this.loadFactoryMapping().pipe(
-            switchMap((mapping) =>
-              this.loadProjectsFromJson(clients, filters).pipe(
-                map((jsonProjects) => {
-                  const factoryIdToWarRoom = mapping.factoryIdToWarRoom ?? {};
-                  const merged = [...jsonProjects];
-                  const cachedFiltered = applyFilters(this.addedProjectsCache, filters);
-                  for (const p of cachedFiltered) {
-                    if (merged.some((m) => String(m.id) === String(p.id))) continue;
-                    const resolved = { ...p };
-                    if (resolved.manufacturerLocationId && factoryIdToWarRoom[resolved.manufacturerLocationId]) {
-                      resolved.manufacturerLocationId = factoryIdToWarRoom[resolved.manufacturerLocationId];
-                    }
-                    merged.push(resolved);
-                  }
-                  return merged;
-                })
-              )
-            )
-          )
-        )
-      );
-    }
-
-    return this.clientService.getClients().pipe(
-      switchMap((clients) =>
-        this.loadFactoryMapping().pipe(
-          switchMap((mapping) =>
-            this.http.get<unknown>(`${this.API_BASE_URL}/projects`).pipe(
-              map((raw) => {
-                const apiProjects = normalizeApiResponse(raw);
-                const factoryIdToWarRoom = mapping.factoryIdToWarRoom ?? {};
-                const projects = apiProjects
-                  .map((api) =>
-                    mapApiProjectToProject(api, clients, [], [], factoryIdToWarRoom)
-                  )
-                  .filter((p): p is Project => p != null);
-                return applyFilters(projects, filters);
-              }),
-              catchError((err) => {
-                console.warn('Projects API failed:', err);
-                return of([] as Project[]).pipe(delay(150));
-              })
-            )
-          )
-        )
-      )
+    return forkJoin({
+      clients: this.clientService.getClients(),
+      manufacturers: this.getManufacturersApi$(),
+      locations: this.locationService.getAllLocations(),
+      raw: this.getProjectsApi$(),
+    }).pipe(
+      map(({ clients, manufacturers, locations, raw }) => {
+        const apiProjects = normalizeApiResponse(raw);
+        const projects = apiProjects
+          .map((api) => mapApiProjectToProject(api, clients, manufacturers, locations))
+          .filter((p): p is Project => p != null);
+        return applyFilters(projects, filters);
+      })
     );
-  }
-
-  getProjectsByClient(clientId: string): Observable<Project[]> {
-    return this.getProjects({ clientId });
   }
 
   getProjectsByFactory(manufacturerLocationId: string): Observable<Project[]> {
     return this.getProjects({ manufacturerLocationId });
   }
 
+  getProjectsByManufacturerLocation(manufacturerLocationId: string): Observable<Project[]> {
+    return this.getProjects({ manufacturerLocationId });
+  }
+
+  getProjectsByClient(clientId: string): Observable<Project[]> {
+    return this.getProjects({ clientId });
+  }
+
+  resolveProjectTypeIdByName(typeName: string): Observable<number | null> {
+    const normalized = typeName.trim().toLowerCase();
+    if (!normalized) return of(null);
+    return this.getProjects({}).pipe(
+      map((projects) => {
+        const match = projects.find(
+          (p) => p.assessmentType?.trim().toLowerCase() === normalized && p.projectTypeId != null
+        );
+        return match?.projectTypeId ?? null;
+      }),
+      catchError(() => of(null))
+    );
+  }
+
+  private buildProjectUpsertPayload(project: Omit<Project, 'id'> | Project): {
+    name: string;
+    clientId: number;
+    locationId: number;
+    projectTypeId: number;
+    contract: string;
+    hasRoadTest: boolean;
+  } {
+    const clientId = parseNumericId(project.clientId);
+    const locationId =
+      parseNumericId(project.locationId) ??
+      parseManufacturerLocationId(project.manufacturerLocationId);
+    const projectTypeId = parseNumericId(project.projectTypeId);
+    if (clientId == null || locationId == null || projectTypeId == null) {
+      throw new Error('Missing required API fields: clientId, locationId, or projectTypeId.');
+    }
+    return {
+      name: project.projectName,
+      clientId,
+      locationId,
+      projectTypeId,
+      contract: '',
+      hasRoadTest: false,
+    };
+  }
+
+  private mapProjectById(projectId: number, fallback: Omit<Project, 'id'> | Project): Observable<Project> {
+    return forkJoin({
+      clients: this.clientService.getClients(),
+      manufacturers: this.getManufacturersApi$(),
+      locations: this.locationService.getAllLocations(),
+      raw: this.http.get<unknown>(`${this.API_BASE_URL}/Projects/${projectId}`).pipe(
+        timeout(10000),
+        catchError((err) => {
+          console.warn(`Project lookup failed for id=${projectId}, using fallback:`, err);
+          return of(null);
+        })
+      ),
+    }).pipe(
+      map(({ clients, manufacturers, locations, raw }) => {
+        if (!raw) {
+          return ({ ...fallback, id: projectId } as Project);
+        }
+        const api = raw as ApiProject;
+        const mapped = mapApiProjectToProject(api, clients, manufacturers, locations);
+        return mapped ?? ({ ...fallback, id: projectId } as Project);
+      })
+    );
+  }
+
   addProject(project: Omit<Project, 'id'>): Observable<Project> {
-    if (this.envConfig.useProjectApi !== true) {
-      return this.http.get<unknown>(this.SAMPLE_JSON_PATH).pipe(
-        map((raw) => {
-          const apiProjects = normalizeApiResponse(raw);
-          const ids = apiProjects
-            .map((p) => p.project_id ?? p.id)
-            .map((v) => (typeof v === 'string' || typeof v === 'number' ? Number.parseInt(String(v), 10) : NaN))
-            .filter((v) => Number.isFinite(v));
-          const cacheIds = this.addedProjectsCache
-            .map((p) => Number.parseInt(String(p.id), 10))
-            .filter((v) => Number.isFinite(v));
-          const allIds = [...ids, ...cacheIds];
-          const nextId = allIds.length > 0 ? Math.max(0, ...allIds) + 1 : 1;
-          const newProject = { ...project, id: nextId } as Project;
-          this.addedProjectsCache.push(newProject);
-          this.persistAddedProjectsToStorage();
-          return newProject;
-        }),
-        catchError(() => {
-          const newProject = { ...project, id: Date.now() } as Project;
-          this.addedProjectsCache.push(newProject);
-          this.persistAddedProjectsToStorage();
-          return of(newProject);
-        }),
-        delay(100)
-      );
+    let body: {
+      name: string;
+      clientId: number;
+      locationId: number;
+      projectTypeId: number;
+      contract: string;
+      hasRoadTest: boolean;
+    };
+    try {
+      body = this.buildProjectUpsertPayload(project);
+    } catch (err) {
+      return throwError(() => err);
     }
 
-    const body = {
-      projectName: project.projectName,
-      clientId: project.clientId,
-      clientName: project.clientName,
-      assessmentType: project.assessmentType,
-      location: project.location,
-      manufacturer: project.manufacturer,
-      manufacturerLocationId: project.manufacturerLocationId,
-      status: project.status ?? 'Open',
-    };
-
     return this.http
-      .post<ApiProject>(`${this.API_BASE_URL}/projects`, body)
+      .post<{ id?: number | string }>(`${this.API_BASE_URL}/Projects`, body)
       .pipe(
-        switchMap((api) =>
-          this.clientService.getClients().pipe(
-            map((clients) => {
-              const mapped = mapApiProjectToProject(api as ApiProject, clients, [], []);
-              return mapped ?? ({ ...project, id: api.id ?? api.project_id } as Project);
-            })
-          )
-        ),
+        switchMap((created) => {
+          const createdId = parseNumericId(created?.id);
+          if (createdId == null) {
+            throw new Error('Project create response did not include id.');
+          }
+          return this.mapProjectById(createdId, project);
+        }),
         catchError((err) => {
           console.error('Failed to add project:', err);
-          throw err;
+          return throwError(() => err);
         })
       );
   }
 
   updateProject(project: Project): Observable<Project> {
-    if (this.envConfig.useProjectApi !== true) {
-      const existingIndex = this.addedProjectsCache.findIndex((p) => String(p.id) === String(project.id));
-      const existing = existingIndex >= 0 ? this.addedProjectsCache[existingIndex] : null;
-      const persisted = { ...(existing ?? project), ...project };
-      if (existingIndex >= 0) {
-        this.addedProjectsCache[existingIndex] = persisted;
-      } else {
-        this.addedProjectsCache.push(persisted);
-      }
-      this.persistAddedProjectsToStorage();
-      return of(persisted).pipe(delay(100));
+    const projectId = parseNumericId(project.id);
+    if (projectId == null) {
+      return throwError(() => new Error('Invalid project id for update.'));
     }
 
-    const body = {
-      projectName: project.projectName,
-      clientId: project.clientId,
-      clientName: project.clientName,
-      assessmentType: project.assessmentType,
-      location: project.location,
-      manufacturer: project.manufacturer,
-      manufacturerLocationId: project.manufacturerLocationId,
-      status: project.status ?? 'Open',
+    let body: {
+      name: string;
+      clientId: number;
+      locationId: number;
+      projectTypeId: number;
+      contract: string;
+      hasRoadTest: boolean;
     };
+    try {
+      body = this.buildProjectUpsertPayload(project);
+    } catch (err) {
+      return throwError(() => err);
+    }
 
     return this.http
-      .put<ApiProject>(`${this.API_BASE_URL}/projects/${project.id}`, body)
+      .put<unknown>(`${this.API_BASE_URL}/Projects/${projectId}`, body)
       .pipe(
-        switchMap((api) =>
-          this.clientService.getClients().pipe(
-            map((clients) => {
-              const mapped = mapApiProjectToProject(api as ApiProject, clients, [], []);
-              return mapped ?? ({ ...project, id: api.id ?? api.project_id } as Project);
-            })
-          )
-        ),
+        switchMap(() => this.mapProjectById(projectId, project)),
         catchError((err) => {
           console.error('Failed to update project:', err);
-          throw err;
+          return throwError(() => err);
         })
       );
   }
@@ -580,6 +634,203 @@ export class ProjectService {
     );
   }
 
+  /**
+   * Fetches manufacturers from backend API for filter dropdown.
+   * API returns { items: [{ id, manufacturerName, manufacturerLogo, locationId }] }
+   */
+  getManufacturersFromApi(): Observable<FilterOptionWithCount[]> {
+    return this.http
+      .get<{ items?: { id: number; manufacturerName: string; manufacturerLogo?: string }[] }>(
+        `${this.API_BASE_URL}/Manufacturers`
+      )
+      .pipe(
+        map((res) => {
+          const items = res?.items ?? [];
+          return items.map((m) => ({
+            id: m.manufacturerName,
+            name: m.manufacturerName,
+            count: 0,
+          })).sort((a, b) => a.name.localeCompare(b.name));
+        }),
+        catchError((err) => {
+          console.warn('Manufacturers API failed:', err);
+          return of([]);
+        })
+      );
+  }
+
+  /**
+   * Fetches manufacturers with logos for activity log enrichment.
+   * API returns { items: [{ id, manufacturerName, manufacturerLogo }] }
+   */
+  getManufacturersWithLogos(): Observable<{ id: number; name: string; logo?: string }[]> {
+    return this.http
+      .get<{ items?: { id: number; manufacturerName: string; manufacturerLogo?: string }[] }>(
+        `${this.API_BASE_URL}/Manufacturers`
+      )
+      .pipe(
+        map((res) => {
+          const items = res?.items ?? [];
+          return items.map((m) => ({
+            id: m.id,
+            name: m.manufacturerName,
+            logo: m.manufacturerLogo ?? undefined,
+          })).sort((a, b) => a.name.localeCompare(b.name));
+        }),
+        catchError((err) => {
+          console.warn('Manufacturers API failed:', err);
+          return of([]);
+        })
+      );
+  }
+
+  getManufacturersForHierarchy(): Observable<ApiManufacturer[]> {
+    return this.getManufacturersApi$();
+  }
+
+  /**
+   * Builds the full manufacturer hierarchy (ParentGroup[]) from API.
+   * Uses Manufacturers and Locations only (strict API mode).
+   */
+  buildParentGroupsFromApi(): Observable<ParentGroup[]> {
+    return forkJoin({
+      manufacturers: this.getManufacturersApi$(),
+      locations: this.locationService.getAllLocations(),
+    }).pipe(
+      map(({ manufacturers, locations }) => {
+        const parentGroupId = 'api-manufacturers';
+        const subsidiaries: SubsidiaryCompany[] = manufacturers.map((mfr) => {
+          const subsidiaryId = String(mfr.id);
+          const locationsForMfr = this.getLocationsForManufacturer(mfr, locations);
+          const manufacturerLocations: ManufacturerLocation[] = locationsForMfr.map((loc) => {
+            const { city, country } = this.parseLocationName(loc.name);
+            return {
+              id: String(loc.id),
+              parentGroupId,
+              subsidiaryId,
+              name: loc.name,
+              city: city || loc.name,
+              country: country || undefined,
+              coordinates: { latitude: loc.latitude, longitude: loc.longitude },
+              status: 'ACTIVE' as const,
+              syncStability: 90,
+              assets: 0,
+              incidents: 0,
+            };
+          });
+          const subsidiaryMetrics = this.deriveSubsidiaryMetrics(manufacturerLocations);
+          const firstLoc = locationsForMfr[0];
+          const firstCity = firstLoc ? this.parseLocationName(firstLoc.name).city : undefined;
+          return {
+            id: subsidiaryId,
+            parentGroupId,
+            name: mfr.manufacturerName,
+            status: 'ACTIVE' as const,
+            metrics: subsidiaryMetrics,
+            manufacturerLocations,
+            factories: manufacturerLocations,
+            hubs: [] as Hub[],
+            quantumChart: this.deriveQuantumChart(manufacturerLocations, subsidiaryMetrics),
+            location: firstCity,
+            logo: mfr.manufacturerLogo ?? undefined,
+          };
+        });
+        const groupMetrics = subsidiaries.reduce(
+          (acc, sub) => ({
+            assetCount: acc.assetCount + (sub.metrics.assetCount ?? 0),
+            incidentCount: acc.incidentCount + (sub.metrics.incidentCount ?? 0),
+            syncStability: acc.syncStability + (sub.metrics.syncStability ?? 0),
+          }),
+          { assetCount: 0, incidentCount: 0, syncStability: 0 }
+        );
+        const subsidiaryCount = subsidiaries.length || 1;
+        return [{
+          id: parentGroupId,
+          name: 'Manufacturers',
+          status: 'ACTIVE' as const,
+          metrics: {
+            assetCount: groupMetrics.assetCount,
+            incidentCount: groupMetrics.incidentCount,
+            syncStability: Math.round((groupMetrics.syncStability / subsidiaryCount) * 10) / 10,
+          },
+          subsidiaries,
+        }] as ParentGroup[];
+      })
+    );
+  }
+
+  private deriveSubsidiaryMetrics(locations: ManufacturerLocation[]): {
+    assetCount: number;
+    incidentCount: number;
+    syncStability: number;
+  } {
+    const rawAssetCount = locations.reduce((sum, loc) => sum + Number(loc.assets ?? 0), 0);
+    const assetCount = rawAssetCount > 0 ? rawAssetCount : locations.length;
+    const incidentCount = locations.reduce((sum, loc) => sum + Number(loc.incidents ?? 0), 0);
+    const weightedSync = locations.reduce(
+      (sum, loc) => sum + Number(loc.syncStability ?? 0) * Math.max(1, Number(loc.assets ?? 0)),
+      0
+    );
+    const totalWeight = locations.reduce((sum, loc) => sum + Math.max(1, Number(loc.assets ?? 0)), 0);
+    const syncStability = totalWeight > 0 ? Math.round((weightedSync / totalWeight) * 10) / 10 : 0;
+    return { assetCount, incidentCount, syncStability };
+  }
+
+  private deriveQuantumChart(
+    locations: ManufacturerLocation[],
+    metrics: { assetCount: number; incidentCount: number; syncStability: number }
+  ): QuantumChartData {
+    // TODO: Replace with backend metrics API when available (use locationsForMfr/manufacturerLocations).
+    const base = Math.max(0, Math.min(100, Math.round(metrics.syncStability)));
+    const spread = Math.min(12, Math.max(3, locations.length * 2));
+    const points = [
+      Math.max(0, base - spread),
+      Math.max(0, base - Math.ceil(spread * 0.4)),
+      base,
+      Math.min(100, base + Math.ceil(spread * 0.3)),
+      Math.min(100, base + spread),
+      Math.max(0, base - Math.floor(spread * 0.2)),
+    ];
+    return { dataPoints: points, highlightedIndex: 4 };
+  }
+
+  private getLocationsForManufacturer(
+    mfr: ApiManufacturer,
+    locations: ApiLocation[]
+  ): ApiLocation[] {
+    const result: ApiLocation[] = [];
+    const seen = new Set<number>();
+    const mfrNameNorm = mfr.manufacturerName.trim().toLowerCase();
+    const mfrNameInParens = `(${mfr.manufacturerName})`;
+    const mfrNameInParensLower = mfrNameInParens.toLowerCase();
+
+    for (const loc of locations) {
+      if (seen.has(loc.id)) continue;
+      const mfrLocationId = parseNumericId(mfr.locationId);
+      const isPrimary = mfrLocationId != null && loc.id === mfrLocationId;
+      const nameContainsMfr = loc.name.toLowerCase().includes(mfrNameInParensLower) ||
+        loc.name.toLowerCase().includes(mfrNameNorm);
+      if (isPrimary || nameContainsMfr) {
+        result.push(loc);
+        seen.add(loc.id);
+      }
+    }
+    const mfrLocationId = parseNumericId(mfr.locationId);
+    if (result.length === 0 && mfrLocationId != null) {
+      const primary = locations.find((l) => l.id === mfrLocationId);
+      if (primary) result.push(primary);
+    }
+    return result;
+  }
+
+  private parseLocationName(name: string): { city: string; country: string } {
+    const match = name.match(/^([^(]+)\s*\([^)]+\)$/);
+    if (match) {
+      return { city: match[1].trim(), country: '' };
+    }
+    return { city: name.trim(), country: '' };
+  }
+
   getClientOptionsWithCounts(): Observable<FilterOptionWithCount[]> {
     return this.getProjectsWithRefresh({}).pipe(
       map((projects) => {
@@ -602,16 +853,24 @@ export class ProjectService {
   }
 
   getManufacturerOptionsWithCounts(): Observable<FilterOptionWithCount[]> {
-    return this.getProjectsWithRefresh({}).pipe(
-      map((projects) => {
-        const byId = new Map<string, number>();
+    return combineLatest([
+      this.getManufacturersFromApi(),
+      this.getProjectsWithRefresh({}),
+    ]).pipe(
+      map(([apiManufacturers, projects]) => {
+        const countByManufacturer = new Map<string, number>();
         for (const p of projects) {
-          if (!p.manufacturer) continue;
-          byId.set(p.manufacturer, (byId.get(p.manufacturer) ?? 0) + 1);
+          if (p.manufacturer) {
+            countByManufacturer.set(
+              p.manufacturer,
+              (countByManufacturer.get(p.manufacturer) ?? 0) + 1
+            );
+          }
         }
-        return Array.from(byId.entries())
-          .map(([id, count]) => ({ id, name: id, count }))
-          .sort((a, b) => a.name.localeCompare(b.name));
+        return apiManufacturers.map((m) => ({
+          ...m,
+          count: countByManufacturer.get(m.name) ?? 0,
+        }));
       })
     );
   }
@@ -628,6 +887,20 @@ export class ProjectService {
           .map(([id, count]) => ({ id, name: id, count }))
           .sort((a, b) => a.name.localeCompare(b.name));
       })
+    );
+  }
+
+  getProjectOptionsWithCounts(): Observable<FilterOptionWithCount[]> {
+    return this.getProjectsWithRefresh({}).pipe(
+      map((projects) =>
+        projects
+          .map((p) => ({
+            id: String(p.id),
+            name: p.projectName ?? String(p.id),
+            count: 1,
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      )
     );
   }
 

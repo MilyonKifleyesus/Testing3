@@ -55,6 +55,14 @@
     </div>
   </div>
   }
+  @if (!mapLoading() && !mapLoadError() && nodes().length > 0 && markersVm().length === 0 && routesVm().length === 0) {
+  <div class="map-empty-overlay" role="status" aria-live="polite">
+    <div class="map-empty-content">
+      <h3 class="map-empty-title">No valid backend coordinates available</h3>
+      <p class="map-empty-message">Data loaded successfully, but nothing can be plotted on the map yet.</p>
+    </div>
+  </div>
+  }
 
   @if (contextMenuVisible()) {
   <div class="map-context-menu" [style.left.px]="contextMenuPosition().x" [style.top.px]="contextMenuPosition().y"

@@ -155,7 +155,7 @@
           [cdkDragData]="widget"
           class="widget-container"
         >
-          <div class="data-card widget-card" [style.height.px]="widget.height">
+          <div class="data-card widget-card" [style.height.px]="widget.height" [class.map-widget]="widget.id === 'widget-map'">
             
             <!-- Drag Handle -->
             <div class="widget-drag-handle" cdkDragHandle>
@@ -216,6 +216,12 @@
                 *ngIf="widget.chartOptions" 
                 [chartOptions]="widget.chartOptions"
               ></spk-apex-charts>
+
+              <!-- Fluorescence Map widget -->
+              <app-fluorescence-map
+                *ngIf="widget.id === 'widget-map'"
+                class="dashboard-map-embed"
+              ></app-fluorescence-map>
 
               <!-- Recent Activities Widget -->
               <div *ngIf="widget.id === 'widget-14'" class="recent-activities-container">
@@ -303,6 +309,11 @@
             *ngIf="fullscreenWidget.chartOptions" 
             [chartOptions]="fullscreenWidget.chartOptions"
           ></spk-apex-charts>
+
+          <app-fluorescence-map
+            *ngIf="fullscreenWidget.id === 'widget-map'"
+            class="dashboard-map-embed dashboard-map-embed-fullscreen"
+          ></app-fluorescence-map>
           
           <!-- Recent Activities fullscreen view -->
           <div *ngIf="fullscreenWidget.id === 'widget-14'" class="recent-activities-container fullscreen-activities">

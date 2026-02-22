@@ -2,7 +2,11 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { AddCompanyModalComponent } from './add-company-modal.component';
-import { FACTORIES_JSON, CLIENTS_JSON, getFirstClient, getFirstFactoryOption } from '../../../../../shared/testing/test-data';
+import {
+  CLIENTS_JSON,
+  getFirstClient,
+  getFirstManufacturerLocationOption,
+} from '../../../../../shared/testing/test-data';
 
 describe('AddCompanyModalComponent (unit)', () => {
   let fixture: ComponentFixture<AddCompanyModalComponent>;
@@ -23,24 +27,24 @@ describe('AddCompanyModalComponent (unit)', () => {
     fixture.componentRef.setInput('clients', [{ id: firstClient.id, name: firstClient.name, code: firstClient.code }]);
     fixture.detectChanges();
 
-    // Resolve all HTTP requests (order may vary: clients, factories, projects, factory-id-mapping)
+    // Resolve all HTTP requests (order may vary: clients, manufacturers, locations, projects)
     const url = (r: { url: string }) => r.url;
-    const clientsReq = httpMock.match((r) => url(r).includes('clients.json'));
+    const clientsReq = httpMock.match((r) => url(r).includes('/Clients'));
     clientsReq.forEach((req) => req.flush(CLIENTS_JSON));
-    const factoriesReq = httpMock.match((r) => url(r).includes('factories.json'));
-    factoriesReq.forEach((req) => req.flush(FACTORIES_JSON));
-    const projectsReq = httpMock.match((r) => url(r).includes('projects.json') || (url(r).includes('projects') && !url(r).includes('factories')));
-    projectsReq.forEach((req) => req.flush({ projects: [] }));
-    const mappingReq = httpMock.match((r) => url(r).includes('factory-id-mapping'));
-    mappingReq.forEach((req) => req.flush({ factoryIdToWarRoom: {}, aliases: {} }));
+    const manufacturersReq = httpMock.match((r) => url(r).includes('/Manufacturers'));
+    manufacturersReq.forEach((req) => req.flush({ items: [] }));
+    const locationsReq = httpMock.match((r) => url(r).includes('/Locations'));
+    locationsReq.forEach((req) => req.flush({ items: [] }));
+    const projectsReq = httpMock.match((r) => url(r).includes('/Projects'));
+    projectsReq.forEach((req) => req.flush({ items: [] }));
     // Flush any remaining requests (e.g. from getProjectTypes)
     const remaining = httpMock.match(() => true);
     remaining.forEach((req) => {
       const u = req.request.url;
-      if (u.includes('clients')) req.flush({ clients: [] });
-      else if (u.includes('factories')) req.flush({ manufacturers: [], factories: [] });
-      else if (u.includes('projects')) req.flush({ projects: [] });
-      else if (u.includes('factory-id-mapping')) req.flush({ factoryIdToWarRoom: {}, aliases: {} });
+      if (u.includes('/Clients')) req.flush({ items: [] });
+      else if (u.includes('/Manufacturers')) req.flush({ items: [] });
+      else if (u.includes('/Locations')) req.flush({ items: [] });
+      else if (u.includes('/Projects')) req.flush({ items: [] });
       else req.flush({});
     });
     tick(200);
@@ -54,12 +58,15 @@ describe('AddCompanyModalComponent (unit)', () => {
       pending.forEach((req) => {
         try {
           const u = req.request.url;
-          if (u.includes('clients')) req.flush({ clients: [] });
-          else if (u.includes('factories')) req.flush({ manufacturers: [], factories: [] });
-          else if (u.includes('projects')) req.flush({ projects: [] });
-          else if (u.includes('factory-id-mapping')) req.flush({ factoryIdToWarRoom: {}, aliases: {} });
+          if (u.includes('/Clients')) req.flush({ items: [] });
+          else if (u.includes('/Manufacturers')) req.flush({ items: [] });
+          else if (u.includes('/Locations')) req.flush({ items: [] });
+          else if (u.includes('/Projects')) req.flush({ items: [] });
           else req.flush({});
-        } catch {}
+        } catch (err) {
+          console.error('Unexpected error in test cleanup:', err);
+          throw err;
+        }
       });
     }
     httpMock.verify();
@@ -70,9 +77,9 @@ describe('AddCompanyModalComponent (unit)', () => {
     component.projectAdded.subscribe((data) => { emitted = data; });
 
     const firstClient = getFirstClient();
-    const firstFactory = getFirstFactoryOption();
+    const firstFactory = getFirstManufacturerLocationOption();
     component.clientId.set(firstClient.id);
-    component.selectedFactory.set(firstFactory);
+    component.selectedManufacturerLocation.set(firstFactory);
     component.projectName.set('Test Project');
     component.assessmentType.set('New Build');
     component.projectStatus.set('Active');
@@ -88,7 +95,7 @@ describe('AddCompanyModalComponent (unit)', () => {
 
   it('sets error message when client not selected', () => {
     component.clientId.set(null);
-    component.selectedFactory.set(getFirstFactoryOption());
+    component.selectedManufacturerLocation.set(getFirstManufacturerLocationOption());
     component.projectName.set('Test');
     component.assessmentType.set('New Build');
 

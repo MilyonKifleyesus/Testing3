@@ -1,5 +1,5 @@
 <div class="markers-overlay">
-  @for (m of markers(); track m.id) {
+  @for (m of markers(); track m.renderKey) {
     <div
       class="marker-container marker-group {{ m.lodClass }} {{ m.statusKey }}"
       [class.marker-cluster-container]="m.isCluster"
@@ -23,12 +23,12 @@
     >
       <svg width="0" height="0" style="position: absolute">
         <defs>
-          <radialGradient [id]="'marker-gloss-' + m.id" cx="30%" cy="30%" r="70%">
+          <radialGradient [id]="'marker-gloss-' + m.renderKey" cx="30%" cy="30%" r="70%">
             <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
             <stop offset="60%" stop-color="#ffffff" stop-opacity="0.12" />
             <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
           </radialGradient>
-          <linearGradient [id]="'marker-ring-sheen-' + m.id" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient [id]="'marker-ring-sheen-' + m.renderKey" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
             <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
           </linearGradient>
@@ -51,12 +51,12 @@
               <polygon class="marker-client-diamond" points="0,-14 12,0 0,14 -12,0" [attr.stroke]="m.statusColor" fill="rgba(8, 12, 16, 0.85)" stroke-width="2"></polygon>
               <g class="marker-logo">
                 <defs>
-                  <clipPath [id]="'logo-clip-client-' + m.id">
+                  <clipPath [id]="'logo-clip-client-' + m.renderKey">
                     <polygon points="0,-9 8,0 0,9 -8,0" />
                   </clipPath>
                 </defs>
                 @if (m.hasLogo) {
-                  <image class="marker-logo-image" [attr.href]="m.logoPath" x="-8" y="-9" width="16" height="18" [attr.clip-path]="'url(#logo-clip-client-' + m.id + ')'" preserveAspectRatio="xMidYMid slice" (error)="onLogoError(m.node, m.logoPath)" />
+                  <image class="marker-logo-image" [attr.href]="m.logoPath" x="-8" y="-9" width="16" height="18" [attr.clip-path]="'url(#logo-clip-client-' + m.renderKey + ')'" preserveAspectRatio="xMidYMid slice" (error)="onLogoError(m.node, m.logoPath)" />
                 } @else {
                   <text class="marker-initials marker-client-initials" text-anchor="middle" dominant-baseline="central" y="0.5">{{ m.initials }}</text>
                 }
@@ -69,13 +69,13 @@
               }
               <circle class="marker-halo" cx="0" cy="0" r="22"></circle>
               <circle class="marker-ring" cx="0" cy="0" r="16"></circle>
-              <circle class="marker-sheen" cx="0" cy="0" r="16" [attr.fill]="'url(#marker-ring-sheen-' + m.id + ')'"></circle>
+              <circle class="marker-sheen" cx="0" cy="0" r="16" [attr.fill]="'url(#marker-ring-sheen-' + m.renderKey + ')'"></circle>
               <circle class="marker-ring-inner" cx="0" cy="0" r="13.5"></circle>
               <circle class="marker-core" cx="0" cy="0" r="11"></circle>
-              <circle class="marker-gloss" cx="0" cy="0" r="11" [attr.fill]="'url(#marker-gloss-' + m.id + ')'"></circle>
+              <circle class="marker-gloss" cx="0" cy="0" r="11" [attr.fill]="'url(#marker-gloss-' + m.renderKey + ')'"></circle>
               <g class="marker-logo">
                 <defs>
-                  <clipPath [id]="'logo-clip-' + m.id">
+                  <clipPath [id]="'logo-clip-' + m.renderKey">
                     <circle cx="0" cy="0" r="9.5" />
                   </clipPath>
                 </defs>
@@ -87,7 +87,7 @@
                     y="-9.5"
                     width="19"
                     height="19"
-                    [attr.clip-path]="'url(#logo-clip-' + m.id + ')'"
+                    [attr.clip-path]="'url(#logo-clip-' + m.renderKey + ')'"
                     preserveAspectRatio="xMidYMid slice"
                     (error)="onLogoError(m.node, m.logoPath)"
                   />

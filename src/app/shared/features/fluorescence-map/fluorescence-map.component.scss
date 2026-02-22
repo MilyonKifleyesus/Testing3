@@ -91,8 +91,8 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
   display: flex;
   flex-direction: column;
   min-height: 500px;
-  height: calc(100vh - 52px);
-  max-height: calc(100vh - 52px);
+  height: calc(85vh - 52px);
+  max-height: calc(85vh - 52px);
   font-family: 'Geist', 'Plus Jakarta Sans', sans-serif;
   background-color: var(--cm-bg);
   color: var(--cm-text);
@@ -180,6 +180,30 @@ $card-border: var(--primary02, rgba(27, 67, 50, 0.12));
     outline: 2px dashed rgba(0, 255, 65, 0.4);
     outline-offset: -2px;
     box-shadow: inset 0 0 0 1px rgba(0, 255, 65, 0.15);
+  }
+}
+
+.map-data-state-banner {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  z-index: 40;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid transparent;
+  backdrop-filter: blur(6px);
+
+  &.loading {
+    background: rgba(15, 23, 42, 0.78);
+    border-color: rgba(148, 163, 184, 0.24);
+    color: #e2e8f0;
+  }
+
+  &.error {
+    background: rgba(127, 29, 29, 0.88);
+    border-color: rgba(248, 113, 113, 0.5);
+    color: #fee2e2;
   }
 }
 

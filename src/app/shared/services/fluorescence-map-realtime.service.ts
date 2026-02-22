@@ -100,7 +100,7 @@ export class WarRoomRealtimeService implements OnDestroy {
    * Add a random activity log entry
    */
   private addRandomActivityLog(): void {
-    const factories = this.warRoomService.factories();
+    const factories = this.warRoomService.manufacturerLocations();
     if (factories.length === 0) return;
 
     const randomFactory = factories[Math.floor(Math.random() * factories.length)];
@@ -135,6 +135,7 @@ export class WarRoomRealtimeService implements OnDestroy {
       description: randomDescription,
       parentGroupId: randomFactory.parentGroupId,
       subsidiaryId: randomFactory.subsidiaryId,
+      manufacturerLocationId: randomFactory.id,
       factoryId: randomFactory.id,
       location: location.toUpperCase(),
       logo: subsidiary?.logo,

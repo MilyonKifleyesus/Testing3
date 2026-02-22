@@ -19,7 +19,6 @@ import html2canvas from 'html2canvas';
 
 type MapEnvironmentConfig = typeof environment & {
   mapStyles?: { light?: string; dark?: string };
-  geocodeApiUrl?: string;
 };
 
 interface RouteFeatureProperties {
@@ -84,11 +83,9 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
   private destroyed = false;
   private pendingZoomEntityId: string | null = null;
-  private readonly geocodedCoordinatesByNodeId = new Map<string, { latitude: number; longitude: number }>();
   private isFullscreen = false;
   private fullscreenHandler: (() => void) | null = null;
   private overlayUpdateRaf: number | null = null;
-  private overlayEnsureCoords = false;
   private selectionZoomTimeoutId: any = null;
   private zoomStableTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private previousViewState: { center: [number, number]; zoom: number } | null = null;
@@ -98,7 +95,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   private readonly defaultView = {
     center: [0, 0] as [number, number],
     zoom: 1.8,
-    pitch: 45,
+    pitch: 0,
     bearing: 0,
   };
 
@@ -133,8 +130,6 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   // --------------------------------------------------------------------------
 
   // Caches
-  private geocodeCache = new Map<string, { latitude: number; longitude: number }>();
-  private geocodeInFlight = new Map<string, Promise<{ latitude: number; longitude: number }>>();
   private logoFailureCache = new Map<string, Set<string>>();
 
   // Signals
@@ -376,84 +371,12 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     return this.assetsService.getTypeLabel(node);
   }
 
-  private async ensureNodeCoordinates(nodes: WarRoomNode[]): Promise<void> {
-    const candidates = nodes
-      .map((node) => ({ node, label: this.getLocationLabel(node) }))
-      .filter((item) => !!item.label);
-    if (candidates.length === 0) return;
-
-    await Promise.all(
-      candidates.map(async ({ node, label }) => {
-        if (isValidCoordinates(this.getNodeCoordinates(node))) {
-          return;
-        }
-        try {
-          const coords = await this.geocodeLocation(label);
-          if (isValidCoordinates(coords)) {
-            this.geocodedCoordinatesByNodeId.set(String(node.id), {
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-            });
-          }
-        } catch {
-          // Ignore geocode failures
-        }
-      })
-    );
-  }
-
-  private getLocationLabel(node: WarRoomNode): string {
-    const city = (node.city || '').trim();
-    const country = (node.country || '').trim();
-    if (city && country) return `${city}, ${country}`;
-    return city || country || '';
-  }
-
   private getNodesWithValidCoordinates(nodes: WarRoomNode[]): WarRoomNode[] {
     return nodes.filter((node) => isValidCoordinates(this.getNodeCoordinates(node)));
   }
 
   private getNodeCoordinates(node: WarRoomNode): { latitude: number; longitude: number } | null {
-    return this.geocodedCoordinatesByNodeId.get(String(node.id)) ?? node.coordinates;
-  }
-
-  private async geocodeLocation(location: string): Promise<{ latitude: number; longitude: number }> {
-    const cached = this.geocodeCache.get(location);
-    if (cached) return cached;
-
-    const inflight = this.geocodeInFlight.get(location);
-    if (inflight) return inflight;
-
-    const request = (async () => {
-      const geocodeUrl =
-        `${this.envConfig.geocodeApiUrl ?? 'https://geocoding-api.open-meteo.com/v1/search'}?name=${encodeURIComponent(location)}` +
-        `&count=1&language=en&format=json`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      try {
-        const response = await fetch(geocodeUrl, { cache: 'no-store', signal: controller.signal });
-        if (!response.ok) {
-          throw new Error(`Geocoding request failed with status ${response.status}`);
-        }
-        const data = (await response.json()) as { results?: Array<{ latitude: number; longitude: number }> };
-        const result = data.results?.[0];
-        if (!result) {
-          throw new Error('No geocoding results found for location.');
-        }
-        const coords = { latitude: result.latitude, longitude: result.longitude };
-        this.geocodeCache.set(location, coords);
-        return coords;
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    })();
-
-    this.geocodeInFlight.set(location, request);
-    try {
-      return await request;
-    } finally {
-      this.geocodeInFlight.delete(location);
-    }
+    return node.coordinates ?? null;
   }
 
   private getTooltipBounds(): { left: number; right: number; top: number; bottom: number } {
@@ -488,7 +411,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     this.hoveredNode.set(node);
     if (node) {
       const selection: FleetSelection = {
-        level: node.level ?? 'factory',
+        level: node.level ?? 'manufacturer',
         id: node.companyId,
         parentGroupId: node.parentGroupId,
         subsidiaryId: node.subsidiaryId,
@@ -542,17 +465,12 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     this.logoFailureVersion.update((value) => value + 1);
   }
 
-  private scheduleOverlayUpdate(ensureCoords: boolean): void {
-    if (ensureCoords) {
-      this.overlayEnsureCoords = true;
-    }
+  private scheduleOverlayUpdate(_ensureCoords: boolean): void {
     if (this.overlayUpdateRaf !== null) return;
 
     this.overlayUpdateRaf = requestAnimationFrame(() => {
       this.overlayUpdateRaf = null;
-      const shouldEnsure = this.overlayEnsureCoords;
-      this.overlayEnsureCoords = false;
-      void this.syncOverlays(shouldEnsure);
+      void this.syncOverlays();
     });
   }
 
@@ -776,17 +694,13 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  private async syncOverlays(ensureCoords = false): Promise<void> {
+  private async syncOverlays(): Promise<void> {
     if (!this.mapInstance || !this.mapLoaded || this.destroyed) return;
     // Defensive check for initialization state (rare but possible in some test/mock scenarios)
     if (!this.routesVm || !this.markersVm) return;
 
     const allNodes = this.nodes();
     const zoom = this.mapInstance.getZoom();
-
-    if (ensureCoords) {
-      await this.ensureNodeCoordinates(allNodes);
-    }
 
     const nodes = this.getNodesWithValidCoordinates(allNodes);
 
@@ -796,6 +710,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
 
     const markerPixels = new Map<string, { x: number; y: number }>();
     const projectStatusByNodeId = this.buildProjectStatusByNodeId(this.projectRoutes());
+    const markerRenderKeyCounts = new Map<string, number>();
     const markers: MarkerVm[] = [];
 
     nodes.forEach((node) => {
@@ -805,7 +720,8 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       const point = this.mapInstance!.project([safeDisplayCoords.longitude, safeDisplayCoords.latitude]);
       markerPixels.set(node.id, { x: point.x, y: point.y });
       const projectStatusColor = this.getProjectStatusColor(node, projectStatusByNodeId);
-      const vm = this.buildMarkerVm(node, zoom, selected, hovered, baseUrl, safeDisplayCoords, projectStatusColor);
+      const renderKey = this.getMarkerRenderKey(node, markerRenderKeyCounts);
+      const vm = this.buildMarkerVm(node, renderKey, zoom, selected, hovered, baseUrl, safeDisplayCoords, projectStatusColor);
       markers.push(vm);
     });
 
@@ -890,8 +806,26 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     this.routesVm.set(routes);
   }
 
+  private getMarkerRenderKey(node: WarRoomNode, keyCounts: Map<string, number>): string {
+    const baseKey = this.getMarkerRenderKeyBase(node);
+    const nextCount = (keyCounts.get(baseKey) ?? 0) + 1;
+    keyCounts.set(baseKey, nextCount);
+    return nextCount === 1 ? baseKey : `${baseKey}#${nextCount}`;
+  }
+
+  private getMarkerRenderKeyBase(node: WarRoomNode): string {
+    if (node.level === 'client' || node.clientId) {
+      return `client:${node.clientId ?? node.id}`;
+    }
+    if (node.level === 'factory' || node.level === 'manufacturer' || node.manufacturerLocationId || node.factoryId) {
+      return `manufacturer:${node.manufacturerLocationId ?? node.factoryId ?? node.id}`;
+    }
+    return `${node.level ?? 'node'}:${node.id}`;
+  }
+
   private buildMarkerVm(
     node: WarRoomNode,
+    renderKey: string,
     zoom: number,
     selected: FleetSelection | null,
     hovered: FleetSelection | null,
@@ -921,7 +855,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     const fallbackLogoPath = this.assetsService.getLogoFallbackPath();
     const hasLogo = !!logoPath && logoPath !== fallbackLogoPath;
 
-    const nodeLevel = node.level ?? 'factory';
+    const nodeLevel = node.level ?? 'manufacturer';
     const isHQ = node.id === 'fleetzero' || node.name?.toLowerCase().includes('fleetzero');
     const isSelected = !!selected && node.companyId === selected.id && selected.level === nodeLevel;
     const isHovered = !!hovered && (
@@ -952,10 +886,11 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     const nodeType: MarkerNodeType =
       node.level === 'client' || node.clientId
         ? 'client'
-        : (node.level ?? 'factory') as MarkerNodeType;
+        : (node.level ?? 'manufacturer') as MarkerNodeType;
 
     return {
       id: node.id,
+      renderKey,
       node,
       nodeType,
       isCluster,
@@ -1013,7 +948,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       return;
     }
     const selected = this.selectedEntity();
-    const nodeLevel = node.level ?? 'factory';
+    const nodeLevel = node.level ?? 'manufacturer';
     if (selected && node.companyId === selected.id && selected.level === nodeLevel) {
       this.nodeSelected.emit(undefined);
     } else {
@@ -1420,7 +1355,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     if (node.id === endpointId || node.factoryId === endpointId || node.subsidiaryId === endpointId || node.parentGroupId === endpointId) {
       return true;
     }
-    const factory = this.warRoomService.factories().find(f => f.id === endpointId);
+    const factory = this.warRoomService.manufacturerLocations().find(f => f.id === endpointId);
     if (factory && (node.id === factory.subsidiaryId || node.id === factory.parentGroupId)) {
       return true;
     }
@@ -1432,7 +1367,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       if (node.id === baseId || node.factoryId === baseId || node.subsidiaryId === baseId) {
         return true;
       }
-      const baseFactory = this.warRoomService.factories().find(f => f.id === baseId);
+      const baseFactory = this.warRoomService.manufacturerLocations().find(f => f.id === baseId);
       if (baseFactory && (node.id === baseFactory.subsidiaryId || node.id === baseFactory.parentGroupId)) {
         return true;
       }
@@ -1474,7 +1409,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   ): boolean {
     if (node.id === endpointId) return true;
     if (node.factoryId === endpointId || node.subsidiaryId === endpointId) return true;
-    const factory = this.warRoomService.factories().find((f) => f.id === endpointId);
+    const factory = this.warRoomService.manufacturerLocations().find((f) => f.id === endpointId);
     if (factory && (node.id === factory.subsidiaryId || node.id === factory.parentGroupId)) return true;
     if (node.clientId === endpointId) return true;
     return false;
@@ -1617,7 +1552,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       );
       if (direct.length > 0) return direct;
 
-      const factory = this.warRoomService.factories().find(f => f.id === id);
+      const factory = this.warRoomService.manufacturerLocations().find(f => f.id === id);
       if (factory) {
         const resolved = nodes.filter(n => n.id === factory.subsidiaryId || n.id === factory.parentGroupId);
         if (resolved.length > 0) return resolved;
@@ -1632,7 +1567,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
         const resolved = nodes.filter(n => n.id === baseId || n.factoryId === baseId || n.subsidiaryId === baseId);
         if (resolved.length > 0) return resolved;
 
-        const baseFactory = this.warRoomService.factories().find(f => f.id === baseId);
+        const baseFactory = this.warRoomService.manufacturerLocations().find(f => f.id === baseId);
         if (baseFactory) {
           return nodes.filter(n => n.id === baseFactory.subsidiaryId || n.id === baseFactory.parentGroupId);
         }

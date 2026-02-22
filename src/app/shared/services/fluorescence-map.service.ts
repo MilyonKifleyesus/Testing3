@@ -41,8 +41,10 @@ export class WarRoomService {
   private _selectedEntity = signal<FleetSelection | null>(null);
   private _hoveredEntity = signal<FleetSelection | null>(null);
   private _factoryFilterSubsidiaryId = signal<string | null>(null);
+  private _manufacturerFilterSubsidiaryId = signal<string | null>(null);
   private _panToEntity = signal<{ id: string; timestamp: number } | null>(null);
   private _initialized = signal(false);
+  private _apiHierarchyLoaded = false;
 
   // Public readonly signals
   readonly parentGroups = this._parentGroups.asReadonly();
@@ -64,13 +66,15 @@ export class WarRoomService {
   );
 
   readonly factories = computed(() =>
-    this.subsidiaries().flatMap((subsidiary) => subsidiary.factories)
+    this.subsidiaries().flatMap((subsidiary) => subsidiary.manufacturerLocations ?? subsidiary.factories ?? [])
   );
+  readonly manufacturerLocations = this.factories;
 
   readonly nodes = computed(() => {
     const viewMode = this._mapViewMode();
     const selection = this._selectedEntity();
-    const factoryFilterSubsidiaryId = this._factoryFilterSubsidiaryId();
+    const factoryFilterSubsidiaryId =
+      this._manufacturerFilterSubsidiaryId() ?? this._factoryFilterSubsidiaryId();
     return this.buildMapNodes(viewMode, selection, factoryFilterSubsidiaryId);
   });
 
@@ -88,7 +92,7 @@ export class WarRoomService {
     if (selection.level === 'subsidiary') {
       return this.subsidiaries().find((sub) => sub.id === selection.id) || null;
     }
-    if (selection.level === 'factory' && selection.subsidiaryId) {
+    if ((selection.level === 'factory' || selection.level === 'manufacturer') && selection.subsidiaryId) {
       return this.subsidiaries().find((sub) => sub.id === selection.subsidiaryId) || null;
     }
     return null;
@@ -97,6 +101,24 @@ export class WarRoomService {
   constructor() {
     this._initialized.set(false);
     void this.initializeData();
+  }
+
+  /**
+   * Replaces parent groups with API-built hierarchy.
+   * Call this when API data is loaded to show manufacturers/sites from backend.
+   * Once set, JSON-loaded parent groups will not overwrite (API takes precedence).
+   */
+  setParentGroupsFromApi(groups: ParentGroup[]): void {
+    this._apiHierarchyLoaded = true;
+    const normalized = this.normalizeParentGroups(groups);
+    this._parentGroups.set(normalized);
+    if (normalized.length > 0 && !this._selectedEntity()) {
+      this._selectedEntity.set({
+        level: 'parent',
+        id: normalized[0].id,
+        parentGroupId: normalized[0].id,
+      });
+    }
   }
 
   private logDebug(message: string, ...args: unknown[]): void {
@@ -125,21 +147,6 @@ export class WarRoomService {
     }
   }
 
-  private isValidWarRoomState(data: unknown): data is WarRoomState {
-    if (!data || typeof data !== 'object') return false;
-    const candidate = data as Partial<WarRoomState>;
-    return (
-      Array.isArray(candidate.parentGroups) &&
-      Array.isArray(candidate.nodes) &&
-      Array.isArray(candidate.activityLogs) &&
-      Array.isArray(candidate.transitRoutes) &&
-      !!candidate.networkMetrics &&
-      !!candidate.networkThroughput &&
-      !!candidate.geopoliticalHeatmap &&
-      typeof candidate.mapViewMode === 'string'
-    );
-  }
-
   private normalizeLogoPath(logo?: string | ArrayBuffer): string | ArrayBuffer | undefined {
     if (typeof logo !== 'string') return logo;
     const trimmed = logo.trim();
@@ -162,7 +169,11 @@ export class WarRoomService {
       subsidiaries: (group.subsidiaries ?? []).map((subsidiary) => ({
         ...subsidiary,
         logo: this.normalizeLogoPath(subsidiary.logo),
-        factories: (subsidiary.factories ?? []).map((factory) => ({
+        manufacturerLocations: (subsidiary.manufacturerLocations ?? subsidiary.factories ?? []).map((factory) => ({
+          ...factory,
+          logo: this.normalizeLogoPath(factory.logo),
+        })),
+        factories: (subsidiary.manufacturerLocations ?? subsidiary.factories ?? []).map((factory) => ({
           ...factory,
           logo: this.normalizeLogoPath(factory.logo),
         })),
@@ -171,29 +182,11 @@ export class WarRoomService {
   }
 
   /**
-   * Initialize data from mock data
+   * Initializes War Room state with an API-first empty baseline.
+   * Runtime hierarchy/routes/logs are hydrated by API-backed services after component bootstrap.
    */
   private async initializeData(): Promise<void> {
-    const emptyState = this.getEmptyState();
-
-    try {
-      const response = await this.fetchWithTimeout('/assets/data/fluorescence-map-data.json', { cache: 'no-store' });
-      if (!response.ok) {
-        this.logWarn('Failed to load war room data. Using empty state.');
-        this.applyState(emptyState);
-        return;
-      }
-      const data = await response.json();
-      if (!this.isValidWarRoomState(data)) {
-        this.logWarn('Invalid war room data shape. Using empty state.');
-        this.applyState(emptyState);
-        return;
-      }
-      this.applyState(data);
-    } catch (error) {
-      this.logWarn('Failed to load war room data. Using empty state.', error);
-      this.applyState(emptyState);
-    }
+    this.applyState(this.getEmptyState());
   }
 
   private applyState(data: WarRoomState): void {
@@ -204,7 +197,9 @@ export class WarRoomService {
     this._networkThroughput.set(data.networkThroughput || this.getEmptyState().networkThroughput);
     this._geopoliticalHeatmap.set(data.geopoliticalHeatmap || this.getEmptyState().geopoliticalHeatmap);
     this._satelliteStatuses.set(data.satelliteStatuses || []);
-    this._parentGroups.set(normalizedParentGroups);
+    if (!this._apiHierarchyLoaded) {
+      this._parentGroups.set(normalizedParentGroups);
+    }
     this._mapViewMode.set(data.mapViewMode || 'project');
 
     if (data.selectedEntity) {
@@ -316,7 +311,7 @@ export class WarRoomService {
   }
 
   private createParentNode(group: ParentGroup): Node | null {
-    const factories = group.subsidiaries.flatMap((sub) => sub.factories);
+    const factories = group.subsidiaries.flatMap((sub) => sub.manufacturerLocations ?? sub.factories ?? []);
     const coordinates = this.computeCenterOfGravity(factories);
     if (!this.isValidCoordinates(coordinates)) {
       this.logWarn(`[WarRoomService] Skipping parent node "${group.id}" due to invalid coordinates.`);
@@ -343,12 +338,12 @@ export class WarRoomService {
   }
 
   private createSubsidiaryNode(subsidiary: SubsidiaryCompany): Node | null {
-    const coordinates = this.computeCenterOfGravity(subsidiary.factories);
+    const coordinates = this.computeCenterOfGravity(subsidiary.factories ?? []);
     if (!this.isValidCoordinates(coordinates)) {
       this.logWarn(`[WarRoomService] Skipping subsidiary node "${subsidiary.id}" due to invalid coordinates.`);
       return null;
     }
-    const fallbackCity = subsidiary.factories[0]?.city || subsidiary.name;
+    const fallbackCity = (subsidiary.factories ?? [])[0]?.city || subsidiary.name;
 
     return {
       id: subsidiary.id,
@@ -358,7 +353,7 @@ export class WarRoomService {
       city: subsidiary.location || fallbackCity,
       description: subsidiary.description || `${subsidiary.name} regional operations.`,
       logo: subsidiary.logo,
-      country: subsidiary.factories[0]?.country || '',
+      country: (subsidiary.factories ?? [])[0]?.country || '',
       coordinates,
       type: 'Hub',
       status: this.mapOperationalStatus(subsidiary.status),
@@ -388,9 +383,10 @@ export class WarRoomService {
       status: factory.status,
       isHub: true,
       hubCode,
-      level: 'factory',
+      level: 'manufacturer',
       parentGroupId: factory.parentGroupId,
       subsidiaryId: factory.subsidiaryId,
+      manufacturerLocationId: factory.id,
       factoryId: factory.id,
       fullAddress: factory.fullAddress,
       facilityType: factory.facilityType,
@@ -462,14 +458,15 @@ export class WarRoomService {
       };
     }
 
-    if (selection.level === 'factory') {
+    if (selection.level === 'factory' || selection.level === 'manufacturer') {
       const factory = this.factories().find((fac) => fac.id === selection.id);
       if (!factory) return null;
       return {
-        level: 'factory',
+        level: 'manufacturer',
         id: factory.id,
         parentGroupId: factory.parentGroupId,
         subsidiaryId: factory.subsidiaryId,
+        manufacturerLocationId: factory.id,
         factoryId: factory.id,
       };
     }
@@ -484,14 +481,14 @@ export class WarRoomService {
   private getFirstFactoryForSelection(selection: FleetSelection): FactoryLocation | null {
     if (selection.level === 'subsidiary') {
       const subsidiary = this.subsidiaries().find((sub) => sub.id === selection.id);
-      return subsidiary?.factories[0] || null;
+      return subsidiary?.factories?.[0] || null;
     }
 
     if (selection.level === 'parent') {
       const parentId = selection.parentGroupId || selection.id;
       const parent = this._parentGroups().find((group) => group.id === parentId);
       const subsidiary = parent?.subsidiaries[0];
-      return subsidiary?.factories[0] || null;
+      return subsidiary?.factories?.[0] || null;
     }
 
     return null;
@@ -576,6 +573,7 @@ export class WarRoomService {
   setMapViewMode(viewMode: MapViewMode): void {
     this._mapViewMode.set(viewMode);
     this._factoryFilterSubsidiaryId.set(null);
+    this._manufacturerFilterSubsidiaryId.set(null);
 
     const selection = this._selectedEntity();
     if (!selection || selection.level === viewMode) return;
@@ -602,18 +600,20 @@ export class WarRoomService {
       return;
     }
 
-    if (viewMode === 'factory') {
+    if (viewMode === 'factory' || viewMode === 'manufacturer') {
       if (selection.level === 'subsidiary') {
         return;
       }
 
-      if (selection.factoryId) {
+      const selectedLocationId = selection.manufacturerLocationId ?? selection.factoryId;
+      if (selectedLocationId) {
         this._selectedEntity.set({
-          level: 'factory',
-          id: selection.factoryId,
+          level: 'manufacturer',
+          id: selectedLocationId,
           parentGroupId: selection.parentGroupId,
           subsidiaryId: selection.subsidiaryId,
-          factoryId: selection.factoryId,
+          manufacturerLocationId: selectedLocationId,
+          factoryId: selectedLocationId,
         });
         return;
       }
@@ -621,10 +621,11 @@ export class WarRoomService {
       const fallbackFactory = this.getFirstFactoryForSelection(selection);
       if (fallbackFactory) {
         this._selectedEntity.set({
-          level: 'factory',
+          level: 'manufacturer',
           id: fallbackFactory.id,
           parentGroupId: fallbackFactory.parentGroupId,
           subsidiaryId: fallbackFactory.subsidiaryId,
+          manufacturerLocationId: fallbackFactory.id,
           factoryId: fallbackFactory.id,
         });
       }
@@ -649,8 +650,11 @@ export class WarRoomService {
 
     if (normalized) {
       const currentViewMode = this._mapViewMode();
-      const validViewModes: MapViewMode[] = ['parent', 'subsidiary', 'factory'];
-      if (validViewModes.includes(normalized.level as MapViewMode) && !(normalized.level === 'factory' && currentViewMode === 'subsidiary')) {
+      const validViewModes: MapViewMode[] = ['parent', 'subsidiary', 'manufacturer', 'factory'];
+      if (
+        validViewModes.includes(normalized.level as MapViewMode) &&
+        !((normalized.level === 'factory' || normalized.level === 'manufacturer') && currentViewMode === 'subsidiary')
+      ) {
         this._mapViewMode.set(normalized.level as MapViewMode);
       }
     }
@@ -672,6 +676,12 @@ export class WarRoomService {
 
   setFactoryFilterSubsidiaryId(subsidiaryId: string | null): void {
     this._factoryFilterSubsidiaryId.set(subsidiaryId);
+    this._manufacturerFilterSubsidiaryId.set(subsidiaryId);
+  }
+
+  setManufacturerFilterSubsidiaryId(subsidiaryId: string | null): void {
+    this._manufacturerFilterSubsidiaryId.set(subsidiaryId);
+    this._factoryFilterSubsidiaryId.set(subsidiaryId);
   }
 
   /**
@@ -687,9 +697,12 @@ export class WarRoomService {
    */
   addActivityLog(log: ActivityLog): void {
     const currentLogs = this._activityLogs();
+    const logLocationId = log.manufacturerLocationId ?? log.factoryId ?? '';
 
-    // Remove any existing entry for this factory to ensure only one entry per factory
-    const filteredLogs = currentLogs.filter((l) => l.factoryId !== log.factoryId);
+    // Remove any existing entry for this manufacturer location to ensure only one entry per site
+    const filteredLogs = currentLogs.filter(
+      (l) => (l.manufacturerLocationId ?? l.factoryId ?? '') !== logLocationId
+    );
 
     // Add the new log at the beginning (most recent first)
     const updatedLogs = [log, ...filteredLogs];
@@ -718,6 +731,10 @@ export class WarRoomService {
    */
   updateFactoryDescription(factoryId: string, description: string): void {
     this.updateFactoryDetails(factoryId, { description });
+  }
+
+  updateManufacturerLocationDescription(manufacturerLocationId: string, description: string): void {
+    this.updateFactoryDetails(manufacturerLocationId, { description });
   }
 
   /**
@@ -779,10 +796,10 @@ export class WarRoomService {
     const updatedGroups = groups.map((group) => {
       let groupChanged = false;
       const updatedSubsidiaries = group.subsidiaries.map((subsidiary) => {
-        const factoryIndex = subsidiary.factories.findIndex((factory) => factory.id === factoryId);
+        const factoryIndex = (subsidiary.factories ?? []).findIndex((factory) => factory.id === factoryId);
         if (factoryIndex === -1) return subsidiary;
 
-        const existingFactory = subsidiary.factories[factoryIndex];
+        const existingFactory = (subsidiary.factories ?? [])[factoryIndex];
         const updatedFactory: FactoryLocation = {
           ...existingFactory,
           name: updates.name ?? existingFactory.name,
@@ -793,12 +810,13 @@ export class WarRoomService {
           status: updates.status ?? existingFactory.status,
         };
 
-        const updatedFactories = [...subsidiary.factories];
+        const updatedFactories = [...(subsidiary.factories ?? [])];
         updatedFactories[factoryIndex] = updatedFactory;
         groupChanged = true;
 
         return {
           ...subsidiary,
+          manufacturerLocations: updatedFactories,
           factories: updatedFactories,
           metrics: this.computeMetricsFromFactories(updatedFactories),
         };
@@ -820,16 +838,37 @@ export class WarRoomService {
     if (updates.description !== undefined || updates.locationLabel !== undefined) {
       this._activityLogs.update((logs) =>
         logs.map((log) => {
-          if (log.factoryId !== factoryId) return log;
+          const logLocationId = log.manufacturerLocationId ?? log.factoryId;
+          if (logLocationId !== factoryId) return log;
           const nextDescription = updates.description ?? log.description;
           const nextLocation = updates.locationLabel ?? log.location;
           if (nextDescription === log.description && nextLocation === log.location) {
             return log;
           }
-          return { ...log, description: nextDescription, location: nextLocation };
+          return {
+            ...log,
+            manufacturerLocationId: log.manufacturerLocationId ?? log.factoryId ?? factoryId,
+            description: nextDescription,
+            location: nextLocation,
+          };
         })
       );
     }
+  }
+
+  updateManufacturerLocationDetails(
+    manufacturerLocationId: string,
+    updates: {
+      name?: string;
+      city?: string;
+      country?: string;
+      description?: string;
+      coordinates?: { latitude: number; longitude: number };
+      locationLabel?: string;
+      status?: FactoryLocation['status'];
+    }
+  ): void {
+    this.updateFactoryDetails(manufacturerLocationId, updates);
   }
 
   /**
@@ -853,9 +892,14 @@ export class WarRoomService {
     });
     this._parentGroups.set(updatedGroups);
 
-    const removedFactoryIds = removedSubsidiary.factories.map((factory) => factory.id);
+    const removedFactoryIds = (removedSubsidiary.manufacturerLocations ?? removedSubsidiary.factories ?? []).map(
+      (factory) => factory.id
+    );
     this._activityLogs.update((logs) =>
-      logs.filter((log) => log.subsidiaryId !== subsidiaryId && !removedFactoryIds.includes(log.factoryId))
+      logs.filter((log) => {
+        const logLocationId = log.manufacturerLocationId ?? log.factoryId;
+        return log.subsidiaryId !== subsidiaryId && !removedFactoryIds.includes(logLocationId ?? '');
+      })
     );
 
     const selection = this._selectedEntity();
@@ -881,8 +925,9 @@ export class WarRoomService {
     const updatedGroups = groups.map((group) => {
       let groupChanged = false;
       const updatedSubsidiaries = group.subsidiaries.map((subsidiary) => {
-        const remainingFactories = subsidiary.factories.filter((factory) => factory.id !== factoryId);
-        if (remainingFactories.length === subsidiary.factories.length) return subsidiary;
+        const factories = subsidiary.factories ?? [];
+        const remainingFactories = factories.filter((factory) => factory.id !== factoryId);
+        if (remainingFactories.length === factories.length) return subsidiary;
         groupChanged = true;
         parentGroupId = group.id;
         subsidiaryId = subsidiary.id;
@@ -905,10 +950,12 @@ export class WarRoomService {
     if (!updated) return;
     this._parentGroups.set(updatedGroups);
 
-    this._activityLogs.update((logs) => logs.filter((log) => log.factoryId !== factoryId));
+    this._activityLogs.update((logs) =>
+      logs.filter((log) => (log.manufacturerLocationId ?? log.factoryId) !== factoryId)
+    );
 
     const selection = this._selectedEntity();
-    if (selection && (selection.factoryId === factoryId || selection.id === factoryId)) {
+    if (selection && ((selection.manufacturerLocationId ?? selection.factoryId) === factoryId || selection.id === factoryId)) {
       if (subsidiaryId) {
         this._selectedEntity.set({ level: 'subsidiary', id: subsidiaryId, parentGroupId: parentGroupId || undefined, subsidiaryId });
         this._mapViewMode.set('subsidiary');
@@ -919,6 +966,10 @@ export class WarRoomService {
         this._selectedEntity.set(null);
       }
     }
+  }
+
+  deleteManufacturerLocation(manufacturerLocationId: string): void {
+    this.deleteFactory(manufacturerLocationId);
   }
 
   /**
@@ -1137,7 +1188,7 @@ export class WarRoomService {
 
     const normalizedSubsidiary: SubsidiaryCompany = {
       ...subsidiary,
-      metrics: this.computeMetricsFromFactories(subsidiary.factories),
+      metrics: this.computeMetricsFromFactories(subsidiary.factories ?? []),
     };
 
     if (parentIndex === -1) {
@@ -1195,7 +1246,7 @@ export class WarRoomService {
 
     const updatedSubsidiary: SubsidiaryCompany = {
       ...subsidiary,
-      metrics: this.computeMetricsFromFactories(subsidiary.factories),
+      metrics: this.computeMetricsFromFactories(subsidiary.factories ?? []),
     };
 
     const updatedSubsidiaries = [...parent.subsidiaries];
@@ -1231,15 +1282,16 @@ export class WarRoomService {
     }
 
     const subsidiary = parent.subsidiaries[subIndex];
-    if (subsidiary.factories.find((f) => f.id === factory.id)) {
+    if ((subsidiary.factories ?? []).find((f) => f.id === factory.id)) {
       this.logWarn(`Factory ${factory.id} already exists. Updating instead.`);
       this.updateFactory(factory);
       return;
     }
 
-    const updatedFactories = [...subsidiary.factories, factory];
+    const updatedFactories = [...(subsidiary.factories ?? []), factory];
     const updatedSubsidiary: SubsidiaryCompany = {
       ...subsidiary,
+      manufacturerLocations: updatedFactories,
       factories: updatedFactories,
       metrics: this.computeMetricsFromFactories(updatedFactories),
     };
@@ -1256,6 +1308,10 @@ export class WarRoomService {
     const updatedGroups = [...groups];
     updatedGroups[parentIndex] = updatedParent;
     this._parentGroups.set(updatedGroups);
+  }
+
+  addManufacturerLocation(location: FactoryLocation): void {
+    this.addFactory(location);
   }
 
   /**
@@ -1277,18 +1333,19 @@ export class WarRoomService {
     }
 
     const subsidiary = parent.subsidiaries[subIndex];
-    const factoryIndex = subsidiary.factories.findIndex((f) => f.id === factory.id);
+    const factoryIndex = (subsidiary.factories ?? []).findIndex((f) => f.id === factory.id);
     if (factoryIndex === -1) {
       this.logWarn(`Factory ${factory.id} not found. Adding instead.`);
       this.addFactory(factory);
       return;
     }
 
-    const updatedFactories = [...subsidiary.factories];
+    const updatedFactories = [...(subsidiary.factories ?? [])];
     updatedFactories[factoryIndex] = factory;
 
     const updatedSubsidiary: SubsidiaryCompany = {
       ...subsidiary,
+      manufacturerLocations: updatedFactories,
       factories: updatedFactories,
       metrics: this.computeMetricsFromFactories(updatedFactories),
     };
@@ -1305,6 +1362,10 @@ export class WarRoomService {
     const updatedGroups = [...groups];
     updatedGroups[parentIndex] = updatedParent;
     this._parentGroups.set(updatedGroups);
+  }
+
+  updateManufacturerLocation(location: FactoryLocation): void {
+    this.updateFactory(location);
   }
 
   private uniqueSuffix(): string {

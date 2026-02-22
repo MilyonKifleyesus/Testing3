@@ -70,7 +70,7 @@
             }
             <span class="manufacturer-list-name flex-grow-1 text-start">{{ subsidiary.name }}</span>
             <span class="manufacturer-list-count badge bg-primary-transparent">
-              {{ subsidiary.factories.length }} {{ subsidiary.factories.length === 1 ? 'site' : 'sites' }}
+              {{ (subsidiary.factories ?? []).length }} {{ (subsidiary.factories ?? []).length === 1 ? 'site' : 'sites' }}
             </span>
             <span class="manufacturer-status-pill"
               [class.status-active]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-active'"
@@ -101,6 +101,18 @@
             <input type="text" class="form-control form-control-sm mb-2"
               [value]="subsidiaryDrafts().get(subsidiary.id)?.location"
               (input)="onSubsidiaryLocationInput($event, subsidiary.id)" placeholder="Location" />
+            <input type="number" class="form-control form-control-sm mb-2"
+              [value]="subsidiaryDrafts().get(subsidiary.id)?.latitude"
+              (input)="onSubsidiaryLatitudeInput($event, subsidiary.id)" placeholder="Latitude" />
+            @if (getSubsidiaryLatitudeError(subsidiary.id); as latitudeError) {
+            <div class="text-danger fs-12 mb-2">{{ latitudeError }}</div>
+            }
+            <input type="number" class="form-control form-control-sm mb-2"
+              [value]="subsidiaryDrafts().get(subsidiary.id)?.longitude"
+              (input)="onSubsidiaryLongitudeInput($event, subsidiary.id)" placeholder="Longitude" />
+            @if (getSubsidiaryLongitudeError(subsidiary.id); as longitudeError) {
+            <div class="text-danger fs-12 mb-2">{{ longitudeError }}</div>
+            }
             <select class="form-select form-select-sm mb-2"
               [value]="subsidiaryDrafts().get(subsidiary.id)?.status"
               (change)="onSubsidiaryStatusChange($event, subsidiary.id)">
@@ -111,7 +123,8 @@
               [value]="subsidiaryDrafts().get(subsidiary.id)?.description"
               (input)="onSubsidiaryDescriptionInput($event, subsidiary.id)" placeholder="Notes"></textarea>
             <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-success" (click)="saveSubsidiaryDetails(subsidiary.id)">
+              <button type="button" class="btn btn-sm btn-success" (click)="saveSubsidiaryDetails(subsidiary.id)"
+                [disabled]="!hasValidSubsidiaryDraft(subsidiary.id)">
                 Save
               </button>
               <button type="button" class="btn btn-sm btn-light" (click)="cancelEditSubsidiary()">
@@ -120,17 +133,57 @@
             </div>
           </div>
           } @else {
+          <div class="manufacturer-log-summary" (click)="$event.stopPropagation()">
+            @if (getLatestSubsidiaryLog(subsidiary.id); as latestSubsidiaryLog) {
+            <div class="manufacturer-log-last">
+              <span class="log-entry-label">Last activity</span>
+              <div class="manufacturer-log-line">
+                <time class="manufacturer-log-time" [attr.datetime]="toIsoTimestamp(latestSubsidiaryLog.timestamp)">
+                  {{ formatTimestamp(latestSubsidiaryLog.timestamp) }}
+                </time>
+                <span class="activity-status-pill" [class.status-active]="getActivityStatusClass(latestSubsidiaryLog.status) === 'status-active'"
+                  [class.status-info]="getActivityStatusClass(latestSubsidiaryLog.status) === 'status-info'"
+                  [class.status-warning]="getActivityStatusClass(latestSubsidiaryLog.status) === 'status-warning'"
+                  [class.status-error]="getActivityStatusClass(latestSubsidiaryLog.status) === 'status-error'">
+                  {{ latestSubsidiaryLog.status }}
+                </span>
+                <span class="manufacturer-log-text">{{ latestSubsidiaryLog.description }}</span>
+              </div>
+            </div>
+            <div class="manufacturer-recent-logs">
+              <span class="log-entry-label">Recent logs</span>
+              <ul class="manufacturer-log-list list-unstyled mb-0">
+                @for (log of getRecentSubsidiaryLogs(subsidiary.id); track log.id) {
+                <li class="manufacturer-log-item">
+                  <time class="manufacturer-log-time" [attr.datetime]="toIsoTimestamp(log.timestamp)">
+                    {{ formatTimestamp(log.timestamp) }}
+                  </time>
+                  <span class="activity-status-pill" [class.status-active]="getActivityStatusClass(log.status) === 'status-active'"
+                    [class.status-info]="getActivityStatusClass(log.status) === 'status-info'"
+                    [class.status-warning]="getActivityStatusClass(log.status) === 'status-warning'"
+                    [class.status-error]="getActivityStatusClass(log.status) === 'status-error'">
+                    {{ log.status }}
+                  </span>
+                  <span class="manufacturer-log-text">{{ log.description }}</span>
+                </li>
+                }
+              </ul>
+            </div>
+            } @else {
+            <div class="factory-empty-state text-muted">No activity logs for this manufacturer yet.</div>
+            }
+          </div>
           <div class="factory-list">
-            @if (subsidiary.factories.length === 0) {
+            @if ((subsidiary.factories ?? []).length === 0) {
             <div class="factory-empty-state text-muted">No sites for this manufacturer</div>
             } @else if (hasNoProjectsButHasSites(subsidiary)) {
             <div class="factory-empty-state text-muted">No active projects assigned to any sites for this manufacturer.</div>
             <button type="button" class="btn btn-link view-factories-toggle"
               [class.expanded]="isNoProjectSitesExpanded(subsidiary.id)"
               (click)="toggleNoProjectSites(subsidiary.id); $event.stopPropagation()"
-              [attr.aria-label]="isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + subsidiary.factories.length + ' ' + (subsidiary.factories.length === 1 ? 'site' : 'sites')">
+              [attr.aria-label]="isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + (subsidiary.factories ?? []).length + ' ' + ((subsidiary.factories ?? []).length === 1 ? 'site' : 'sites')">
               <i class="fe fe-chevron-down view-factories-chevron" aria-hidden="true"></i>
-              {{ isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + subsidiary.factories.length + ' ' + (subsidiary.factories.length === 1 ? 'site' : 'sites') }}
+              {{ isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + (subsidiary.factories ?? []).length + ' ' + ((subsidiary.factories ?? []).length === 1 ? 'site' : 'sites') }}
             </button>
             @if (isNoProjectSitesExpanded(subsidiary.id)) {
             @for (factory of getVisibleFactories(subsidiary); track factory.id) {
@@ -143,6 +196,18 @@
                 <input type="text" class="form-control form-control-sm mb-2"
                   [value]="factoryDrafts().get(factory.id)?.location" (input)="onLocationInput($event, factory.id)"
                   placeholder="Location" />
+                <input type="number" class="form-control form-control-sm mb-2"
+                  [value]="factoryDrafts().get(factory.id)?.latitude" (input)="onFactoryLatitudeInput($event, factory.id)"
+                  placeholder="Latitude" />
+                @if (getFactoryLatitudeError(factory.id); as latitudeError) {
+                <div class="text-danger fs-12 mb-2">{{ latitudeError }}</div>
+                }
+                <input type="number" class="form-control form-control-sm mb-2"
+                  [value]="factoryDrafts().get(factory.id)?.longitude" (input)="onFactoryLongitudeInput($event, factory.id)"
+                  placeholder="Longitude" />
+                @if (getFactoryLongitudeError(factory.id); as longitudeError) {
+                <div class="text-danger fs-12 mb-2">{{ longitudeError }}</div>
+                }
                 <select class="form-select form-select-sm mb-2"
                   [value]="factoryDrafts().get(factory.id)?.status"
                   (change)="onFactoryStatusChange($event, factory.id)">
@@ -163,7 +228,7 @@
                   </button>
                   }
                   <button type="button" class="btn btn-sm btn-success" (click)="saveFactoryDetails(factory.id)"
-                    [disabled]="!hasValidFactoryName(factory.id)">
+                    [disabled]="!hasValidFactoryDraft(factory.id)">
                     Save
                   </button>
                   <button type="button" class="btn btn-sm btn-light" (click)="cancelEditFactory()">
@@ -199,6 +264,55 @@
                   (click)="startEditFactory(factory); $event.stopPropagation()">
                   Edit
                 </button>
+                }
+              </div>
+              <div class="factory-log-preview" (click)="$event.stopPropagation()">
+                @if (getLatestFactoryLog(factory.id); as latestFactoryLog) {
+                <div class="factory-log-last">
+                  <span class="log-entry-label">Last activity</span>
+                  <div class="manufacturer-log-line">
+                    <time class="manufacturer-log-time" [attr.datetime]="toIsoTimestamp(latestFactoryLog.timestamp)">
+                      {{ formatTimestamp(latestFactoryLog.timestamp) }}
+                    </time>
+                    <span class="activity-status-pill" [class.status-active]="getActivityStatusClass(latestFactoryLog.status) === 'status-active'"
+                      [class.status-info]="getActivityStatusClass(latestFactoryLog.status) === 'status-info'"
+                      [class.status-warning]="getActivityStatusClass(latestFactoryLog.status) === 'status-warning'"
+                      [class.status-error]="getActivityStatusClass(latestFactoryLog.status) === 'status-error'">
+                      {{ latestFactoryLog.status }}
+                    </span>
+                    <span class="manufacturer-log-text">{{ latestFactoryLog.description }}</span>
+                  </div>
+                </div>
+                @if (getRecentFactoryLogs(factory.id).length > 1) {
+                <button type="button" class="btn btn-link factory-log-toggle"
+                  (click)="toggleFactoryLogPreview(factory.id); $event.stopPropagation()"
+                  [attr.aria-expanded]="isFactoryLogPreviewExpanded(factory.id)"
+                  [attr.aria-controls]="getFactoryLogElementId(factory.id)">
+                  {{ isFactoryLogPreviewExpanded(factory.id) ? 'Hide logs' : 'View recent logs (' +
+                  (getRecentFactoryLogs(factory.id).length > logPreviewCount ? logPreviewCount : getRecentFactoryLogs(factory.id).length) + ')' }}
+                </button>
+                @if (isFactoryLogPreviewExpanded(factory.id)) {
+                <ul class="manufacturer-log-list factory-log-list list-unstyled mb-0"
+                  [attr.id]="getFactoryLogElementId(factory.id)">
+                  @for (log of getRecentFactoryLogs(factory.id); track log.id) {
+                  <li class="manufacturer-log-item">
+                    <time class="manufacturer-log-time" [attr.datetime]="toIsoTimestamp(log.timestamp)">
+                      {{ formatTimestamp(log.timestamp) }}
+                    </time>
+                    <span class="activity-status-pill" [class.status-active]="getActivityStatusClass(log.status) === 'status-active'"
+                      [class.status-info]="getActivityStatusClass(log.status) === 'status-info'"
+                      [class.status-warning]="getActivityStatusClass(log.status) === 'status-warning'"
+                      [class.status-error]="getActivityStatusClass(log.status) === 'status-error'">
+                      {{ log.status }}
+                    </span>
+                    <span class="manufacturer-log-text">{{ log.description }}</span>
+                  </li>
+                  }
+                </ul>
+                }
+                }
+                } @else {
+                <div class="factory-log-empty text-muted">No activity logs for this site yet.</div>
                 }
               </div>
               }
@@ -224,6 +338,18 @@
                 <input type="text" class="form-control form-control-sm mb-2"
                   [value]="factoryDrafts().get(factory.id)?.location" (input)="onLocationInput($event, factory.id)"
                   placeholder="Location" />
+                <input type="number" class="form-control form-control-sm mb-2"
+                  [value]="factoryDrafts().get(factory.id)?.latitude" (input)="onFactoryLatitudeInput($event, factory.id)"
+                  placeholder="Latitude" />
+                @if (getFactoryLatitudeError(factory.id); as latitudeError) {
+                <div class="text-danger fs-12 mb-2">{{ latitudeError }}</div>
+                }
+                <input type="number" class="form-control form-control-sm mb-2"
+                  [value]="factoryDrafts().get(factory.id)?.longitude" (input)="onFactoryLongitudeInput($event, factory.id)"
+                  placeholder="Longitude" />
+                @if (getFactoryLongitudeError(factory.id); as longitudeError) {
+                <div class="text-danger fs-12 mb-2">{{ longitudeError }}</div>
+                }
                 <select class="form-select form-select-sm mb-2"
                   [value]="factoryDrafts().get(factory.id)?.status"
                   (change)="onFactoryStatusChange($event, factory.id)">
@@ -244,7 +370,7 @@
                   </button>
                   }
                   <button type="button" class="btn btn-sm btn-success" (click)="saveFactoryDetails(factory.id)"
-                    [disabled]="!hasValidFactoryName(factory.id)">
+                    [disabled]="!hasValidFactoryDraft(factory.id)">
                     Save
                   </button>
                   <button type="button" class="btn btn-sm btn-light" (click)="cancelEditFactory()">
@@ -280,6 +406,55 @@
                   (click)="startEditFactory(factory); $event.stopPropagation()">
                   Edit
                 </button>
+                }
+              </div>
+              <div class="factory-log-preview" (click)="$event.stopPropagation()">
+                @if (getLatestFactoryLog(factory.id); as latestFactoryLog) {
+                <div class="factory-log-last">
+                  <span class="log-entry-label">Last activity</span>
+                  <div class="manufacturer-log-line">
+                    <time class="manufacturer-log-time" [attr.datetime]="toIsoTimestamp(latestFactoryLog.timestamp)">
+                      {{ formatTimestamp(latestFactoryLog.timestamp) }}
+                    </time>
+                    <span class="activity-status-pill" [class.status-active]="getActivityStatusClass(latestFactoryLog.status) === 'status-active'"
+                      [class.status-info]="getActivityStatusClass(latestFactoryLog.status) === 'status-info'"
+                      [class.status-warning]="getActivityStatusClass(latestFactoryLog.status) === 'status-warning'"
+                      [class.status-error]="getActivityStatusClass(latestFactoryLog.status) === 'status-error'">
+                      {{ latestFactoryLog.status }}
+                    </span>
+                    <span class="manufacturer-log-text">{{ latestFactoryLog.description }}</span>
+                  </div>
+                </div>
+                @if (getRecentFactoryLogs(factory.id).length > 1) {
+                <button type="button" class="btn btn-link factory-log-toggle"
+                  (click)="toggleFactoryLogPreview(factory.id); $event.stopPropagation()"
+                  [attr.aria-expanded]="isFactoryLogPreviewExpanded(factory.id)"
+                  [attr.aria-controls]="getFactoryLogElementId(factory.id)">
+                  {{ isFactoryLogPreviewExpanded(factory.id) ? 'Hide logs' : 'View recent logs (' +
+                  (getRecentFactoryLogs(factory.id).length > logPreviewCount ? logPreviewCount : getRecentFactoryLogs(factory.id).length) + ')' }}
+                </button>
+                @if (isFactoryLogPreviewExpanded(factory.id)) {
+                <ul class="manufacturer-log-list factory-log-list list-unstyled mb-0"
+                  [attr.id]="getFactoryLogElementId(factory.id)">
+                  @for (log of getRecentFactoryLogs(factory.id); track log.id) {
+                  <li class="manufacturer-log-item">
+                    <time class="manufacturer-log-time" [attr.datetime]="toIsoTimestamp(log.timestamp)">
+                      {{ formatTimestamp(log.timestamp) }}
+                    </time>
+                    <span class="activity-status-pill" [class.status-active]="getActivityStatusClass(log.status) === 'status-active'"
+                      [class.status-info]="getActivityStatusClass(log.status) === 'status-info'"
+                      [class.status-warning]="getActivityStatusClass(log.status) === 'status-warning'"
+                      [class.status-error]="getActivityStatusClass(log.status) === 'status-error'">
+                      {{ log.status }}
+                    </span>
+                    <span class="manufacturer-log-text">{{ log.description }}</span>
+                  </li>
+                  }
+                </ul>
+                }
+                }
+                } @else {
+                <div class="factory-log-empty text-muted">No activity logs for this site yet.</div>
                 }
               </div>
               }

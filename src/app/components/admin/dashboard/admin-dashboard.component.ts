@@ -12,6 +12,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ConfirmModalComponent } from './confirm-modal.component';
+import { FluorescenceMapComponent } from '../../../shared/features/fluorescence-map/fluorescence-map.component';
 
 // ========== Data Model: Universal Widget Contract ==========
 // Each widget has a unique ID, title, and flexible content type
@@ -19,7 +20,7 @@ export interface DashboardWidget {
   id: string;                    // Unique identifier for the widget
   title: string;                 // Display title
   subtitle: string;              // Description/subtitle
-  type: 'chart' | 'stat' | 'gauge' | 'treemap' | 'heatmap' | 'timeline' | 'bar'; // Content type
+  type: 'chart' | 'stat' | 'gauge' | 'treemap' | 'heatmap' | 'timeline' | 'bar' | 'map'; // Content type
   chartOptions?: any;            // Chart configuration (flexible placeholder)
   width: number;                 // Grid columns (1-12)
   height: number;                // Height in pixels
@@ -38,7 +39,8 @@ export interface DashboardWidget {
     SpkApexChartsComponent, 
     CommonModule, 
     FormsModule,
-    DragDropModule
+    DragDropModule,
+    FluorescenceMapComponent
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss']
@@ -292,6 +294,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         width: 12,
         height: 450,
         order: 13
+      },
+      {
+        id: 'widget-map',
+        title: 'Fluorescence Map',
+        subtitle: 'Live client, route, and factory network map',
+        type: 'map',
+        width: 12,
+        height: 700,
+        order: 13.5
       }
     ];
 

@@ -4,7 +4,7 @@ import { FluorescenceMapMapComponent } from './components/fluorescence-map-map/f
 import { WarRoomService } from '../../../shared/services/fluorescence-map.service';
 import { WarRoomRealtimeService } from '../../../shared/services/fluorescence-map-realtime.service';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { By } from '@angular/platform-browser';
 import { ToastrService } from 'ngx-toastr';
@@ -23,6 +23,7 @@ describe('FluorescenceMapComponent Integration', () => {
     let component: FluorescenceMapComponent;
     let fixture: ComponentFixture<FluorescenceMapComponent>;
     let warRoomService: WarRoomService;
+    let httpMock: HttpTestingController;
 
     const realtimeServiceMock = {
         startRealTimeUpdates: jasmine.createSpy('startRealTimeUpdates'),
@@ -223,13 +224,13 @@ describe('FluorescenceMapComponent Integration', () => {
             }
         };
 
-        // Mock fetch ONLY for initial data load (which happens in constructor)
+        // Mock fetch for non-API calls used in integration scenarios
         spyOn(window, 'fetch').and.callFake(async (input: RequestInfo | URL) => {
             const url = input.toString();
-            if (url.includes('fluorescence-map-data.json')) {
-                return new Response(JSON.stringify(emptyState), { status: 200 });
+            if (url.includes('geocoding-api.open-meteo.com')) {
+                return new Response(JSON.stringify({ results: [] }), { status: 200 });
             }
-            return new Response('{}', { status: 404 });
+            return new Response(JSON.stringify(emptyState), { status: 200 });
         });
 
         await TestBed.configureTestingModule({
@@ -245,6 +246,7 @@ describe('FluorescenceMapComponent Integration', () => {
             .compileComponents();
 
         localStorage.clear();
+        httpMock = TestBed.inject(HttpTestingController);
         fixture = TestBed.createComponent(FluorescenceMapComponent);
         component = fixture.componentInstance;
         warRoomService = TestBed.inject(WarRoomService);
@@ -258,6 +260,18 @@ describe('FluorescenceMapComponent Integration', () => {
         });
 
         fixture.detectChanges();
+
+        // Flush required backend endpoint requests
+        const clientsReq = httpMock.match((r) => r.url.includes('/Clients'));
+        clientsReq.forEach((req) => req.flush({ items: [] }));
+        const projectsReq = httpMock.match(
+            (r) => r.url.includes('/Projects')
+        );
+        projectsReq.forEach((req) => req.flush({ items: [] }));
+        const manufacturersReq = httpMock.match((r) => r.url.includes('/Manufacturers'));
+        manufacturersReq.forEach((req) => req.flush({ items: [] }));
+        const locationsReq = httpMock.match((r) => r.url.includes('/Locations'));
+        locationsReq.forEach((req) => req.flush({ items: [] }));
     });
 
     const resetServiceState = (): void => {
@@ -274,6 +288,7 @@ describe('FluorescenceMapComponent Integration', () => {
         const testFormData: ProjectFormData = {
             clientId: 'test-client',
             clientName: 'Test Client',
+            manufacturerLocationId: 1,
             factoryId: 1,
             manufacturerId: 1,
             manufacturerName: 'Test Manufacturer',
@@ -283,6 +298,19 @@ describe('FluorescenceMapComponent Integration', () => {
         };
 
         component.onProjectAdded(testFormData);
+        tick(1);
+
+        const postReq = httpMock.match((r) => r.method === 'POST' && r.url.includes('projects'));
+        postReq.forEach((req) =>
+            req.flush({
+                id: 99,
+                name: 'Integration Test Project',
+                clientId: 'test-client',
+                closed: false,
+            })
+        );
+        const clientsAfterPost = httpMock.match((r) => r.url.includes('/Clients'));
+        clientsAfterPost.forEach((req) => req.flush({ items: [] }));
 
         flush();
         tick(100);
@@ -413,17 +441,6 @@ describe('FluorescenceMapComponent Integration', () => {
         filterButton.click();
         fixture.detectChanges();
 
-        const companiesHeader = fixture.nativeElement.querySelector('.filter-section-header') as HTMLButtonElement;
-        companiesHeader?.click();
-        fixture.detectChanges();
-
-        const companyCheckbox = fixture.nativeElement.querySelector('#parent-filter-sub-1') as HTMLInputElement;
-        if (companyCheckbox) {
-            companyCheckbox.checked = true;
-            companyCheckbox.dispatchEvent(new Event('change'));
-        }
-        fixture.detectChanges();
-
         const statusButtons = Array.from(fixture.nativeElement.querySelectorAll('.filters-pill-group .btn')) as HTMLButtonElement[];
         const activeStatusButton = statusButtons.find((btn) => btn.textContent?.trim().startsWith('Active'));
         activeStatusButton?.click();
@@ -433,22 +450,19 @@ describe('FluorescenceMapComponent Integration', () => {
         applyButton.click();
         fixture.detectChanges();
 
-        expect(component.filteredNodes().length).toBe(1);
-        expect(component.filteredTransitRoutes().length).toBe(0);
+        expect(component.filteredNodes().length).toBe(2);
+        expect(component.filteredTransitRoutes().length).toBe(1);
 
         const removeButtons = Array.from(
             fixture.nativeElement.querySelectorAll('.active-filters-bar button')
         ) as HTMLButtonElement[];
-        const companyRemove = removeButtons.find((btn) => btn.getAttribute('aria-label')?.includes('Company'));
-        expect(companyRemove).toBeTruthy();
-        companyRemove!.dispatchEvent(new Event('click'));
+        const statusRemove = removeButtons.find((btn) => btn.getAttribute('aria-label')?.includes('Status'));
+        expect(statusRemove).toBeTruthy();
+        statusRemove!.dispatchEvent(new Event('click'));
         fixture.detectChanges();
 
         const activeFiltersText = fixture.nativeElement.querySelector('.active-filters-bar')?.textContent || '';
-        expect(activeFiltersText).toContain('Status: Active Only');
-
-        expect(component.filteredNodes().length).toBe(2);
-        expect(component.filteredTransitRoutes().length).toBe(1);
+        expect(activeFiltersText).not.toContain('Status: Active Only');
     }));
 
     it('Reset All clears all filters, checkboxes, badges, and active filter bar', fakeAsync(() => {
@@ -462,20 +476,20 @@ describe('FluorescenceMapComponent Integration', () => {
         warRoomService.setMapViewMode('factory');
 
         component.filterApplied.set({
-            parentCompanyIds: ['sub-1'],
             status: 'active',
             regions: ['Europe'],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         component.filterDraft.set({
-            parentCompanyIds: ['sub-1'],
             status: 'active',
             regions: ['Europe'],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         fixture.detectChanges();
 
@@ -487,30 +501,28 @@ describe('FluorescenceMapComponent Integration', () => {
 
         expect(component.activeFilterCount()).toBe(0);
         expect(component.activeFilters().length).toBe(0);
-        expect(component.filterApplied().parentCompanyIds.length).toBe(0);
         expect(component.filterApplied().status).toBe('all');
         expect(component.filterApplied().regions.length).toBe(0);
-        expect(component.filterDraft().parentCompanyIds.length).toBe(0);
         expect(component.filterDraft().status).toBe('all');
     }));
 
     it('clearAllFilters and resetFilters produce identical state', fakeAsync(() => {
         resetServiceState();
         component.filterApplied.set({
-            parentCompanyIds: ['sub-1'],
             status: 'active',
             regions: [],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         component.filterDraft.set({
-            parentCompanyIds: ['sub-1'],
             status: 'active',
             regions: [],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         fixture.detectChanges();
 
@@ -541,12 +553,12 @@ describe('FluorescenceMapComponent Integration', () => {
             routeStatus: 'Open' | 'Closed' | 'Delayed'
         ) => {
             component.filterApplied.set({
-                parentCompanyIds: [],
                 status,
                 regions: [],
                 clientIds: [],
                 manufacturerIds: [],
                 projectTypeIds: [],
+                projectIds: [],
             });
             fixture.detectChanges();
 
@@ -639,24 +651,24 @@ describe('FluorescenceMapComponent Integration', () => {
         fixture.detectChanges();
 
         component.filterApplied.set({
-            parentCompanyIds: [],
             status: 'active',
             regions: [],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         fixture.detectChanges();
         expect(component.filteredNodes().length).toBe(1);
         expect(component.filteredNodes()[0].id).toBe('factory-active');
 
         component.filterApplied.set({
-            parentCompanyIds: [],
             status: 'inactive',
             regions: [],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         fixture.detectChanges();
         expect(component.filteredNodes().length).toBe(1);

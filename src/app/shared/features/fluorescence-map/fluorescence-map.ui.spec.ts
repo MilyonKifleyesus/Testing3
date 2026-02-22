@@ -289,12 +289,12 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
 
     component.showPanel('log');
     component.filterApplied.set({
-      parentCompanyIds: ['sub-1', 'sub-2'],
       status: 'active',
       regions: ['North America'],
       clientIds: [],
       manufacturerIds: [],
       projectTypeIds: [],
+      projectIds: [],
     });
     fixture.detectChanges();
 

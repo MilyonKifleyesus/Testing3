@@ -11,7 +11,7 @@ describe('FluorescenceMapMapComponent logic helpers', () => {
   let component: FluorescenceMapMapComponent;
   let mathService: FluorescenceMapMathService;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     const warRoomServiceMock = {
       panToEntity: signal(null),
       hoveredEntity: signal(null),
@@ -45,7 +45,7 @@ describe('FluorescenceMapMapComponent logic helpers', () => {
       warning: jasmine.createSpy('warning'),
     };
 
-    await TestBed.configureTestingModule({
+    return TestBed.configureTestingModule({
       imports: [FluorescenceMapMapComponent],
       providers: [
         { provide: WarRoomService, useValue: warRoomServiceMock },
@@ -53,7 +53,9 @@ describe('FluorescenceMapMapComponent logic helpers', () => {
         { provide: ToastrService, useValue: toastrMock },
       ],
     }).compileComponents();
+  });
 
+  beforeEach(() => {
     const fixture = TestBed.createComponent(FluorescenceMapMapComponent);
     component = fixture.componentInstance;
     mathService = TestBed.inject(FluorescenceMapMathService);
@@ -333,6 +335,57 @@ describe('FluorescenceMapMapComponent logic helpers', () => {
       expect(route.end).toEqual(expectedEnd!);
     });
     expect(routes[0].path).not.toBe(routes[1].path);
+  });
+
+  it('syncOverlays generates unique render keys for colliding API ids across node roles', async () => {
+    const clientNode = {
+      id: '21',
+      name: 'Client One',
+      company: 'Client One',
+      companyId: '21',
+      city: 'Alpha',
+      coordinates: { latitude: 10, longitude: 20 },
+      type: 'Terminal',
+      status: 'ACTIVE',
+      level: 'client',
+      clientId: '21',
+    } as any;
+
+    const manufacturerNode = {
+      id: '21',
+      name: 'Factory One',
+      company: 'Factory One',
+      companyId: '21',
+      city: 'Beta',
+      coordinates: { latitude: 30, longitude: 40 },
+      type: 'Factory',
+      status: 'ACTIVE',
+      level: 'manufacturer',
+      manufacturerLocationId: '21',
+      factoryId: '21',
+    } as any;
+
+    (component as any).nodes = signal([clientNode, manufacturerNode]);
+    (component as any).selectedEntity = signal(null);
+    (component as any).projectRoutes = signal([]);
+    (component as any).transitRoutes = signal([]);
+    (component as any).filterStatus = signal('all');
+    (component as any).mapLoaded = true;
+    (component as any).destroyed = false;
+    (component as any).mapInstance = {
+      getZoom: () => 4,
+      project: ([lng, lat]: [number, number]) => ({ x: lng * 10, y: lat * 10 }),
+      remove: () => undefined,
+    };
+
+    await (component as any).syncOverlays(false);
+
+    const markers = (component as any).markersVm() as Array<{ renderKey: string }>;
+    const renderKeys = markers.map((marker) => marker.renderKey);
+    expect(markers.length).toBe(2);
+    expect(new Set(renderKeys).size).toBe(2);
+    expect(renderKeys).toContain('client:21');
+    expect(renderKeys).toContain('manufacturer:21');
   });
 
   it('dismissMapError sets mapErrorDismissed so overlay can be hidden', () => {

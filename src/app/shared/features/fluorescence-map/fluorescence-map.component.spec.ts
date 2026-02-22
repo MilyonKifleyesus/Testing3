@@ -5,6 +5,7 @@ import { provideHttpClientTesting, HttpTestingController } from '@angular/common
 import { FluorescenceMapComponent } from './fluorescence-map.component';
 import { FluorescenceMapMapComponent } from './components/fluorescence-map-map/fluorescence-map-map.component';
 import { WarRoomService } from '../../../shared/services/fluorescence-map.service';
+import { ProjectService } from '../../../shared/services/project.service';
 import { WarRoomRealtimeService } from '../../../shared/services/fluorescence-map-realtime.service';
 import { ToastrService } from 'ngx-toastr';
 import {
@@ -164,6 +165,14 @@ describe('FluorescenceMapComponent (unit)', () => {
     description: 'Test group',
   });
 
+  const flushIfOpen = <T>(requests: any[], body: T): void => {
+    requests.forEach((req) => {
+      if (!(req as any).cancelled) {
+        req.flush(body);
+      }
+    });
+  };
+
   beforeEach(async () => {
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
     spyOn(FluorescenceMapMapComponent.prototype as any, 'createMap').and.returnValue(createMapStub());
@@ -188,16 +197,24 @@ describe('FluorescenceMapComponent (unit)', () => {
     }).compileComponents();
 
     localStorage.clear();
+    localStorage.setItem('war-room-add-project-seen', '1');
+    localStorage.setItem('war-room-tips-hint-seen', '1');
     httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(FluorescenceMapComponent);
     component = fixture.componentInstance;
     warRoomService = TestBed.inject(WarRoomService);
     fixture.detectChanges();
-    // Flush any HTTP requests (clients.json, projects.json, etc.)
-    const clientsReq = httpMock.match((r) => r.url.includes('clients.json'));
-    clientsReq.forEach((req) => req.flush({ clients: [] }));
-    const projectsReq = httpMock.match((r) => r.url.includes('projects.json') || (r.url.includes('projects') && !r.url.includes('factories')));
-    projectsReq.forEach((req) => req.flush({ projects: [] }));
+    // Flush required backend endpoint requests
+    const clientsReq = httpMock.match((r) => r.url.includes('/Clients'));
+    flushIfOpen(clientsReq, { items: [] });
+    const projectsReq = httpMock.match(
+      (r) => r.url.includes('/Projects')
+    );
+    flushIfOpen(projectsReq, { items: [] });
+    const manufacturersReq = httpMock.match((r) => r.url.includes('/Manufacturers'));
+    flushIfOpen(manufacturersReq, { items: [] });
+    const locationsReq = httpMock.match((r) => r.url.includes('/Locations'));
+    flushIfOpen(locationsReq, { items: [] });
     await fixture.whenStable();
   });
 
@@ -257,13 +274,31 @@ describe('FluorescenceMapComponent (unit)', () => {
 
     expect(component.filteredTransitRoutes().length).toBe(1);
 
-    component.filterApplied.set({ parentCompanyIds: ['sub-1'], status: 'all', regions: [], clientIds: [], manufacturerIds: [], projectTypeIds: [] });
+    component.filterApplied.set({
+      status: 'all',
+      regions: [],
+      clientIds: [],
+      manufacturerIds: ['unknown-manufacturer'],
+      projectTypeIds: [],
+      projectIds: [],
+    });
     fixture.detectChanges();
 
     expect(component.filteredTransitRoutes().length).toBe(0);
   });
 
-  it('returns empty connections when filters remove all companies', () => {
+  it('does not change map view when switching log panel mode to manufacturer', () => {
+    warRoomService.setMapViewMode('factory');
+    fixture.detectChanges();
+
+    component.setLogPanelMode('manufacturer');
+    fixture.detectChanges();
+
+    expect(component.logPanelMode()).toBe('manufacturer');
+    expect(component.mapViewMode()).toBe('factory');
+  });
+
+  it('returns empty connections when project filters remove all nodes', () => {
     const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
     const subsidiary = buildSubsidiary({ id: 'sub-1', factories: [factoryA] });
     const parentGroup = buildParentGroup([subsidiary]);
@@ -280,7 +315,14 @@ describe('FluorescenceMapComponent (unit)', () => {
     warRoomService.setMapViewMode('factory');
     fixture.detectChanges();
 
-    component.filterApplied.set({ parentCompanyIds: ['nonexistent'], status: 'all', regions: [], clientIds: [], manufacturerIds: [], projectTypeIds: [] });
+    component.filterApplied.set({
+      status: 'all',
+      regions: [],
+      clientIds: [],
+      manufacturerIds: ['nonexistent'],
+      projectTypeIds: [],
+      projectIds: [],
+    });
     fixture.detectChanges();
 
     expect(component.filteredNodes().length).toBe(0);
@@ -323,6 +365,62 @@ describe('FluorescenceMapComponent (unit)', () => {
     expect(component.projectRoutesForMap().length).toBe(2);
   });
 
+  it('keeps project routes visible in manufacturer view', () => {
+    const routes: ProjectRoute[] = [
+      {
+        id: 'project-route-1',
+        projectId: 'project-1',
+        fromNodeId: 'client-a',
+        toNodeId: 'factory-a',
+        status: 'Open',
+        fromCoordinates: { latitude: 43.7, longitude: -79.4 },
+        toCoordinates: { latitude: 45.4, longitude: -75.7 },
+      },
+    ];
+
+    component.projectRoutes.set(routes);
+    warRoomService.setMapViewMode('manufacturer');
+    fixture.detectChanges();
+
+    expect(component.projectRoutesForMap().length).toBe(1);
+    expect(component.projectRoutesForMap()[0].id).toBe('project-route-1');
+  });
+
+  it('hides project routes in factory view', () => {
+    const routes: ProjectRoute[] = [
+      {
+        id: 'project-route-1',
+        projectId: 'project-1',
+        fromNodeId: 'client-a',
+        toNodeId: 'factory-a',
+        status: 'Open',
+        fromCoordinates: { latitude: 43.7, longitude: -79.4 },
+        toCoordinates: { latitude: 45.4, longitude: -75.7 },
+      },
+    ];
+
+    component.projectRoutes.set(routes);
+    warRoomService.setMapViewMode('factory');
+    fixture.detectChanges();
+
+    expect(component.projectRoutesForMap().length).toBe(0);
+  });
+
+  it('keeps current behavior: subsidiary selection is ignored in manufacturer mode', () => {
+    warRoomService.setMapViewMode('manufacturer');
+    warRoomService.selectEntity(null);
+    fixture.detectChanges();
+
+    component.onEntitySelected({
+      level: 'subsidiary',
+      id: 'sub-1',
+      parentGroupId: 'group-1',
+      subsidiaryId: 'sub-1',
+    });
+
+    expect(warRoomService.selectedEntity()).toBeNull();
+  });
+
   it('in project view with status all and no filters, only shows markers that have projects', () => {
     const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
     const factoryB = buildFactory({ id: 'factory-b', subsidiaryId: 'sub-1', city: 'Dallas' });
@@ -333,12 +431,12 @@ describe('FluorescenceMapComponent (unit)', () => {
     setServiceState([parentGroup], []);
     warRoomService.setMapViewMode('project');
     component.filterApplied.set({
-      parentCompanyIds: [],
       status: 'all',
       regions: [],
       clientIds: [],
       manufacturerIds: [],
       projectTypeIds: [],
+      projectIds: [],
     });
 
     const routes: ProjectRoute[] = [
@@ -379,12 +477,12 @@ describe('FluorescenceMapComponent (unit)', () => {
     setServiceState([parentGroup], []);
     warRoomService.setMapViewMode('project');
     component.filterApplied.set({
-      parentCompanyIds: [],
       status: 'all',
       regions: [],
       clientIds: [],
       manufacturerIds: [],
       projectTypeIds: [],
+      projectIds: [],
     });
     component.projectRoutes.set([]);
     fixture.detectChanges();
@@ -394,7 +492,7 @@ describe('FluorescenceMapComponent (unit)', () => {
     expect(factoryNodes.length).toBe(0);
   });
 
-  it('selecting a company sets selectedEntity', () => {
+  it('selecting a factory sets selectedEntity', () => {
     const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
     const subsidiary = buildSubsidiary({ id: 'sub-1', factories: [factoryA] });
     const parentGroup = buildParentGroup([subsidiary]);
@@ -413,30 +511,63 @@ describe('FluorescenceMapComponent (unit)', () => {
     expect(warRoomService.selectedEntity()?.id).toBe(factoryA.id);
   });
 
-  it('clears selection when a filter removes the selected company', () => {
-    const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
-    const factoryB = buildFactory({ id: 'factory-b', subsidiaryId: 'sub-2', city: 'Chicago' });
-    const subsidiaryA = buildSubsidiary({ id: 'sub-1', factories: [factoryA] });
-    const subsidiaryB = buildSubsidiary({ id: 'sub-2', factories: [factoryB] });
-    const parentGroup = buildParentGroup([subsidiaryA, subsidiaryB]);
-    setServiceState([parentGroup], []);
-    warRoomService.setMapViewMode('subsidiary');
-    warRoomService.selectEntity({
-      level: 'subsidiary',
-      id: 'sub-1',
-      parentGroupId: 'group-1',
-      subsidiaryId: 'sub-1',
-    });
-    fixture.detectChanges();
+  it('onClientPanelSaveComplete triggers required data reload', () => {
+    const retrySpy = spyOn(component, 'retryRequiredDataLoad');
 
-    component.filterApplied.set({ parentCompanyIds: ['sub-1', 'sub-2'], status: 'all', regions: [], clientIds: [], manufacturerIds: [], projectTypeIds: [] });
-    fixture.detectChanges();
+    component.onClientPanelSaveComplete();
 
-    component.removeFilter({ type: 'company', label: 'Company: SUB-1', value: 'sub-1' });
-    fixture.detectChanges();
-
-    expect(warRoomService.selectedEntity()).toBeNull();
+    expect(retrySpy).toHaveBeenCalled();
   });
+
+  it('maps BusPulseApi project shape (name, closed, clientId) to Project model', fakeAsync(() => {
+    component.retryRequiredDataLoad();
+    tick(1);
+
+    const clientsReq = httpMock.match((r) => r.url.includes('/Clients'));
+    flushIfOpen(clientsReq, {
+        items: [
+          {
+            id: 'client-1',
+            clientName: 'Test Client',
+            latitude: 43.65,
+            longitude: -79.38,
+          },
+        ],
+      });
+    const projectsReq = httpMock.match(
+      (r) =>
+        r.url.includes('/Projects')
+    );
+    flushIfOpen(projectsReq, [
+        {
+          id: 1,
+          name: 'API Project Name',
+          clientId: 'client-1',
+          closed: false,
+        },
+        {
+          id: 2,
+          name: 'Closed Project',
+          clientId: 'client-1',
+          closed: true,
+        },
+      ]);
+    const manufacturersReq = httpMock.match((r) => r.url.includes('/Manufacturers'));
+    flushIfOpen(manufacturersReq, { items: [] });
+    const locationsReq = httpMock.match((r) => r.url.includes('/Locations'));
+    flushIfOpen(locationsReq, { items: [] });
+    tick(200);
+    fixture.detectChanges();
+
+    const projects = component.projectsSignal();
+    expect(projects.length).toBe(2);
+    const openProj = projects.find((p) => String(p.id) === '1');
+    const closedProj = projects.find((p) => String(p.id) === '2');
+    expect(openProj?.projectName).toBe('API Project Name');
+    expect(openProj?.status).toBe('Open');
+    expect(closedProj?.projectName).toBe('Closed Project');
+    expect(closedProj?.status).toBe('Closed');
+  }));
 
   it('adding a company does not reset selection unless specified', () => {
     const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });

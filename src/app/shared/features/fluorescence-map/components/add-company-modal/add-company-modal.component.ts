@@ -6,11 +6,13 @@ import { A11yModule } from '@angular/cdk/a11y';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { take } from 'rxjs/operators';
 import { Client } from '../../../../../shared/models/client.model';
-import { ProjectService, FactoryOption } from '../../../../../shared/services/project.service';
+import { ProjectService, ManufacturerLocationOption } from '../../../../../shared/services/project.service';
 
 export interface ProjectFormData {
   clientId: string;
   clientName: string;
+  manufacturerLocationId: number;
+  /** @deprecated Use manufacturerLocationId */
   factoryId: number;
   manufacturerId: number;
   manufacturerName: string;
@@ -35,6 +37,8 @@ export class AddCompanyModalComponent implements OnDestroy {
   /** Clients for Step 1 dropdown */
   clients = input<Client[]>([]);
   /** WarRoom factory id to pre-select when opening from Activity Log (NO PROJECT ASSIGNED) */
+  preselectedManufacturerLocationId = input<string | null>(null);
+  /** @deprecated Use preselectedManufacturerLocationId */
   preselectedFactoryId = input<string | null>(null);
 
   // Outputs
@@ -48,7 +52,9 @@ export class AddCompanyModalComponent implements OnDestroy {
 
   // Form data
   clientId = signal<string | null>(null);
-  selectedFactory = signal<FactoryOption | null>(null);
+  selectedManufacturerLocation = signal<ManufacturerLocationOption | null>(null);
+  /** @deprecated Use selectedManufacturerLocation */
+  selectedFactory = this.selectedManufacturerLocation;
   projectName = signal<string>('');
   assessmentType = signal<string>('');
   projectStatus = signal<'Active' | 'Inactive'>('Active');
@@ -58,7 +64,12 @@ export class AddCompanyModalComponent implements OnDestroy {
   // Step state (1–4)
   currentStep = signal<1 | 2 | 3 | 4>(1);
 
-  readonly factoryOptions = toSignal(this.projectService.getFactoriesWithManufacturers(), { initialValue: [] as FactoryOption[] });
+  readonly manufacturerLocationOptions = toSignal(
+    this.projectService.getManufacturerLocationsWithManufacturers(),
+    { initialValue: [] as ManufacturerLocationOption[] }
+  );
+  /** @deprecated Use manufacturerLocationOptions */
+  readonly factoryOptions = this.manufacturerLocationOptions;
   readonly projectTypes = toSignal(this.projectService.getProjectTypes(), { initialValue: [] as string[] });
 
   readonly canProceedToStep2 = computed(() => !!this.clientId());
@@ -69,7 +80,7 @@ export class AddCompanyModalComponent implements OnDestroy {
     return client?.name || id;
   });
 
-  readonly canProceedToStep3 = computed(() => !!this.selectedFactory());
+  readonly canProceedToStep3 = computed(() => !!this.selectedManufacturerLocation());
 
   readonly canProceedToStep4 = computed(() => {
     const name = this.projectName().trim();
@@ -108,11 +119,11 @@ export class AddCompanyModalComponent implements OnDestroy {
 
     effect(() => {
       const visible = this.isVisible();
-      const factoryId = this.preselectedFactoryId();
+      const factoryId = this.preselectedManufacturerLocationId() ?? this.preselectedFactoryId();
       if (!visible || !factoryId) return;
-      this.projectService.getFactoryOptionForWarRoomId(factoryId).pipe(take(1)).subscribe((option) => {
+      this.projectService.getManufacturerLocationOptionForWarRoomId(factoryId).pipe(take(1)).subscribe((option) => {
         if (option) {
-          this.selectedFactory.set(option);
+          this.selectedManufacturerLocation.set(option);
           this.currentStep.set(3);
         }
       });
@@ -149,7 +160,7 @@ export class AddCompanyModalComponent implements OnDestroy {
       this.errorMessage.set('Please select a client.');
       return false;
     }
-    if (!this.selectedFactory()) {
+    if (!this.selectedManufacturerLocation()) {
       this.errorMessage.set('Please select a factory.');
       return false;
     }
@@ -190,8 +201,8 @@ export class AddCompanyModalComponent implements OnDestroy {
     if (step > 1) this.currentStep.set((step - 1) as 1 | 2 | 3 | 4);
   }
 
-  onFactorySelect(option: FactoryOption | null): void {
-    this.selectedFactory.set(option);
+  onFactorySelect(option: ManufacturerLocationOption | null): void {
+    this.selectedManufacturerLocation.set(option);
   }
 
   onSubmit(): void {
@@ -213,7 +224,7 @@ export class AddCompanyModalComponent implements OnDestroy {
     const cid = this.clientId()!;
     const client = this.clients().find((c) => c.id === cid);
     const clientName = client?.name ?? cid;
-    const factory = this.selectedFactory()!;
+    const factory = this.selectedManufacturerLocation()!;
 
     const locationDisplay =
       this.location().trim() ||
@@ -223,7 +234,8 @@ export class AddCompanyModalComponent implements OnDestroy {
     const formData: ProjectFormData = {
       clientId: cid,
       clientName,
-      factoryId: factory.factoryId,
+      manufacturerLocationId: factory.manufacturerLocationId,
+      factoryId: factory.manufacturerLocationId,
       manufacturerId: factory.manufacturerId,
       manufacturerName: factory.manufacturerName,
       projectName: this.projectName().trim(),
@@ -239,7 +251,7 @@ export class AddCompanyModalComponent implements OnDestroy {
   private resetForm(): void {
     this.currentStep.set(1);
     this.clientId.set(null);
-    this.selectedFactory.set(null);
+    this.selectedManufacturerLocation.set(null);
     this.projectName.set('');
     this.assessmentType.set('');
     this.projectStatus.set('Active');

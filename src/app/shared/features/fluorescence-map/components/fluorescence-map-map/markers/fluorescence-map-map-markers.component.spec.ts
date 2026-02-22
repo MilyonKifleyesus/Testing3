@@ -19,6 +19,7 @@ describe('FluorescenceMapMapMarkersComponent', () => {
 
   const buildMarker = (overrides: Partial<MarkerVm>): MarkerVm => ({
     id: 'node-1',
+    renderKey: 'node-1',
     node: baseNode,
     nodeType: 'factory',
     isCluster: false,
@@ -104,6 +105,46 @@ describe('FluorescenceMapMapMarkersComponent', () => {
 
     const markerLogo = fixture.nativeElement.querySelector('.marker-logo') as SVGGElement | null;
     expect(markerLogo).toBeTruthy();
+  });
+
+  it('renders markers with duplicate raw ids when render keys are unique', () => {
+    const sharedId = '21';
+    const pixelMap = new Map<string, { x: number; y: number }>([[sharedId, { x: 100, y: 200 }]]);
+    const clientNode: WarRoomNode = {
+      ...baseNode,
+      id: sharedId,
+      companyId: sharedId,
+      name: 'Client Node',
+      company: 'Client Node',
+      level: 'client',
+      clientId: sharedId,
+    };
+    const manufacturerNode: WarRoomNode = {
+      ...baseNode,
+      id: sharedId,
+      companyId: sharedId,
+      name: 'Manufacturer Node',
+      company: 'Manufacturer Node',
+      level: 'manufacturer',
+      manufacturerLocationId: sharedId,
+      factoryId: sharedId,
+    };
+
+    fixture.componentRef.setInput('markers', [
+      buildMarker({ id: sharedId, renderKey: 'client:21', nodeType: 'client', node: clientNode }),
+      buildMarker({ id: sharedId, renderKey: 'manufacturer:21', nodeType: 'factory', node: manufacturerNode }),
+    ]);
+    fixture.componentRef.setInput('pixelCoordinates', pixelMap);
+    fixture.detectChanges();
+
+    const containers = fixture.nativeElement.querySelectorAll('.marker-container');
+    expect(containers.length).toBe(2);
+
+    const clientClip = fixture.nativeElement.querySelector('[id="logo-clip-client-client:21"]') as SVGClipPathElement | null;
+    const manufacturerClip = fixture.nativeElement.querySelector('[id="logo-clip-manufacturer:21"]') as SVGClipPathElement | null;
+    expect(clientClip).toBeTruthy();
+    expect(manufacturerClip).toBeTruthy();
+    expect(clientClip?.id).not.toBe(manufacturerClip?.id);
   });
 
   it('computeTranslate uses marker anchor center for factory/client markers', () => {

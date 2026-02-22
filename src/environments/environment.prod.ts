@@ -1,5 +1,6 @@
 export const environment = {
   production: true,
+  apiBaseUrl: 'https://api.fleetpulse.net/api',
   firebase: {
     apiKey: "************************************",
     authDomain: "**********************************************",

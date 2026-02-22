@@ -137,6 +137,21 @@
   }
 }
 
+.client-edit-form {
+  margin: 0.25rem 0.5rem;
+  padding: 0.75rem;
+
+  .form-control {
+    background: rgba(5, 8, 12, 0.7);
+    border-color: rgba(var(--cm-muted-rgb), 0.3);
+    color: var(--cm-text);
+  }
+
+  .form-control::placeholder {
+    color: rgba(226, 232, 240, 0.5);
+  }
+}
+
 .client-list-logo {
   width: 1.5rem;
   height: 1.5rem;
@@ -261,6 +276,12 @@
 .project-location {
   color: var(--cm-muted);
   font-size: 0.75rem;
+}
+
+.project-coordinates {
+  color: var(--cm-muted);
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .project-status-pill {

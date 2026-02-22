@@ -28,6 +28,50 @@
       } @else {
       @for (item of filteredClientsForDisplay(); track item.id) {
       <div class="client-row" [class.expanded]="isExpanded(item.id)">
+        @if (editMode() && isEditingClient(item.id) && getClientDraft(item.id); as clientDraft) {
+        <div class="client-list-item client-edit-form" (click)="$event.stopPropagation()">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="client-chevron" aria-hidden="true">
+              {{ isExpanded(item.id) ? 'â–¼' : 'â–¶' }}
+            </span>
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              [value]="clientDraft.name"
+              (input)="updateClientDraft(item.id, { name: $any($event.target).value })"
+              placeholder="Client name"
+              aria-label="Client name" />
+          </div>
+          <input
+            type="text"
+            class="form-control form-control-sm mb-2"
+            [value]="clientDraft.latitude"
+            (input)="updateClientDraft(item.id, { latitude: $any($event.target).value })"
+            placeholder="Latitude (e.g., 52.1579)"
+            aria-label="Client latitude" />
+          @if (getClientLatitudeError(item.id); as latitudeError) {
+          <div class="text-danger fs-11 mb-2">{{ latitudeError }}</div>
+          }
+          <input
+            type="text"
+            class="form-control form-control-sm mb-2"
+            [value]="clientDraft.longitude"
+            (input)="updateClientDraft(item.id, { longitude: $any($event.target).value })"
+            placeholder="Longitude (e.g., -106.6702)"
+            aria-label="Client longitude" />
+          @if (getClientLongitudeError(item.id); as longitudeError) {
+          <div class="text-danger fs-11 mb-2">{{ longitudeError }}</div>
+          }
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-success" (click)="saveClient(item.id, $event)">
+              Save
+            </button>
+            <button type="button" class="btn btn-sm btn-light" (click)="cancelEditClient(item.id, $event)">
+              Cancel
+            </button>
+          </div>
+        </div>
+        } @else {
         <button
           type="button"
           class="client-list-item list-group-item list-group-item-action d-flex align-items-center gap-2"
@@ -47,7 +91,18 @@
             [attr.aria-label]="'Capture all projects for ' + item.name" title="Capture all projects">
             <i class="fe fe-camera" aria-hidden="true"></i>
           </button>
+          @if (editMode()) {
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            data-client-edit-btn
+            (click)="startEditClient(item.id, $event)"
+            aria-label="Edit client">
+            Edit
+          </button>
+          }
         </button>
+        }
 
         @if (isExpanded(item.id)) {
         <div class="project-list">
@@ -72,6 +127,26 @@
                 (input)="updateDraft(idStr(project.id), { location: $any($event.target).value })"
                 placeholder="Location"
                 aria-label="Location" />
+              <input
+                type="text"
+                class="form-control form-control-sm mb-2"
+                [value]="draft.latitude"
+                (input)="updateDraft(idStr(project.id), { latitude: $any($event.target).value })"
+                placeholder="Latitude (e.g., 43.6532)"
+                aria-label="Latitude" />
+              @if (getLatitudeError(project.id); as latitudeError) {
+              <div class="text-danger fs-11 mb-2">{{ latitudeError }}</div>
+              }
+              <input
+                type="text"
+                class="form-control form-control-sm mb-2"
+                [value]="draft.longitude"
+                (input)="updateDraft(idStr(project.id), { longitude: $any($event.target).value })"
+                placeholder="Longitude (e.g., -79.3832)"
+                aria-label="Longitude" />
+              @if (getLongitudeError(project.id); as longitudeError) {
+              <div class="text-danger fs-11 mb-2">{{ longitudeError }}</div>
+              }
               <select
                 class="form-select form-select-sm mb-2"
                 [value]="draft.status"
@@ -107,11 +182,12 @@
                 </button>
               </div>
               }
-              <span class="project-name">{{ project.projectName }}</span>
+              <span class="project-name">{{ project.projectName || 'Unnamed' }}</span>
               @if (getFactoryName(project)) {
               <span class="project-factory">{{ getFactoryName(project) }}</span>
               }
               <span class="project-location">{{ getProjectLocation(project) }}</span>
+              <span class="project-coordinates">{{ getProjectCoordinatesLabel(project) }}</span>
               <span class="project-status-pill" [ngClass]="getStatusPillClass(project.status)">
                 {{ getStatusLabel(project.status) }}
               </span>

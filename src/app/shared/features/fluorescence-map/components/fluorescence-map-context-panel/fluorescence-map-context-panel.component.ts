@@ -34,28 +34,30 @@ export class WarRoomContextPanelComponent {
     const projectId = this.selectedProjectId();
     const projects = this.projectsSignal();
     const clients = this.clientsSignal();
-    const factories = this.warRoomService.factories();
+    const manufacturerLocations = this.warRoomService.manufacturerLocations();
 
     if (projectId) {
       const project = projects.find((p) => String(p.id) === projectId);
       if (project) {
         const client = clients.find((c) => String(c.id) === String(project.clientId));
-        const factory = factories.find((f) => String(f.id) === String(project.manufacturerLocationId));
+        const manufacturerLocation = manufacturerLocations.find(
+          (f) => String(f.id) === String(project.manufacturerLocationId)
+        );
         return {
           type: 'project' as const,
           project,
           client: client ?? null,
-          factory: factory ?? null,
+          manufacturerLocation: manufacturerLocation ?? null,
         };
       }
     }
 
-    if (entity?.level === 'factory') {
-      const factory = factories.find((f) => String(f.id) === String(entity.id));
+    if (entity?.level === 'factory' || entity?.level === 'manufacturer') {
+      const manufacturerLocation = manufacturerLocations.find((f) => String(f.id) === String(entity.id));
       const linkedProjects = projects.filter((p) => String(p.manufacturerLocationId) === String(entity.id));
       return {
-        type: 'factory' as const,
-        factory: factory ?? null,
+        type: 'manufacturer' as const,
+        manufacturerLocation: manufacturerLocation ?? null,
         linkedProjects,
       };
     }

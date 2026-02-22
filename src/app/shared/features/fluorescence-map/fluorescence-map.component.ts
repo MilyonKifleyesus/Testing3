@@ -1,13 +1,13 @@
 import { Component, OnInit, OnDestroy, signal, inject, viewChild, effect, computed, HostListener, isDevMode } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { take } from 'rxjs/operators';
+import { of, switchMap, tap, catchError, timeout, startWith } from 'rxjs';
 import { WarRoomService } from '../../../shared/services/fluorescence-map.service';
-import { WarRoomRealtimeService } from '../../../shared/services/fluorescence-map-realtime.service';
 import { ClientService } from '../../../shared/services/client.service';
 import { ProjectService } from '../../../shared/services/project.service';
-import { CompanyLocationService } from '../../../shared/services/company-location.service';
-import { Node, ActivityLog, ParentGroup, FleetSelection, MapViewMode, SubsidiaryCompany, FactoryLocation, NodeStatus, ActivityStatus, TransitRoute, ProjectRoute } from '../../../shared/models/fluorescence-map.interface';
+import { LocationService } from '../../../shared/services/location.service';
+import { Node, ActivityLog, ParentGroup, FleetSelection, MapViewMode, SubsidiaryCompany, FactoryLocation, ManufacturerLocation, NodeStatus, TransitRoute, ProjectRoute } from '../../../shared/models/fluorescence-map.interface';
 import { Project } from '../../../shared/models/project.model';
 import { FluorescenceMapMapComponent } from './components/fluorescence-map-map/fluorescence-map-map.component';
 import { WarRoomActivityLogComponent } from './components/fluorescence-map-activity-log/fluorescence-map-activity-log.component';
@@ -19,49 +19,53 @@ import { FluorescenceMapCommandMenuComponent, CommandAction } from './components
 import { AddCompanyModalComponent, ProjectFormData } from './components/add-company-modal/add-company-modal.component';
 import { ToastrService } from 'ngx-toastr';
 import { RoutePreviewStorageService } from '../../../shared/services/route-preview-storage.service';
-import { OperationalStatus } from '../../../shared/models/fluorescence-map.interface';
 import { isValidCoordinates } from '../../../shared/utils/coordinate.utils';
+import {
+  ADD_PROJECT_PULSE_DURATION_MS,
+  ADD_PROJECT_SEEN_KEY,
+  ANNOUNCEMENT_CLEAR_DELAY_MS,
+  API_TIMEOUT_MS,
+  FIT_BOUNDS_DELAY_MS,
+  LEGACY_STORAGE_KEY,
+  MAP_EXPANDED_CLASS,
+  MAP_EXPANDED_SCROLL_LOCK_STYLE,
+  MARKER_STABILITY_MESSAGE_DURATION_MS,
+  PREVIOUS_VIEW_BUTTON_DURATION_MS,
+  RESTORE_FOCUS_DELAY_MS,
+  STORAGE_KEY,
+  TIPS_HINT_DURATION_MS,
+  TIPS_HINT_SEEN_KEY,
+  VALID_RESTORABLE_MAP_MODES,
+  ZOOM_TO_ENTITY_DELAY_MS,
+  ACTIVITY_LOG_BUSY_CLEAR_DELAY_MS,
+} from './fluorescence-map.constants';
+import {
+  ActiveFilterItem,
+  EndpointStatus,
+  FactoryEditPayload,
+  FilterStatus,
+  SubsidiaryEditPayload,
+  WarRoomFilters,
+  WarRoomPersistedState,
+  createDefaultFilters,
+} from './fluorescence-map.types';
+import {
+  selectActiveFilterCount,
+  selectActiveFilters,
+  selectAvailableRegions,
+  selectNodesWithClients,
+  selectProjectRoutesForMap,
+  selectStatusCounts,
+} from './state/fluorescence-map.selectors';
+import { ProjectWorkflowContext, ProjectWorkflowService } from './workflows/project-workflow.service';
+import { CaptureWorkflowContext, CaptureWorkflowService } from './workflows/capture-workflow.service';
+import { PanelActionsContext, PanelActionsWorkflowService } from './workflows/panel-actions-workflow.service';
 
-type FilterStatus = 'all' | 'active' | 'inactive';
-
-export interface ActiveFilterItem {
-  type: 'status' | 'region' | 'company' | 'client' | 'manufacturer' | 'projectType';
-  label: string;
-  value: string;
-}
-
-interface WarRoomFilters {
-  parentCompanyIds: string[];
-  status: FilterStatus;
-  regions: string[];
-  clientIds: string[];
-  manufacturerIds: string[];
-  projectTypeIds: string[];
-}
-
-const createDefaultFilters = (): WarRoomFilters => ({
-  parentCompanyIds: [],
-  status: 'all',
-  regions: [],
-  clientIds: [],
-  manufacturerIds: [],
-  projectTypeIds: [],
-});
-
-/** Persisted state schema - supports both legacy filters-only and extended state */
-interface WarRoomPersistedState {
-  mapViewMode?: MapViewMode;
-  panelVisible?: boolean;
-  parentCompanyIds?: string[];
-  status?: FilterStatus;
-  regions?: string[];
-  clientIds?: string[];
-  manufacturerIds?: string[];
-  projectTypeIds?: string[];
-  /** Legacy single-value fields for migration */
-  clientId?: string;
-  manufacturerId?: string;
-  projectType?: string;
+interface ManufacturerRuntimeRecord {
+  id: number;
+  name: string;
+  logo?: string;
+  locationId?: number | null;
 }
 
 @Component({
@@ -82,12 +86,6 @@ interface WarRoomPersistedState {
   styleUrl: './fluorescence-map.component.scss',
 })
 export class FluorescenceMapComponent implements OnInit, OnDestroy {
-  private readonly STORAGE_KEY = 'war-room-state-v1';
-  private readonly LEGACY_STORAGE_KEY = 'war-room-filters-v1';
-  private readonly ADD_PROJECT_SEEN_KEY = 'war-room-add-project-seen';
-  private readonly TIPS_HINT_SEEN_KEY = 'war-room-tips-hint-seen';
-  private readonly MAP_EXPANDED_CLASS = 'war-room-map-expanded';
-  private readonly MAP_EXPANDED_SCROLL_LOCK_STYLE = 'hidden';
   private addProjectPulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private tipsHintTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private lastFocusedElement: HTMLElement | null = null;
@@ -95,19 +93,182 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   private readonly savedMapViewMode = signal<MapViewMode | null>(null);
   // Inject services
   private warRoomService = inject(WarRoomService);
-  private realtimeService = inject(WarRoomRealtimeService);
   private clientService = inject(ClientService);
   private projectService = inject(ProjectService);
-  private companyLocationService = inject(CompanyLocationService);
+  private locationService = inject(LocationService);
   private toastr = inject(ToastrService);
   private routePreviewStorage = inject(RoutePreviewStorageService);
+  private projectWorkflow = inject(ProjectWorkflowService);
+  private captureWorkflow = inject(CaptureWorkflowService);
+  private panelActionsWorkflow = inject(PanelActionsWorkflowService);
+  private readonly requiredReloadTrigger = signal(0);
+  readonly clientsStatus = signal<EndpointStatus>('idle');
+  readonly projectsStatus = signal<EndpointStatus>('idle');
+  readonly manufacturersStatus = signal<EndpointStatus>('idle');
+  readonly locationsStatus = signal<EndpointStatus>('idle');
+  readonly endpointErrors = signal<Record<string, string | null>>({
+    clients: null,
+    projects: null,
+    manufacturers: null,
+    locations: null,
+  });
 
-  readonly clientsSignal = toSignal(this.clientService.getClients(), { initialValue: [] });
-  readonly projectTypesSignal = toSignal(this.projectService.getProjectTypes(), { initialValue: [] });
-  readonly manufacturersSignal = toSignal(this.projectService.getManufacturers(), { initialValue: [] });
-  readonly clientOptionsSignal = toSignal(this.projectService.getClientOptionsWithCounts(), { initialValue: [] });
-  readonly manufacturerOptionsSignal = toSignal(this.projectService.getManufacturerOptionsWithCounts(), { initialValue: [] });
-  readonly projectTypeOptionsSignal = toSignal(this.projectService.getProjectTypeOptionsWithCounts(), { initialValue: [] });
+  private setEndpointLoading(endpoint: 'clients' | 'projects' | 'manufacturers' | 'locations'): void {
+    if (endpoint === 'clients') this.clientsStatus.set('loading');
+    if (endpoint === 'projects') this.projectsStatus.set('loading');
+    if (endpoint === 'manufacturers') this.manufacturersStatus.set('loading');
+    if (endpoint === 'locations') this.locationsStatus.set('loading');
+    this.endpointErrors.update((e) => ({ ...e, [endpoint]: null }));
+  }
+
+  private setEndpointReady(endpoint: 'clients' | 'projects' | 'manufacturers' | 'locations'): void {
+    if (endpoint === 'clients') this.clientsStatus.set('ready');
+    if (endpoint === 'projects') this.projectsStatus.set('ready');
+    if (endpoint === 'manufacturers') this.manufacturersStatus.set('ready');
+    if (endpoint === 'locations') this.locationsStatus.set('ready');
+  }
+
+  private setEndpointError(endpoint: 'clients' | 'projects' | 'manufacturers' | 'locations', err: unknown): void {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (endpoint === 'clients') this.clientsStatus.set('error');
+    if (endpoint === 'projects') this.projectsStatus.set('error');
+    if (endpoint === 'manufacturers') this.manufacturersStatus.set('error');
+    if (endpoint === 'locations') this.locationsStatus.set('error');
+    this.endpointErrors.update((e) => ({ ...e, [endpoint]: msg }));
+  }
+
+  readonly hasRequiredEndpointError = computed(() =>
+    this.clientsStatus() === 'error' ||
+    this.projectsStatus() === 'error' ||
+    this.manufacturersStatus() === 'error' ||
+    this.locationsStatus() === 'error'
+  );
+  readonly requiredDataLoading = computed(() =>
+    this.clientsStatus() === 'loading' ||
+    this.projectsStatus() === 'loading' ||
+    this.manufacturersStatus() === 'loading' ||
+    this.locationsStatus() === 'loading'
+  );
+  readonly requiredDataReady = computed(() =>
+    this.clientsStatus() === 'ready' &&
+    this.projectsStatus() === 'ready' &&
+    this.manufacturersStatus() === 'ready' &&
+    this.locationsStatus() === 'ready'
+  );
+  readonly endpointErrorSummary = computed(() => {
+    const errors = this.endpointErrors();
+    const active = Object.entries(errors)
+      .filter(([, value]) => !!value)
+      .map(([key]) => key);
+    if (active.length === 0) {
+      return '';
+    }
+    const pretty = active.map((key) => key.charAt(0).toUpperCase() + key.slice(1));
+    return `Affected endpoints: ${pretty.join(', ')}`;
+  });
+
+  readonly clientsSignal = toSignal(
+    toObservable(this.requiredReloadTrigger).pipe(
+      startWith(0),
+      tap(() => this.setEndpointLoading('clients')),
+      switchMap(() =>
+        this.clientService.getClients().pipe(
+          timeout(API_TIMEOUT_MS),
+          tap(() => this.setEndpointReady('clients')),
+          catchError((err) => {
+            this.setEndpointError('clients', err);
+            return of([]);
+          })
+        )
+      )
+    ),
+    { initialValue: [] }
+  );
+  readonly projectsSignal = toSignal(
+    toObservable(this.requiredReloadTrigger).pipe(
+      startWith(0),
+      tap(() => this.setEndpointLoading('projects')),
+      switchMap(() =>
+        this.projectService.getProjects({}).pipe(
+          timeout(API_TIMEOUT_MS),
+          tap(() => this.setEndpointReady('projects')),
+          catchError((err) => {
+            this.setEndpointError('projects', err);
+            return of([] as Project[]);
+          })
+        )
+      )
+    ),
+    { initialValue: [] as Project[] }
+  );
+  readonly locationsSignal = toSignal(
+    toObservable(this.requiredReloadTrigger).pipe(
+      startWith(0),
+      tap(() => this.setEndpointLoading('locations')),
+      switchMap(() =>
+        this.locationService.getAllLocations().pipe(
+          timeout(API_TIMEOUT_MS),
+          tap(() => this.setEndpointReady('locations')),
+          catchError((err) => {
+            this.setEndpointError('locations', err);
+            return of([]);
+          })
+        )
+      )
+    ),
+    { initialValue: [] }
+  );
+  readonly locationsById = computed(() => {
+    const locations = this.locationsSignal() as Array<{
+      id: string | number;
+      name: string;
+      latitude: number;
+      longitude: number;
+    }>;
+    const map = new Map<string, { name: string; latitude: number; longitude: number }>();
+    for (const location of locations) {
+      if (!location || location.id == null) continue;
+      map.set(String(location.id), {
+        name: location.name ?? '',
+        latitude: location.latitude,
+        longitude: location.longitude,
+      });
+    }
+    return map;
+  });
+  readonly apiManufacturersSignal = toSignal(
+    toObservable(this.requiredReloadTrigger).pipe(
+      startWith(0),
+      tap(() => this.setEndpointLoading('manufacturers')),
+      switchMap(() =>
+        this.projectService.getManufacturersForHierarchy().pipe(
+          timeout(API_TIMEOUT_MS),
+          switchMap((manufacturers) =>
+            of(
+              manufacturers.map((manufacturer) => ({
+                id: manufacturer.id,
+                name: manufacturer.manufacturerName,
+                logo: manufacturer.manufacturerLogo ?? undefined,
+                locationId: manufacturer.locationId ?? null,
+              }))
+            )
+          ),
+          tap(() => this.setEndpointReady('manufacturers')),
+          catchError((err) => {
+            this.setEndpointError('manufacturers', err);
+            return of([] as ManufacturerRuntimeRecord[]);
+          })
+        )
+      )
+    ),
+    { initialValue: [] as ManufacturerRuntimeRecord[] }
+  );
+  readonly projectTypesSignal = toSignal(this.projectService.getProjectTypes().pipe(catchError(() => of([]))), { initialValue: [] });
+  readonly manufacturersSignal = toSignal(this.projectService.getManufacturers().pipe(catchError(() => of([]))), { initialValue: [] });
+  readonly clientOptionsSignal = toSignal(this.projectService.getClientOptionsWithCounts().pipe(catchError(() => of([]))), { initialValue: [] });
+  readonly manufacturerOptionsSignal = toSignal(this.projectService.getManufacturerOptionsWithCounts().pipe(catchError(() => of([]))), { initialValue: [] });
+  readonly projectTypeOptionsSignal = toSignal(this.projectService.getProjectTypeOptionsWithCounts().pipe(catchError(() => of([]))), { initialValue: [] });
+  readonly projectOptionsSignal = toSignal(this.projectService.getProjectOptionsWithCounts().pipe(catchError(() => of([]))), { initialValue: [] });
   readonly projectRoutes = signal<ProjectRoute[]>([]);
   readonly selectedProjectId = signal<string | null>(null);
   /** When true, hide UI for clean route screenshot capture */
@@ -115,23 +276,12 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   /** Increments when a route preview is saved; used to refresh thumbnails in panels */
   readonly routePreviewVersion = signal(0);
   readonly projectRoutesForMap = computed(() => {
-    const viewMode = this.mapViewMode();
-    if (viewMode === 'factory') {
-      return [];
-    }
-    const routes = this.projectRoutes();
-    if (viewMode === 'client') {
-      const selection = this.selectedEntity();
-      if (selection?.level === 'client') {
-        return routes.filter((route) => route.fromNodeId === selection.id);
-      }
-      return routes;
-    }
-    const selectedId = this.selectedProjectId();
-    if (!selectedId) {
-      return routes;
-    }
-    return routes.filter((route) => route.projectId === selectedId);
+    return selectProjectRoutesForMap(
+      this.mapViewMode(),
+      this.projectRoutes(),
+      this.selectedEntity(),
+      this.selectedProjectId()
+    );
   });
 
   /** True when a client is selected and has at least one route to capture. */
@@ -141,7 +291,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     return selection?.level === 'client' && routes.some((r) => r.fromNodeId === selection.id);
   });
 
-  readonly projectsSignal = toSignal(this.projectService.getProjectsWithRefresh(), { initialValue: [] as Project[] });
   readonly projectStatusByFactoryId = computed(() => {
     const projects = this.projectsSignal();
     const map = new Map<string, 'active' | 'inactive' | 'none'>();
@@ -165,6 +314,8 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   readonly networkMetrics = this.warRoomService.networkMetrics;
   readonly parentGroups = this.warRoomService.parentGroups;
   readonly subsidiaries = this.warRoomService.subsidiaries;
+  readonly manufacturerLocations = this.warRoomService.manufacturerLocations;
+  /** @deprecated Use manufacturerLocations */
   readonly factories = this.warRoomService.factories;
   readonly mapViewMode = this.warRoomService.mapViewMode;
   readonly transitRoutes = this.warRoomService.transitRoutes;
@@ -191,17 +342,19 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
 
   // Add company modal (over map)
   readonly addCompanyModalVisible = signal<boolean>(false);
-  readonly addCompanyModalPreselectedFactoryId = signal<string | null>(null);
+  readonly addCompanyModalPreselectedManufacturerLocationId = signal<string | null>(null);
+  /** @deprecated Use addCompanyModalPreselectedManufacturerLocationId */
+  readonly addCompanyModalPreselectedFactoryId = this.addCompanyModalPreselectedManufacturerLocationId;
 
   // Filters panel state
   readonly filtersPanelVisible = signal<boolean>(false);
   readonly filterDraft = signal<WarRoomFilters>(createDefaultFilters());
   readonly filterApplied = signal<WarRoomFilters>(createDefaultFilters());
-  readonly expandedFilterSection = signal<'companies' | 'client' | 'manufacturer' | 'projectType' | null>(null);
-  readonly companyFilterSearch = signal('');
+  readonly expandedFilterSection = signal<'client' | 'manufacturer' | 'projectType' | 'project' | null>(null);
   readonly clientFilterSearch = signal('');
   readonly manufacturerFilterSearch = signal('');
   readonly projectTypeFilterSearch = signal('');
+  readonly projectFilterSearch = signal('');
 
   // Tactical mode: map-only view with bottom-center view toggle
   readonly tacticalMode = signal<boolean>(false);
@@ -219,23 +372,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   readonly showReturnToPreviousView = signal<boolean>(false);
   private returnToPreviousViewTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  readonly parentCompanyOptions = computed(() => {
-    const statusFilter = this.filterDraft().status;
-    return this.subsidiaries()
-      .filter((subsidiary) => this.matchesOperationalStatus(subsidiary.status, statusFilter))
-      .map((subsidiary) => ({
-        id: subsidiary.id,
-        name: subsidiary.name,
-        count: subsidiary.factories.length,
-      }));
-  });
-  readonly filteredParentCompanyOptions = computed(() => {
-    const term = this.companyFilterSearch().trim().toLowerCase();
-    const options = this.parentCompanyOptions();
-    if (!term) return options;
-    return options.filter((option) => option.name.toLowerCase().includes(term));
-  });
-
   /** Clients that have at least one project, for the Client view in the activity log panel */
   readonly clientsWithProjects = computed(() => {
     const options = this.clientOptionsSignal();
@@ -250,6 +386,19 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
         projectCount: opt.count,
       };
     });
+  });
+  readonly clientsById = computed(() => {
+    const clients = this.clientsSignal();
+    const map = new Map<string, { id: string; name: string; latitude: number | null; longitude: number | null }>();
+    for (const client of clients) {
+      map.set(client.id, {
+        id: client.id,
+        name: client.name,
+        latitude: client.coordinates?.latitude ?? null,
+        longitude: client.coordinates?.longitude ?? null,
+      });
+    }
+    return map;
   });
   readonly filteredClientOptions = computed(() => {
     const term = this.clientFilterSearch().trim().toLowerCase();
@@ -269,53 +418,37 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     if (!term) return options;
     return options.filter((option) => option.name.toLowerCase().includes(term));
   });
-
-  readonly availableRegions = computed(() => {
-    const factories = this.factories();
-    const regionSet = new Set<string>();
-    factories.forEach((factory) => {
-      const region = this.getRegionForFactory(factory);
-      if (region) {
-        regionSet.add(region);
-      }
-    });
-
-    const preferredOrder = ['North America', 'Europe', 'Asia Pacific', 'LATAM'];
-    return preferredOrder.filter((region) => regionSet.has(region));
+  readonly filteredProjectOptions = computed(() => {
+    const term = this.projectFilterSearch().trim().toLowerCase();
+    const options = this.projectOptionsSignal();
+    if (!term) return options;
+    return options.filter((option) => option.name.toLowerCase().includes(term));
   });
 
-  /** Nodes merged with client nodes: clients in routes OR clients with projects (for pan-to-client fallback) */
+  readonly availableRegions = computed(() => {
+    return selectAvailableRegions(this.factories(), (factory) =>
+      this.getRegionForFactory(factory as FactoryLocation)
+    );
+  });
+
+  /** Nodes merged with client nodes: clients in routes OR clients with projects (for pan-to-client fallback).
+   * In Client view, when no projects/routes exist (e.g. API returns empty), show all clients with coordinates. */
   readonly nodesWithClients = computed(() => {
-    const base = this.nodes();
-    const clients = this.clientsSignal();
-    const routes = this.projectRoutes();
-    const clientOptions = this.clientOptionsSignal();
-    if (!clients?.length) return base;
-    const clientIdsInRoutes = routes?.length ? new Set(routes.map((r) => r.fromNodeId)) : new Set<string>();
-    const clientIdsWithProjects = new Set(clientOptions.map((opt) => opt.id));
-    const clientIdsToAdd = new Set([...clientIdsInRoutes, ...clientIdsWithProjects]);
-    const clientNodes: Node[] = clients
-      .filter((c) => c.coordinates && clientIdsToAdd.has(c.id))
-      .map((c) => ({
-        id: c.id,
-        name: c.name,
-        company: c.name,
-        companyId: c.id,
-        city: c.code || c.name,
-        coordinates: c.coordinates!,
-        type: 'Hub' as const,
-        status: 'ACTIVE' as const,
-        level: 'client' as const,
-        clientId: c.id,
-      }));
-    return [...base, ...clientNodes];
+    return selectNodesWithClients(
+      this.nodes(),
+      this.clientsSignal(),
+      this.projectRoutes(),
+      this.clientOptionsSignal(),
+      this.mapViewMode()
+    );
   });
 
   private readonly nodeLookup = computed(() => {
     const nodeMap = new Map<string, Node>();
     this.nodesWithClients().forEach((node) => {
       nodeMap.set(node.id, node);
-      if (node.factoryId) nodeMap.set(node.factoryId, node);
+      const manufacturerLocationId = node.manufacturerLocationId ?? node.factoryId;
+      if (manufacturerLocationId) nodeMap.set(manufacturerLocationId, node);
       if (node.subsidiaryId) nodeMap.set(node.subsidiaryId, node);
       if (node.parentGroupId) nodeMap.set(node.parentGroupId, node);
       if (node.clientId) nodeMap.set(node.clientId, node);
@@ -324,88 +457,20 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   });
 
   readonly activeFilterCount = computed(() => {
-    const filters = this.filterApplied();
-    let count = filters.parentCompanyIds.length + filters.regions.length;
-    if (filters.status !== 'all') count += 1;
-    count += filters.clientIds.length + filters.manufacturerIds.length + filters.projectTypeIds.length;
-    return count;
+    return selectActiveFilterCount(this.filterApplied());
   });
 
   readonly activeFilters = computed<ActiveFilterItem[]>(() => {
-    const filters = this.filterApplied();
-    const items: ActiveFilterItem[] = [];
-
-    // Status
-    if (filters.status !== 'all') {
-      items.push({
-        type: 'status',
-        label: `Status: ${filters.status === 'active' ? 'Active Only' : 'Inactive Only'}`,
-        value: filters.status
-      });
-    }
-
-    // Regions
-    filters.regions.forEach(region => {
-      items.push({
-        type: 'region',
-        label: `Region: ${region}`,
-        value: region
-      });
-    });
-
-    // Companies
-    const subs = this.subsidiaries();
-    filters.parentCompanyIds.forEach(id => {
-      const sub = subs.find(s => s.id === id);
-      const name = sub ? sub.name : 'Unknown Company';
-      items.push({
-        type: 'company',
-        label: `Company: ${name}`,
-        value: id
-      });
-    });
-
-    // Clients
-    const clients = this.clientsSignal();
-    filters.clientIds.forEach(id => {
-      const client = clients.find((c) => c.id === id);
-      const name = client ? client.name : id;
-      items.push({ type: 'client', label: `Client: ${name}`, value: id });
-    });
-
-    // Manufacturers
-    filters.manufacturerIds.forEach(id => {
-      items.push({ type: 'manufacturer', label: `Manufacturer: ${id}`, value: id });
-    });
-
-    // Project Types
-    filters.projectTypeIds.forEach(id => {
-      items.push({ type: 'projectType', label: `Project Type: ${id}`, value: id });
-    });
-
-    return items;
+    return selectActiveFilters(
+      this.filterApplied(),
+      this.clientsSignal(),
+      this.projectsSignal(),
+      this.projectOptionsSignal()
+    );
   });
 
   readonly statusCounts = computed(() => {
-    const projects = this.projectsSignal();
-
-    let active = 0;
-    let inactive = 0;
-
-    for (const p of projects) {
-      const st = p.status ?? 'Open';
-      if (st === 'Open') {
-        active++;
-      } else {
-        inactive++;
-      }
-    }
-
-    return {
-      total: active + inactive,
-      active,
-      inactive,
-    };
+    return selectStatusCounts(this.projectsSignal());
   });
 
   readonly filteredNodes = computed(() => {
@@ -417,7 +482,8 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     const hasProjectFilters =
       filters.clientIds.length > 0 ||
       filters.manufacturerIds.length > 0 ||
-      filters.projectTypeIds.length > 0;
+      filters.projectTypeIds.length > 0 ||
+      filters.projectIds.length > 0;
     const projectFiltersActive = filters.status !== 'all' || hasProjectFilters;
     const useProjectRouteFilter = viewMode === 'project' || projectFiltersActive;
     const routeTargetIds = useProjectRouteFilter ? new Set(routes.map((r) => r.toNodeId)) : null;
@@ -433,7 +499,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
         });
     }
 
-    const routeFailures: string[] = [];
     const result = nodes.filter((node) => {
       // Client nodes: visible in project view, factory view, or when client filter is active
       if (node.level === 'client') {
@@ -441,7 +506,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
           const clientIdsInRoutes = new Set(routes.map((r) => r.fromNodeId));
           return clientIdsInRoutes.has(node.id);
         }
-        return viewMode === 'project' || viewMode === 'factory' || filters.clientIds.length > 0;
+        return viewMode === 'project' || viewMode === 'factory' || viewMode === 'manufacturer' || filters.clientIds.length > 0;
       }
 
       // When project filters are active or in project view, only show nodes that appear in filtered project routes.
@@ -457,7 +522,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
         if (enforceRouteTargets) {
           const matches = this.nodeMatchesRouteTargets(node, routeTargetIds);
           if (!matches) {
-            routeFailures.push(`${node.id}(${node.level})`);
             return false;
           }
         } else if (hasProjectFilters) {
@@ -466,7 +530,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
         }
       }
 
-      const companyMatch = this.matchesParentCompanyFilterForNode(node, filters.parentCompanyIds);
       // When status is active/inactive, we filter by project status; nodes are restricted by routeTargetIds.
       // When status is 'all', filter by factory operational status.
       const status = filters.status as FilterStatus;
@@ -477,7 +540,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
         : true;
       const regionMatch = this.matchesRegionsForNode(node, filters.regions);
 
-      return companyMatch && statusMatch && regionMatch;
+      return statusMatch && regionMatch;
     });
 
     return result;
@@ -485,21 +548,55 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
 
   /** True if node (factory, subsidiary, or parent) has at least one factory in routeTargetIds */
   private nodeMatchesRouteTargets(node: Node, routeTargetIds: Set<string>): boolean {
-    if (node.level === 'factory') return routeTargetIds.has(node.id);
+    if (node.level === 'factory' || node.level === 'manufacturer') return routeTargetIds.has(node.id);
     if (node.level === 'subsidiary') {
-      return this.factories().some((f) => f.subsidiaryId === node.id && routeTargetIds.has(f.id));
+      return this.factories().some((f) => f != null && f.subsidiaryId === node.id && routeTargetIds.has(f.id));
     }
     if (node.level === 'parent') {
       const group = this.parentGroups().find((g) => g.id === node.id);
-      const factoryIds = group?.subsidiaries?.flatMap((s) => s.factories.map((f) => f.id)) ?? [];
+      const factoryIds = group?.subsidiaries?.flatMap((s) => (s.factories ?? []).map((f) => f.id)) ?? [];
       return factoryIds.some((id) => routeTargetIds.has(id));
     }
     return routeTargetIds.has(node.id);
   }
 
+  /** Match subsidiary name to API manufacturer for enrichment. Returns name and logo when matched. */
+  private matchSubsidiaryToManufacturer(
+    subsidiaryName: string,
+    apiManufacturers: { name: string; logo?: string }[]
+  ): { name: string; logo?: string } | null {
+    const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+    const subNorm = norm(subsidiaryName);
+    if (!subNorm) return null;
+    for (const m of apiManufacturers) {
+      const apiNorm = norm(m.name);
+      if (!apiNorm) continue;
+      if (subNorm === apiNorm) return { name: m.name, logo: m.logo };
+      if (subNorm.includes(apiNorm) || apiNorm.includes(subNorm)) return { name: m.name, logo: m.logo };
+      const subFirst = subNorm.split(/\s+/)[0];
+      const apiFirst = apiNorm.split(/\s+/)[0];
+      if (subFirst && apiFirst && subFirst.length >= 2 && subFirst === apiFirst) return { name: m.name, logo: m.logo };
+    }
+    return null;
+  }
+
+  readonly enrichedParentGroups = computed(() => {
+    const groups = this.parentGroups();
+    const apiManufacturers = this.apiManufacturersSignal();
+    if (apiManufacturers.length === 0) return groups;
+    return groups.map((group) => ({
+      ...group,
+      subsidiaries: group.subsidiaries.map((sub) => {
+        const match = this.matchSubsidiaryToManufacturer(sub.name, apiManufacturers);
+        if (!match) return sub;
+        return { ...sub, name: match.name, logo: match.logo ?? sub.logo };
+      }),
+    }));
+  });
+
   readonly filteredParentGroups = computed(() => {
     const filters = this.filterApplied();
-    const parentGroups = this.parentGroups();
+    const parentGroups = this.enrichedParentGroups();
     const projectStatusByFactory = this.projectStatusByFactoryId();
 
     return parentGroups
@@ -507,7 +604,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
         // Deep clone or construct filtered group
         const filteredSubsidiaries = group.subsidiaries
           .map((sub) => {
-            const filteredFactories = sub.factories.filter((f) => {
+            const filteredFactories = (sub.factories ?? []).filter((f) => {
               const statusMatch =
                 filters.status === 'all'
                   ? true
@@ -515,30 +612,17 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
                     ? projectStatusByFactory.get(f.id) === 'active'
                     : projectStatusByFactory.get(f.id) === 'inactive';
               const regionMatch = this.matchesRegionsForFactory(f, filters.regions);
-              const companyMatch = this.matchesParentCompanyFilterForNode({
-                id: f.id,
-                subsidiaryId: f.subsidiaryId,
-                parentGroupId: f.parentGroupId,
-                level: 'factory'
-              } as any, filters.parentCompanyIds);
-              return statusMatch && regionMatch && companyMatch;
+              return statusMatch && regionMatch;
             });
 
             if (filteredFactories.length === 0) {
               if (filters.status === 'active' || filters.status === 'inactive') {
                 return null;
               }
-              // If no factories match, check if the subsidiary itself matches status/company
+              // If no factories match, check if the subsidiary itself matches status.
               // Note: Region filtering for subsidiary is based on its factories
               const statusMatch = this.matchesOperationalStatus(sub.status, filters.status);
-              const companyMatch = this.matchesParentCompanyFilterForNode({
-                id: sub.id,
-                subsidiaryId: sub.id,
-                parentGroupId: sub.parentGroupId,
-                level: 'subsidiary'
-              } as any, filters.parentCompanyIds);
-
-              if (statusMatch && companyMatch && filters.regions.length === 0) {
+              if (statusMatch && filters.regions.length === 0) {
                 return { ...sub, factories: [] };
               }
               return null;
@@ -546,7 +630,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
 
             return { ...sub, factories: filteredFactories };
           })
-          .filter((sub): sub is SubsidiaryCompany => sub !== null);
+          .filter((sub): sub is SubsidiaryCompany & { factories: ManufacturerLocation[] } => sub !== null);
 
         if (filteredSubsidiaries.length === 0) {
           if (filters.status === 'active' || filters.status === 'inactive') {
@@ -554,13 +638,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
           }
           // Check if parent itself matches if no children match
           const statusMatch = this.matchesOperationalStatus(group.status, filters.status);
-          const companyMatch = this.matchesParentCompanyFilterForNode({
-            id: group.id,
-            parentGroupId: group.id,
-            level: 'parent'
-          } as any, filters.parentCompanyIds);
-
-          if (statusMatch && companyMatch && filters.regions.length === 0) {
+          if (statusMatch && filters.regions.length === 0) {
             return { ...group, subsidiaries: [] };
           }
           return null;
@@ -568,7 +646,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
 
         return { ...group, subsidiaries: filteredSubsidiaries };
       })
-      .filter((group): group is ParentGroup => group !== null);
+      .filter((group): group is ParentGroup & { subsidiaries: (SubsidiaryCompany & { factories: ManufacturerLocation[] })[] } => group !== null);
   });
 
   readonly filteredActivityLogs = computed(() => {
@@ -577,17 +655,14 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     const projectStatusByFactory = this.projectStatusByFactoryId();
 
     return this.activityLogs().filter((log) => {
-      if (!this.matchesParentCompanyFilterForLog(log, filters.parentCompanyIds)) {
-        return false;
-      }
-
-      const factory = factoryLookup.get(log.factoryId);
+      const logLocationId = log.manufacturerLocationId ?? log.factoryId;
+      const factory = logLocationId ? factoryLookup.get(logLocationId) : undefined;
       const statusMatch =
         filters.status === 'all'
           ? true
           : filters.status === 'active'
-            ? projectStatusByFactory.get(log.factoryId) === 'active'
-            : projectStatusByFactory.get(log.factoryId) === 'inactive';
+            ? projectStatusByFactory.get(logLocationId ?? '') === 'active'
+            : projectStatusByFactory.get(logLocationId ?? '') === 'inactive';
       if (!statusMatch) {
         return false;
       }
@@ -678,6 +753,71 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   private addCompanyInFlight = false;
   private addProjectSucceededBeforeClose = false;
 
+  private logWarn(message: string, error?: unknown): void {
+    if (isDevMode()) {
+      console.warn(message, error);
+    }
+  }
+
+  private logError(message: string, error?: unknown): void {
+    console.error(message, error);
+  }
+
+  private projectWorkflowContext(): ProjectWorkflowContext {
+    return {
+      factories: () => this.factories(),
+      subsidiaries: () => this.subsidiaries(),
+      apiManufacturersSignal: () => this.apiManufacturersSignal(),
+      retryRequiredDataLoad: () => this.retryRequiredDataLoad(),
+      projectRoutes: () => this.projectRoutes(),
+      clearAllFilters: () => this.clearAllFilters(),
+      setSelectedProjectId: (value) => this.selectedProjectId.set(value),
+      mapFitBoundsToRoutes: (routes) => this.mapComponent().fitBoundsToRoutes(routes),
+      announce: (message) => this.announce(message),
+      closeModalAfterSuccess: () => this.addCompanyModalRef()?.closeAfterSuccess(),
+      handleModalSuccess: (message) => {
+        this.addProjectSucceededBeforeClose = true;
+        this.addCompanyModalRef()?.handleSuccess(message);
+      },
+      handleModalError: (message) => this.addCompanyModalRef()?.handleError(message),
+      waitForRouteThenCapture: (projectId, projectName, initialDelayMs, pollIntervalMs, maxAttempts) =>
+        this.captureWorkflow.waitForRouteCapture(
+          this.captureWorkflowContext(),
+          projectId,
+          projectName,
+          initialDelayMs,
+          pollIntervalMs,
+          maxAttempts
+        ),
+    };
+  }
+
+  private captureWorkflowContext(): CaptureWorkflowContext {
+    return {
+      projectRoutes: () => this.projectRoutes(),
+      selectedEntity: () => this.selectedEntity(),
+      clientsSignal: () => this.clientsSignal(),
+      setScreenshotMode: (value) => this.screenshotMode.set(value),
+      setSelectedProjectId: (value) => this.selectedProjectId.set(value),
+      mapCaptureRoutesScreenshot: (routes) => this.mapComponent().captureRoutesScreenshot(routes),
+      mapCaptureRouteScreenshot: (route) => this.mapComponent().captureRouteScreenshot(route),
+      refreshRoutePreviewVersion: () => this.routePreviewVersion.set(this.routePreviewStorage.previewSaved()),
+    };
+  }
+
+  private panelActionsContext(): PanelActionsContext {
+    return {
+      mapViewMode: () => this.mapViewMode(),
+      selectedEntity: () => this.selectedEntity(),
+      setSelectedEntity: (selection) => this.warRoomService.selectEntity(selection),
+      showPanel: (panel) => this.showPanel(panel),
+      setManufacturerFilterSubsidiaryId: (id) => this.warRoomService.setManufacturerFilterSubsidiaryId(id),
+      setMapViewMode: (mode) => this.warRoomService.setMapViewMode(mode),
+      zoomToEntity: (id, zoom) => this.mapComponent().zoomToEntity(id, zoom),
+      announce: (message) => this.announce(message),
+    };
+  }
+
   constructor() {
     effect(() => {
       const selectedEntity = this.selectedEntity();
@@ -694,7 +834,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
         this.zoomTimeoutId = setTimeout(() => {
           map.zoomToEntity(selectedEntity.id);
           this.zoomTimeoutId = null;
-        }, 100);
+        }, ZOOM_TO_ENTITY_DELAY_MS);
       }
       // Cleanup function for effect
       return () => {
@@ -716,15 +856,17 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
         mapViewMode: viewMode,
         panelVisible,
       };
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     });
 
     effect(() => {
+      const dataReady = this.requiredDataReady();
       const clients = this.clientsSignal();
       const factories = this.factories();
+      const locations = this.locationsSignal();
       const filters = this.filterApplied();
       void this.projectRoutesRefreshTrigger();
-      if (!clients?.length || !factories?.length) {
+      if (!dataReady || !clients?.length) {
         this.projectRoutes.set([]);
         this.projectRoutesLoading.set(false);
         return;
@@ -735,9 +877,22 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
           .filter((c) => c.coordinates)
           .map((c) => [c.id, c.coordinates!])
       );
-      const factoryCoords = new Map(
-        factories.map((f) => [f.id, { latitude: f.coordinates.latitude, longitude: f.coordinates.longitude }])
-      );
+      const warRoomEntries = factories.map((f) => [
+        f.id,
+        { latitude: f.coordinates.latitude, longitude: f.coordinates.longitude },
+      ] as const);
+      const locationEntries = (locations as Array<{ id: string | number; latitude: number; longitude: number }>)
+        .filter(
+          (l) => Number.isFinite(l.latitude) && Number.isFinite(l.longitude)
+        )
+        .map((l) => [
+          String(l.id),
+          { latitude: l.latitude, longitude: l.longitude },
+        ] as const);
+      const factoryCoords = new Map<string, { latitude: number; longitude: number }>([
+        ...warRoomEntries,
+        ...locationEntries,
+      ]);
       const projectStatuses: ('Open' | 'Closed' | 'Delayed')[] | undefined =
         filters.status === 'active' ? ['Open'] :
           filters.status === 'inactive' ? ['Closed', 'Delayed'] :
@@ -746,10 +901,17 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
         clientIds: filters.clientIds.length ? filters.clientIds : undefined,
         manufacturerIds: filters.manufacturerIds.length ? filters.manufacturerIds : undefined,
         projectTypeIds: filters.projectTypeIds.length ? filters.projectTypeIds : undefined,
+        projectIds: filters.projectIds.length ? filters.projectIds : undefined,
         projectStatuses,
       };
       const sub = this.projectService
         .getProjectsForMap(clientCoords, factoryCoords, projectFilters)
+        .pipe(
+          catchError((err) => {
+            this.logError('Failed to fetch project routes for map', err);
+            return of([]);
+          })
+        )
         .subscribe((routes) => {
           this.projectRoutes.set(routes);
           this.projectRoutesLoading.set(false);
@@ -770,25 +932,25 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       if (selection?.level !== 'client' || loading || !map || !routes.length) return;
       const clientRoutes = routes.filter((r) => r.fromNodeId === selection.id);
       if (!clientRoutes.length) return;
-      setTimeout(() => map.fitBoundsToRoutes(clientRoutes), 150);
+      setTimeout(() => map.fitBoundsToRoutes(clientRoutes), FIT_BOUNDS_DELAY_MS);
     });
   }
 
   ngOnInit(): void {
     // Load persisted state (filters + view mode) - support legacy key for migration
-    const saved = localStorage.getItem(this.STORAGE_KEY) ?? localStorage.getItem(this.LEGACY_STORAGE_KEY);
+    const saved = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as WarRoomPersistedState;
         const defaults = createDefaultFilters();
         const filters: WarRoomFilters = {
           ...defaults,
-          parentCompanyIds: parsed.parentCompanyIds ?? defaults.parentCompanyIds,
           status: parsed.status ?? defaults.status,
           regions: parsed.regions ?? defaults.regions,
           clientIds: parsed.clientIds ?? defaults.clientIds,
           manufacturerIds: parsed.manufacturerIds ?? defaults.manufacturerIds,
           projectTypeIds: parsed.projectTypeIds ?? defaults.projectTypeIds,
+          projectIds: parsed.projectIds ?? defaults.projectIds,
         };
         // Migrate legacy single-string filters to arrays
         if (filters.clientIds.length === 0 && parsed.clientId != null && parsed.clientId !== 'all') {
@@ -803,23 +965,23 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
         filters.clientIds = filters.clientIds ?? [];
         filters.manufacturerIds = filters.manufacturerIds ?? [];
         filters.projectTypeIds = filters.projectTypeIds ?? [];
+        filters.projectIds = filters.projectIds ?? [];
         this.filterApplied.set(filters);
         this.filterDraft.set(filters);
 
-        // Restore view mode - store for effect to apply after service data loads (service overwrites on JSON load)
-        const validModes: MapViewMode[] = ['project', 'client', 'factory', 'subsidiary', 'parent'];
-        if (parsed.mapViewMode && validModes.includes(parsed.mapViewMode)) {
-          this.savedMapViewMode.set(parsed.mapViewMode);
-          this.warRoomService.setMapViewMode(parsed.mapViewMode);
+        // Restore view mode - migrate legacy subsidiary mode to manufacturer.
+        const restoredMode =
+          parsed.mapViewMode === 'subsidiary' ? 'manufacturer' : parsed.mapViewMode;
+        if (restoredMode && VALID_RESTORABLE_MAP_MODES.includes(restoredMode)) {
+          this.savedMapViewMode.set(restoredMode);
+          this.warRoomService.setMapViewMode(restoredMode);
         }
         // Restore panel visibility from persisted state
         if (typeof parsed.panelVisible === 'boolean') {
           this.panelVisible.set(parsed.panelVisible);
         }
       } catch (e) {
-        if (isDevMode()) {
-          console.warn('Failed to parse saved state', e);
-        }
+        this.logWarn('Failed to parse saved state', e);
       }
     } else {
       // First-time user: show sidebar by default for better discoverability
@@ -827,21 +989,30 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     }
 
     // First-visit pulse on Add Project button
-    if (typeof localStorage !== 'undefined' && !localStorage.getItem(this.ADD_PROJECT_SEEN_KEY)) {
+    if (typeof localStorage !== 'undefined' && !localStorage.getItem(ADD_PROJECT_SEEN_KEY)) {
       this.addProjectPulse.set(true);
-      this.addProjectPulseTimeoutId = setTimeout(() => this.dismissAddProjectPulse(), 5000);
+      this.addProjectPulseTimeoutId = setTimeout(() => this.dismissAddProjectPulse(), ADD_PROJECT_PULSE_DURATION_MS);
     }
 
     // First-time onboarding hint for view modes, Panels, Tactical View, FAB
-    if (typeof localStorage !== 'undefined' && !localStorage.getItem(this.TIPS_HINT_SEEN_KEY)) {
+    if (typeof localStorage !== 'undefined' && !localStorage.getItem(TIPS_HINT_SEEN_KEY)) {
       this.showTipsHint.set(true);
-      this.tipsHintTimeoutId = setTimeout(() => this.dismissTipsHint(), 6000);
+      this.tipsHintTimeoutId = setTimeout(() => this.dismissTipsHint(), TIPS_HINT_DURATION_MS);
     }
 
     this.hasHydratedFromStorage = true;
 
-    // Start real-time updates
-    this.realtimeService.startRealTimeUpdates();
+    // Load manufacturer hierarchy from API (replaces JSON when API returns data)
+    this.projectService.buildParentGroupsFromApi().pipe(take(1)).subscribe({
+      next: (groups) => {
+        if (groups.length > 0) {
+          this.warRoomService.setParentGroupsFromApi(groups);
+        }
+      },
+      error: (err) => {
+        this.setEndpointError('manufacturers', err);
+      },
+    });
   }
 
   /** Effect to re-apply saved view mode after WarRoomService loads JSON (which overwrites mapViewMode) */
@@ -856,21 +1027,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     }
   });
 
-  /** Effect to ensure mapViewMode allows manufacturer panel clicks (subsidiary/factory) when in manufacturer mode */
-  private readonly syncMapViewForManufacturerEffect = effect(() => {
-    const mode = this.logPanelMode();
-    if (mode === 'manufacturer') {
-      const current = this.mapViewMode();
-      if (current !== 'subsidiary' && current !== 'project' && current !== 'client') {
-        this.warRoomService.setMapViewMode('subsidiary');
-      }
-    }
-  });
-
   ngOnDestroy(): void {
-    // Stop real-time updates
-    this.realtimeService.stopRealTimeUpdates();
-
     // Clear zoom timeout
     if (this.zoomTimeoutId) {
       clearTimeout(this.zoomTimeoutId);
@@ -890,9 +1047,15 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     this.applyMapExpandedDomState(false);
   }
 
+  retryRequiredDataLoad(): void {
+    this.requiredReloadTrigger.update((n) => n + 1);
+    this.projectService.refreshProjects();
+    this.projectRoutesRefreshTrigger.update((n) => n + 1);
+  }
+
   private dismissAddProjectPulse(): void {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(this.ADD_PROJECT_SEEN_KEY, '1');
+      localStorage.setItem(ADD_PROJECT_SEEN_KEY, '1');
     }
     this.addProjectPulse.set(false);
     if (this.addProjectPulseTimeoutId != null) {
@@ -904,7 +1067,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   /** Called from template when user dismisses first-time tips */
   dismissTipsHint(): void {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(this.TIPS_HINT_SEEN_KEY, '1');
+      localStorage.setItem(TIPS_HINT_SEEN_KEY, '1');
     }
     this.showTipsHint.set(false);
     if (this.tipsHintTimeoutId != null) {
@@ -917,34 +1080,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
    * Handle entity selection from activity log
    */
   onEntitySelected(selection: FleetSelection): void {
-    const currentView = this.mapViewMode();
-    if (selection.level === 'subsidiary' && currentView !== 'subsidiary' && currentView !== 'project' && currentView !== 'client') {
-      return;
-    }
-    if (selection.level === 'subsidiary') {
-      const subsidiaryId = selection.subsidiaryId || selection.id;
-      if (currentView === 'project' || currentView === 'client') {
-        this.warRoomService.setMapViewMode('factory');
-        this.warRoomService.setFactoryFilterSubsidiaryId(subsidiaryId);
-      } else if (currentView === 'subsidiary') {
-        this.warRoomService.setFactoryFilterSubsidiaryId(subsidiaryId);
-      } else {
-        this.warRoomService.setFactoryFilterSubsidiaryId(null);
-      }
-    }
-
-    const currentSelection = this.selectedEntity();
-    const isSameSelection = currentSelection?.id === selection.id && currentSelection?.level === selection.level;
-    this.warRoomService.selectEntity(selection);
-
-    // Show activity log panel when clicking activity log
-    this.showPanel('log');
-
-    // Zoom is handled by the effect() when the selected entity changes
-    // This prevents double-zooming and race conditions
-    if (isSameSelection) {
-      this.mapComponent().zoomToEntity(selection.id);
-    }
+    this.panelActionsWorkflow.onEntitySelected(this.panelActionsContext(), selection);
   }
 
   /**
@@ -974,9 +1110,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
 
   setLogPanelMode(mode: 'client' | 'manufacturer'): void {
     this.logPanelMode.set(mode);
-    if (mode === 'manufacturer') {
-      this.warRoomService.setMapViewMode('subsidiary');
-    }
   }
 
   onClientSelected(clientId: string): void {
@@ -994,7 +1127,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   }
 
   onClientPanelSaveComplete(): void {
-    this.projectRoutesRefreshTrigger.update((n) => n + 1);
+    this.retryRequiredDataLoad();
   }
 
   toggleMapExpanded(): void {
@@ -1013,8 +1146,8 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     if (!document.body) {
       return;
     }
-    document.body.classList.toggle(this.MAP_EXPANDED_CLASS, expanded);
-    document.body.style.overflow = expanded ? this.MAP_EXPANDED_SCROLL_LOCK_STYLE : '';
+    document.body.classList.toggle(MAP_EXPANDED_CLASS, expanded);
+    document.body.style.overflow = expanded ? MAP_EXPANDED_SCROLL_LOCK_STYLE : '';
   }
 
   onSaveChanges(): void {
@@ -1059,75 +1192,42 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   }
 
 
-  /**
-   * Helper to parse location string into parts
-   * Reused from onCompanyAdded
-   */
-  private parseLocationParts(location: string): { city: string; country: string; fullLocation: string } {
-    const parts = location.split(',').map((p) => p.trim());
-    let city = parts[0] || '';
-    let country = parts.length > 1 ? parts[parts.length - 1] : '';
-    // Basic heuristics if country is not explicitly last part
-    if (!country && parts.length === 1) {
-      // Single string, treat as City
-      country = 'Unknown';
-    }
-    return { city, country, fullLocation: location };
-  }
-
   async onBatchUpdateRequested(payload: {
-    factories: Array<{ factoryId: string; name: string; location: string; description: string; status: NodeStatus }>;
-    subsidiaries: Array<{ subsidiaryId: string; name: string; location: string; description: string; status: OperationalStatus }>;
+    factories: FactoryEditPayload[];
+    subsidiaries: SubsidiaryEditPayload[];
   }): Promise<void> {
     this.activityLogBusy.set(true);
     try {
-      let updateCount = 0;
+      const { successCount, failureCount } = await this.projectWorkflow.runBatchUpdate(
+        this.projectWorkflowContext(),
+        payload,
+        (message, error) => this.logError(message, error)
+      );
 
-      // Process Subsidiary Updates
-      for (const sub of payload.subsidiaries) {
-        this.warRoomService.updateSubsidiaryDetails(sub.subsidiaryId, {
-          name: sub.name,
-          location: sub.location,
-          description: sub.description,
-          status: sub.status
-        });
-        updateCount++;
-      }
-
-      // Process Factory Updates
-      for (const fact of payload.factories) {
-        // Parse the location string to extract city/country for the update factory payload
-        const { city, country, fullLocation } = this.parseLocationParts(fact.location);
-
-        this.warRoomService.updateFactoryDetails(fact.factoryId, {
-          name: fact.name,
-          city: city,
-          country: country,
-          locationLabel: fullLocation,
-          description: fact.description,
-          status: fact.status
-        });
-        updateCount++;
-      }
-
-      if (updateCount > 0) {
-        this.toastr.success(`Successfully updated ${updateCount} operational entities.`, 'SYNC COMPLETE');
-      } else {
+      if (successCount === 0 && failureCount === 0) {
         this.toastr.info('No changes detected to save.', 'SYNC COMPLETE');
+        return;
       }
 
-      // success! clear drafts and exit mode
-      // success! clear drafts and exit mode
-      const log = this.activityLogRef();
-      log?.clearAllDrafts();
-      this.activityLogEditMode.set(false);
+      if (failureCount === 0) {
+        this.toastr.success(`Successfully updated ${successCount} operational entities.`, 'SYNC COMPLETE');
+        const log = this.activityLogRef();
+        log?.clearAllDrafts();
+        this.activityLogEditMode.set(false);
+      } else if (successCount > 0) {
+        this.toastr.warning(
+          `Saved ${successCount} updates, ${failureCount} failed. Review and retry failed changes.`,
+          'PARTIAL SAVE'
+        );
+      } else {
+        this.toastr.error('Failed to save changes. Please try again.', 'SAVE ERROR');
+      }
 
     } catch (error) {
-      console.error('Batch update failed', error);
+      this.logError('Batch update failed', error);
       this.toastr.error('Failed to save changes. Please try again.', 'SAVE ERROR');
-      // INTENTIONALLY DO NOT CLEAR DRAFTS OR EXIT EDIT MODE
     } finally {
-      setTimeout(() => this.activityLogBusy.set(false), 400);
+      setTimeout(() => this.activityLogBusy.set(false), ACTIVITY_LOG_BUSY_CLEAR_DELAY_MS);
     }
   }
 
@@ -1139,12 +1239,12 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     if (!wasOpen) {
       const applied = this.filterApplied();
       this.filterDraft.set({
-        parentCompanyIds: [...applied.parentCompanyIds],
         status: applied.status,
         regions: [...applied.regions],
         clientIds: [...applied.clientIds],
         manufacturerIds: [...applied.manufacturerIds],
         projectTypeIds: [...applied.projectTypeIds],
+        projectIds: [...applied.projectIds],
       });
     }
     this.filtersPanelVisible.set(!wasOpen);
@@ -1155,35 +1255,20 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     if (!this.filtersPanelVisible()) {
       const applied = this.filterApplied();
       this.filterDraft.set({
-        parentCompanyIds: [...applied.parentCompanyIds],
         status: applied.status,
         regions: [...applied.regions],
         clientIds: [...applied.clientIds],
         manufacturerIds: [...applied.manufacturerIds],
         projectTypeIds: [...applied.projectTypeIds],
+        projectIds: [...applied.projectIds],
       });
     }
     this.filtersPanelVisible.set(true);
   }
 
-  toggleFilterSection(section: 'companies' | 'client' | 'manufacturer' | 'projectType'): void {
+  toggleFilterSection(section: 'client' | 'manufacturer' | 'projectType' | 'project'): void {
     const current = this.expandedFilterSection();
     this.expandedFilterSection.set(current === section ? null : section);
-  }
-
-  toggleParentCompany(parentGroupId: string): void {
-    this.filterDraft.update((filters) => {
-      const nextIds = new Set(filters.parentCompanyIds);
-      if (nextIds.has(parentGroupId)) {
-        nextIds.delete(parentGroupId);
-      } else {
-        nextIds.add(parentGroupId);
-      }
-      const next = { ...filters, parentCompanyIds: Array.from(nextIds) };
-      // Apply company filter immediately so map and counts update without clicking Apply
-      this.filterApplied.set({ ...this.filterApplied(), parentCompanyIds: next.parentCompanyIds });
-      return next;
-    });
   }
 
   toggleRegion(region: string): void {
@@ -1216,12 +1301,12 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     const draft = this.filterDraft();
 
     this.filterApplied.set({
-      parentCompanyIds: [...draft.parentCompanyIds],
       status: draft.status,
       regions: [...draft.regions],
       clientIds: [...draft.clientIds],
       manufacturerIds: [...draft.manufacturerIds],
       projectTypeIds: [...draft.projectTypeIds],
+      projectIds: [...draft.projectIds],
     });
     this.filtersPanelVisible.set(false);
     this.announce('Filters applied. ' + this.activeFilterCount() + ' filters active.');
@@ -1260,14 +1345,25 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     });
   }
 
+  toggleProject(projectId: string): void {
+    this.filterDraft.update((filters) => {
+      const nextIds = new Set(filters.projectIds);
+      if (nextIds.has(projectId)) nextIds.delete(projectId);
+      else nextIds.add(projectId);
+      const next = { ...filters, projectIds: Array.from(nextIds) };
+      this.filterApplied.set({ ...this.filterApplied(), projectIds: next.projectIds });
+      return next;
+    });
+  }
+
   resetFilters(): void {
     this.filterDraft.set(createDefaultFilters());
     this.filterApplied.set(createDefaultFilters());
     this.expandedFilterSection.set(null);
-    this.companyFilterSearch.set('');
     this.clientFilterSearch.set('');
     this.manufacturerFilterSearch.set('');
     this.projectTypeFilterSearch.set('');
+    this.projectFilterSearch.set('');
   }
 
   clearAllFilters(): void {
@@ -1287,20 +1383,10 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       next.manufacturerIds = next.manufacturerIds.filter((id) => id !== item.value);
     } else if (item.type === 'projectType') {
       next.projectTypeIds = next.projectTypeIds.filter((id) => id !== item.value);
+    } else if (item.type === 'project') {
+      next.projectIds = next.projectIds.filter((id) => id !== item.value);
     } else if (item.type === 'region') {
       next.regions = next.regions.filter(r => r !== item.value);
-    } else if (item.type === 'company') {
-      next.parentCompanyIds = next.parentCompanyIds.filter(id => id !== item.value);
-
-      // NEW: Clear selection if the entity is no longer visible (whitelist filter)
-      // Only if parentCompanyIds is NOT empty (empty means show all)
-      if (next.parentCompanyIds.length > 0) {
-        const selection = this.selectedEntity();
-        if (selection && (selection.id === item.value || selection.parentGroupId === item.value)) {
-          this.warRoomService.selectEntity(null);
-          this.announce('Selection cleared as filtered company was removed.');
-        }
-      }
     }
 
     this.filterApplied.set(next);
@@ -1312,7 +1398,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
    * Switch map view mode (parent / subsidiary / factory)
    */
   setMapViewMode(mode: MapViewMode): void {
-    this.warRoomService.setFactoryFilterSubsidiaryId(null);
+    this.warRoomService.setManufacturerFilterSubsidiaryId(null);
     this.warRoomService.setMapViewMode(mode);
     this.announce('Switched to ' + mode + ' view.');
   }
@@ -1397,15 +1483,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
 
   /** Captures route screenshot for project, stores it, and shows toast. Optionally triggers download. */
   async captureAndStoreForProject(projectId: string, projectName?: string): Promise<void> {
-    const dataUrl = await this.captureRouteScreenshotForProject(projectId);
-    if (dataUrl) {
-      this.routePreviewStorage.set(projectId, dataUrl);
-      this.routePreviewVersion.set(this.routePreviewStorage.previewSaved());
-      this.routePreviewStorage.download(projectId, projectName);
-      this.toastr.success('Route preview saved and downloaded.', 'CAPTURED');
-    } else {
-      this.showCaptureFailureToastWithRetry(projectId, projectName);
-    }
+    await this.captureWorkflow.captureAndStoreForProject(this.captureWorkflowContext(), projectId, projectName);
   }
 
   /**
@@ -1419,112 +1497,46 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     pollIntervalMs: number,
     maxAttempts: number
   ): void {
-    let attempts = 0;
-    const tryCapture = (): void => {
-      attempts++;
-      const loading = this.projectRoutesLoading();
-      const routes = this.projectRoutes();
-      const route = routes.find((r) => r.projectId === projectId);
-      const routeReady = route?.fromCoordinates && route?.toCoordinates;
-
-      if (!loading && routeReady) {
-        void this.captureAndStoreForProject(projectId, projectName);
-        return;
-      }
-      if (attempts >= maxAttempts) {
-        this.showCaptureFailureToastWithRetry(projectId, projectName);
-        return;
-      }
-      setTimeout(tryCapture, pollIntervalMs);
-    };
-    setTimeout(tryCapture, initialDelayMs);
+    this.captureWorkflow.waitForRouteCapture(
+      this.captureWorkflowContext(),
+      projectId,
+      projectName,
+      initialDelayMs,
+      pollIntervalMs,
+      maxAttempts
+    );
   }
 
   /** Shows capture-failure toast with tap-to-retry. */
   private showCaptureFailureToastWithRetry(projectId: string, projectName?: string): void {
-    const toast = this.toastr.warning(
-      'No route available to capture. Tap to retry.',
-      'Cannot capture',
-      { timeOut: 8000, closeButton: true, extendedTimeOut: 3000 }
+    this.captureWorkflow.waitForRouteCapture(
+      this.captureWorkflowContext(),
+      projectId,
+      projectName,
+      500,
+      400,
+      6
     );
-    if (toast?.onTap) {
-      toast.onTap.subscribe(() => {
-        this.waitForRouteThenCapture(projectId, projectName, 500, 400, 6);
-      });
-    }
   }
 
   /** Captures all routes for a client into one screenshot, stores it, and triggers download. */
   async captureAndStoreForClient(clientId: string): Promise<void> {
-    const dataUrl = await this.captureClientScreenshot(clientId);
-    if (dataUrl) {
-      const storageKey = `client-${clientId}`;
-      this.routePreviewStorage.set(storageKey, dataUrl);
-      this.routePreviewVersion.set(this.routePreviewStorage.previewSaved());
-      const clients = this.clientsSignal();
-      const clientName = clients.find((c) => c.id === clientId)?.name ?? clientId;
-      this.routePreviewStorage.download(storageKey, `${clientName}-all-projects`);
-      this.toastr.success('All client projects captured and downloaded.', 'CAPTURED');
-    }
+    await this.captureWorkflow.captureAndStoreForClient(this.captureWorkflowContext(), clientId);
   }
 
   /** Captures a clean map screenshot for all routes belonging to the given client. Returns data URL or null. */
   private async captureClientScreenshot(clientId: string): Promise<string | null> {
-    const routes = this.projectRoutes().filter((r) => r.fromNodeId === clientId);
-    if (!routes.length) {
-      this.toastr.warning('No routes available for this client.', 'Cannot capture');
-      return null;
-    }
-    const map = this.mapComponent();
-    this.screenshotMode.set(true);
-    try {
-      await new Promise((r) => setTimeout(r, 100));
-      const blob = await map.captureRoutesScreenshot(routes);
-      return await this.blobToDataUrl(blob);
-    } catch (err) {
-      this.toastr.error('Failed to capture client projects.', 'Error');
-      console.error('Client capture failed:', err);
-      return null;
-    } finally {
-      this.screenshotMode.set(false);
-    }
+    return this.captureWorkflow.captureClientScreenshot(this.captureWorkflowContext(), clientId);
   }
 
   /** Captures a clean map screenshot for the given project's route. Returns data URL or null. */
   private async captureRouteScreenshotForProject(projectId: string): Promise<string | null> {
-    const routes = this.projectRoutes();
-    const route = routes.find((r) => r.projectId === projectId);
-    if (!route?.fromCoordinates || !route?.toCoordinates) {
-      return null;
-    }
-    const map = this.mapComponent();
-    this.selectedProjectId.set(projectId);
-    this.screenshotMode.set(true);
-    try {
-      await new Promise((r) => setTimeout(r, 100));
-      const blob = await map.captureRouteScreenshot(route);
-      return await this.blobToDataUrl(blob);
-    } catch (err) {
-      this.toastr.error('Failed to capture route.', 'Error');
-      console.error('Route capture failed:', err);
-      return null;
-    } finally {
-      this.screenshotMode.set(false);
-    }
-  }
-
-  private blobToDataUrl(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onload = () => resolve(fr.result as string);
-      fr.onerror = () => reject(fr.error);
-      fr.readAsDataURL(blob);
-    });
+    return this.captureWorkflow.captureRouteScreenshotForProject(this.captureWorkflowContext(), projectId);
   }
 
   onRoutePreviewRequested(projectId: string): void {
     const projectName = this.projectsSignal().find((p) => String(p.id) === projectId)?.projectName;
-    setTimeout(() => this.captureAndStoreForProject(projectId, projectName), 500);
+    this.captureWorkflow.onRoutePreviewRequested(this.captureWorkflowContext(), projectId, projectName);
   }
 
   onClientCaptureRequested(clientId: string): void {
@@ -1532,7 +1544,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     this.filterDraft.update((f) => ({ ...f, clientIds: [clientId] }));
     this.filterApplied.set({ ...this.filterApplied(), clientIds: [clientId] });
     this.projectRoutesRefreshTrigger.update((n) => n + 1);
-    setTimeout(() => this.captureAndStoreForClient(clientId), 1500);
+    this.captureWorkflow.onClientCaptureRequested(this.captureWorkflowContext(), clientId);
   }
 
   onRouteSelected(payload: { routeId: string; projectId?: string }): void {
@@ -1548,10 +1560,11 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     this.selectedProjectId.set(String(project.id));
     if (project.manufacturerLocationId) {
       this.warRoomService.selectEntity({
-        level: 'factory',
+        level: 'manufacturer',
         id: project.manufacturerLocationId,
         parentGroupId: undefined,
         subsidiaryId: undefined,
+        manufacturerLocationId: project.manufacturerLocationId,
         factoryId: project.manufacturerLocationId,
       });
       this.warRoomService.setMapViewMode('project'); // After selectEntity so it is not overwritten by selectEntity's view-mode sync
@@ -1562,8 +1575,8 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       // Direct zoom after view updates (like onClientSelected) - handles timing
       setTimeout(() => {
         this.mapComponent().zoomToEntity(project.manufacturerLocationId!, 8);
-      }, 150);
-      this.announce(`Selected project ${project.projectName}. Panning to ${project.manufacturer ?? 'factory'}.`);
+      }, FIT_BOUNDS_DELAY_MS);
+      this.announce(`Selected project ${project.projectName || 'Project'}. Panning to ${project.manufacturer ?? 'factory'}.`);
     } else if (project.clientId) {
       // Fallback: pan to client when project has no manufacturer location (e.g. Metrolinx)
       this.warRoomService.selectEntity({ level: 'client', id: project.clientId });
@@ -1576,26 +1589,22 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       this.filterApplied.set({ ...this.filterApplied(), clientIds: [project.clientId!] });
       setTimeout(() => {
         this.mapComponent().zoomToEntity(project.clientId!, 8);
-      }, 150);
-      this.announce(`Selected project ${project.projectName}. Panning to ${project.clientName ?? project.clientId}.`);
+      }, FIT_BOUNDS_DELAY_MS);
+      this.announce(`Selected project ${project.projectName || 'Project'}. Panning to ${project.clientName ?? project.clientId ?? 'client'}.`);
     }
   }
 
   onNodeSelected(node: Node | undefined): void {
     if (node) {
-      const nodeLevel = node.level ?? 'factory';
-      const selection: FleetSelection = {
-        level: nodeLevel,
-        id: node.companyId,
-        parentGroupId: node.parentGroupId,
-        subsidiaryId: node.subsidiaryId,
-        factoryId: node.factoryId,
-      };
-      this.onEntitySelected(selection);
+      const selection = this.panelActionsWorkflow.onNodeSelected(node);
+      if (selection) {
+        this.onEntitySelected(selection);
+      }
 
       // Sync selectedProjectId: factory → first matching project
-      if (node.factoryId) {
-        this.projectService.getProjectsByFactory(node.factoryId).pipe(take(1)).subscribe((projects) => {
+      const manufacturerLocationId = node.manufacturerLocationId ?? node.factoryId;
+      if (manufacturerLocationId) {
+        this.projectService.getProjectsByManufacturerLocation(manufacturerLocationId).pipe(take(1)).subscribe((projects) => {
           const first = projects[0];
           this.selectedProjectId.set(first ? String(first.id) : null);
         });
@@ -1613,56 +1622,20 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     }
   }
 
-  async onFactoryDetailsUpdated(payload: {
-    factoryId: string;
-    name: string;
-    location: string;
-    description: string;
-    status: NodeStatus;
-  }): Promise<void> {
-    const name = payload.name.trim() || 'Unnamed Location';
-    const location = payload.location.trim();
-    const description = payload.description.trim();
-    const locationParts = location ? this.parseLocationParts(location) : null;
-
-    let coordinates: { latitude: number; longitude: number } | undefined;
-    if (location) {
-      try {
-        coordinates = await this.warRoomService.parseLocationInput(location);
-      } catch (error) {
-        if (isDevMode()) {
-          console.warn('Failed to parse updated location. Keeping existing coordinates.', error);
-        }
-      }
-    }
-
-    this.warRoomService.updateFactoryDetails(payload.factoryId, {
-      name,
-      city: locationParts?.city,
-      country: locationParts?.country,
-      description,
-      coordinates,
-      locationLabel: location || undefined,
-      status: payload.status,
-    });
+  async onFactoryDetailsUpdated(payload: FactoryEditPayload): Promise<void> {
+    await this.projectWorkflow.onFactoryDetailsUpdated(
+      this.projectWorkflowContext(),
+      payload,
+      (message, error) => this.logError(message, error)
+    );
   }
 
-  onSubsidiaryDetailsUpdated(payload: {
-    subsidiaryId: string;
-    name: string;
-    location: string;
-    description: string;
-    status: SubsidiaryCompany['status'];
-  }): void {
-    const name = payload.name.trim() || 'Unnamed Company';
-    const location = payload.location.trim();
-    const description = payload.description.trim();
-    this.warRoomService.updateSubsidiaryDetails(payload.subsidiaryId, {
-      name,
-      location: location || undefined,
-      description: description || undefined,
-      status: payload.status,
-    });
+  async onSubsidiaryDetailsUpdated(payload: SubsidiaryEditPayload): Promise<void> {
+    await this.projectWorkflow.onSubsidiaryDetailsUpdated(
+      this.projectWorkflowContext(),
+      payload,
+      (message, error) => this.logError(message, error)
+    );
   }
 
   onSubsidiaryDeleted(subsidiaryId: string): void {
@@ -1706,53 +1679,9 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     return region ? selectedRegions.includes(region) : false;
   }
 
-  private matchesParentCompanyFilterForNode(node: Node, selectedCompanyIds: string[]): boolean {
-    if (selectedCompanyIds.length === 0) return true;
-
-    // Direct match (matches any level if the ID itself is selected)
-    const nodeId = node.id;
-    const subsidiaryId = node.subsidiaryId;
-    const parentGroupId = node.parentGroupId || node.companyId;
-
-    if (
-      selectedCompanyIds.includes(nodeId) ||
-      (subsidiaryId && selectedCompanyIds.includes(subsidiaryId)) ||
-      (parentGroupId && selectedCompanyIds.includes(parentGroupId))
-    ) {
-      return true;
-    }
-
-    // Downward hierarchical match for Parent level nodes
-    if (node.level === 'parent') {
-      const gId = node.parentGroupId || node.companyId;
-      const group = this.parentGroups().find(g => g.id === gId);
-      if (group) {
-        // If any of this group's subsidiaries are selected, the parent node should stay.
-        return group.subsidiaries.some(sub => selectedCompanyIds.includes(sub.id));
-      }
-    }
-
-    // Downward hierarchical match for Subsidiary level nodes (if we were filtering by factory)
-    // Currently users only select subsidiaries, but for robustness:
-    if (node.level === 'subsidiary') {
-      const sId = node.subsidiaryId || node.id;
-      const sub = this.subsidiaries().find(s => s.id === sId);
-      if (sub) {
-        return sub.factories.some(f => selectedCompanyIds.includes(f.id));
-      }
-    }
-
-    return false;
-  }
-
-  private matchesParentCompanyFilterForLog(log: ActivityLog, selectedCompanyIds: string[]): boolean {
-    if (selectedCompanyIds.length === 0) return true;
-    return selectedCompanyIds.includes(log.subsidiaryId);
-  }
-
   private getRegionsForNode(node: Node): Set<string> {
     // 1. Direct Region Mapping for Leaf Nodes (Factory/Individual)
-    if (node.level === 'factory') {
+    if (node.level === 'factory' || node.level === 'manufacturer') {
       const region = this.getRegionForCountry(node.country || node.city);
       return region ? new Set([region]) : new Set();
     }
@@ -1761,14 +1690,14 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     if (node.level === 'subsidiary' && (node.subsidiaryId || node.id)) {
       const sId = node.subsidiaryId || node.id;
       const subsidiary = this.subsidiaries().find((item) => item.id === sId);
-      return subsidiary ? this.getRegionsForFactories(subsidiary.factories) : new Set();
+      return subsidiary ? this.getRegionsForFactories(subsidiary.factories ?? []) : new Set();
     }
 
     // 3. Aggregate Mapping for Parent Groups
     if (node.level === 'parent') {
       const parentGroupId = node.parentGroupId || node.id;
       const group = this.parentGroups().find((item) => item.id === parentGroupId);
-      return group ? this.getRegionsForFactories(group.subsidiaries.flatMap((sub) => sub.factories)) : new Set();
+      return group ? this.getRegionsForFactories(group.subsidiaries.flatMap((sub) => sub.factories ?? [])) : new Set();
     }
 
     // Fallback
@@ -1847,7 +1776,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     }
     const active = document.activeElement;
     this.lastFocusedElement = active instanceof HTMLElement ? active : null;
-    this.addCompanyModalPreselectedFactoryId.set(null);
+    this.addCompanyModalPreselectedManufacturerLocationId.set(null);
     this.addCompanyModalVisible.set(true);
     this.announce('Add Company modal opened.');
   }
@@ -1859,19 +1788,19 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       this.addProjectSucceededBeforeClose = false;
     }
     this.addCompanyModalVisible.set(false);
-    this.addCompanyModalPreselectedFactoryId.set(null);
+    this.addCompanyModalPreselectedManufacturerLocationId.set(null);
     this.restoreFocusAfterModalClose();
   }
 
   onAddProjectForFactory(payload: { factoryId: string; subsidiaryId: string }): void {
-    this.addCompanyModalPreselectedFactoryId.set(payload.factoryId);
+    this.addCompanyModalPreselectedManufacturerLocationId.set(payload.factoryId);
     this.addCompanyModalVisible.set(true);
     this.announce('Add Project modal opened. Factory pre-selected.');
   }
 
   onAddCompanyViewOnMap(subsidiaryId: string): void {
     this.warRoomService.requestPanToEntity(subsidiaryId);
-    this.warRoomService.setMapViewMode('subsidiary');
+    this.warRoomService.setMapViewMode('manufacturer');
     this.warRoomService.selectEntity({
       level: 'subsidiary',
       id: subsidiaryId,
@@ -1880,91 +1809,22 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     });
   }
 
-  onProjectAdded(formData: ProjectFormData): void {
+  async onProjectAdded(formData: ProjectFormData): Promise<void> {
     if (this.addCompanyInFlight) {
       return;
     }
-
-    const status = formData.status === 'Active' ? 'Open' : 'Closed';
-    const project = {
-      projectName: formData.projectName,
-      clientId: formData.clientId,
-      clientName: formData.clientName,
-      assessmentType: formData.assessmentType,
-      manufacturerLocationId: String(formData.factoryId),
-      location: formData.location,
-      manufacturer: formData.manufacturerName,
-      status: status as 'Open' | 'Closed',
-    };
-
-    this.addCompanyInFlight = true;
-    this.projectService.addProject(project).subscribe({
-      next: (createdProject) => {
-        // Ensure map shows the new project: switch to Project view, clear selection, and clear project filters
-        this.warRoomService.setMapViewMode('project');
-        this.warRoomService.selectEntity(null);
-        this.selectedProjectId.set(null);
-
-        // Clear all filters so the new project is visible among all routes (defer to avoid timing races)
-        setTimeout(() => this.clearAllFilters(), 0);
-        this.addProjectSucceededBeforeClose = true;
-
-        this.projectService.refreshProjects();
-        this.projectRoutesRefreshTrigger.update((n) => n + 1);
-        this.addCompanyModalRef()?.handleSuccess(
-          `Successfully added project "${formData.projectName}" for ${formData.clientName}.`
-        );
-        this.toastr.success(`Project "${formData.projectName}" added.`, 'PROJECT REGISTERED', {
-          timeOut: 5000,
-          progressBar: true,
-          closeButton: true,
-        });
-        this.addCompanyModalRef()?.closeAfterSuccess();
-        this.announce(`Project ${formData.projectName} added.`);
-
-        // After modal closes and routes refresh, fit map to all routes for global view
-        const fitMapToRoutes = (): void => {
-          const routes = this.projectRoutes();
-          const map = this.mapComponent();
-          if (routes.length > 0 && map) {
-            map.fitBoundsToRoutes(routes);
-          } else {
-            const newRoute = routes.find((r) => r.projectId === String(createdProject.id));
-            if (newRoute && map) {
-              map.fitBoundsToRoutes([newRoute]);
-            }
-          }
-        };
-        setTimeout(fitMapToRoutes, 800);
-        setTimeout(fitMapToRoutes, 1800); // Retry if routes not yet populated
-
-        this.waitForRouteThenCapture(
-          String(createdProject.id),
-          createdProject.projectName,
-          800,
-          400,
-          6
-        );
-      },
-      error: (error) => {
-        console.error('Critical error adding project:', error);
-        this.addCompanyModalRef()?.handleError('Failed to add project. Please try again.');
-        this.toastr.error(
-          error instanceof Error ? error.message : 'A fatal system error occurred.',
-          'REGISTRATION FAILED',
-          { timeOut: 8000, closeButton: true, disableTimeOut: true }
-        );
-      },
-      complete: () => {
-        this.addCompanyInFlight = false;
-      },
-    });
+    await this.projectWorkflow.onProjectAdded(
+      this.projectWorkflowContext(),
+      formData,
+      (value) => (this.addCompanyInFlight = value),
+      (message, error) => this.logError(message, error)
+    );
   }
 
   private announce(message: string): void {
     this.announcementMessage.set(message);
     // clear after a delay so it can be re-announced if needed
-    setTimeout(() => this.announcementMessage.set(''), 3000);
+    setTimeout(() => this.announcementMessage.set(''), ANNOUNCEMENT_CLEAR_DELAY_MS);
   }
 
   /** Called when map zoom has been idle 2s - shows status for TestSprite marker stability assertions */
@@ -1976,7 +1836,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     this.returnToPreviousViewTimeoutId = setTimeout(() => {
       this.showReturnToPreviousView.set(false);
       this.returnToPreviousViewTimeoutId = null;
-    }, 5000);
+    }, PREVIOUS_VIEW_BUTTON_DURATION_MS);
   }
 
   onPreviousViewRestored(): void {
@@ -1993,14 +1853,14 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       ? 'Markers and logos restored to original coordinates'
       : 'Markers and logos remained aligned after zoom operations';
     this.markerStabilityMessage.set(msg);
-    setTimeout(() => this.markerStabilityMessage.set(''), 5000);
+    setTimeout(() => this.markerStabilityMessage.set(''), MARKER_STABILITY_MESSAGE_DURATION_MS);
   }
 
   private restoreFocusAfterModalClose(): void {
     const element = this.lastFocusedElement;
     this.lastFocusedElement = null;
     if (element && element.isConnected && typeof element.focus === 'function') {
-      setTimeout(() => element.focus(), 0);
+      setTimeout(() => element.focus(), RESTORE_FOCUS_DELAY_MS);
     }
   }
 

@@ -261,6 +261,7 @@
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
   }
 }
@@ -269,6 +270,7 @@
 .log-entry:focus-within .log-entry-notes .log-entry-value,
 .log-entry.editing .log-entry-notes .log-entry-value {
   -webkit-line-clamp: unset;
+  line-clamp: unset;
   overflow: visible;
 }
 
@@ -820,6 +822,97 @@
     padding: 0.5rem 0;
   }
 
+  .manufacturer-log-summary {
+    margin: 0 0.5rem 0.35rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 0.5rem;
+    background: rgba(7, 11, 16, 0.55);
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .manufacturer-log-last,
+  .manufacturer-recent-logs,
+  .factory-log-last {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .manufacturer-log-line {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    gap: 0.4rem;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .manufacturer-log-time {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--cm-muted);
+    white-space: nowrap;
+  }
+
+  .manufacturer-log-text {
+    font-size: 0.75rem;
+    color: var(--cm-text);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .manufacturer-log-list {
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .manufacturer-log-item {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    gap: 0.4rem;
+    align-items: center;
+    padding: 0.3rem 0.4rem;
+    border-radius: 0.35rem;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(2, 6, 10, 0.45);
+  }
+
+  .activity-status-pill {
+    font-size: 0.62rem;
+    line-height: 1;
+    padding: 0.18rem 0.38rem;
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+    white-space: nowrap;
+
+    &.status-active {
+      background: rgba(0, 255, 65, 0.18);
+      border-color: rgba(0, 255, 65, 0.5);
+      color: #00ff41;
+    }
+
+    &.status-info {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: rgba(56, 189, 248, 0.5);
+      color: #38bdf8;
+    }
+
+    &.status-warning {
+      background: rgba(245, 158, 11, 0.18);
+      border-color: rgba(245, 158, 11, 0.5);
+      color: #f59e0b;
+    }
+
+    &.status-error {
+      background: rgba(239, 68, 68, 0.18);
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #ef4444;
+    }
+  }
+
   .factory-row {
     padding: 0.5rem 0.65rem;
     margin: 0.25rem 0;
@@ -867,6 +960,38 @@
     font-size: 0.75rem;
   }
 
+  .factory-log-preview {
+    margin-top: 0.25rem;
+    border-top: 1px dashed rgba(148, 163, 184, 0.25);
+    padding-top: 0.35rem;
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .factory-log-empty {
+    font-size: 0.75rem;
+  }
+
+  .factory-log-toggle {
+    justify-content: flex-start;
+    padding: 0;
+    color: rgba(0, 255, 65, 0.95);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: #00ff41;
+      text-decoration: underline;
+    }
+  }
+
+  .factory-log-list {
+    margin-top: 0.1rem;
+  }
+
   .view-factories-toggle {
     margin-top: 0.25rem;
   }
@@ -895,5 +1020,16 @@
 
   .log-entry-metrics {
     gap: 0.4rem;
+  }
+
+  .manufacturers-compact-list {
+    .manufacturer-log-line,
+    .manufacturer-log-item {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .activity-status-pill {
+      justify-self: start;
+    }
   }
 }

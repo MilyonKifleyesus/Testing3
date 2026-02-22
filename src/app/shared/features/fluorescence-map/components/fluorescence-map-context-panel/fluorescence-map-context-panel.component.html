@@ -15,8 +15,8 @@
           </div>
           }
           <h6 class="context-title">Project</h6>
-          <div class="context-detail">{{ data.project.projectName }}</div>
-          <div class="context-meta">{{ data.client?.name ?? '—' }} → {{ data.factory?.name ?? data.project.manufacturer ?? '—' }}</div>
+          <div class="context-detail">{{ data.project.projectName || 'Unnamed' }}</div>
+          <div class="context-meta">{{ data.client?.name ?? data.project.clientName }} → {{ data.manufacturerLocation?.name ?? data.project.manufacturer ?? '—' }}</div>
           <span class="context-badge" [ngClass]="'status-' + (data.project.status ?? 'Open').toLowerCase()">{{ data.project.status ?? 'Open' }}</span>
           @if (data.project.progress !== undefined) {
           <div class="context-progress">
@@ -26,11 +26,11 @@
           }
         </div>
       }
-      @case ('factory') {
+      @case ('manufacturer') {
         <div class="context-section">
-          <h6 class="context-title">Factory</h6>
-          <div class="context-detail">{{ data.factory?.name ?? '—' }}</div>
-          <div class="context-meta">{{ data.factory?.city ?? 'Unknown city' }}{{ data.factory?.country ? ', ' + data.factory?.country : '' }}</div>
+          <h6 class="context-title">Manufacturer</h6>
+          <div class="context-detail">{{ data.manufacturerLocation?.name ?? (data.linkedProjects.length > 0 ? data.linkedProjects[0].manufacturer : null) ?? '—' }}</div>
+          <div class="context-meta">{{ data.manufacturerLocation?.city ?? 'Unknown city' }}{{ data.manufacturerLocation?.country ? ', ' + data.manufacturerLocation?.country : '' }}</div>
           @if (data.linkedProjects.length > 0) {
           <div class="context-links">{{ data.linkedProjects.length }} project(s)</div>
           }
