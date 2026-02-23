@@ -20,6 +20,15 @@ export interface DashboardVehicleOptionsResult {
   totalCount: number;
 }
 
+export interface DashboardTicketsDashboardResult {
+  totalTickets?: number;
+  repeatedTickets?: number;
+  safetyCriticalTickets?: number;
+  repeatedPercent?: number;
+  safetyCriticalPercent?: number;
+  [key: string]: unknown;
+}
+
 @Injectable({ providedIn: 'root' })
 export class DashboardProjectsService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
@@ -378,6 +387,17 @@ export class DashboardProjectsService {
     );
   }
 
+  getTicketsDashboard(params: {
+    projectId?: number | string;
+    vehicleId?: number | string;
+    userId?: number;
+  } = {}): Observable<DashboardTicketsDashboardResult> {
+    const httpParams = this.buildHttpParams(params);
+    return this.http.get<DashboardTicketsDashboardResult>(`${this.apiBaseUrl}/tickets/dashboard`, {
+      params: httpParams,
+    });
+  }
+
   private getCachedObservable<T>(
     cache: Map<string, { expiresAt: number; observable: Observable<T> }>,
     key: string,
@@ -396,6 +416,18 @@ export class DashboardProjectsService {
     cache.set(key, { expiresAt: now + this.cacheTtlMs, observable });
 
     return observable;
+  }
+
+  private buildHttpParams(
+    params: Record<string, string | number | boolean | null | undefined>,
+  ): HttpParams {
+    let httpParams = new HttpParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        httpParams = httpParams.set(key, String(value));
+      }
+    });
+    return httpParams;
   }
 
   private evictExpiredEntries<T>(

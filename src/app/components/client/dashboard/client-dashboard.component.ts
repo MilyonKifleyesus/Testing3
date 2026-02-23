@@ -15,7 +15,11 @@ import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AuthService } from '../../../shared/services/auth.service';
 import { ClientDashboardService } from '../../../shared/services/client-dashboard.service';
-import { DashboardProjectOption, DashboardProjectsService } from '../../../shared/services/dashboard-projects.service';
+import {
+  DashboardProjectOption,
+  DashboardProjectsService,
+  DashboardVehicleOption,
+} from '../../../shared/services/dashboard-projects.service';
 import { FluorescenceMapComponent } from '../../../shared/features/fluorescence-map/fluorescence-map.component';
 import {
   ClientDashboardResponse,
@@ -98,6 +102,24 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
       // For the actual filter dropdown (without "All Projects" option when toggle is on)
       this.filteredProjectsForFilter = this.projects.filter(p => p.id !== 'all');
     }
+
+    // Log vehicles for a given project (debugging helper)
+    private logProjectVehicles(projectId: string): void {
+      if (!projectId || projectId === 'all') return;
+      console.log('[ClientDashboard] requesting project vehicles for:', projectId);
+      const currentUser = this.authService.currentUserValue;
+      this.dashboardProjectsService.getVehicleOptionsByProjectResult(projectId, {
+        clientId: currentUser?.clientId,
+        userId: currentUser?.userId,
+      }).subscribe({
+        next: (response) => {
+          console.log(`[ClientDashboard] /api/projects/${projectId}/vehicles response:`, response);
+        },
+        error: (error) => {
+          console.error(`[ClientDashboard] /api/projects/${projectId}/vehicles error:`, error);
+        }
+      });
+    }
   
   // ========== Centralized State: Dashboard Store ==========
   // This is the "brain" that manages all widgets
@@ -177,7 +199,10 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
   }
 
   // Dynamic stats based on selected project
-  currentProjectStats: ProjectStats = projectStats[0];
+  currentProjectStats: ProjectStats = {
+    ...projectStats[0],
+    totalTickets: 0,
+  };
 
   private observeChartContainers(): void {
     // Trigger chart redraw after DOM updates
@@ -369,8 +394,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
     if (response.filters?.projects?.length) {
       this.projects = response.filters.projects;
-      this.filteredProjects = this.projects;
-      this.filteredProjectsForFilter = this.projects.filter(p => p.id !== 'all');
+      this.refreshProjectSelectionState();
     }
 
     if (response.filters?.vehicles?.length) {
@@ -379,7 +403,12 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
     if (response.projectStats?.length) {
       this.projectStatsData = response.projectStats;
-      this.currentProjectStats = this.getProjectStatsByProjectId(this.selectedProject);
+      const nextStats = this.getProjectStatsByProjectId(this.selectedProject);
+      this.currentProjectStats = {
+        ...nextStats,
+        // Keep API-driven ticket count instead of mock projectStats ticket values.
+        totalTickets: this.currentProjectStats.totalTickets,
+      };
     }
 
     if (response.ticketsByStatus) {
@@ -587,7 +616,11 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
     this.selectedProject = this.filteredProjectsForFilter[0]?.id || 'all';
     this.selectedVehicle = 'all';
     // Update stats based on reset values
-    this.currentProjectStats = this.getProjectVehicleStats(this.selectedProject, this.selectedVehicle);
+    const nextStats = this.getProjectVehicleStats(this.selectedProject, this.selectedVehicle);
+    this.currentProjectStats = {
+      ...nextStats,
+      totalTickets: this.currentProjectStats.totalTickets,
+    };
     // Reset widget layout
     localStorage.removeItem(this.STORAGE_KEY);
     this.initializeWidgets();
@@ -636,37 +669,161 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
     this.dashboardProjectsService.getProjectOptions({ clientId }).subscribe({
       next: (projects: DashboardProjectOption[]) => {
+        console.log('[ClientDashboard] Project options response:', projects);
         this.projects = projects;
-        this.filteredProjects = this.projects;
-        this.filteredProjectsForFilter = this.projects.filter(p => p.id !== 'all');
+        this.refreshProjectSelectionState();
 
-        if (this.showFilters && this.selectedProject === 'all') {
-          this.selectedProject = this.filteredProjectsForFilter[0]?.id ?? 'all';
-        }
+        this.loadVehicleOptionsBySelectedProject(clientId, userId);
+        // Also log vehicles for the currently selected project (if any)
+        this.logProjectVehicles(String(this.selectedProject ?? 'all'));
       },
       error: (error: unknown) => console.error('Projects request failed:', error),
-    });
-
-    this.dashboardService.getVehicles({ clientId }).subscribe({
-      error: (error) => console.error('Vehicles request failed:', error),
     });
 
     this.dashboardService.getTickets({ userId }).subscribe({
       error: (error) => console.error('Tickets request failed:', error),
     });
 
-    this.dashboardService.getTicketsDashboard({ userId }).subscribe({
+    this.dashboardProjectsService.getTicketsDashboard({ userId }).subscribe({
       error: (error) => console.error('Tickets dashboard request failed:', error),
     });
+  }
 
-    const projectId = Number(this.selectedProject);
-    if (!Number.isFinite(projectId) || projectId <= 0) {
+  private loadVehicleOptionsBySelectedProject(clientId?: number, userId?: number): void {
+    const projectId = String(this.selectedProject ?? '').trim();
+
+    if (!projectId || projectId === 'all') {
+      this.dashboardProjectsService.getAllVehicleOptionsResult({
+        clientId,
+        userId,
+        includeAllOption: true,
+      }).subscribe({
+        next: (result) => {
+          this.vehicles = result.options;
+          if (this.selectedVehicle !== 'all' && !this.vehicles.some(v => v.id === this.selectedVehicle)) {
+            this.selectedVehicle = 'all';
+          }
+        },
+        error: (error) => console.error('Vehicles request failed:', error),
+      });
       return;
     }
 
-    this.dashboardService.getProjectVehicles(projectId, { clientId, userId }).subscribe({
+    // Use DashboardProjectsService for project-specific vehicles
+    const normalizedProjectId = this.normalizeProjectId(projectId);
+    if (Number.isFinite(normalizedProjectId) && normalizedProjectId > 0) {
+      this.dashboardService.getProjectVehicles(normalizedProjectId, { clientId, userId }).subscribe({
+        next: (response) => {
+          console.log('[ClientDashboard] /api/projects/{projectId}/vehicles raw response:', {
+            projectId: normalizedProjectId,
+            response,
+          });
+        },
+        error: (error) => {
+          console.error('[ClientDashboard] /api/projects/{projectId}/vehicles raw response failed:', {
+            projectId: normalizedProjectId,
+            error,
+          });
+        },
+      });
+    }
+
+    this.dashboardProjectsService.getVehicleOptionsByProjectResult(projectId, {
+      clientId,
+      userId,
+      includeAllOption: true,
+    }).subscribe({
+      next: (result) => {
+        console.log('[ClientDashboard] project vehicles mapped result:', { projectId, result });
+        this.vehicles = result.options;
+        if (this.selectedVehicle !== 'all' && !this.vehicles.some(v => v.id === this.selectedVehicle)) {
+          this.selectedVehicle = 'all';
+        }
+      },
       error: (error) => console.error('Project vehicles request failed:', error),
     });
+  }
+
+  private refreshProjectSelectionState(): void {
+    this.filteredProjects = this.projects;
+
+    const specificProjects = this.projects.filter(
+      (project: DashboardProjectOption) => String(project.id) !== 'all',
+    );
+    this.filteredProjectsForFilter = specificProjects.length ? specificProjects : this.projects;
+
+    if (!this.showFilters) {
+      return;
+    }
+
+    const selectedExists = this.filteredProjectsForFilter.some(
+      (project: DashboardProjectOption) => String(project.id) === String(this.selectedProject),
+    );
+    if (!selectedExists) {
+      this.selectedProject = this.filteredProjectsForFilter[0]?.id ?? 'all';
+    }
+  }
+
+  private mapProjectVehiclesToFleetOptions(response: any): DashboardVehicleOption[] {
+    const items = this.extractItemsFromResponse(response);
+    return items
+      .map((item: any) => ({
+        id: String(item?.id ?? item?.vehicleId ?? item?.vehicleID ?? item?.VehicleId ?? item?.VehicleID ?? ''),
+        name: String(
+          item?.fleetNumber ??
+          item?.FleetNumber ??
+          item?.fleetNo ??
+          item?.FleetNo ??
+          item?.busNumber ??
+          item?.BusNumber ??
+          item?.name ??
+          item?.vehicleName ??
+          item?.VehicleName ??
+          item?.displayName ??
+          `Vehicle ${item?.id ?? item?.vehicleId ?? item?.VehicleId ?? ''}`,
+        ).trim(),
+      }))
+      .filter((vehicle: DashboardVehicleOption) => Boolean(vehicle.id));
+  }
+
+  private extractItemsFromResponse(response: any): any[] {
+    if (Array.isArray(response)) {
+      return response;
+    }
+    if (Array.isArray(response?.items)) {
+      return response.items;
+    }
+    if (Array.isArray(response?.data?.items)) {
+      return response.data.items;
+    }
+    if (Array.isArray(response?.data)) {
+      return response.data;
+    }
+    if (Array.isArray(response?.vehicles)) {
+      return response.vehicles;
+    }
+    if (Array.isArray(response?.result?.items)) {
+      return response.result.items;
+    }
+    if (Array.isArray(response?.result?.vehicles)) {
+      return response.result.vehicles;
+    }
+    if (Array.isArray(response?.result)) {
+      return response.result;
+    }
+    return [];
+  }
+
+  private normalizeProjectId(projectId: string): number {
+    const trimmed = String(projectId ?? '').trim();
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      return numeric;
+    }
+
+    const digits = trimmed.match(/\d+/)?.[0];
+    const parsed = Number(digits);
+    return Number.isFinite(parsed) ? parsed : NaN;
   }
 
   // Dashboard Statistics
@@ -780,39 +937,117 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   // ========== Filter Methods ==========
   applyFilters(): void {
-    // This method will be called when filters change
-    // Update chart data based on selectedProject and selectedVehicle
-    // You can add logic here to update the charts based on selected filters
-    // For now, all charts display the same data
+    const nextStats = this.getProjectVehicleStats(this.selectedProject, this.selectedVehicle);
+    this.currentProjectStats = {
+      ...nextStats,
+      // Keep API-driven ticket value until /api/tickets/dashboard returns.
+      totalTickets: this.currentProjectStats.totalTickets,
+    };
+    this.updateTicketTotalFromDashboardApi();
   }
 
   onProjectChange(projectId: string): void {
     this.selectedProject = projectId;
-    // Update stats based on selected project and vehicle
-    this.currentProjectStats = this.getProjectVehicleStats(projectId, this.selectedVehicle);
+    this.selectedVehicle = 'all';
+    const currentUser = this.authService.currentUserValue;
+    this.loadVehicleOptionsBySelectedProject(currentUser?.clientId, currentUser?.userId);
     this.applyFilters();
+    // Log API response for project vehicles
+    this.logProjectVehicles(projectId);
   }
 
   onVehicleChange(vehicleId: string): void {
     this.selectedVehicle = vehicleId;
-    // Update stats based on selected project and vehicle
-    this.currentProjectStats = this.getProjectVehicleStats(this.selectedProject, vehicleId);
     this.applyFilters();
+  }
+
+  private updateTicketTotalFromDashboardApi(): void {
+    const currentUser = this.authService.currentUserValue;
+    if (!currentUser) {
+      return;
+    }
+
+    const params: { userId?: number; projectId?: number; vehicleId?: number } = {
+      userId: currentUser.userId,
+    };
+    const projectId = this.normalizeProjectId(String(this.selectedProject ?? '').trim());
+    const vehicleId = this.normalizeProjectId(String(this.selectedVehicle ?? '').trim());
+
+    if (this.showFilters && Number.isFinite(projectId) && projectId > 0) {
+      params.projectId = projectId;
+      if (this.selectedVehicle !== 'all' && Number.isFinite(vehicleId) && vehicleId > 0) {
+        params.vehicleId = vehicleId;
+      }
+    }
+
+    this.dashboardProjectsService.getTicketsDashboard(params).subscribe({
+      next: (response) => {
+        const totalTickets = this.extractDashboardTotalTickets(response);
+        this.currentProjectStats = {
+          ...this.currentProjectStats,
+          totalTickets,
+        };
+        console.log('[ClientDashboard] /api/tickets/dashboard response (shared):', {
+          params,
+          response,
+          totalTickets,
+        });
+      },
+      error: (error) => {
+        console.error('[ClientDashboard] /api/tickets/dashboard error (shared):', { params, error });
+      },
+    });
+  }
+
+  private extractDashboardTotalTickets(response: unknown): number {
+    const payload = response as any;
+    const candidates = [
+      payload?.totalTickets,
+      payload?.totalTicket,
+      payload?.total,
+      payload?.totalCount,
+      payload?.count,
+      payload?.data?.totalTickets,
+      payload?.data?.total,
+      payload?.result?.totalTickets,
+      payload?.result?.total,
+    ];
+
+    for (const candidate of candidates) {
+      const value = Number(candidate);
+      if (Number.isFinite(value) && value >= 0) {
+        return value;
+      }
+    }
+
+    return 0;
   }
 
   onToggleFilters(): void {
     if (this.showFilters) {
-      // When toggle is turned ON, set default to first project (not "all")
-      if (this.selectedProject === 'all') {
-        this.selectedProject = this.filteredProjectsForFilter[0]?.id || 'all';
-        this.currentProjectStats = this.getProjectVehicleStats(this.selectedProject, this.selectedVehicle);
-      }
+      // When toggle is turned ON, ensure a valid selected project exists.
+      this.refreshProjectSelectionState();
+      const nextStats = this.getProjectVehicleStats(this.selectedProject, this.selectedVehicle);
+      this.currentProjectStats = {
+        ...nextStats,
+        totalTickets: this.currentProjectStats.totalTickets,
+      };
+      const currentUser = this.authService.currentUserValue;
+      this.loadVehicleOptionsBySelectedProject(currentUser?.clientId, currentUser?.userId);
+      this.applyFilters();
     } else {
       // When toggle is turned OFF, reset to "all"
       this.selectedProject = 'all';
       this.selectedVehicle = 'all';
-      this.currentProjectStats = this.getProjectStatsByProjectId('all');
+      const nextStats = this.getProjectStatsByProjectId('all');
+      this.currentProjectStats = {
+        ...nextStats,
+        totalTickets: this.currentProjectStats.totalTickets,
+      };
+      const currentUser = this.authService.currentUserValue;
+      this.loadVehicleOptionsBySelectedProject(currentUser?.clientId, currentUser?.userId);
       this.applyDefaultWidgetLayout();
+      this.applyFilters();
     }
   }
 
@@ -822,14 +1057,29 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
   private getProjectVehicleStats(projectId: string, vehicleId: string): ProjectStats {
     const project = this.getProjectStatsByProjectId(projectId);
-    if (!project || vehicleId === 'all') return project;
+    if (!project) {
+      return this.currentProjectStats;
+    }
+
+    if (vehicleId === 'all') {
+      return {
+        ...project,
+        totalTickets: this.currentProjectStats.totalTickets,
+      };
+    }
 
     const vehicle = project.vehicles.find(v => v.vehicleId === vehicleId);
-    if (!vehicle) return project;
+    if (!vehicle) {
+      return {
+        ...project,
+        totalTickets: this.currentProjectStats.totalTickets,
+        vehicleName: this.getVehicleNameById(vehicleId) ?? project.vehicleName,
+      };
+    }
 
     return {
       ...project,
-      totalTickets: vehicle.totalTickets,
+      totalTickets: this.currentProjectStats.totalTickets,
       totalAssets: vehicle.totalAssets,
       ticketsChangePercentage: vehicle.ticketsChangePercentage,
       assetsChangePercentage: vehicle.assetsChangePercentage,
@@ -837,6 +1087,14 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
       assetsStatus: vehicle.assetsStatus,
       vehicleName: vehicle.vehicleName
     };
+  }
+
+  private getVehicleNameById(vehicleId: string): string | undefined {
+    if (!vehicleId || vehicleId === 'all') {
+      return undefined;
+    }
+
+    return this.vehicles.find((vehicle) => String(vehicle.id) === String(vehicleId))?.name;
   }
 
   // Tickets by Status - Horizontal Bar (inhouse ApexCharts) - Redesigned like "Most Viewed Brands"
