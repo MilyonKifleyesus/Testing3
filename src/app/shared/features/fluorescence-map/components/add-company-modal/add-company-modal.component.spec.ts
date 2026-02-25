@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { AddCompanyModalComponent } from './add-company-modal.component';
-import { FACTORIES_JSON, CLIENTS_JSON, getFirstClient, getFirstFactoryOption } from '../../../../../shared/testing/test-data';
+import { FACTORIES_JSON, CLIENTS_JSON, getFirstClient, getFirstFactoryOption } from '../../../../testing/test-data';
 
 describe('AddCompanyModalComponent (unit)', () => {
   let fixture: ComponentFixture<AddCompanyModalComponent>;

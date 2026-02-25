@@ -16,6 +16,7 @@ export interface Client {
   name: string;
   code: string;
   logoUrl?: string;
+  logoName?: string;
   email?: string;
   phone?: string;
   /** Required for map markers and project routes; seed from Company/Location or geocode */

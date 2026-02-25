@@ -11,6 +11,7 @@ export function normalizeStatus(s: ProjectStatus | null | undefined): ProjectSta
 export interface Project {
   id: string | number;
   projectName: string;
+  contract?: string;
   clientId: string;
   clientName?: string;
   assessmentType: string; // e.g. New Build, Retrofit, Full Inspection

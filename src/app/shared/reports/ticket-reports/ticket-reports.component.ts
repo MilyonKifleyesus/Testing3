@@ -3,6 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { ReportService, TicketReport, TicketReportRequest, Project, Inspector } from '../services/report.service';
+import { AuthService } from '../../services/auth.service';
+import { resolveReportRouteContext } from '../report-route-context';
+import { buildPaginationItems } from '../../utils/pagination.utils';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-ticket-reports',
@@ -46,6 +50,12 @@ export class TicketReportsComponent implements OnInit {
       const prop = columnMap[column];
       if (!prop) return;
       this.filteredTickets.sort((a, b) => {
+        if (prop === 'safetyCritical') {
+          const aRank = a.safetyCritical ? 0 : 1;
+          const bRank = b.safetyCritical ? 0 : 1;
+          return this.sortDirection === 'asc' ? aRank - bRank : bRank - aRank;
+        }
+
         let aValue = a[prop] ?? '';
         let bValue = b[prop] ?? '';
         if (typeof aValue === 'string' && typeof bValue === 'string') {
@@ -85,12 +95,19 @@ export class TicketReportsComponent implements OnInit {
   currentPage: number = 1;
   pageSize: number = 10;
   totalCount: number = 0;
+  readonly dashboardPath: string;
+  readonly reportsPath: string;
 
   constructor(
     private router: Router, 
     private route: ActivatedRoute,
-    private reportService: ReportService
-  ) {}
+    private reportService: ReportService,
+    private readonly authService: AuthService,
+  ) {
+    const context = resolveReportRouteContext(this.authService.currentUserValue);
+    this.dashboardPath = context.dashboardPath;
+    this.reportsPath = context.reportsPath;
+  }
 
   ngOnInit() {
     // Check URL to determine report type
@@ -164,9 +181,9 @@ export class TicketReportsComponent implements OnInit {
     
     // Navigate to appropriate route
     if (type === 'weekly') {
-      this.router.navigate(['/admin/reports/ticket-reports/weekly']);
+      this.router.navigate([`${this.reportsPath}/ticket-reports/weekly`]);
     } else {
-      this.router.navigate(['/admin/reports/ticket-reports/daily']);
+      this.router.navigate([`${this.reportsPath}/ticket-reports/daily`]);
     }
   }
 
@@ -222,21 +239,186 @@ export class TicketReportsComponent implements OnInit {
    * Applied client-side after fetching data
    */
   filterTickets() {
-    this.currentPage = 1; // Reset to first page when searching
-    if (this.reportGenerated) {
-      this.loadReport();
-      // Re-apply sorting after filtering
-      if (this.sortColumn) {
-        this.sortTickets(this.sortColumn);
-      }
+    this.currentPage = 1;
+
+    if (!this.searchTerm) {
+      this.filteredTickets = [...this.allTickets];
+    } else {
+      const search = this.searchTerm.toLowerCase();
+      this.filteredTickets = this.allTickets.filter((ticket) =>
+        ticket.ticketNumber.toLowerCase().includes(search) ||
+        ticket.description.toLowerCase().includes(search) ||
+        ticket.defectType.toLowerCase().includes(search) ||
+        ticket.projectName.toLowerCase().includes(search) ||
+        ticket.clientName.toLowerCase().includes(search),
+      );
+    }
+
+    if (this.sortColumn) {
+      this.sortTickets(this.sortColumn);
     }
   }
 
   /**
    * Print current report
    */
-  printReport() {
-    window.print();
+  async printReport() {
+    if (!this.reportGenerated || this.filteredTickets.length === 0) {
+      alert('Please generate a report first before printing');
+      return;
+    }
+
+    try {
+      const allTickets = await this.fetchAllTicketsForPrint();
+      const logoBase64 = await this.loadLogoAsBase64();
+      const html = this.generateTicketReportHTML(allTickets, logoBase64, this.reportType, this.startDate, this.endDate, this.selectedDate);
+      const printWindow = window.open('', '', 'height=900,width=1100');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        setTimeout(() => printWindow.print(), 250);
+      }
+    } catch (err) {
+      console.error('Error preparing print:', err);
+      alert('Failed to prepare print report');
+    }
+  }
+
+  private buildReportRequest(page: number, pageSize: number): TicketReportRequest {
+    return {
+      reportType: this.reportType,
+      projectId: this.selectedProject !== 'all' ? this.selectedProject : undefined,
+      inspectorId: this.selectedInspector !== 'all' ? this.selectedInspector : undefined,
+      date: this.reportType === 'daily' ? this.selectedDate : undefined,
+      startDate: this.reportType === 'weekly' ? this.startDate : undefined,
+      endDate: this.reportType === 'weekly' ? this.endDate : undefined,
+      searchTerm: this.searchTerm || undefined,
+      page,
+      pageSize,
+    };
+  }
+
+  private async fetchAllTicketsForPrint(): Promise<TicketReport[]> {
+    const requestPageSize = 200;
+    const firstResponse = await firstValueFrom(this.reportService.getTicketReports(this.buildReportRequest(1, requestPageSize)));
+
+    if (!firstResponse || !firstResponse.success) {
+      return [...this.filteredTickets];
+    }
+
+    const allTickets: TicketReport[] = [...(firstResponse.data ?? [])];
+    const totalCount = firstResponse.totalCount || allTickets.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / requestPageSize));
+
+    for (let page = 2; page <= totalPages; page++) {
+      const response = await firstValueFrom(this.reportService.getTicketReports(this.buildReportRequest(page, requestPageSize)));
+      if (response?.success && response.data?.length) {
+        allTickets.push(...response.data);
+      }
+    }
+
+    return allTickets;
+  }
+
+  private loadLogoAsBase64(): Promise<string> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = 'assets/images/brand-logos/desktop-logo.png';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+            return;
+          }
+        } catch (e) {
+        }
+        resolve('');
+      };
+      img.onerror = () => resolve('');
+    });
+  }
+
+  private generateTicketReportHTML(tickets: any[], logoBase64: string = '', reportType: 'daily' | 'weekly' = 'daily', startDate?: string, endDate?: string, selectedDate?: string): string {
+    const today = new Date();
+    const timestamp = today.toLocaleString();
+    let html = `<!doctype html><html><head><meta charset="utf-8"><title>Daily Ticket Report</title><style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Arial,Helvetica,sans-serif;padding:20px;color:#222}
+      .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:12px}
+      .logo{width:110px;height:50px;object-fit:contain}
+      .title{flex:1;text-align:center}
+      .title h1{font-size:16px;margin-bottom:4px}
+      .meta{font-size:12px;color:#333}
+      .section{background:#1DB954;color:#fff;padding:8px;border:2px solid #000;margin:12px 0}
+      table{width:100%;border-collapse:collapse;font-size:11px}
+      th{background:#1DB954;color:#fff;padding:6px;border:1px solid #000;text-align:left}
+      td{padding:6px;border:1px solid #999;vertical-align:top}
+      tr:nth-child(even){background:#f9f9f9}
+      .footer{margin-top:12px;border-top:1px solid #ccc;padding-top:8px;font-size:11px;color:#666}
+      @media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important} th{background:#1DB954!important;color:#fff!important}}
+    </style></head><body>`;
+
+    html += `<div class="header">`;
+    html += logoBase64 ? `<img src="${logoBase64}" class="logo" alt="Client Logo">` : `<div style="width:110px;height:50px;background:#eee"></div>`;
+    const titleText = reportType === 'weekly' ? 'Weekly Report' : 'Daily Ticket Report';
+    const projectDisplay = this.getSelectedProjectName();
+    let metaText = `Project: ${projectDisplay} | Generated: ${timestamp}`;
+    if (reportType === 'weekly') {
+      const s = startDate || this.startDate || '';
+      const e = endDate || this.endDate || '';
+      metaText = `Start Date *: ${s} - End Date: ${e} | Project: ${projectDisplay}`;
+    } else if (reportType === 'daily') {
+      const d = selectedDate || this.selectedDate || '';
+      metaText = `Date: ${d} | Project: ${projectDisplay}`;
+    }
+    html += `<div class="title"><h1>${titleText}</h1><div class="meta">${metaText}</div></div>`;
+    html += logoBase64 ? `<img src="${logoBase64}" class="logo" alt="BusPulse">` : `<div style="width:110px;height:50px;background:#eee"></div>`;
+    html += `</div>`;
+
+    html += `<div class="section">Tickets</div>`;
+
+    html += `<table><thead><tr>`;
+    const cols = ['Ticket #', 'Vehicle', 'Safety Critical', 'Created Date', 'Defect Type', 'Defect Location', 'Description', 'Images', 'Assign To', 'Station', 'Status', 'Resolved Date', 'Resolved Comment'];
+    cols.forEach(c => html += `<th>${c}</th>`);
+    html += `</tr></thead><tbody>`;
+
+    tickets.forEach((t: any) => {
+      html += `<tr>`;
+      html += `<td>${t.ticketNumber || '-'}</td>`;
+      html += `<td>${t.vehicleIdentifier || t.vehicleNumber || '-'}</td>`;
+      html += `<td>${t.safetyCritical ? 'Yes' : 'No'}</td>`;
+      html += `<td>${t.createdDate ? this.formatDate(t.createdDate) : '-'}</td>`;
+      html += `<td>${t.defectType || '-'}</td>`;
+      html += `<td>${t.defectLocation || '-'}</td>`;
+      html += `<td>${(t.description || '-').replace(/</g, '&lt;')}</td>`;
+      html += `<td>${t.hasImages ? '✓' : '-'}</td>`;
+      html += `<td>${t.assignedToName || '-'}</td>`;
+      html += `<td>${t.stationName || '-'}</td>`;
+      html += `<td>${t.status || '-'}</td>`;
+      html += `<td>${t.resolvedDate ? this.formatDate(t.resolvedDate) : '-'}</td>`;
+      html += `<td>${(t.resolvedComment || '-')}</td>`;
+      html += `</tr>`;
+    });
+
+    html += `</tbody></table>`;
+    html += `<div class="footer">Total Tickets: ${tickets.length} | Print Date: ${timestamp}</div>`;
+    html += `</body></html>`;
+    return html;
+  }
+
+  private getSelectedProjectName(): string {
+    if (this.selectedProject === 'all') {
+      return 'All';
+    }
+
+    const project = this.projects.find((item) => String(item.id) === this.selectedProject);
+    return project?.name ?? this.selectedProject;
   }
 
   /**
@@ -353,29 +535,6 @@ export class TicketReportsComponent implements OnInit {
    * Get page numbers array for pagination display
    */
   getPageNumbers(): number[] {
-    const totalPages = this.getTotalPages();
-    const pages: number[] = [];
-    const maxPagesToShow = 5;
-    
-    if (totalPages <= maxPagesToShow) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      const startPage = Math.max(1, this.currentPage - 2);
-      const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
-      
-      if (startPage > 1) pages.push(1);
-      if (startPage > 2) pages.push(-1);
-      
-      for (let i = startPage; i <= endPage; i++) {
-        pages.push(i);
-      }
-      
-      if (endPage < totalPages - 1) pages.push(-1);
-      if (endPage < totalPages) pages.push(totalPages);
-    }
-    
-    return pages;
+    return buildPaginationItems(this.getTotalPages(), this.currentPage, 5);
   }
 }

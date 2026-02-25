@@ -12,7 +12,7 @@ export const clientRoutingModule: Routes = [
     path: 'dashboard',
     canActivate: [roleGuard],
     data: { roles: ['client', 'user'] },
-    loadComponent: () => import('./dashboard/index').then(m => m.ClientDashboardComponent)
+    loadComponent: () => import('../../shared/features/dashboard/dashboard.component').then(m => m.DashboardComponent)
   },
   // ========== ASSETS ==========
   {
@@ -40,16 +40,7 @@ export const clientRoutingModule: Routes = [
     path: 'projects',
     canActivate: [roleGuard],
     data: { roles: ['client', 'user'] },
-    children: [
-      {
-        path: 'list',
-        loadComponent: () => import('../../shared/features/projects/project-list.component').then(m => m.ProjectListComponent)
-      },
-      {
-        path: 'final-vehicle',
-        loadComponent: () => import('../../shared/features/projects/project-list.component').then(m => m.ProjectListComponent)
-      }
-    ]
+    loadChildren: () => import('../../shared/features/project-management/project-management.routes').then((m) => m.projectManagementRoutes)
   },
   // ========== STATIONS ==========
   {
@@ -92,40 +83,6 @@ export const clientRoutingModule: Routes = [
     path: 'reports',
     canActivate: [roleGuard],
     data: { roles: ['client', 'user'] },
-    children: [
-      {
-        path: '',
-        loadComponent: () => import('../../shared/reports/reports.component').then(m => m.ReportsComponent)
-      },
-      {
-        path: 'ticket-reports/daily',
-        loadComponent: () => import('../../shared/reports/ticket-reports/ticket-reports.component').then(m => m.TicketReportsComponent)
-      },
-      {
-        path: 'ticket-reports/weekly',
-        loadComponent: () => import('../../shared/reports/ticket-reports/ticket-reports.component').then(m => m.TicketReportsComponent)
-      },
-      {
-        path: 'ticket-reports',
-        redirectTo: 'ticket-reports/daily',
-        pathMatch: 'full'
-      },
-      {
-        path: 'vehicle-reports',
-        loadComponent: () => import('../../shared/reports/vehicle-reports/vehicle-reports.component').then(m => m.VehicleReportsComponent)
-      },
-      {
-        path: 'vehicle-reports/ticket-report',
-        loadComponent: () => import('../../shared/reports/vehicle-ticket-report/vehicle-ticket-report.component').then(m => m.VehicleTicketReportComponent)
-      },
-      {
-        path: 'vehicle-reports/station-tracker',
-        loadComponent: () => import('../../shared/reports/vehicle-station-tracker/vehicle-station-tracker.component').then(m => m.VehicleStationTrackerComponent)
-      },
-      {
-        path: 'vehicle-reports/final-reports',
-        loadComponent: () => import('../../shared/reports/vehicle-final-reports/vehicle-final-reports.component').then(m => m.VehicleFinalReportsComponent)
-      }
-    ]
+    loadChildren: () => import('../../shared/reports/reports.routes').then((m) => m.sharedReportsRoutes)
   }
 ];

@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
+import { resolveReportRouteContext } from '../report-route-context';
 
 @Component({ 
   selector: 'app-vehicle-reports', 
@@ -12,8 +14,8 @@ import { RouterModule } from '@angular/router';
         <div>
           <h1 class="page-title fw-semibold fs-20 mb-0">Vehicle Reports</h1>
           <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a [routerLink]="['/admin/dashboard']">Home</a></li>
-            <li class="breadcrumb-item"><a [routerLink]="['/admin/reports']">Reports</a></li>
+            <li class="breadcrumb-item"><a [routerLink]="[dashboardPath]">Home</a></li>
+            <li class="breadcrumb-item"><a [routerLink]="[reportsPath]">Reports</a></li>
             <li class="breadcrumb-item active" aria-current="page">Vehicle Reports</li>
           </ol>
         </div>
@@ -35,7 +37,7 @@ import { RouterModule } from '@angular/router';
                   </div>
                 </div>
               </div>
-              <a [routerLink]="['/admin/reports/vehicle-reports/ticket-report']" class="btn btn-success btn-sm w-100">
+              <a [routerLink]="[vehicleReportsPath + '/ticket-report']" class="btn btn-success btn-sm w-100">
                 <i class="ti-eye me-2"></i>View Reports
               </a>
             </div>
@@ -57,7 +59,7 @@ import { RouterModule } from '@angular/router';
                   </div>
                 </div>
               </div>
-              <a [routerLink]="['/admin/reports/vehicle-reports/station-tracker']" class="btn btn-warning btn-sm w-100">
+              <a [routerLink]="[vehicleReportsPath + '/station-tracker']" class="btn btn-warning btn-sm w-100">
                 <i class="ti-eye me-2"></i>View Reports
               </a>
             </div>
@@ -79,7 +81,7 @@ import { RouterModule } from '@angular/router';
                   </div>
                 </div>
               </div>
-              <a [routerLink]="['/admin/reports/vehicle-reports/final-reports']" class="btn btn-info btn-sm w-100">
+              <a [routerLink]="[vehicleReportsPath + '/final-reports']" class="btn btn-info btn-sm w-100">
                 <i class="ti-eye me-2"></i>View Reports
               </a>
             </div>
@@ -112,4 +114,15 @@ import { RouterModule } from '@angular/router';
     }
   `]
 })
-export class VehicleReportsComponent {}
+export class VehicleReportsComponent {
+  readonly dashboardPath: string;
+  readonly reportsPath: string;
+  readonly vehicleReportsPath: string;
+
+  constructor(private readonly authService: AuthService) {
+    const context = resolveReportRouteContext(this.authService.currentUserValue);
+    this.dashboardPath = context.dashboardPath;
+    this.reportsPath = context.reportsPath;
+    this.vehicleReportsPath = context.vehicleReportsPath;
+  }
+}

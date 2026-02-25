@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, catchError, map, of, shareReplay, switchMap } from 'rxjs';
+import { Observable, catchError, forkJoin, map, of, shareReplay, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface DashboardProjectOption {
@@ -141,6 +141,7 @@ export class DashboardProjectsService {
     params: {
       clientId?: number;
       userId?: number;
+      includeClosed?: boolean;
       page?: number;
       pageSize?: number;
       includeAllOption?: boolean;
@@ -150,6 +151,7 @@ export class DashboardProjectsService {
       includeAllOption = true,
       clientId,
       userId,
+      includeClosed,
       page,
       pageSize,
     } = params;
@@ -165,6 +167,7 @@ export class DashboardProjectsService {
     params: {
       clientId?: number;
       userId?: number;
+      includeClosed?: boolean;
       page?: number;
       pageSize?: number;
       includeAllOption?: boolean;
@@ -174,6 +177,7 @@ export class DashboardProjectsService {
       includeAllOption = true,
       clientId,
       userId,
+      includeClosed,
       page,
       pageSize,
     } = params;
@@ -183,6 +187,7 @@ export class DashboardProjectsService {
         includeAllOption,
         clientId,
         userId,
+        includeClosed,
         page,
         pageSize,
       });
@@ -203,6 +208,9 @@ export class DashboardProjectsService {
     if (userId !== undefined && userId !== null) {
       httpParams = httpParams.set('userId', String(userId));
     }
+    if (includeClosed !== undefined && includeClosed !== null) {
+      httpParams = httpParams.set('includeClosed', String(includeClosed));
+    }
     if (page !== undefined && page !== null) {
       httpParams = httpParams.set('page', String(page));
     }
@@ -216,6 +224,7 @@ export class DashboardProjectsService {
       normalizedProjectId,
       clientId: clientId ?? null,
       userId: userId ?? null,
+      includeClosed: includeClosed ?? null,
       page: page ?? null,
       pageSize: pageSize ?? null,
     });
@@ -265,9 +274,89 @@ export class DashboardProjectsService {
     );
   }
 
+  getVehicleOptionsByProjectsResult(
+    projectIds: string[],
+    params: {
+      clientId?: number;
+      userId?: number;
+      includeClosed?: boolean;
+      page?: number;
+      pageSize?: number;
+      includeAllOption?: boolean;
+    } = {},
+  ): Observable<DashboardVehicleOptionsResult> {
+    const {
+      includeAllOption = true,
+      clientId,
+      userId,
+      includeClosed,
+      page,
+      pageSize,
+    } = params;
+
+    const normalizedProjectIds = Array.from(new Set(
+      (projectIds ?? [])
+        .map((projectId) => this.normalizeProjectId(projectId))
+        .filter((projectId) => !!projectId),
+    ));
+
+    if (!normalizedProjectIds.length) {
+      return of({
+        options: includeAllOption ? [{ id: 'all', name: 'All Vehicles' }] : [],
+        totalCount: 0,
+      });
+    }
+
+    return forkJoin(
+      normalizedProjectIds.map((projectId) =>
+        this.getVehicleOptionsByProjectResult(projectId, {
+          clientId,
+          userId,
+          includeClosed,
+          page,
+          pageSize,
+          includeAllOption: false,
+        }),
+      ),
+    ).pipe(
+      map((results) => {
+        const uniqueVehicles = new Map<string, DashboardVehicleOption>();
+        let aggregateTotalCount = 0;
+
+        results.forEach((result) => {
+          const resultTotal = Number(result.totalCount ?? 0);
+          aggregateTotalCount += Number.isFinite(resultTotal) && resultTotal > 0
+            ? resultTotal
+            : (result.options ?? []).filter((vehicle) => String(vehicle.id ?? '').trim().toLowerCase() !== 'all').length;
+
+          (result.options ?? []).forEach((vehicle) => {
+            const vehicleId = String(vehicle.id ?? '').trim();
+            if (!vehicleId || vehicleId === 'all') return;
+
+            if (!uniqueVehicles.has(vehicleId)) {
+              uniqueVehicles.set(vehicleId, {
+                id: vehicleId,
+                name: String(vehicle.name ?? '').trim() || `Vehicle ${vehicleId}`,
+              });
+            }
+          });
+        });
+
+        const mergedOptions = Array.from(uniqueVehicles.values())
+          .sort((left, right) => left.name.localeCompare(right.name));
+
+        return {
+          options: includeAllOption ? [{ id: 'all', name: 'All Vehicles' }, ...mergedOptions] : mergedOptions,
+          totalCount: aggregateTotalCount,
+        };
+      }),
+    );
+  }
+
   getAllVehicleOptions(params: {
     clientId?: number;
     userId?: number;
+    includeClosed?: boolean;
     page?: number;
     pageSize?: number;
     includeAllOption?: boolean;
@@ -276,6 +365,7 @@ export class DashboardProjectsService {
       includeAllOption = true,
       clientId,
       userId,
+      includeClosed,
       page,
       pageSize,
     } = params;
@@ -286,6 +376,9 @@ export class DashboardProjectsService {
     }
     if (userId !== undefined && userId !== null) {
       httpParams = httpParams.set('userId', String(userId));
+    }
+    if (includeClosed !== undefined && includeClosed !== null) {
+      httpParams = httpParams.set('includeClosed', String(includeClosed));
     }
     if (page !== undefined && page !== null) {
       httpParams = httpParams.set('page', String(page));
@@ -324,6 +417,7 @@ export class DashboardProjectsService {
   getAllVehicleOptionsResult(params: {
     clientId?: number;
     userId?: number;
+    includeClosed?: boolean;
     page?: number;
     pageSize?: number;
     includeAllOption?: boolean;
@@ -332,6 +426,7 @@ export class DashboardProjectsService {
       includeAllOption = true,
       clientId,
       userId,
+      includeClosed,
       page,
       pageSize,
     } = params;
@@ -342,6 +437,9 @@ export class DashboardProjectsService {
     }
     if (userId !== undefined && userId !== null) {
       httpParams = httpParams.set('userId', String(userId));
+    }
+    if (includeClosed !== undefined && includeClosed !== null) {
+      httpParams = httpParams.set('includeClosed', String(includeClosed));
     }
     if (page !== undefined && page !== null) {
       httpParams = httpParams.set('page', String(page));
@@ -354,6 +452,7 @@ export class DashboardProjectsService {
       includeAllOption,
       clientId: clientId ?? null,
       userId: userId ?? null,
+      includeClosed: includeClosed ?? null,
       page: page ?? null,
       pageSize: pageSize ?? null,
     });

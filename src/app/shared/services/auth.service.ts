@@ -10,6 +10,7 @@ export interface CurrentUser {
   username: string;
   email?: string;
   role: string;
+  type: number;
   clientId: number;
   isGeneralAdmin: boolean;
 }
@@ -46,6 +47,7 @@ export class AuthService {
             username: res.username,
             email: res.email,
             role: res.role,
+            type: Number(res.type ?? 0),
             clientId: res.clientId,
             isGeneralAdmin: res.isGeneralAdmin,
           };
@@ -163,6 +165,7 @@ export class AuthService {
       username: String(value?.username ?? '').trim(),
       email: value?.email ? String(value.email).trim() : undefined,
       role: String(value?.role ?? '').trim(),
+      type: Number(value?.type ?? 0),
       clientId: Number(value?.clientId ?? 0),
       isGeneralAdmin: Boolean(value?.isGeneralAdmin),
     };

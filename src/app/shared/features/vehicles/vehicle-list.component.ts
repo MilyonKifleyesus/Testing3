@@ -1,9 +1,15 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { catchError, map, of, take } from 'rxjs';
 import { Vehicle, VehicleFilter } from './models/vehicle.model';
 import { VehicleUtilService } from './services/vehicle-util.service';
+import { ClientDashboardService } from '../../services/client-dashboard.service';
+import { AuthService } from '../../services/auth.service';
+import { resolveProjectManagementContext } from '../project-management/project-management-context';
+import { extractArrayFromApiResponse, getFirstDefinedValue, toOptionalText, toText } from '../../utils/api-data.utils';
 
 /**
  * Vehicle List Component
@@ -48,100 +54,129 @@ export class VehicleListComponent implements OnInit {
   /** Available propulsion types */
   propulsionTypes: string[] = [];
 
-  constructor(public vehicleUtil: VehicleUtilService) {
-    this.initializeSampleData();
+  readonly portalPrefix: '/admin' | '/client';
+  readonly scopedClientId: string | null;
+
+  get vehicleViewPathPrefix(): string {
+    return `${this.portalPrefix}/vehicles/view`;
+  }
+
+  constructor(
+    public vehicleUtil: VehicleUtilService,
+    private readonly clientDashboardService: ClientDashboardService,
+    private readonly authService: AuthService,
+    private readonly route: ActivatedRoute,
+  ) {
+    const context = resolveProjectManagementContext(
+      this.authService.currentUserValue,
+      this.route.snapshot.queryParamMap.get('clientId'),
+    );
+
+    this.portalPrefix = context.portalPrefix;
+    this.scopedClientId = context.scopedClientId;
   }
 
   ngOnInit(): void {
-    this.loadFilterOptions();
+    this.loadVehicles();
   }
 
   /**
-   * Initialize with sample/demo data
+   * Load vehicles from API
    */
-  private initializeSampleData(): void {
-    this.vehicles = [
-      {
-        id: 1,
-        client: 'BusPulse Fleet',
-        fleetNumber: 'BUS-001',
-        make: 'Volvo',
-        model: 'B8R',
-        vin: 'VLV1234567890123',
-        mileageType: 'Kilometres',
-        propulsion: 'Diesel',
-        status: 'completed',
-        imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspector: 'John Doe'
-      },
-      {
-        id: 2,
-        client: 'BusPulse Fleet',
-        fleetNumber: 'BUS-002',
-        make: 'Mercedes',
-        model: 'Citaro',
-        vin: 'MER2345678901234',
-        mileageType: 'Kilometres',
-        propulsion: 'Diesel',
-        status: 'in-progress',
-        imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspector: 'Jane Smith'
-      },
-      {
-        id: 3,
-        client: 'BusPulse Fleet',
-        fleetNumber: 'BUS-003',
-        make: 'Scania',
-        model: 'K360',
-        vin: 'SCA3456789012345',
-        mileageType: 'Kilometres',
-        propulsion: 'CNG',
-        status: 'pending',
-        imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspector: 'Mike Johnson'
-      },
-      {
-        id: 4,
-        client: 'BusPulse Fleet',
-        fleetNumber: 'BUS-004',
-        make: 'Tata',
-        model: 'LPO 1623',
-        vin: 'TAT4567890123456',
-        mileageType: 'Kilometres',
-        propulsion: 'Diesel',
-        status: 'completed',
-        imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspector: 'Sarah Brown'
-      },
-      {
-        id: 5,
-        client: 'BusPulse Fleet',
-        fleetNumber: 'BUS-005',
-        make: 'Ashok Leyland',
-        model: 'Viking',
-        vin: 'ASH5678901234567',
-        mileageType: 'Kilometres',
-        propulsion: 'Hybrid',
-        status: 'completed',
-        imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspector: 'Tom Wilson'
-      }
-    ];
-    this.filteredVehicles = [...this.vehicles];
+  private loadVehicles(): void {
+    const scopedClientId = Number(this.scopedClientId);
+    const requestParams: { clientId?: number; page: number; pageSize: number } = {
+      page: 1,
+      pageSize: 5000,
+      ...(Number.isFinite(scopedClientId) && scopedClientId > 0 ? { clientId: scopedClientId } : {}),
+    };
+
+    this.clientDashboardService
+      .getVehicles(requestParams)
+      .pipe(
+        map((response) => extractArrayFromApiResponse(response)),
+        map((items) =>
+          items
+            .map((item, index) => this.mapVehicle(item, index))
+            .filter((vehicle): vehicle is Vehicle => vehicle !== null),
+        ),
+        catchError((error) => {
+          console.error('Failed to load vehicles:', error);
+          return of([] as Vehicle[]);
+        }),
+        take(1),
+      )
+      .subscribe((vehicles) => {
+        this.vehicles = vehicles;
+        this.filteredVehicles = [...vehicles];
+        this.loadFilterOptions();
+      });
   }
 
   /**
    * Load filter dropdown options
    */
   private loadFilterOptions(): void {
-    this.clients = ['All', 'BusPulse Fleet'];
-    this.propulsionTypes = ['All', 'Diesel', 'Hybrid', 'Electric', 'CNG'];
+    this.clients = Array.from(
+      new Set(
+        this.vehicles
+          .map((vehicle) => vehicle.client)
+          .filter((client) => Boolean(client && client.trim())),
+      ),
+    ).sort((left, right) => left.localeCompare(right));
+
+    this.propulsionTypes = Array.from(
+      new Set(
+        this.vehicles
+          .map((vehicle) => vehicle.propulsion)
+          .filter((propulsion) => Boolean(propulsion && propulsion.trim())),
+      ),
+    ).sort((left, right) => left.localeCompare(right));
   }
+
+  private mapVehicle(raw: any, index: number): Vehicle | null {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const idValue = getFirstDefinedValue(raw, ['id', 'vehicleId', 'vehicle_id']);
+    const numericId = Number(idValue);
+    const resolvedId = Number.isFinite(numericId) && numericId > 0 ? numericId : index + 1;
+
+    return {
+      id: resolvedId,
+      client: toText(getFirstDefinedValue(raw, ['clientName', 'client', 'customerName']), 'Unknown Client'),
+      fleetNumber: toText(
+        getFirstDefinedValue(raw, ['fleetNumber', 'fleetNo', 'vehicleNumber', 'unitNumber', 'name']),
+        `Vehicle-${resolvedId}`,
+      ),
+      make: toText(getFirstDefinedValue(raw, ['make', 'manufacturer', 'brand']), '-'),
+      model: toText(getFirstDefinedValue(raw, ['model', 'vehicleModel', 'type']), '-'),
+      vin: toText(getFirstDefinedValue(raw, ['vin', 'VIN', 'vehicleVin', 'chassisNumber']), '-'),
+      mileageType: toText(getFirstDefinedValue(raw, ['mileageType', 'odometerUnit']), 'Kilometres'),
+      propulsion: toText(getFirstDefinedValue(raw, ['propulsion', 'propulsionType', 'fuelType']), '-'),
+      status: this.normalizeVehicleStatus(getFirstDefinedValue(raw, ['status', 'inspectionStatus', 'vehicleStatus'])),
+      imageUrl: toText(getFirstDefinedValue(raw, ['imageUrl', 'image', 'photoUrl']), ''),
+      inspectionDate: toOptionalText(
+        getFirstDefinedValue(raw, ['inspectionDate', 'lastInspectionDate', 'date']),
+      ),
+      inspector: toOptionalText(
+        getFirstDefinedValue(raw, ['inspector', 'inspectorName', 'inspector.name', 'assignedInspector']),
+      ),
+    };
+  }
+
+  private normalizeVehicleStatus(value: unknown): Vehicle['status'] {
+    const normalized = String(value ?? '').toLowerCase().trim();
+    if (normalized === 'completed' || normalized === 'closed' || normalized === 'resolved' || normalized === 'done') {
+      return 'completed';
+    }
+    if (normalized === 'in-progress' || normalized === 'in progress' || normalized === 'active') {
+      return 'in-progress';
+    }
+    return 'pending';
+  }
+
 
   /**
    * Apply filters to vehicle list

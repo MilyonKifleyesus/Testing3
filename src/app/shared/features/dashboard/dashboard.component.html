@@ -1,0 +1,267 @@
+<div class="dashboard-wrapper">
+  <app-page-header [title]="title" [title1]="['Home']" [activeitem]="'Dashboard'"></app-page-header>
+
+  <div class="dashboard-content">
+    <div class="welcome-section mb-5">
+      <div class="welcome-card">
+        <div class="welcome-content">
+          <div class="welcome-text">
+            <h2 class="welcome-title">Welcome {{ welcomeUserName }}</h2>
+            <p class="welcome-subtitle" *ngIf="isAdminRole; else clientSubTitle">
+              Fleet-wide operations and inspection analytics overview
+            </p>
+            <ng-template #clientSubTitle>
+              <p class="welcome-subtitle">Client ID: {{ clientProfile.clientId }} | Vehicle: {{ clientProfile.vehicle }}</p>
+            </ng-template>
+          </div>
+          <div class="welcome-image" style="position: relative; width: 150px; height: 150px;">
+            <img *ngIf="clientProfile.logoUrl" [src]="clientProfile.logoUrl" alt="Client logo" class="welcome-logo-image" width="150" height="150" style="object-fit: contain;" />
+            <div *ngIf="!clientProfile.logoUrl" class="welcome-no-image" aria-label="No image available" title="No image available">
+              <i class="ti ti-photo-off"></i>
+            </div>
+            <p class="welcome-logo-name" *ngIf="!isAdminRole && customerLogoName">{{ customerLogoName }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-section mb-4">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-6 col-lg-3" *ngIf="isAdminRole">
+          <label for="clientFilter" class="form-label fw-500 mb-2">Filter by Client</label>
+          <select id="clientFilter" class="form-select form-select-sm" [(ngModel)]="selectedClient" (ngModelChange)="onAdminClientChange($event)">
+            <option *ngFor="let client of clients" [value]="client.id">{{ client.name }}</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-6" [ngClass]="isAdminRole ? 'col-lg-3' : 'col-lg-4'">
+          <label for="projectFilter" class="form-label fw-500 mb-2">Filter by Project</label>
+          <select id="projectFilter" class="form-select form-select-sm" [(ngModel)]="selectedProject" (ngModelChange)="onProjectChange($event)">
+            <option *ngFor="let project of projects" [value]="project.id">{{ project.name }}</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-6" [ngClass]="isAdminRole ? 'col-lg-3' : 'col-lg-4'">
+          <label for="vehicleFilter" class="form-label fw-500 mb-2">Filter by Vehicle</label>
+          <select id="vehicleFilter" class="form-select form-select-sm" [(ngModel)]="selectedVehicle" (ngModelChange)="onVehicleChange($event)">
+            <option *ngFor="let vehicle of vehicles" [value]="vehicle.id">{{ vehicle.name }}</option>
+          </select>
+        </div>
+        <div class="col-12" [ngClass]="isAdminRole ? 'col-lg-3' : 'col-lg-4'">
+          <div class="d-flex align-items-center justify-content-lg-end gap-3 h-100">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" id="includeClosedProjectsToggle" [(ngModel)]="includeClosedProjects" (ngModelChange)="toggleAdminOpenClosed()" />
+              <label class="form-check-label" for="includeClosedProjectsToggle">Include Closed Projects</label>
+            </div>
+            <button class="btn btn-sm btn-outline-success" (click)="resetDashboardLayout()">
+              <i class="fas fa-undo me-1"></i> Reset
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-stats-section mb-5">
+      <div class="row g-3 stats-row">
+        <div class="col-12" [ngClass]="isAdminRole ? 'col-sm-6 col-lg-3' : 'col-sm-6 col-lg-6'" *ngFor="let card of statCards">
+          <div class="stat-card redesigned">
+            <div class="stat-header">
+              <h6 class="stat-label">{{ card.label }}</h6>
+              <p class="stat-sublabel">{{ card.subtitle }}</p>
+            </div>
+            <div class="stat-body">
+              <div class="stat-value-section">
+                <h3 class="stat-value">{{ card.value }}</h3>
+              </div>
+              <div class="stat-change-section">
+                <div class="stat-change-text">
+                  <span class="change-percentage" [ngClass]="card.trendClass">{{ card.trend }}</span>
+                </div>
+                <div class="stat-icon" [ngClass]="getStatIconClass(card.trendClass)">
+                  <i [class]="card.iconClass"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts-grid" [class.compact-mode]="showFilters && selectedProject !== 'all'">
+      <div class="widgets-row" cdkDropList (cdkDropListDropped)="onWidgetDrop($event)">
+        <ng-container *ngFor="let widget of widgets">
+          <div
+            [hidden]="!isWidgetVisible(widget)"
+            [ngClass]="(showFilters && selectedProject !== 'all') ? 'widget-container compact-widget' : 'widget-container'"
+            [style.gridColumn]="'span ' + getWidgetGridSpan(widget)"
+            cdkDrag
+            [cdkDragData]="widget"
+          >
+            <div class="data-card widget-card" [style.height.px]="getWidgetCardHeight(widget)">
+              <div class="widget-drag-handle" cdkDragHandle>
+                <i class="fas fa-grip-vertical"></i>
+              </div>
+
+              <div class="widget-delete-btn">
+                <button class="control-btn fullscreen-btn" (click)="toggleFullscreen(widget.id)" title="Toggle fullscreen">
+                  <i class="fas" [ngClass]="fullscreenWidgetId === widget.id ? 'fa-compress' : 'fa-expand'"></i>
+                </button>
+                <button class="control-btn delete-btn" (click)="deleteWidget(widget.id)" title="Remove widget">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </div>
+
+              <div class="resize-handle resize-handle-corner" (mousedown)="onResizeStart($event, widget.id, 'corner')" title="Drag to resize">
+                <i class="fas fa-grip-lines"></i>
+              </div>
+              <div class="resize-handle resize-handle-right" (mousedown)="onResizeStart($event, widget.id, 'right')" title="Drag to resize width"></div>
+              <div class="resize-handle resize-handle-bottom" (mousedown)="onResizeStart($event, widget.id, 'bottom')" title="Drag to resize height"></div>
+
+              <div class="card-header">
+                <h5 class="card-title mb-1">{{ widget.title }}</h5>
+                <p class="card-subtitle">{{ widget.subtitle }}</p>
+              </div>
+
+              <div class="card-body">
+                <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions"></spk-apex-charts>
+
+                <div *ngIf="widget.id === 'widget-14'" class="recent-activities-container">
+                  <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Inspector & Last Sync</th>
+                          <th>Tickets Generated</th>
+                          <th>Hours Worked</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let activity of recentActivities; trackBy: trackByIndex">
+                          <td>
+                            <div class="d-flex align-items-center gap-2">
+                              <span class="badge bg-primary">{{ activity.inspector }}</span>
+                              <span>{{ activity.lastSync }}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span class="fw-bold text-success">{{ activity.ticketsGenerated }}</span>
+                            <span class="ms-2 text-muted small">tickets</span>
+                          </td>
+                          <td>
+                            <span class="fw-bold text-info">{{ activity.hoursWorked }}</span>
+                            <span class="ms-2 text-muted small">hours</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="activity-footer">
+                    <button (click)="openActivitiesModal()" class="btn btn-sm btn-light w-100">
+                      View All Activities <i class="fe fe-arrow-right ms-1"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="widget-drag-preview" *cdkDragPreview>
+                <div class="preview-content">
+                  <i class="fas fa-grip-vertical me-2"></i>
+                  {{ widget.title }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+
+    <div *ngIf="widgets.length === 0" class="empty-state">
+      <div class="empty-state-content">
+        <i class="fas fa-inbox fa-4x mb-3 text-muted"></i>
+        <h4>No Widgets Available</h4>
+        <p class="text-muted">All widgets have been removed. Click the button below to restore them.</p>
+        <button class="btn btn-primary mt-3" (click)="restoreAllWidgets()">
+          <i class="fas fa-undo me-2"></i> Restore All Widgets
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="fullscreenWidgetId" class="fullscreen-overlay" (click)="toggleFullscreen(fullscreenWidgetId); $event.stopPropagation()">
+      <div class="fullscreen-container" (click)="$event.stopPropagation()">
+        <div class="fullscreen-header" *ngIf="fullscreenWidget">
+          <h3>{{ fullscreenWidget.title }}</h3>
+          <button class="btn btn-sm btn-light" (click)="toggleFullscreen(fullscreenWidgetId)" title="Exit fullscreen">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="fullscreen-content" *ngIf="fullscreenWidget">
+          <spk-apex-charts *ngIf="fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions"></spk-apex-charts>
+
+          <div *ngIf="fullscreenWidget.id === 'widget-14'" class="recent-activities-container fullscreen-activities">
+            <div class="table-responsive">
+              <table class="table table-bordered table-hover align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>Inspector & Last Sync</th>
+                    <th>Tickets Generated</th>
+                    <th>Hours Worked</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let activity of recentActivities; trackBy: trackByIndex">
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary">{{ activity.inspector }}</span>
+                        <span>{{ activity.lastSync }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="fw-bold text-success">{{ activity.ticketsGenerated }}</span>
+                      <span class="ms-2 text-muted small">tickets</span>
+                    </td>
+                    <td>
+                      <span class="fw-bold text-info">{{ activity.hoursWorked }}</span>
+                      <span class="ms-2 text-muted small">hours</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="showActivitiesModal" class="activities-modal-overlay" (click)="closeActivitiesModal()">
+      <div class="activities-modal-container" (click)="$event.stopPropagation()">
+        <div class="activities-modal-header">
+          <h2>All Activities</h2>
+          <button class="btn btn-sm btn-light" (click)="closeActivitiesModal()" title="Close">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="activities-modal-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+              <thead>
+                <tr>
+                  <th>Last Sync</th>
+                  <th>Tickets Generated</th>
+                  <th>Hours Worked</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let activity of recentActivities; trackBy: trackByIndex">
+                  <td>{{ activity.lastSync }}</td>
+                  <td>{{ activity.ticketsGenerated }}</td>
+                  <td>{{ activity.hoursWorked }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <app-fluorescence-map></app-fluorescence-map>
+  </div>
+</div>

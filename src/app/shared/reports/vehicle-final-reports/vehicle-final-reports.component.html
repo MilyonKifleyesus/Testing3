@@ -4,7 +4,7 @@
     <div>
       <h2 class="main-content-title tx-24 mg-b-5">Vehicle Final Reports</h2>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a [routerLink]="['/admin/dashboard']">Home</a></li>
+        <li class="breadcrumb-item"><a [routerLink]="[dashboardPath]">Home</a></li>
         <li class="breadcrumb-item active" aria-current="page">Vehicle Final Reports</li>
       </ol>
     </div>
@@ -17,26 +17,27 @@
         <div class="card-body">
           <div class="row g-3">
             <!-- Client Filter -->
-            <div class="col-md-6">
+            <div class="col-md-6" *ngIf="!isClientScopedRole">
               <label class="form-label">Client</label>
               <select 
                 class="form-select" 
                 [(ngModel)]="selectedClient"
+                (ngModelChange)="onClientChange()"
                 [disabled]="isLoadingFilters">
                 <option value="all">All Clients</option>
-                <option *ngFor="let client of clients" [value]="client.name">{{ client.name }}</option>
+                <option *ngFor="let client of clients" [value]="client.id">{{ client.name }}</option>
               </select>
             </div>
 
             <!-- Project Filter -->
-            <div class="col-md-6">
+            <div class="col-md-6" [ngClass]="isClientScopedRole ? 'col-md-12' : 'col-md-6'">
               <label class="form-label">Project</label>
               <select 
                 class="form-select" 
                 [(ngModel)]="selectedProject"
                 [disabled]="isLoadingFilters">
                 <option value="all">All Projects</option>
-                <option *ngFor="let project of projects" [value]="project.name">{{ project.name }}</option>
+                <option *ngFor="let project of projects" [value]="project.id">{{ project.name }}</option>
               </select>
             </div>
 
@@ -105,7 +106,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let report of filteredReports">
+                <tr *ngFor="let report of paginatedReports">
                   <td>{{ report.idNumber }}</td>
                   <td>{{ report.clientName }}</td>
                   <td>{{ report.projectName }}</td>

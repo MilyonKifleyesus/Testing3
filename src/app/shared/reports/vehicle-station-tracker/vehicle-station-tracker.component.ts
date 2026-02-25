@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { VehicleReportService, VehicleStationTracker, VehicleStationTrackerRequest } from '../services/vehicle-report.service';
+import { AuthService } from '../../services/auth.service';
+import { resolveReportRouteContext } from '../report-route-context';
 import ExcelJS from 'exceljs';
 import { firstValueFrom } from 'rxjs';
 
@@ -39,6 +41,9 @@ export class VehicleStationTrackerComponent implements OnInit {
   currentPage: number = 1;
   pageSize: number = 10;
   totalCount: number = 0;
+  readonly dashboardPath: string;
+  readonly reportsPath: string;
+  readonly vehicleReportsPath: string;
 
     // Sorting
     sortColumn: string = '';
@@ -106,7 +111,15 @@ export class VehicleStationTrackerComponent implements OnInit {
     { key: 'station29', label: '29 - Customer Pre-Delivery Sign Off - Nova' }
   ];
 
-  constructor(private vehicleReportService: VehicleReportService) {}
+  constructor(
+    private vehicleReportService: VehicleReportService,
+    private readonly authService: AuthService,
+  ) {
+    const context = resolveReportRouteContext(this.authService.currentUserValue);
+    this.dashboardPath = context.dashboardPath;
+    this.reportsPath = context.reportsPath;
+    this.vehicleReportsPath = context.vehicleReportsPath;
+  }
 
   ngOnInit() {
     this.loadProjects();
@@ -219,19 +232,279 @@ export class VehicleStationTrackerComponent implements OnInit {
   /**
    * Print current report
    */
-  printReport() {
-    // Set print title
-    const originalTitle = document.title;
-    document.title = `Vehicle Station Tracker Report - ${this.selectedProject} - ${new Date().toLocaleDateString()}`;
-    
-    // Delay to ensure title updates
-    setTimeout(() => {
-      window.print();
-      // Restore original title after print dialog closes
-      setTimeout(() => {
-        document.title = originalTitle;
-      }, 100);
-    }, 100);
+  async printReport() {
+    if (!this.reportGenerated || this.filteredData.length === 0) {
+      alert('Please generate a report first before printing');
+      return;
+    }
+
+    try {
+      const logoBase64 = await this.loadLogoAsBase64();
+      const printHTML = this.generatePrintHTML(this.filteredData, logoBase64);
+
+      const printWindow = window.open('', '', 'height=700,width=900');
+      if (printWindow) {
+        printWindow.document.write(printHTML);
+        printWindow.document.close();
+        setTimeout(() => {
+          printWindow.print();
+        }, 250);
+      }
+    } catch (error) {
+      console.error('Error printing report:', error);
+      alert('Failed to generate print report');
+    }
+  }
+
+  private loadLogoAsBase64(): Promise<string> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = 'assets/images/brand-logos/desktop-logo.png';
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          resolve('');
+        }
+      };
+
+      img.onerror = () => {
+        resolve('');
+      };
+    });
+  }
+
+  private generatePrintHTML(data: VehicleStationTracker[], logoBase64: string = ''): string {
+    const today = new Date();
+    const printDate = `${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getDate().toString().padStart(2, '0')}/${today.getFullYear()}`;
+
+    let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>BusPulse Station Tracker Report</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: Arial, sans-serif;
+          font-size: 12px;
+          color: #333;
+          background: white;
+          margin: 0;
+          padding: 20px;
+        }
+        .page-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 15px;
+          padding-bottom: 10px;
+          border-bottom: 2px solid #000;
+          background: white;
+        }
+        .logo-section {
+          display: flex;
+          gap: 15px;
+          align-items: center;
+          background: white;
+        }
+        .logo-img {
+          width: 100px;
+          height: 50px;
+          object-fit: contain;
+          padding: 5px;
+          background: white;
+        }
+        .logo-placeholder {
+          width: 100px;
+          height: 50px;
+          background: #ccc !important;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          color: #666;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .report-title {
+          text-align: center;
+          flex-grow: 1;
+          background: white;
+        }
+        .report-title h1 {
+          font-size: 16px;
+          font-weight: bold;
+          margin: 0;
+          color: #333;
+        }
+        .report-title p {
+          font-size: 11px;
+          margin: 2px 0;
+          color: #333;
+        }
+        .meta-info {
+          text-align: right;
+          font-size: 10px;
+          line-height: 1.4;
+          background: white;
+        }
+        .project-info {
+          font-size: 11px;
+          margin-bottom: 15px;
+          color: #333;
+          background: white;
+          padding: 8px;
+        }
+        .section-header {
+          background: #6B7280 !important;
+          padding: 8px 10px;
+          font-weight: bold;
+          font-size: 12px;
+          color: white !important;
+          border: 2px solid #000;
+          margin-bottom: 3px;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+          font-size: 11px;
+          background: white;
+        }
+        table thead tr {
+          background: #6B7280 !important;
+          border: 2px solid #000;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
+        }
+        table th {
+          padding: 6px 4px;
+          text-align: left;
+          font-weight: bold;
+          border: 1px solid #000;
+          color: white !important;
+          font-size: 10px;
+          background: #6B7280 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
+        }
+        table td {
+          padding: 6px 4px;
+          border: 1px solid #999;
+          vertical-align: top;
+          background: white;
+        }
+        table tbody tr {
+          background: white;
+        }
+        table tbody tr:nth-child(even) {
+          background: #f9f9f9;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-top: 15px;
+          border-top: 1px solid #ccc;
+          font-size: 10px;
+          color: #666;
+          margin-top: 20px;
+          background: white;
+        }
+        .page-number {
+          text-align: right;
+          font-size: 10px;
+          color: #666;
+          background: white;
+        }
+        @media print {
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body { margin: 0; padding: 15px; background: white; }
+          table { page-break-inside: avoid; }
+          .footer { page-break-inside: avoid; }
+          .section-header { background: #6B7280 !important; color: white !important; }
+          table thead { background: #6B7280 !important; }
+          table th { background: #6B7280 !important; color: white !important; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="page-header">
+        <div class="logo-section">
+          ${logoBase64 ? `<img src="${logoBase64}" alt="Client Logo" class="logo-img">` : '<div class="logo-placeholder">Client Logo</div>'}
+        </div>
+        <div class="report-title">
+          <h1>BusPulse Station Tracker Report</h1>
+          <p>Vehicle Progress Tracking</p>
+        </div>
+        <div class="logo-section">
+          ${logoBase64 ? `<img src="${logoBase64}" alt="BusPulse Logo" class="logo-img">` : '<div class="logo-placeholder">BusPulse Logo</div>'}
+        </div>
+      </div>
+
+      <div class="project-info">
+        <strong>Project: ${this.selectedProject || 'All Projects'}</strong> | Generated: ${new Date().toLocaleString()}
+      </div>
+
+      <div class="section-header">Vehicle Station Tracker</div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Fleet Number</th>
+            <th>VIN</th>
+            <th>Frame Number *</th>
+            <th>Inspector</th>
+            <th>Finish</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    data.forEach((vehicle) => {
+      const finish = vehicle.station21 || '-';
+
+      html += `
+          <tr>
+            <td>${vehicle.fleetNumber || '-'}</td>
+            <td>${vehicle.vin || 'NA'}</td>
+            <td>${vehicle.frameNumber || '-'}</td>
+            <td>${vehicle.inspector || '-'}</td>
+            <td>${finish}</td>
+          </tr>
+      `;
+    });
+
+    html += `
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <div>Total Vehicles: ${data.length} | Print Date: ${printDate}</div>
+        <div></div>
+      </div>
+      
+      <div class="page-number">1/1</div>
+    </body>
+    </html>
+    `;
+
+    return html;
   }
 
   /**

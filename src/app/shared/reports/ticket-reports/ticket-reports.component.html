@@ -4,8 +4,8 @@
     <div>
       <h2 class="main-content-title tx-24 mg-b-5">{{ reportType === 'daily' ? 'Daily Report' : 'Weekly Report' }}</h2>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a [routerLink]="['/admin/dashboard']">Home</a></li>
-        <li class="breadcrumb-item"><a [routerLink]="['/admin/reports']">Reports</a></li>
+        <li class="breadcrumb-item"><a [routerLink]="[dashboardPath]">Home</a></li>
+        <li class="breadcrumb-item"><a [routerLink]="[reportsPath]">Reports</a></li>
         <li class="breadcrumb-item active" aria-current="page">{{ reportType === 'daily' ? 'Daily Report' : 'Weekly Report' }}</li>
       </ol>
     </div>
@@ -49,7 +49,7 @@
                 [(ngModel)]="selectedProject"
                 [disabled]="isLoadingFilters">
                 <option value="all">All projects</option>
-                <option *ngFor="let project of projects" [value]="project.name">{{ project.name }}</option>
+                <option *ngFor="let project of projects" [value]="project.id">{{ project.name }}</option>
               </select>
             </div>
 

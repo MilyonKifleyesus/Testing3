@@ -12,27 +12,13 @@ export const adminRoutingModule: Routes = [
     path: 'dashboard',
     canActivate: [roleGuard],
     data: { roles: ['superadmin', 'admin'] },
-    loadComponent: () => import('./dashboard/index').then(m => m.AdminDashboardComponent)
+    loadComponent: () => import('../../shared/features/dashboard/dashboard.component').then(m => m.DashboardComponent)
   },
   {
     path: 'projects',
     canActivate: [roleGuard],
-    data: { roles: ['superadmin'] },
-    children: [
-      {
-        path: 'list',
-        loadComponent: () => import('./project-management/project-list/project-list.component').then(m => m.ProjectListComponent)
-      },
-      {
-        path: 'new',
-        loadComponent: () => import('./project-management/new-project/new-project.component').then(m => m.NewProjectComponent)
-      }
-      ,
-      {
-        path: 'view/:id',
-        loadComponent: () => import('./project-management/project-view/project-view.component').then(m => m.ProjectViewComponent)
-      }
-    ]
+    data: { roles: ['superadmin', 'admin'] },
+    loadChildren: () => import('../../shared/features/project-management/project-management.routes').then((m) => m.projectManagementRoutes)
   },
   {
     path: 'users',
@@ -171,42 +157,8 @@ export const adminRoutingModule: Routes = [
   {
     path: 'reports',
     canActivate: [roleGuard],
-    data: { roles: ['superadmin'] },
-    children: [
-      {
-        path: '',
-        loadComponent: () => import('./reports/reports.component').then(m => m.ReportsComponent)
-      },
-      {
-        path: 'ticket-reports/daily',
-        loadComponent: () => import('./reports/ticket-reports/ticket-reports.component').then(m => m.TicketReportsComponent)
-      },
-      {
-        path: 'ticket-reports/weekly',
-        loadComponent: () => import('./reports/ticket-reports/ticket-reports.component').then(m => m.TicketReportsComponent)
-      },
-      {
-        path: 'ticket-reports',
-        redirectTo: 'ticket-reports/daily',
-        pathMatch: 'full'
-      },
-      {
-        path: 'vehicle-reports',
-        loadComponent: () => import('./reports/vehicle-reports/vehicle-reports.component').then(m => m.VehicleReportsComponent)
-      },
-      {
-        path: 'vehicle-reports/ticket-report',
-        loadComponent: () => import('./reports/vehicle-ticket-report/vehicle-ticket-report.component').then(m => m.VehicleTicketReportComponent)
-      },
-      {
-        path: 'vehicle-reports/station-tracker',
-        loadComponent: () => import('./reports/vehicle-station-tracker/vehicle-station-tracker.component').then(m => m.VehicleStationTrackerComponent)
-      },
-      {
-        path: 'vehicle-reports/final-reports',
-        loadComponent: () => import('./reports/vehicle-final-reports/vehicle-final-reports.component').then(m => m.VehicleFinalReportsComponent)
-      }
-    ]
+    data: { roles: ['superadmin', 'admin'] },
+    loadChildren: () => import('../../shared/reports/reports.routes').then((m) => m.sharedReportsRoutes)
   },
   {
     path: 'vehicles',
@@ -242,7 +194,7 @@ export const adminRoutingModule: Routes = [
     path: 'tickets',
     canActivate: [roleGuard],
     data: { roles: ['superadmin'] },
-    loadComponent: () => import('./tickets/tickets.component').then(m => m.TicketsComponent)
+    loadComponent: () => import('../../shared/features/tickets/tickets.component').then(m => m.TicketsComponent)
   },
   // YRT Data route removed
 ];

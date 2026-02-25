@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, of, delay, map, switchMap, catchError, Subject, startWith } from 'rxjs';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable, of, map, switchMap, catchError, Subject, startWith } from 'rxjs';
 import { Project, ProjectStatus } from '../models/project.model';
 import { Client } from '../models/client.model';
 import { ProjectRoute } from '../models/fluorescence-map.interface';
@@ -43,18 +43,49 @@ export interface ProjectCounts {
 export interface ApiProject {
   id?: number | string;
   project_id?: number | string;
+  projectId?: number | string;
   projectName?: string;
   project_name?: string;
+  ProjectName?: string;
+  name?: string;
+  title?: string;
+  contract?: string | null;
+  contractNo?: string | null;
+  contract_no?: string | null;
+  contractNumber?: string | null;
+  clientId?: string | number | null;
   client?: string | null;
-  clientId?: string | null;
+  clientName?: string | null;
   assessmentType?: string | null;
   assessment_type?: string | null;
+  projectTypeName?: string | null;
+  project_type_name?: string | null;
+  projectTypeId?: number | string | null;
+  project_type_id?: number | string | null;
+  project_type?: number | string | null;
   location?: string | null;
   status?: string | null;
   manufacturer?: string | null;
   manufacturerLocationId?: string | null;
+  manufacturer_location_id?: string | number | null;
+  locationId?: string | number | null;
+  location_id?: string | number | null;
+  LocationId?: string | number | null;
   manufacturer_id?: number | null;
   factory_id?: number | null;
+  isClosed?: boolean | null;
+  is_closed?: boolean | null;
+  closed?: boolean | null;
+}
+
+function mapProjectTypeIdToAssessmentType(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const numericId = Number(value);
+  if (!Number.isFinite(numericId)) return null;
+
+  if (numericId === 1) return 'New Build';
+  if (numericId === 2) return 'Condition Assessment';
+  return null;
 }
 
 /** API response shape for manufacturers */
@@ -94,6 +125,21 @@ export interface FactoryOption {
 }
 
 function normalizeApiResponse(raw: unknown): ApiProject[] {
+  if (raw && typeof raw === 'object' && 'items' in raw && Array.isArray((raw as { items?: unknown }).items)) {
+    return (raw as { items: ApiProject[] }).items;
+  }
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    const data = (raw as { data?: unknown }).data;
+    if (Array.isArray(data)) {
+      return data as ApiProject[];
+    }
+    if (data && typeof data === 'object' && 'projects' in data) {
+      return ((data as { projects?: ApiProject[] }).projects ?? []);
+    }
+  }
+  if (raw && typeof raw === 'object' && 'results' in raw && Array.isArray((raw as { results?: unknown }).results)) {
+    return (raw as { results: ApiProject[] }).results;
+  }
   if (raw && typeof raw === 'object' && 'projects' in raw) {
     return (raw as { projects: ApiProject[] }).projects;
   }
@@ -106,24 +152,76 @@ function normalizeApiResponse(raw: unknown): ApiProject[] {
 function normalizeApiProject(api: ApiProject): {
   id: number | string | null;
   projectName: string;
+  contract: string | null;
   client: string | null;
   assessmentType: string;
   status: string | null;
   manufacturerId: number | null;
   factoryId: number | null;
 } {
-  const id = api.project_id ?? api.id;
-  const projectName = api.project_name ?? api.projectName ?? '';
-  const client = api.client?.trim() ?? null;
-  const assessmentType = api.assessment_type ?? api.assessmentType ?? '';
+  const id = api.project_id ?? api.projectId ?? api.id;
+  const projectName = api.project_name ?? api.projectName ?? api.ProjectName ?? api.name ?? api.title ?? '';
+  const contract =
+    api.contract ??
+    api.contractNo ??
+    api.contract_no ??
+    api.contractNumber ??
+    null;
+  const client = api.client?.trim() ?? api.clientName?.trim() ?? null;
+  const assessmentTypeFromTypeId = mapProjectTypeIdToAssessmentType(
+    api.projectTypeId ?? api.project_type_id ?? api.project_type
+  );
+  const assessmentType =
+    assessmentTypeFromTypeId ??
+    api.projectTypeName ??
+    api.project_type_name ??
+    api.assessment_type ??
+    api.assessmentType ??
+    '';
   const status = api.status ?? null;
   const manufacturerId = api.manufacturer_id ?? null;
   const factoryId = api.factory_id ?? null;
-  return { id: id ?? null, projectName, client, assessmentType, status, manufacturerId, factoryId };
+  return { id: id ?? null, projectName, contract, client, assessmentType, status, manufacturerId, factoryId };
+}
+
+function normalizeSingleApiProjectResponse(raw: unknown): ApiProject | null {
+  if (!raw) return null;
+
+  if (Array.isArray(raw)) {
+    return raw.length > 0 ? (raw[0] as ApiProject) : null;
+  }
+
+  if (typeof raw === 'object') {
+    const obj = raw as Record<string, unknown>;
+
+    if ('id' in obj || 'project_id' in obj || 'projectId' in obj) {
+      return obj as ApiProject;
+    }
+
+    const data = obj['data'];
+    if (data && typeof data === 'object') {
+      const nested = data as Record<string, unknown>;
+      if ('id' in nested || 'project_id' in nested || 'projectId' in nested) {
+        return nested as ApiProject;
+      }
+      if (nested['project'] && typeof nested['project'] === 'object') {
+        return nested['project'] as ApiProject;
+      }
+    }
+
+    if (obj['project'] && typeof obj['project'] === 'object') {
+      return obj['project'] as ApiProject;
+    }
+  }
+
+  return null;
 }
 
 function resolveClientId(api: ApiProject, clients: Client[]): string | null {
-  if (api.clientId) return api.clientId;
+  if (api.clientId !== null && api.clientId !== undefined) {
+    const explicitClientId = String(api.clientId).trim();
+    if (explicitClientId) return explicitClientId;
+  }
   const cm = api.client?.trim();
   if (!cm) return null;
   const c = clients.find(
@@ -135,7 +233,11 @@ function resolveClientId(api: ApiProject, clients: Client[]): string | null {
 /**
  * Maps API status to UI status. Active/Inactive are normalized to Open/Closed for HUD badges and filters.
  */
-function mapApiStatus(apiStatus: string | null | undefined): ProjectStatus | null {
+function mapApiStatus(
+  apiStatus: string | null | undefined,
+  isClosed?: boolean | null
+): ProjectStatus | null {
+  if (isClosed === true) return 'Closed';
   if (apiStatus === 'Closed' || apiStatus === 'Inactive') return 'Closed';
   if (apiStatus === 'Delayed') return 'Delayed';
   if (apiStatus === 'Open' || apiStatus === 'Active') return 'Open';
@@ -154,8 +256,16 @@ function mapApiProjectToProject(
   const clientId = resolveClientId(api, clients);
   if (!clientId) return null;
 
-  const status = mapApiStatus(norm.status);
+  const closedFlag = api.isClosed ?? api.is_closed ?? api.closed;
+  const status = mapApiStatus(norm.status, closedFlag);
   const client = clients.find((c) => c.id === clientId);
+
+  const apiLocationId =
+    api.manufacturerLocationId ??
+    api.manufacturer_location_id ??
+    api.locationId ??
+    api.location_id ??
+    api.LocationId;
 
   let manufacturer: string | undefined;
   let location: string | undefined;
@@ -178,16 +288,19 @@ function mapApiProjectToProject(
     manufacturer = hasExplicitManufacturer ? api.manufacturer! : (factoryManufacturer ?? api.manufacturer ?? undefined);
     location = hasExplicitLocation ? api.location! : (factoryLocation ?? api.location ?? undefined);
     manufacturerLocationId =
-      factoryIdToWarRoom[String(norm.factoryId)] ?? api.manufacturerLocationId ?? String(norm.factoryId);
+      factoryIdToWarRoom[String(norm.factoryId)] ??
+      (apiLocationId != null ? String(apiLocationId) : undefined) ??
+      String(norm.factoryId);
   } else {
     manufacturer = api.manufacturer ?? undefined;
     location = api.location ?? undefined;
-    manufacturerLocationId = api.manufacturerLocationId ?? undefined;
+    manufacturerLocationId = apiLocationId != null ? String(apiLocationId) : undefined;
   }
 
   return {
     id: norm.id,
     projectName: norm.projectName,
+    contract: norm.contract ?? undefined,
     clientId,
     clientName: norm.client ?? client?.name ?? clientId,
     assessmentType: norm.assessmentType,
@@ -234,50 +347,15 @@ function applyFilters(projects: Project[], filters?: ProjectFilters): Project[] 
 export class ProjectService {
   private readonly envConfig = environment as ProjectEnvironmentConfig;
   private readonly API_BASE_URL = this.envConfig.apiBaseUrl ?? 'https://api.fleetpulse.net/api';
-  /** Path to sample JSON when not using API */
-  private readonly SAMPLE_JSON_PATH = 'assets/data/projects.json';
   private readonly FACTORIES_PATH = 'assets/data/factories.json';
   private readonly FACTORY_MAPPING_PATH = 'assets/data/factory-id-mapping.json';
-  private readonly ADDED_PROJECTS_STORAGE_KEY = 'war-room-added-projects';
 
   private readonly projectsRefresh$ = new Subject<void>();
-
-  /** In-memory cache for projects added when useProjectApi is false (JSON mode) */
-  private addedProjectsCache: Project[] = [];
-  private addedProjectsHydrated = false;
 
   constructor(
     private http: HttpClient,
     private clientService: ClientService
-  ) {
-    this.hydrateAddedProjectsFromStorage();
-  }
-
-  private hydrateAddedProjectsFromStorage(): void {
-    if (this.addedProjectsHydrated || this.envConfig.useProjectApi === true) return;
-    try {
-      const raw = localStorage.getItem(this.ADDED_PROJECTS_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown;
-        const arr = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' && 'projects' in parsed ? (parsed as { projects: unknown[] }).projects : []);
-        this.addedProjectsCache = (arr || []).filter(
-          (p): p is Project => p != null && typeof p === 'object' && 'id' in p && 'clientId' in p
-        );
-      }
-      this.addedProjectsHydrated = true;
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  private persistAddedProjectsToStorage(): void {
-    if (this.envConfig.useProjectApi === true) return;
-    try {
-      localStorage.setItem(this.ADDED_PROJECTS_STORAGE_KEY, JSON.stringify(this.addedProjectsCache));
-    } catch {
-      // Ignore quota or other storage errors
-    }
-  }
+  ) {}
 
   getFactoriesWithManufacturers(): Observable<FactoryOption[]> {
     return this.http
@@ -352,77 +430,18 @@ export class ProjectService {
     );
   }
 
-  private loadProjectsFromJson(
-    clients: Client[],
-    filters?: ProjectFilters
-  ): Observable<Project[]> {
-    const projects$ = this.http.get<unknown>(this.SAMPLE_JSON_PATH);
-    const factoriesData$ = this.http
-      .get<{ manufacturers?: ApiManufacturer[]; factories?: ApiFactory[] }>(
-        this.FACTORIES_PATH
-      )
-      .pipe(catchError(() => of({ manufacturers: [], factories: [] })));
-
-    return this.loadFactoryMapping().pipe(
-      switchMap((mapping) =>
-        projects$.pipe(
-          switchMap((raw) =>
-            factoriesData$.pipe(
-              map((cf) => {
-                const apiProjects = normalizeApiResponse(raw);
-                const manufacturers = cf.manufacturers ?? [];
-                const factories = cf.factories ?? [];
-                const factoryIdToWarRoom = mapping.factoryIdToWarRoom ?? {};
-                const projects = apiProjects
-                  .map((api) =>
-                    mapApiProjectToProject(api, clients, manufacturers, factories, factoryIdToWarRoom)
-                  )
-                  .filter((p): p is Project => p != null);
-                return applyFilters(projects, filters);
-              })
-            )
-          ),
-          catchError(() => of([] as Project[])),
-          delay(150)
-        )
-      ),
-      catchError(() => of([] as Project[]).pipe(delay(150)))
-    );
-  }
-
   getProjects(filters?: ProjectFilters): Observable<Project[]> {
-    if (this.envConfig.useProjectApi !== true) {
-      return this.clientService.getClients().pipe(
-        switchMap((clients) =>
-          this.loadFactoryMapping().pipe(
-            switchMap((mapping) =>
-              this.loadProjectsFromJson(clients, filters).pipe(
-                map((jsonProjects) => {
-                  const factoryIdToWarRoom = mapping.factoryIdToWarRoom ?? {};
-                  const merged = [...jsonProjects];
-                  const cachedFiltered = applyFilters(this.addedProjectsCache, filters);
-                  for (const p of cachedFiltered) {
-                    if (merged.some((m) => String(m.id) === String(p.id))) continue;
-                    const resolved = { ...p };
-                    if (resolved.manufacturerLocationId && factoryIdToWarRoom[resolved.manufacturerLocationId]) {
-                      resolved.manufacturerLocationId = factoryIdToWarRoom[resolved.manufacturerLocationId];
-                    }
-                    merged.push(resolved);
-                  }
-                  return merged;
-                })
-              )
-            )
-          )
-        )
-      );
-    }
+    const apiParams = new HttpParams()
+      .set('page', '1')
+      .set('pageSize', '1000')
+      .set('includeClosed', 'true')
+      .set('IncludeClosed', 'true');
 
     return this.clientService.getClients().pipe(
       switchMap((clients) =>
         this.loadFactoryMapping().pipe(
           switchMap((mapping) =>
-            this.http.get<unknown>(`${this.API_BASE_URL}/projects`).pipe(
+            this.http.get<unknown>(`${this.API_BASE_URL}/projects`, { params: apiParams }).pipe(
               map((raw) => {
                 const apiProjects = normalizeApiResponse(raw);
                 const factoryIdToWarRoom = mapping.factoryIdToWarRoom ?? {};
@@ -435,7 +454,7 @@ export class ProjectService {
               }),
               catchError((err) => {
                 console.warn('Projects API failed:', err);
-                return of([] as Project[]).pipe(delay(150));
+                return of([] as Project[]);
               })
             )
           )
@@ -452,37 +471,31 @@ export class ProjectService {
     return this.getProjects({ manufacturerLocationId });
   }
 
-  addProject(project: Omit<Project, 'id'>): Observable<Project> {
-    if (this.envConfig.useProjectApi !== true) {
-      return this.http.get<unknown>(this.SAMPLE_JSON_PATH).pipe(
-        map((raw) => {
-          const apiProjects = normalizeApiResponse(raw);
-          const ids = apiProjects
-            .map((p) => p.project_id ?? p.id)
-            .map((v) => (typeof v === 'string' || typeof v === 'number' ? Number.parseInt(String(v), 10) : NaN))
-            .filter((v) => Number.isFinite(v));
-          const cacheIds = this.addedProjectsCache
-            .map((p) => Number.parseInt(String(p.id), 10))
-            .filter((v) => Number.isFinite(v));
-          const allIds = [...ids, ...cacheIds];
-          const nextId = allIds.length > 0 ? Math.max(0, ...allIds) + 1 : 1;
-          const newProject = { ...project, id: nextId } as Project;
-          this.addedProjectsCache.push(newProject);
-          this.persistAddedProjectsToStorage();
-          return newProject;
-        }),
-        catchError(() => {
-          const newProject = { ...project, id: Date.now() } as Project;
-          this.addedProjectsCache.push(newProject);
-          this.persistAddedProjectsToStorage();
-          return of(newProject);
-        }),
-        delay(100)
-      );
-    }
+  getProjectById(projectId: string | number): Observable<Project | null> {
+    const id = String(projectId ?? '').trim();
+    if (!id) return of(null);
 
+    return this.clientService.getClients().pipe(
+      switchMap((clients) =>
+        this.http.get<unknown>(`${this.API_BASE_URL}/Projects/${id}`).pipe(
+          map((raw) => normalizeSingleApiProjectResponse(raw)),
+          map((apiProject) => {
+            if (!apiProject) return null;
+            return mapApiProjectToProject(apiProject, clients, [], []);
+          }),
+          catchError((err) => {
+            console.warn(`Project by id API failed for ${id}:`, err);
+            return of(null);
+          }),
+        )
+      )
+    );
+  }
+
+  addProject(project: Omit<Project, 'id'>): Observable<Project> {
     const body = {
       projectName: project.projectName,
+      contract: project.contract,
       clientId: project.clientId,
       clientName: project.clientName,
       assessmentType: project.assessmentType,
@@ -511,21 +524,9 @@ export class ProjectService {
   }
 
   updateProject(project: Project): Observable<Project> {
-    if (this.envConfig.useProjectApi !== true) {
-      const existingIndex = this.addedProjectsCache.findIndex((p) => String(p.id) === String(project.id));
-      const existing = existingIndex >= 0 ? this.addedProjectsCache[existingIndex] : null;
-      const persisted = { ...(existing ?? project), ...project };
-      if (existingIndex >= 0) {
-        this.addedProjectsCache[existingIndex] = persisted;
-      } else {
-        this.addedProjectsCache.push(persisted);
-      }
-      this.persistAddedProjectsToStorage();
-      return of(persisted).pipe(delay(100));
-    }
-
     const body = {
       projectName: project.projectName,
+      contract: project.contract,
       clientId: project.clientId,
       clientName: project.clientName,
       assessmentType: project.assessmentType,

@@ -1,5 +1,10 @@
 import { Injectable } from '@angular/core';
-import { Observable, of, delay } from 'rxjs';
+import { Observable, of, map, catchError } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { AuthService } from '../../services/auth.service';
+import { DashboardProjectsService } from '../../services/dashboard-projects.service';
+import { ClientDashboardService } from '../../services/client-dashboard.service';
+import { ClientService } from '../../services/client.service';
 
 // ==================== Vehicle Ticket Report Interfaces ====================
 
@@ -36,7 +41,7 @@ export interface VehicleTicket {
   assignedToName: string;
   stationId?: number;
   stationName?: string;
-  status: 'Open' | 'In Progress' | 'Closed' | 'Pending';
+  status: string;
   resolvedDate?: string;
 }
 
@@ -188,8 +193,30 @@ export interface Client {
 })
 export class VehicleReportService {
   private apiUrl = '/api/vehicle-reports'; // Backend API URL
+  private readonly projectNameById = new Map<number, string>();
+  private readonly projectClientIdByProjectId = new Map<number, number>();
 
-  constructor() {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly dashboardProjectsService: DashboardProjectsService,
+    private readonly clientDashboardService: ClientDashboardService,
+    private readonly clientService: ClientService,
+    private readonly http: HttpClient,
+  ) {}
+
+  private isClientScopedRole(): boolean {
+    const role = (this.authService.currentUserValue?.role ?? '').toLowerCase().trim();
+    return role === 'client' || role === 'user';
+  }
+
+  private getScopedClientId(): number | undefined {
+    if (!this.isClientScopedRole()) {
+      return undefined;
+    }
+
+    const clientId = Number(this.authService.currentUserValue?.clientId ?? 0);
+    return Number.isFinite(clientId) && clientId > 0 ? clientId : undefined;
+  }
 
   // ==================== Vehicle Ticket Report Methods ====================
 
@@ -198,9 +225,226 @@ export class VehicleReportService {
    * TODO: Replace with actual HttpClient call when backend is ready
    */
   getVehicleTicketReports(request: VehicleTicketReportRequest): Observable<VehicleTicketReportResponse> {
-    // return this.http.post<VehicleTicketReportResponse>(`${this.apiUrl}/vehicle-tickets`, request);
-    
-    return of(this.getMockVehicleTickets(request)).pipe(delay(500));
+    const scopedClientId = this.getScopedClientId();
+    const page = request.page || 1;
+    const pageSize = request.pageSize || 10;
+
+    return this.clientDashboardService.getTickets({
+      clientId: scopedClientId,
+      projectId: request.projectId,
+      vehicleId: request.vehicleId,
+      page,
+      pageSize,
+    }).pipe(
+      map((response: any) => {
+        const items = this.extractItems(response);
+        const mapped = items
+          .map((item: any, index: number) => this.mapApiVehicleTicket(item, index))
+          .filter((ticket): ticket is VehicleTicket => ticket !== null);
+
+        const filtered = this.applyVehicleTicketFilters(mapped, request, scopedClientId);
+
+        return {
+          success: true,
+          data: filtered,
+          totalCount: this.extractTotalCount(response, filtered.length),
+          page,
+          pageSize,
+          message: response?.message ?? 'Vehicle tickets fetched successfully',
+        } as VehicleTicketReportResponse;
+      }),
+      catchError((error) => {
+        console.warn('Vehicle ticket API failed.', error);
+        return of({
+          success: false,
+          data: [],
+          totalCount: 0,
+          page,
+          pageSize,
+          message: 'Failed to fetch vehicle tickets',
+        } as VehicleTicketReportResponse);
+      }),
+    );
+  }
+
+  private applyVehicleTicketFilters(
+    tickets: VehicleTicket[],
+    request: VehicleTicketReportRequest,
+    scopedClientId?: number,
+  ): VehicleTicket[] {
+    let filtered = [...tickets];
+
+    if (scopedClientId) {
+      filtered = filtered.filter((ticket) => ticket.clientId === scopedClientId);
+    }
+
+    if (request.projectId !== undefined && request.projectId !== null) {
+      filtered = filtered.filter((ticket) => ticket.projectId === request.projectId);
+    }
+
+    if (request.projectName) {
+      const projectName = request.projectName.toLowerCase();
+      filtered = filtered.filter((ticket) => ticket.projectName.toLowerCase() === projectName);
+    }
+
+    if (request.vehicleId !== undefined && request.vehicleId !== null) {
+      filtered = filtered.filter((ticket) => ticket.vehicleId === request.vehicleId);
+    }
+
+    if (request.vehicleNumber) {
+      const vehicleNumber = request.vehicleNumber.toLowerCase();
+      filtered = filtered.filter((ticket) =>
+        ticket.vehicleNumber.toLowerCase() === vehicleNumber ||
+        String(ticket.vehicleId) === request.vehicleNumber,
+      );
+    }
+
+    if (request.searchTerm) {
+      const search = request.searchTerm.toLowerCase();
+      filtered = filtered.filter((ticket) =>
+        ticket.ticketNumber.toLowerCase().includes(search) ||
+        ticket.vehicleNumber.toLowerCase().includes(search) ||
+        ticket.description.toLowerCase().includes(search) ||
+        ticket.defectType.toLowerCase().includes(search),
+      );
+    }
+
+    return filtered;
+  }
+
+  private mapApiVehicleTicket(item: any, index: number): VehicleTicket | null {
+    const id = this.toPositiveNumber(item?.id ?? item?.ticketId ?? item?.ticketID) ?? index + 1;
+    const projectId = this.toPositiveNumber(this.first(item, ['projectId', 'ProjectId', 'project.id'])) ?? 0;
+    const vehicleId = this.toPositiveNumber(this.first(item, ['vehicleId', 'VehicleId', 'vehicle.id'])) ?? 0;
+    const ticketClientId = this.toPositiveNumber(this.first(item, ['clientId', 'ClientId', 'client.id', 'project.clientId', 'project.ClientId'])) ?? 0;
+    const projectClientId = projectId > 0 ? (this.projectClientIdByProjectId.get(projectId) ?? 0) : 0;
+    const clientId = projectClientId || ticketClientId;
+    const explicitClientName = this.toOptionalText(
+      this.first(item, ['clientName', 'ClientName', 'customerName', 'client.name', 'client.displayName', 'client']),
+    );
+    const fleetNumber = this.toOptionalText(
+      this.first(item, ['fleetNumber', 'FleetNumber', 'vehicleFleetNumber', 'vehicle.fleetNumber', 'vehicle.fleetNo', 'vehicle.unitNumber']),
+    );
+    const explicitProjectName = this.toOptionalText(
+      this.first(item, ['projectName', 'ProjectName', 'project.name', 'project.title', 'project']),
+    );
+    const projectName = explicitProjectName && !/^\d+$/.test(explicitProjectName)
+      ? explicitProjectName
+      : this.resolveProjectName(projectId, explicitProjectName ?? (projectId > 0 ? `Project ${projectId}` : 'N/A'));
+
+    return {
+      id,
+      ticketNumber: this.toText(this.first(item, ['ticketNumber', 'ticketNo', 'number', 'ticketCode']), `T${id}`),
+      clientId,
+      clientName: clientId > 0
+        ? this.clientService.resolveClientName(clientId, explicitClientName ?? 'N/A')
+        : (explicitClientName ?? 'N/A'),
+      projectId,
+      projectName,
+      vehicleId,
+      vehicleNumber: this.toText(
+        vehicleId > 0
+          ? String(vehicleId)
+          : (fleetNumber ?? this.first(item, ['vehicleNumber', 'vehicleIdentifier', 'vehicle.vehicleNumber'])),
+        vehicleId > 0 ? `Fleet ${vehicleId}` : 'N/A',
+      ),
+      vehicleVIN: this.toText(this.first(item, ['vehicleVIN', 'vin', 'VIN', 'vehicle.vin']), ''),
+      safetyCritical: Boolean(this.first(item, ['safetyCritical', 'isSafetyCritical'])),
+      createdDate: this.toText(this.first(item, ['createdDate', 'createdAt', 'date']), ''),
+      defectType: this.toText(this.first(item, ['defectType', 'issueType']), '-'),
+      defectLocation: this.toText(this.first(item, ['defectLocationName', 'defectLocation', 'location', 'defect.locationName']), '-'),
+      description: this.toText(this.first(item, ['description', 'details', 'comment']), '-'),
+      hasImages: Boolean(this.first(item, ['hasImages', 'hasAttachments', 'hasPhotos'])),
+      imageCount: this.toPositiveNumber(this.first(item, ['imageCount', 'attachmentsCount'])) ?? 0,
+      assignedById: this.toPositiveNumber(this.first(item, ['assignedById', 'createdById'])) ?? 0,
+      assignedByName: this.toText(this.first(item, ['assignedByName', 'createdByName', 'reportedBy']), '-'),
+      assignedToId: this.toPositiveNumber(this.first(item, ['assignedToId', 'ownerId'])) ?? 0,
+      assignedToName: this.toText(this.first(item, ['assignedToName', 'ownerName', 'assigneeName']), '-'),
+      stationId: this.toPositiveNumber(this.first(item, ['stationId', 'StationId', 'station.id', 'station.stationId'])),
+      stationName: this.toText(this.first(item, [
+        'stationName',
+        'StationName',
+        'station_name',
+        'stationname',
+        'station',
+        'station.title',
+        'station.displayName',
+        'station.name',
+        'station.stationName',
+        'station.station',
+      ]), ''),
+      status: this.toText(this.first(item, ['statusTicketName', 'ticketStatusName', 'statusName', 'status', 'ticketStatus', 'state']), 'Pending'),
+      resolvedDate: this.toOptionalText(this.first(item, ['resolvedDate', 'closedDate'])),
+    };
+  }
+
+  private extractItems(response: any): any[] {
+    const candidates: any[][] = [];
+
+    if (Array.isArray(response)) candidates.push(response);
+    if (Array.isArray(response?.$values)) candidates.push(response.$values);
+    if (Array.isArray(response?.data)) candidates.push(response.data);
+    if (Array.isArray(response?.data?.$values)) candidates.push(response.data.$values);
+    if (Array.isArray(response?.data?.items)) candidates.push(response.data.items);
+    if (Array.isArray(response?.items)) candidates.push(response.items);
+    if (Array.isArray(response?.results)) candidates.push(response.results);
+    if (Array.isArray(response?.value)) candidates.push(response.value);
+    if (Array.isArray(response?.value?.$values)) candidates.push(response.value.$values);
+    if (Array.isArray(response?.payload?.items)) candidates.push(response.payload.items);
+
+    if (!candidates.length) {
+      return [];
+    }
+
+    return candidates.reduce((longest, current) =>
+      current.length > longest.length ? current : longest,
+    );
+  }
+
+  private extractTotalCount(response: any, fallbackCount: number): number {
+    const total = this.toPositiveNumber(
+      this.first(response, ['totalCount', 'total', 'count', 'recordCount', 'recordsTotal']),
+    );
+    return total ?? fallbackCount;
+  }
+
+  private first(source: any, keys: string[]): any {
+    for (const key of keys) {
+      if (key.includes('.')) {
+        const resolved = key.split('.').reduce((acc: any, part) => acc?.[part], source);
+        if (resolved !== undefined && resolved !== null) {
+          return resolved;
+        }
+        continue;
+      }
+
+      if (source?.[key] !== undefined && source?.[key] !== null) {
+        return source[key];
+      }
+    }
+    return undefined;
+  }
+
+  private toPositiveNumber(value: any): number | undefined {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }
+
+  private toText(value: any, fallback: string): string {
+    const text = String(value ?? '').trim();
+    return text || fallback;
+  }
+
+  private toOptionalText(value: any): string | undefined {
+    const text = String(value ?? '').trim();
+    return text || undefined;
+  }
+
+  private resolveProjectName(projectId: number, fallback: string): string {
+    if (projectId > 0) {
+      return this.projectNameById.get(projectId) ?? fallback;
+    }
+    return fallback;
   }
 
   /**
@@ -208,9 +452,39 @@ export class VehicleReportService {
    * TODO: Replace with actual HttpClient call
    */
   getVehiclesByProject(projectId: number): Observable<Vehicle[]> {
-    // return this.http.get<Vehicle[]>(`${this.apiUrl}/vehicles/by-project/${projectId}`);
-    
-    return of(this.getMockVehicles(projectId)).pipe(delay(300));
+    const scopedClientId = this.getScopedClientId();
+
+    if (this.isClientScopedRole() && !scopedClientId) {
+      return of([]);
+    }
+
+    return this.dashboardProjectsService.getVehicleOptionsByProject(String(projectId), {
+      clientId: scopedClientId,
+      includeClosed: true,
+      includeAllOption: false,
+      page: 1,
+      pageSize: 10000,
+    }).pipe(
+      map((vehicles) => vehicles
+        .map((vehicle) => {
+          const id = Number(vehicle.id);
+          const name = String(vehicle.name ?? '').trim();
+          if (!Number.isFinite(id) || id <= 0 || !name) {
+            return null;
+          }
+
+          return {
+            id,
+            vehicleNumber: name,
+            fleetNumber: name,
+            vin: '',
+            projectId,
+            projectName: '',
+          } as Vehicle;
+        })
+        .filter((vehicle): vehicle is Vehicle => vehicle !== null),
+      ),
+    );
   }
 
   // ==================== Vehicle Station Tracker Methods ====================
@@ -220,9 +494,33 @@ export class VehicleReportService {
    * TODO: Replace with actual HttpClient call
    */
   getVehicleStationTracker(request: VehicleStationTrackerRequest): Observable<VehicleStationTrackerResponse> {
-    // return this.http.post<VehicleStationTrackerResponse>(`${this.apiUrl}/station-tracker`, request);
-    
-    return of(this.getMockStationTracker(request)).pipe(delay(500));
+    const page = request.page || 1;
+    const pageSize = request.pageSize || 50;
+
+    return this.http.post<any>(`${this.apiUrl}/station-tracker`, request).pipe(
+      map((response) => {
+        const data = this.extractItems(response)
+          .map((item: any, index: number) => this.mapApiStationTracker(item, index))
+          .filter((item): item is VehicleStationTracker => item !== null);
+
+        return {
+          success: true,
+          data,
+          totalCount: this.extractTotalCount(response, data.length),
+          page,
+          pageSize,
+          message: response?.message ?? 'Station tracker data fetched successfully',
+        } as VehicleStationTrackerResponse;
+      }),
+      catchError(() => of({
+        success: false,
+        data: [],
+        totalCount: 0,
+        page,
+        pageSize,
+        message: 'Failed to fetch station tracker data',
+      } as VehicleStationTrackerResponse)),
+    );
   }
 
   /**
@@ -230,14 +528,17 @@ export class VehicleReportService {
    * TODO: Replace with actual HttpClient call
    */
   getStations(): Observable<Station[]> {
-    // return this.http.get<Station[]>(`${this.apiUrl}/stations`);
-    
-    return of([
-      { id: 1, name: '24 - Nova Bus Coach Tester Road Test, Inspection & Painting', location: 'Location A' },
-      { id: 2, name: 'Station B', location: 'Location B' },
-      { id: 3, name: 'Station C', location: 'Location C' },
-      { id: 4, name: 'Main Depot', location: 'Main Location' }
-    ]).pipe(delay(300));
+    return this.http.get<any>(`${this.apiUrl}/stations`).pipe(
+      map((response) => this.extractItems(response)
+        .map((item: any) => ({
+          id: this.toPositiveNumber(this.first(item, ['id', 'stationId', 'StationId'])) ?? 0,
+          name: this.toText(this.first(item, ['name', 'stationName', 'StationName']), ''),
+          location: this.toOptionalText(this.first(item, ['location', 'stationLocation'])),
+        }))
+        .filter((station: Station) => station.id > 0 && station.name.length > 0),
+      ),
+      catchError(() => of([])),
+    );
   }
 
   // ==================== Vehicle Final Reports Methods ====================
@@ -247,9 +548,47 @@ export class VehicleReportService {
    * TODO: Replace with actual HttpClient call
    */
   getVehicleFinalReports(request: VehicleFinalReportRequest): Observable<VehicleFinalReportResponse> {
-    // return this.http.post<VehicleFinalReportResponse>(`${this.apiUrl}/final-reports`, request);
-    
-    return of(this.getMockFinalReports(request)).pipe(delay(500));
+    const scopedClientId = this.getScopedClientId();
+
+    return this.http.post<any>(`${this.apiUrl}/final-reports`, {
+      ...request,
+      clientId: scopedClientId ?? request.clientId,
+    }).pipe(
+      map((response) => {
+        const rawData = this.extractItems(response)
+          .map((item: any, index: number) => this.mapApiFinalReport(item, index))
+          .filter((item): item is VehicleFinalReport => item !== null);
+
+        if (!scopedClientId) {
+          return {
+            success: true,
+            data: rawData,
+            totalCount: this.extractTotalCount(response, rawData.length),
+            page: request.page || 1,
+            pageSize: request.pageSize || 50,
+            message: response?.message ?? 'Final reports fetched successfully',
+          } as VehicleFinalReportResponse;
+        }
+
+        const filteredData = rawData.filter((item) => item.clientId === scopedClientId);
+        return {
+          success: true,
+          data: filteredData,
+          totalCount: filteredData.length,
+          page: request.page || 1,
+          pageSize: request.pageSize || 50,
+          message: response?.message ?? 'Final reports fetched successfully',
+        } as VehicleFinalReportResponse;
+      }),
+      catchError(() => of({
+        success: false,
+        data: [],
+        totalCount: 0,
+        page: request.page || 1,
+        pageSize: request.pageSize || 50,
+        message: 'Failed to fetch final reports',
+      } as VehicleFinalReportResponse)),
+    );
   }
 
   /**
@@ -257,10 +596,7 @@ export class VehicleReportService {
    * TODO: Replace with actual HttpClient call
    */
   downloadVehicleHealthReport(reportId: number): Observable<Blob> {
-    // return this.http.get(`${this.apiUrl}/final-reports/${reportId}/download`, { responseType: 'blob' });
-    
-    console.log('Download vehicle health report:', reportId);
-    return of(new Blob(['Mock PDF data'], { type: 'application/pdf' })).pipe(delay(500));
+    return this.http.get(`${this.apiUrl}/final-reports/${reportId}/download`, { responseType: 'blob' });
   }
 
   /**
@@ -268,14 +604,103 @@ export class VehicleReportService {
    * TODO: Replace with actual HttpClient call
    */
   getClients(): Observable<Client[]> {
-    // return this.http.get<Client[]>(`${this.apiUrl}/clients`);
-    
-    return of([
-      { id: 1, name: 'TTC', code: 'TTC' },
-      { id: 2, name: 'GO Transit', code: 'GOT' },
-      { id: 3, name: 'MiWay', code: 'MIW' },
-      { id: 4, name: 'Brampton Transit', code: 'BRT' }
-    ]).pipe(delay(300));
+    const scopedClientId = this.getScopedClientId();
+
+    return this.clientService.getClients().pipe(
+      map((clients) => {
+        const mapped = clients.map((client) => ({
+          id: Number(client.id),
+          name: String(client.name ?? '').trim(),
+          code: String(client.code ?? '').trim(),
+        })).filter((client) => Number.isFinite(client.id) && client.id > 0 && client.name.length > 0);
+
+        return scopedClientId
+          ? mapped.filter((client) => client.id === scopedClientId)
+          : mapped;
+      }),
+      catchError(() => of([])),
+    );
+  }
+
+  private mapApiStationTracker(item: any, index: number): VehicleStationTracker | null {
+    const id = this.toPositiveNumber(this.first(item, ['id', 'trackerId', 'vehicleTrackerId'])) ?? index + 1;
+    const vehicleId = this.toPositiveNumber(this.first(item, ['vehicleId', 'VehicleId', 'vehicle.id'])) ?? 0;
+    const projectId = this.toPositiveNumber(this.first(item, ['projectId', 'ProjectId', 'project.id'])) ?? 0;
+
+    return {
+      id,
+      vehicleId,
+      fleetNumber: this.toText(this.first(item, ['fleetNumber', 'vehicleNumber', 'vehicle.fleetNumber', 'vehicle.vehicleNumber']), '-'),
+      vin: this.toText(this.first(item, ['vin', 'VIN', 'vehicle.vin']), '-'),
+      frameNumber: this.toText(this.first(item, ['frameNumber', 'vehicle.frameNumber']), '-'),
+      projectId,
+      projectName: this.toText(this.first(item, ['projectName', 'ProjectName', 'project.name']), this.resolveProjectName(projectId, '-')),
+      inspector: this.toOptionalText(this.first(item, ['inspector', 'inspectorName', 'assignedInspector'])),
+      station01: this.toOptionalText(this.first(item, ['station01', 'station1'])),
+      station02: this.toOptionalText(this.first(item, ['station02', 'station2'])),
+      station03: this.toOptionalText(this.first(item, ['station03', 'station3'])),
+      station04: this.toOptionalText(this.first(item, ['station04', 'station4'])),
+      station05: this.toOptionalText(this.first(item, ['station05', 'station5'])),
+      station06: this.toOptionalText(this.first(item, ['station06', 'station6'])),
+      station07: this.toOptionalText(this.first(item, ['station07', 'station7'])),
+      station08: this.toOptionalText(this.first(item, ['station08', 'station8'])),
+      station09: this.toOptionalText(this.first(item, ['station09', 'station9'])),
+      station10: this.toOptionalText(this.first(item, ['station10'])),
+      station11: this.toOptionalText(this.first(item, ['station11'])),
+      station12: this.toOptionalText(this.first(item, ['station12'])),
+      station13: this.toOptionalText(this.first(item, ['station13'])),
+      station14: this.toOptionalText(this.first(item, ['station14'])),
+      station15: this.toOptionalText(this.first(item, ['station15'])),
+      station16: this.toOptionalText(this.first(item, ['station16'])),
+      station17: this.toOptionalText(this.first(item, ['station17'])),
+      station18: this.toOptionalText(this.first(item, ['station18'])),
+      station19: this.toOptionalText(this.first(item, ['station19'])),
+      station20: this.toOptionalText(this.first(item, ['station20'])),
+      station21: this.toOptionalText(this.first(item, ['station21'])),
+      station22: this.toOptionalText(this.first(item, ['station22'])),
+      station23: this.toOptionalText(this.first(item, ['station23'])),
+      station24: this.toOptionalText(this.first(item, ['station24'])),
+      station25: this.toOptionalText(this.first(item, ['station25'])),
+      station26: this.toOptionalText(this.first(item, ['station26'])),
+      station27: this.toOptionalText(this.first(item, ['station27'])),
+      station28: this.toOptionalText(this.first(item, ['station28'])),
+      station29: this.toOptionalText(this.first(item, ['station29'])),
+      isExpanded: false,
+    };
+  }
+
+  private mapApiFinalReport(item: any, index: number): VehicleFinalReport | null {
+    const id = this.toPositiveNumber(this.first(item, ['id', 'reportId'])) ?? index + 1;
+    const projectId = this.toPositiveNumber(this.first(item, ['projectId', 'ProjectId', 'project.id'])) ?? 0;
+    const vehicleId = this.toPositiveNumber(this.first(item, ['vehicleId', 'VehicleId', 'vehicle.id'])) ?? 0;
+    const clientId = this.toPositiveNumber(this.first(item, ['clientId', 'ClientId', 'client.id'])) ?? 0;
+    const statusText = this.toText(this.first(item, ['reportStatus', 'statusName', 'status']), 'Draft');
+    const reportStatus = (['Draft', 'Completed', 'Approved', 'Pending Review'] as const)
+      .find((value) => value.toLowerCase() === statusText.toLowerCase()) ?? 'Draft';
+
+    return {
+      id,
+      idNumber: this.toText(this.first(item, ['idNumber', 'reportNumber']), String(id)),
+      clientId,
+      clientName: clientId > 0
+        ? this.clientService.resolveClientName(clientId, this.toText(this.first(item, ['clientName', 'client.name']), '-'))
+        : this.toText(this.first(item, ['clientName', 'client.name']), '-'),
+      projectId,
+      projectName: this.toText(this.first(item, ['projectName', 'project.name']), this.resolveProjectName(projectId, '-')),
+      vehicleId,
+      fleetNumber: this.toText(this.first(item, ['fleetNumber', 'vehicleNumber', 'vehicle.fleetNumber']), '-'),
+      vin: this.toText(this.first(item, ['vin', 'VIN', 'vehicle.vin']), '-'),
+      reportGeneratedDate: this.toText(this.first(item, ['reportGeneratedDate', 'generatedDate', 'createdDate']), ''),
+      reportStatus,
+      totalDefects: this.toPositiveNumber(this.first(item, ['totalDefects', 'defectCount'])) ?? 0,
+      criticalDefects: this.toPositiveNumber(this.first(item, ['criticalDefects', 'criticalCount'])) ?? 0,
+      resolvedDefects: this.toPositiveNumber(this.first(item, ['resolvedDefects', 'resolvedCount'])) ?? 0,
+      pendingDefects: this.toPositiveNumber(this.first(item, ['pendingDefects', 'pendingCount'])) ?? 0,
+      inspectorName: this.toOptionalText(this.first(item, ['inspectorName', 'inspector'])),
+      approvedBy: this.toOptionalText(this.first(item, ['approvedBy', 'approverName'])),
+      approvalDate: this.toOptionalText(this.first(item, ['approvalDate', 'approvedDate'])),
+      documentUrl: this.toOptionalText(this.first(item, ['documentUrl', 'url', 'downloadUrl'])),
+    };
   }
 
   /**
@@ -283,323 +708,89 @@ export class VehicleReportService {
    * TODO: Replace with actual HttpClient call
    */
   getProjects(): Observable<any[]> {
-    // return this.http.get<any[]>(`${this.apiUrl}/projects`);
-    
-    return of([
-      { id: 1, name: 'Nova - LE65 40FT', code: 'NOVA40' },
-      { id: 2, name: 'Arboc 23FT', code: 'ARBOC23' },
-      { id: 3, name: 'LF76', code: 'LF76' },
-      { id: 4, name: 'LF94', code: 'LF94' }
-    ]).pipe(delay(300));
+    const scopedClientId = this.getScopedClientId();
+
+    if (this.isClientScopedRole() && !scopedClientId) {
+      return of([]);
+    }
+
+    return this.clientDashboardService.getProjects({
+      clientId: scopedClientId,
+      includeClosed: true,
+      page: 1,
+      pageSize: 10000,
+    }).pipe(
+      map((response: any) => {
+        const items = this.extractItems(response);
+
+        this.projectNameById.clear();
+        this.projectClientIdByProjectId.clear();
+
+        const mapped = items
+          .map((item: any) => {
+            const id = this.toPositiveNumber(this.first(item, ['id', 'projectId', 'ProjectId']));
+            if (!id) {
+              return null;
+            }
+
+            const name = this.toOptionalText(this.first(item, ['name', 'projectName', 'ProjectName', 'title']));
+            if (!name) {
+              return null;
+            }
+
+            const clientId = this.toPositiveNumber(this.first(item, ['clientId', 'ClientId', 'client.id']));
+            if (clientId) {
+              this.projectClientIdByProjectId.set(id, clientId);
+            }
+
+            this.projectNameById.set(id, name);
+
+            return {
+              id,
+              name,
+              code: name,
+            };
+          })
+          .filter((project): project is { id: number; name: string; code: string } => project !== null);
+
+        return mapped;
+      }),
+      catchError(() => this.dashboardProjectsService.getProjectOptions({
+        clientId: scopedClientId,
+        includeClosed: true,
+        includeAllOption: false,
+        page: 1,
+        pageSize: 10000,
+      }).pipe(
+        map((projects) => {
+          const mapped = projects
+            .map((project) => {
+              const id = Number(project.id);
+              if (!Number.isFinite(id) || id <= 0) {
+                return null;
+              }
+
+              const name = String(project.name ?? '').trim();
+              if (!name) {
+                return null;
+              }
+
+              return {
+                id,
+                name,
+                code: name,
+              };
+            })
+            .filter((project): project is { id: number; name: string; code: string } => project !== null);
+
+          this.projectNameById.clear();
+          this.projectClientIdByProjectId.clear();
+          mapped.forEach((project) => this.projectNameById.set(project.id, project.name));
+
+          return mapped;
+        }),
+      )),
+    );
   }
 
-  // ==================== MOCK DATA METHODS ====================
-  // Remove these methods when backend is connected
-
-  private getMockVehicleTickets(request: VehicleTicketReportRequest): VehicleTicketReportResponse {
-    // Generate 50 demo records for Vehicle Ticket Report
-    const mockData: VehicleTicket[] = this.generateDemoVehicleTickets(50);
-
-    // Apply filters if provided
-    let filteredData = mockData;
-    if (request.vehicleNumber && request.vehicleNumber !== '') {
-      filteredData = mockData.filter(t => t.vehicleNumber === request.vehicleNumber);
-    }
-    if (request.projectName && request.projectName !== '') {
-      filteredData = filteredData.filter(t => t.projectName === request.projectName);
-    }
-    if (request.searchTerm) {
-      const searchLower = request.searchTerm.toLowerCase();
-      filteredData = filteredData.filter(t =>
-        t.ticketNumber.toLowerCase().includes(searchLower) ||
-        t.vehicleNumber.includes(searchLower) ||
-        t.description.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Apply pagination
-    const page = request.page || 1;
-    const pageSize = request.pageSize || 10;
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const paginatedData = filteredData.slice(startIndex, endIndex);
-
-    return {
-      success: true,
-      data: paginatedData,
-      totalCount: filteredData.length,
-      page: page,
-      pageSize: pageSize,
-      message: 'Vehicle tickets fetched successfully'
-    };
-  }
-
-  /**
-   * Generate 50 demo vehicle ticket records
-   */
-  private generateDemoVehicleTickets(count: number): VehicleTicket[] {
-    const statuses: Array<'Open' | 'In Progress' | 'Closed' | 'Pending'> = ['Open', 'In Progress', 'Closed', 'Pending'];
-    const defectTypes = ['Condition Assessment', 'Safety Issue', 'Maintenance', 'Cosmetic Damage', 'Electrical', 'Mechanical'];
-    const locations = ['Engine Bay', 'Cabin', 'Exterior', 'Interior', 'Wheels & Tires', 'Electrical System', 'Brake System'];
-    const vehicles = [
-      { vehicleNumber: '5000', vin: '2NVYL82L9N3753785', projectName: 'Nova - LE65 40FT' },
-      { vehicleNumber: '5001', vin: '2NVYL82L9N3753786', projectName: 'Nova - LE65 40FT' },
-      { vehicleNumber: '5002', vin: '2NVYL82L9N3753787', projectName: 'Niagara' },
-      { vehicleNumber: '5003', vin: '2NVYL82L9N3753788', projectName: 'Niagara' },
-      { vehicleNumber: '5004', vin: '2NVYL82L9N3753789', projectName: 'Toronto Transit' },
-      { vehicleNumber: '5005', vin: '2NVYL82L9N3753790', projectName: 'Toronto Transit' }
-    ];
-    const assignees = [
-      { id: 2, name: 'Naeem App' },
-      { id: 3, name: 'John Smith' },
-      { id: 4, name: 'Sarah Johnson' },
-      { id: 5, name: 'Mike Davis' },
-      { id: 6, name: 'Emma Wilson' }
-    ];
-
-    const tickets: VehicleTicket[] = [];
-    for (let i = 1; i <= count; i++) {
-      const vehicle = vehicles[Math.floor(Math.random() * vehicles.length)];
-      const assignee = assignees[Math.floor(Math.random() * assignees.length)];
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
-      const createdDate = new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
-      const resolvedDate = status === 'Closed' 
-        ? new Date(createdDate.getTime() + Math.random() * 7 * 24 * 60 * 60 * 1000)
-        : undefined;
-
-      tickets.push({
-        id: i,
-        ticketNumber: `T${String(i).padStart(5, '0')}`,
-        clientId: 1,
-        clientName: vehicle.projectName === 'Nova - LE65 40FT' ? 'TTC' : 'Other Client',
-        projectId: i % 3,
-        projectName: vehicle.projectName,
-        vehicleId: parseInt(vehicle.vehicleNumber),
-        vehicleNumber: vehicle.vehicleNumber,
-        vehicleVIN: vehicle.vin,
-        safetyCritical: Math.random() > 0.8,
-        createdDate: createdDate.toISOString(),
-        defectType: defectTypes[Math.floor(Math.random() * defectTypes.length)],
-        defectLocation: locations[Math.floor(Math.random() * locations.length)],
-        description: `Ticket description for defect ${i}. This is a sample ticket for testing purposes.`,
-        hasImages: Math.random() > 0.6,
-        imageCount: Math.floor(Math.random() * 5),
-        assignedById: 1,
-        assignedByName: 'Remi',
-        assignedToId: assignee.id,
-        assignedToName: assignee.name,
-        stationId: Math.floor(Math.random() * 5) + 1,
-        stationName: '24 - Nova Bus Coach Tester Road Test, Inspection & Painting',
-        status: status,
-        resolvedDate: resolvedDate ? resolvedDate.toISOString() : undefined
-      });
-    }
-    return tickets;
-  }
-
-  private getMockVehicles(projectId: number): Vehicle[] {
-    return [
-      { id: 7001, vehicleNumber: '7001', fleetNumber: '7001', vin: '2NVYL82L9N3753785', projectId: 1, projectName: 'Nova - LE65 40FT' },
-      { id: 7002, vehicleNumber: '7002', fleetNumber: '7002', vin: '2NVYL82L9N3753786', projectId: 1, projectName: 'Nova - LE65 40FT' },
-      { id: 7003, vehicleNumber: '7003', fleetNumber: '7003', vin: '2NVYL82L9N3753787', projectId: 1, projectName: 'Nova - LE65 40FT' }
-    ];
-  }
-
-  private getMockStationTracker(request: VehicleStationTrackerRequest): VehicleStationTrackerResponse {
-    // Generate 20 demo records for testing
-    const mockData = this.generateDemoStationTrackerData(20);
-
-    // Apply search filter if provided
-    let filteredData = mockData;
-    if (request.searchTerm) {
-      const searchLower = request.searchTerm.toLowerCase();
-      filteredData = mockData.filter(item =>
-        item.fleetNumber.toLowerCase().includes(searchLower) ||
-        item.vin.toLowerCase().includes(searchLower) ||
-        item.frameNumber.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Apply pagination
-    const page = request.page || 1;
-    const pageSize = request.pageSize || 50;
-    const startIndex = (page - 1) * pageSize;
-    const paginatedData = filteredData.slice(startIndex, startIndex + pageSize);
-
-    return {
-      success: true,
-      data: paginatedData,
-      totalCount: filteredData.length,
-      page: page,
-      pageSize: pageSize,
-      message: 'Station tracker data fetched successfully'
-    };
-  }
-
-  /**
-   * Generate demo station tracker data for testing high volumes
-   */
-  private generateDemoStationTrackerData(count: number): VehicleStationTracker[] {
-    const data: VehicleStationTracker[] = [];
-    const projects = ['Arboc 23FT', 'Arboc 35FT', 'Arboc 40FT', 'ElDorado Custom', 'TransPower Elite'];
-    const baseFleetNumbers = [5000, 5100, 5200, 5300, 5400, 5500];
-
-    // Random date generator
-    const getRandomDate = (completed: boolean) => {
-      if (!completed) return undefined;
-      const date = new Date(2023, Math.random() * 12, Math.floor(Math.random() * 28) + 1);
-      return date.toLocaleDateString('en-US');
-    };
-
-    // Random VIN generator
-    const getRandomVIN = () => {
-      const chars = '3C7WRVLG0123456789';
-      let vin = '';
-      for (let i = 0; i < 17; i++) {
-        vin += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return vin;
-    };
-
-    for (let i = 1; i <= count; i++) {
-      const projectIdx = Math.floor(Math.random() * projects.length);
-      const baseFleet = baseFleetNumbers[projectIdx % baseFleetNumbers.length];
-      const fleetNum = baseFleet + i;
-      
-      // Simulate progression through stations
-      const completedStations = Math.floor(Math.random() * 22);
-      
-      const record: VehicleStationTracker = {
-        id: i,
-        vehicleId: fleetNum,
-        fleetNumber: `${fleetNum}-W${800 + i}`,
-        vin: getRandomVIN(),
-        frameNumber: fleetNum.toString(),
-        projectId: projectIdx + 1,
-        projectName: projects[projectIdx],
-        station01: completedStations > 0 ? getRandomDate(Math.random() > 0.3) : undefined,
-        station02: completedStations > 1 ? getRandomDate(Math.random() > 0.3) : undefined,
-        station03: completedStations > 2 ? getRandomDate(Math.random() > 0.25) : undefined,
-        station04: completedStations > 3 ? getRandomDate(Math.random() > 0.25) : undefined,
-        station05: completedStations > 4 ? getRandomDate(Math.random() > 0.2) : undefined,
-        station06: completedStations > 5 ? getRandomDate(Math.random() > 0.2) : undefined,
-        station07: completedStations > 6 ? getRandomDate(Math.random() > 0.2) : undefined,
-        station08: completedStations > 7 ? getRandomDate(Math.random() > 0.25) : undefined,
-        station09: completedStations > 8 ? getRandomDate(Math.random() > 0.15) : undefined,
-        station10: completedStations > 9 ? getRandomDate(Math.random() > 0.15) : undefined,
-        station11: completedStations > 10 ? getRandomDate(Math.random() > 0.15) : undefined,
-        station12: completedStations > 11 ? getRandomDate(Math.random() > 0.15) : undefined,
-        station13: completedStations > 12 ? getRandomDate(Math.random() > 0.15) : undefined,
-        station14: completedStations > 13 ? getRandomDate(Math.random() > 0.15) : undefined,
-        station15: completedStations > 14 ? getRandomDate(Math.random() > 0.1) : undefined,
-        station16: completedStations > 15 ? getRandomDate(Math.random() > 0.1) : undefined,
-        station17: completedStations > 16 ? getRandomDate(Math.random() > 0.1) : undefined,
-        station18: completedStations > 17 ? getRandomDate(Math.random() > 0.08) : undefined,
-        station19: completedStations > 18 ? getRandomDate(Math.random() > 0.08) : undefined,
-        station20: completedStations > 19 ? getRandomDate(Math.random() > 0.05) : undefined,
-        station21: completedStations > 20 ? getRandomDate(Math.random() > 0.02) : undefined,
-        isExpanded: false
-      };
-
-      data.push(record);
-    }
-
-    return data;
-  }
-
-  private getMockFinalReports(request: VehicleFinalReportRequest): VehicleFinalReportResponse {
-    const mockData: VehicleFinalReport[] = [
-      {
-        id: 513,
-        idNumber: '513',
-        clientId: 1,
-        clientName: 'TTC',
-        projectId: 2,
-        projectName: 'Arboc 23FT',
-        vehicleId: 5045,
-        fleetNumber: '5045-W784',
-        vin: '3C7WRVLG5ME589245',
-        reportGeneratedDate: '2023-06-15T14:30:00',
-        reportStatus: 'Completed',
-        totalDefects: 12,
-        criticalDefects: 2,
-        resolvedDefects: 12,
-        pendingDefects: 0,
-        inspectorName: 'Remi',
-        approvedBy: 'Manager',
-        approvalDate: '2023-06-16T10:00:00',
-        documentUrl: '/reports/513.pdf'
-      },
-      {
-        id: 514,
-        idNumber: '514',
-        clientId: 1,
-        clientName: 'TTC',
-        projectId: 2,
-        projectName: 'Arboc 23FT',
-        vehicleId: 5046,
-        fleetNumber: '5046-W785',
-        vin: '3C7WRVLG3ME587736',
-        reportGeneratedDate: '2023-06-15T15:00:00',
-        reportStatus: 'Completed',
-        totalDefects: 8,
-        criticalDefects: 1,
-        resolvedDefects: 8,
-        pendingDefects: 0,
-        inspectorName: 'Rick Baltzer',
-        approvedBy: 'Manager',
-        approvalDate: '2023-06-16T11:00:00',
-        documentUrl: '/reports/514.pdf'
-      },
-      {
-        id: 515,
-        idNumber: '515',
-        clientId: 1,
-        clientName: 'TTC',
-        projectId: 2,
-        projectName: 'Arboc 23FT',
-        vehicleId: 5419,
-        fleetNumber: '5419-W786',
-        vin: '3C7WRVLG5NE104717',
-        reportGeneratedDate: '2023-06-20T10:15:00',
-        reportStatus: 'Completed',
-        totalDefects: 15,
-        criticalDefects: 3,
-        resolvedDefects: 15,
-        pendingDefects: 0,
-        inspectorName: 'John Inspector',
-        approvedBy: 'Manager',
-        approvalDate: '2023-06-21T09:00:00',
-        documentUrl: '/reports/515.pdf'
-      }
-    ];
-
-    let filtered = mockData;
-
-    if (request.clientName && request.clientName !== 'all') {
-      filtered = filtered.filter(r => r.clientName === request.clientName);
-    }
-
-    if (request.projectName && request.projectName !== 'all') {
-      filtered = filtered.filter(r => r.projectName === request.projectName);
-    }
-
-    if (request.searchTerm) {
-      const search = request.searchTerm.toLowerCase();
-      filtered = filtered.filter(r =>
-        r.fleetNumber.toLowerCase().includes(search) ||
-        r.vin.toLowerCase().includes(search) ||
-        r.idNumber.includes(search)
-      );
-    }
-
-    return {
-      success: true,
-      data: filtered,
-      totalCount: filtered.length,
-      page: request.page || 1,
-      pageSize: request.pageSize || 50,
-      message: 'Final reports fetched successfully'
-    };
-  }
 }

@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { AuthService } from '../services/auth.service';
+import { resolveReportRouteContext } from './report-route-context';
 
 @Component({ 
   selector: 'app-reports', 
@@ -12,7 +14,7 @@ import { RouterModule } from '@angular/router';
         <div>
           <h1 class="page-title fw-semibold fs-20 mb-0">Reports</h1>
           <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a [routerLink]="['/admin/dashboard']">Home</a></li>
+            <li class="breadcrumb-item"><a [routerLink]="[dashboardPath]">Home</a></li>
             <li class="breadcrumb-item active" aria-current="page">Reports</li>
           </ol>
         </div>
@@ -34,7 +36,7 @@ import { RouterModule } from '@angular/router';
                   </div>
                 </div>
               </div>
-              <a [routerLink]="['/admin/reports/ticket-reports']" class="btn btn-primary btn-sm w-100">
+              <a [routerLink]="[reportsPath + '/ticket-reports']" class="btn btn-primary btn-sm w-100">
                 <i class="ti-eye me-2"></i>View Reports
               </a>
             </div>
@@ -56,7 +58,7 @@ import { RouterModule } from '@angular/router';
                   </div>
                 </div>
               </div>
-              <a [routerLink]="['/admin/reports/vehicle-reports']" class="btn btn-success btn-sm w-100">
+              <a [routerLink]="[reportsPath + '/vehicle-reports']" class="btn btn-success btn-sm w-100">
                 <i class="ti-eye me-2"></i>View Reports
               </a>
             </div>
@@ -132,4 +134,13 @@ import { RouterModule } from '@angular/router';
     }
   `]
 })
-export class ReportsComponent {}
+export class ReportsComponent {
+  readonly dashboardPath: string;
+  readonly reportsPath: string;
+
+  constructor(private readonly authService: AuthService) {
+    const context = resolveReportRouteContext(this.authService.currentUserValue);
+    this.dashboardPath = context.dashboardPath;
+    this.reportsPath = context.reportsPath;
+  }
+}

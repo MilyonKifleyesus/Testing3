@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { SpkDropdownsComponent } from '../../../../@spk/reusable-ui-elements/spk-dropdowns/spk-dropdowns.component';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { buildPaginationItems, PAGINATION_ELLIPSIS } from '../../../../shared/utils/pagination.utils';
 
 interface User {
   id: number;
@@ -25,6 +26,7 @@ interface User {
   styleUrls: ['./user-list.component.scss']
 })
 export class UserListComponent implements OnInit {
+  readonly paginationEllipsis = PAGINATION_ELLIPSIS;
   confirmModalRef: NgbModalRef | null = null;
   confirmAction: (() => void) | null = null;
   confirmMessage: string = '';
@@ -227,19 +229,7 @@ export class UserListComponent implements OnInit {
   }
 
   getPageNumbers(): number[] {
-    const totalPages = this.getTotalPages();
-    const maxPagesToShow = 5;
-    let pages: number[] = [];
-
-    if (totalPages <= maxPagesToShow) {
-      pages = Array.from({ length: totalPages }, (_, i) => i + 1);
-    } else {
-      const startPage = Math.max(1, this.currentPage - Math.floor(maxPagesToShow / 2));
-      const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
-      pages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
-    }
-
-    return pages;
+    return buildPaginationItems(this.getTotalPages(), this.currentPage, 5);
   }
 
   applyPagination() {
