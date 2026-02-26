@@ -128,8 +128,9 @@ export const defectsByAreaTreemap = {
   },
   dataLabels: {
     enabled: true,
-    formatter: function (text: string) {
-      return text;
+    formatter: function (text: string, opts: { value?: number }) {
+      const defectCount = opts?.value;
+      return defectCount !== undefined ? [text, defectCount.toString()] : text;
     },
     style: { fontSize: '12px', fontFamily: 'Poppins, sans-serif' }
   },
@@ -260,7 +261,14 @@ export const repeatedDefectsByAreaTreemap = {
     sparkline: { enabled: false },
     dropShadow: { enabled: true, enabledOnSeries: undefined, top: 3, left: 0, blur: 3, color: '#000', opacity: 0.1 }
   },
-  dataLabels: { enabled: true, style: { fontSize: '12px', fontFamily: 'Poppins, sans-serif' } },
+  dataLabels: {
+    enabled: true,
+    formatter: function (text: string, opts: { value?: number }) {
+      const defectCount = opts?.value;
+      return defectCount !== undefined ? [text, defectCount.toString()] : text;
+    },
+    style: { fontSize: '12px', fontFamily: 'Poppins, sans-serif' }
+  },
   legend: { position: 'bottom', fontSize: '13px', fontFamily: 'Poppins, sans-serif' },
   plotOptions: {
     treemap: {
