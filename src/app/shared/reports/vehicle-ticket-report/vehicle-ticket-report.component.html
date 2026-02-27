@@ -41,7 +41,7 @@
                 [disabled]="isLoadingVehicles || !selectedProject">
                 <option value="">Select Vehicle</option>
                 <option value="all">All Vehicles</option>
-                <option *ngFor="let vehicle of vehicles" [value]="vehicle.fleetNumber">
+                <option *ngFor="let vehicle of vehicles" [value]="vehicle.id">
                   {{ vehicle.fleetNumber }} - {{ vehicle.vin }}
                 </option>
               </select>

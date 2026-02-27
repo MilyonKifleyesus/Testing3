@@ -30,6 +30,36 @@ interface ProjectRow {
   styleUrls: ['./project-list.component.scss']
 })
 export class ProjectListComponent implements OnInit, OnDestroy {
+    // --- Added for template compatibility ---
+    selectedClientId: string = 'all';
+    isLoadingClients = false;
+    clients: Array<{ id: string; name: string }> = [
+      { id: 'all', name: 'All Clients' }
+    ];
+
+    get isClientPortal(): boolean {
+      return this.portalPrefix === '/client';
+    }
+    sortColumn: string = '';
+    sortDirection: 'asc' | 'desc' = 'asc';
+
+    onClientFilterChange(): void {
+      // TODO: Implement client filter logic
+      // For now, just reload projects or filter as needed
+      this.currentPage = 1;
+    }
+
+    sortProjects(column: string): void {
+      if (this.sortColumn === column) {
+        this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortColumn = column;
+        this.sortDirection = 'asc';
+      }
+      // TODO: Implement actual sorting logic
+      // For now, just trigger change detection
+      this.currentPage = 1;
+    }
   readonly paginationEllipsis = PAGINATION_ELLIPSIS;
   readonly pageSize = 10;
 
@@ -64,6 +94,12 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+        // If logged in as client, auto-select and restrict client filter
+        if (this.isClientPortal && this.scopedClientId) {
+          this.selectedClientId = this.scopedClientId;
+          this.clients = [{ id: this.scopedClientId, name: 'Your Client' }];
+          this.isLoadingClients = false;
+        }
     this.isLoadingProjects = true;
     const filters = this.scopedClientId ? { clientId: this.scopedClientId } : {};
 
@@ -72,6 +108,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
       this.clientService.getClientNameMap(),
     ]).subscribe({
       next: ([projects]) => {
+        console.log('Loaded projects:', projects);
         const uniqueProjectIds = Array.from(new Set(
           projects
             .map((project) => String(project.id ?? '').trim())

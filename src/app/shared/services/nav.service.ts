@@ -82,14 +82,16 @@ export class NavService implements OnDestroy {
 
   // Super Admin Menu Items
   SUPERADMIN_MENUITEMS: Menu[] = [
+        
     { headTitle: 'Super Admin Dashboard' },
-    {
-      path: '/admin/dashboard',
-      title: 'Dashboard',
-      icon: 'ti-dashboard',
-      type: 'link',
-      active: false,
-    },
+        
+        {
+          path: '/admin/dashboard',
+          title: 'Dashboard',
+          icon: 'ti-dashboard',
+          type: 'link',
+          active: false,
+        },
     {
       title: 'Project Management',
       type: 'sub',
@@ -304,6 +306,7 @@ export class NavService implements OnDestroy {
       ]
     },
     {
+      path: '/admin/vehicles',
       title: 'Vehicles',
       type: 'sub',
       icon: 'ti-truck',
@@ -311,15 +314,9 @@ export class NavService implements OnDestroy {
       children: [
         {
           path: '/admin/vehicles/list',
-          title: 'Vehicle List',
+          title: 'Vehicles',
           type: 'link',
-        },
-        {
-          path: '/admin/vehicles/management',
-          title: 'Vehicle Management',
-          type: 'link',
-        }
-      ]
+        }],
     },
     {
       path: '/admin/snags',
@@ -335,28 +332,35 @@ export class NavService implements OnDestroy {
       type: 'link',
       active: false,
     },
-    {
-      // YRT Data entry removed
-    }
   ];
 
   // Client Menu Items
   CLIENT_MENUITEMS: Menu[] = [
-    { headTitle: 'Client Portal' },
+     { headTitle: 'Client Portal' },
+     {
+       path: '/client/dashboard',
+       title: 'Dashboard',
+       icon: 'ti-dashboard',
+       type: 'link',
+       active: false,
+     },
     {
-      path: '/client/dashboard',
-      title: 'Dashboard',
-      icon: 'ti-dashboard',
-      type: 'link',
+      title: 'Project Management',
+      type: 'sub',
+      icon: 'ti-layout',
       active: false,
-      selected: false
-    },
-    {
-      path: '/client/tickets',
-      title: 'Tickets',
-      icon: 'ti-ticket',
-      type: 'link',
-      active: false,
+      children: [
+        {
+          path: '/client/projects/list',
+          title: 'List of Projects',
+          type: 'link',
+        },
+        {
+          path: '/client/projects/final-vehicle',
+          title: 'Final Vehicle',
+          type: 'link',
+        }
+      ]
     },
     {
       title: 'Project Management',
@@ -530,24 +534,24 @@ export class NavService implements OnDestroy {
     },
     
      {
-      path: '/vehicles',
+      path: '/client/vehicles',
       title: 'Vehicles',
       type: 'sub',
       icon: 'ti-truck',
       active: false,
       children: [
         {
-          path: '/vehicles/list',
+          path: '/client/vehicles/list',
           title: 'Vehicles',
           type: 'link',
         },
         {
-          path: '/vehicles/propulsion',
+          path: '/client/vehicles/propulsion',
           title: 'Propulsion',
           type: 'link',
         },
         {
-          path: '/vehicles/mileage',
+          path: '/client/vehicles/mileage',
           title: 'Mileage',
           type: 'link',
         }
@@ -987,7 +991,7 @@ export class NavService implements OnDestroy {
   ];
 
   //array
-  items = new BehaviorSubject<Menu[]>(this.MENUITEMS);
+  public items: BehaviorSubject<Menu[]> = new BehaviorSubject<Menu[]>(this.MENUITEMS);
 
   // Get menu items based on user role
   getMenuByRole(role: string): Menu[] {
@@ -996,11 +1000,9 @@ export class NavService implements OnDestroy {
 
     switch(normalizedRole) {
       case 'superadmin':
-        baseMenu = this.SUPERADMIN_MENUITEMS;
-        break;
       case 'admin':
-        baseMenu = this.SUPERADMIN_MENUITEMS;
-        break;
+        // Show all menu items for superadmin/admin, no filtering
+        return this.cloneMenu(this.SUPERADMIN_MENUITEMS);
       case 'inspector':
         baseMenu = this.MENUITEMS; // Can be customized for inspector
         break;
@@ -1022,7 +1024,7 @@ export class NavService implements OnDestroy {
   }
 
   // Update menu items based on role
-  loadMenuByRole(role: string): void {
+  public loadMenuByRole(role: string): void {
     const menuItems = this.getMenuByRole(role);
     this.items.next(menuItems);
   }

@@ -143,23 +143,93 @@
 }
 
 // Table Styling
+.station-table-wrapper {
+  max-height: calc(100vh - 330px);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+}
+
 .station-tracker-table {
   font-size: 0.875rem;
+  min-width: 2900px;
+
+  .sticky-col {
+    position: sticky;
+    left: 0;
+    background: var(--bs-body-bg);
+    z-index: 2;
+  }
+
+  .sticky-index {
+    left: 0;
+    min-width: 52px;
+    width: 52px;
+  }
+
+  .sticky-vehicle {
+    left: 52px;
+    min-width: 135px;
+    width: 135px;
+  }
+
+  .sticky-vin {
+    left: 187px;
+    min-width: 170px;
+    width: 170px;
+  }
+
+  .sticky-frame {
+    left: 357px;
+    min-width: 105px;
+    width: 105px;
+  }
   
   thead {
     th {
       font-weight: 600;
       font-size: 0.8125rem;
-      padding: 0.75rem 0.5rem;
+      padding: 0.45rem;
       vertical-align: middle;
-      white-space: nowrap;
+      white-space: normal;
       background-color: #f8f9fa;
       border: 1px solid #dee2e6;
+      position: sticky;
+      top: 0;
+      z-index: 3;
       
       &.station-col {
-        width: 80px;
-        min-width: 80px;
-        max-width: 80px;
+        width: 84px;
+        min-width: 84px;
+        max-width: 84px;
+      }
+
+      &.sticky-col {
+        z-index: 4;
+      }
+    }
+
+    .station-sort-btn {
+      border: 0;
+      background: transparent;
+      width: 100%;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.15rem;
+      color: inherit;
+
+      .station-head-number {
+        font-weight: 700;
+        font-size: 0.78rem;
+        line-height: 1;
+      }
+
+      .station-head-label {
+        font-size: 0.62rem;
+        line-height: 1.15;
+        text-wrap: balance;
       }
     }
   }
@@ -173,7 +243,7 @@
       }
       
       td {
-        padding: 0.75rem 0.5rem;
+        padding: 0.5rem 0.4rem;
         vertical-align: middle;
         border: 1px solid #dee2e6;
       }
@@ -399,16 +469,21 @@
 
 // Responsive Styles
 @media (max-width: 1200px) {
+  .station-table-wrapper {
+    max-height: calc(100vh - 300px);
+  }
+
   .station-tracker-table {
     font-size: 0.8125rem;
+    min-width: 2500px;
     
     thead th {
       font-size: 0.75rem;
       padding: 0.5rem 0.35rem;
       
       &.station-col {
-        width: 70px;
-        min-width: 70px;
+        width: 76px;
+        min-width: 76px;
       }
     }
     
@@ -425,6 +500,11 @@
 @media (max-width: 768px) {
   .station-tracker-table {
     font-size: 0.75rem;
+    min-width: 2200px;
+
+    .sticky-col {
+      position: static;
+    }
     
     thead th {
       font-size: 0.7rem;

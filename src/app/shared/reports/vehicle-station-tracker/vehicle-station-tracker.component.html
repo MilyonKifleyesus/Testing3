@@ -23,10 +23,10 @@
               <label class="form-label">Project</label>
               <select 
                 class="form-select" 
-                [(ngModel)]="selectedProject"
+                [(ngModel)]="selectedProjectId"
                 [disabled]="isLoadingFilters">
-                <option value="">Select Project</option>
-                <option *ngFor="let project of projects" [value]="project.name">{{ project.name }}</option>
+                <option [ngValue]="null">Select Project</option>
+                <option *ngFor="let project of projects" [ngValue]="project.id">{{ project.name }}</option>
               </select>
             </div>
 
@@ -46,7 +46,7 @@
               <button 
                 class="btn btn-primary flex-fill"
                 (click)="runReport()"
-                [disabled]="isLoading || !selectedProject">
+                [disabled]="isLoading || !selectedProjectId">
                 <i class="ti-file me-2"></i>
                 <span *ngIf="!isLoading">Run Report</span>
                 <span *ngIf="isLoading">Loading...</span>
@@ -102,27 +102,28 @@
               </div>
               <div class="legend-grid" *ngIf="!isLegendCollapsed">
               <div class="legend-item" *ngFor="let station of stationColumns">
-                <div class="legend-number">{{ station.key.replace('station', '') }}</div>
-                <div class="legend-description">{{ station.label.split(' - ')[1] }}</div>
+                <div class="legend-number">{{ getStationNumber(station.key) }}</div>
+                <div class="legend-description">{{ getStationLabel(station.label) }}</div>
               </div>
             </div>
           </div>
           </div>
-          <div class="table-responsive">
+          <div class="table-responsive station-table-wrapper">
             <table class="table table-bordered station-tracker-table mb-0">
               <thead class="table-light">
                 <tr>
-                  <th class="text-center" style="width: 50px;">#</th>
-                  <th style="min-width: 140px;">Vehicle</th>
-                  <th style="min-width: 180px;">VIN</th>
-                  <th style="min-width: 100px;">Frame</th>
+                  <th class="text-center sticky-col sticky-index">#</th>
+                  <th class="sticky-col sticky-vehicle">Vehicle</th>
+                  <th class="sticky-col sticky-vin">VIN</th>
+                  <th class="sticky-col sticky-frame">Frame</th>
                   <th *ngFor="let station of stationColumns" class="text-center station-col" [title]="station.label">
-                    <span (click)="sortByColumn(station.key)" style="cursor:pointer;">
-                      {{ station.key.replace('station', '') }}
+                    <button class="station-sort-btn" (click)="sortByColumn(station.key)" type="button" [attr.aria-label]="'Sort by station ' + getStationNumber(station.key)">
+                      <span class="station-head-number">{{ getStationNumber(station.key) }}</span>
+                      <span class="station-head-label">{{ getStationLabel(station.label) }}</span>
                       <span *ngIf="sortColumn === station.key">
                         <i [ngClass]="sortDirection === 'asc' ? 'ti-arrow-up' : 'ti-arrow-down'"></i>
                       </span>
-                    </span>
+                    </button>
                   </th>
                 </tr>
               </thead>
@@ -130,14 +131,14 @@
                 <ng-container *ngFor="let item of filteredData; let i = index">
                   <!-- Main Row -->
                   <tr class="main-row">
-                    <td class="text-center">
+                    <td class="text-center sticky-col sticky-index">
                       {{ (currentPage - 1) * pageSize + i + 1 }}
                     </td>
-                    <td>
+                    <td class="sticky-col sticky-vehicle">
                       <strong class="text-primary">{{ item.fleetNumber }}</strong>
                     </td>
-                    <td class="text-muted small">{{ item.vin }}</td>
-                    <td>{{ item.frameNumber }}</td>
+                    <td class="text-muted small sticky-col sticky-vin">{{ item.vin }}</td>
+                    <td class="sticky-col sticky-frame">{{ item.frameNumber }}</td>
                     <td *ngFor="let station of stationColumns" class="text-center station-cell" 
                         [class.completed]="isStationCompleted(item, station.key)">
                       <div *ngIf="isStationCompleted(item, station.key)" class="station-completed">

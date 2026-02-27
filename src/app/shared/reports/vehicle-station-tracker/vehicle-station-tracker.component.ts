@@ -20,7 +20,7 @@ export class VehicleStationTrackerComponent implements OnInit {
   // Expose Math to template
   Math = Math;
   
-  selectedProject: string = '';
+  selectedProjectId: number | null = null;
   searchTerm: string = '';
   
   projects: any[] = [];
@@ -66,16 +66,21 @@ export class VehicleStationTrackerComponent implements OnInit {
     { key: 'station12', label: '12 - Stanchions, Transitions, Speakers, Windows' },
     { key: 'station13', label: '13 - Test, Bike Racks, Luggage Racks' },
     { key: 'station14', label: '14 - Seats, Entry Door' },
-    { key: 'station15', label: '15 - ABS Plastics, Exterior Finish, Stanchions, Easy Stop Buttons, Fire Suppression' }
-  ];
-  
-  additionalCheckpoints = [
+    { key: 'station15', label: '15 - ABS Plastics, Exterior Finish, Stanchions, Easy Stop Buttons, Fire Suppression' },
     { key: 'station16', label: '16 - Underbody, Vacuum, Coolant, Headlights' },
     { key: 'station17', label: '17 - Drys Box, Rub Rails, Clean & Detail' },
     { key: 'station18', label: '18 - Alignment, Leak Down Test' },
     { key: 'station19', label: '19 - Post Road Test Bay' },
     { key: 'station20', label: '20 - Inspector Testing & PDI' },
-    { key: 'station21', label: '21 - Shipped to Client' }
+    { key: 'station21', label: '21 - Recuperation - Nova' },
+    { key: 'station22', label: '22 - Nova Bus Finishing Area - Nova' },
+    { key: 'station23', label: '23 - Nova Bus Coach Tester Inspection - Nova' },
+    { key: 'station24', label: '24 - Nova Bus Coach Tester Road Test, Inspection & Painting' },
+    { key: 'station25', label: '25 - Nova Bus Coach Tester Water Test, Repairs after Road Test' },
+    { key: 'station26', label: '26 - Cleaning & Washing Before Presenting' },
+    { key: 'station27', label: '27 - Customer Validation - Nova' },
+    { key: 'station28', label: '28 - Repairs after Customer Inspection - Nova' },
+    { key: 'station29', label: '29 - Customer Pre-Delivery Sign Off - Nova' }
   ];
 
   // Export layout station definitions (matching sample workbook)
@@ -148,7 +153,7 @@ export class VehicleStationTrackerComponent implements OnInit {
    * Run report with current filters
    */
   runReport() {
-    if (!this.selectedProject) {
+    if (!this.selectedProjectId) {
       this.errorMessage = 'Please select a project';
       return;
     }
@@ -165,7 +170,8 @@ export class VehicleStationTrackerComponent implements OnInit {
     this.errorMessage = '';
     
     const request: VehicleStationTrackerRequest = {
-      projectName: this.selectedProject,
+      projectId: this.selectedProjectId ?? undefined,
+      projectName: this.selectedProjectName || undefined,
       searchTerm: this.searchTerm || undefined,
       page: this.currentPage,
       pageSize: this.pageSize
@@ -260,7 +266,7 @@ export class VehicleStationTrackerComponent implements OnInit {
     return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.src = 'assets/images/brand-logos/desktop-logo.png';
+      img.src = 'assets/images/brand-logos/login-optimized.jpg';
 
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -269,7 +275,7 @@ export class VehicleStationTrackerComponent implements OnInit {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/png'));
+          resolve(canvas.toDataURL('image/jpeg'));
         } else {
           resolve('');
         }
@@ -458,7 +464,7 @@ export class VehicleStationTrackerComponent implements OnInit {
       </div>
 
       <div class="project-info">
-        <strong>Project: ${this.selectedProject || 'All Projects'}</strong> | Generated: ${new Date().toLocaleString()}
+        <strong>Project: ${this.selectedProjectName || 'All Projects'}</strong> | Generated: ${new Date().toLocaleString()}
       </div>
 
       <div class="section-header">Vehicle Station Tracker</div>
@@ -531,7 +537,8 @@ export class VehicleStationTrackerComponent implements OnInit {
   private async fetchAllEntriesForExport(): Promise<VehicleStationTracker[]> {
     // First request to get total count
     const baseRequest: VehicleStationTrackerRequest = {
-      projectName: this.selectedProject,
+      projectId: this.selectedProjectId || undefined,
+      projectName: this.selectedProjectName || undefined,
       searchTerm: this.searchTerm || undefined,
       page: 1,
       pageSize: 200
@@ -578,10 +585,10 @@ export class VehicleStationTrackerComponent implements OnInit {
     worksheet.getCell('A2').value = `Date: ${today.toLocaleDateString('en-US')}`;
     worksheet.getCell('A2').font = { bold: true, size: 11, name: 'Calibri' };
 
-    worksheet.getCell('A3').value = `Client: ${this.selectedProject || 'N/A'}`;
+    worksheet.getCell('A3').value = `Client: ${this.selectedProjectName || 'N/A'}`;
     worksheet.getCell('A3').font = { bold: true, size: 11, name: 'Calibri' };
 
-    worksheet.getCell('A4').value = `Project: ${this.selectedProject || 'N/A'}`;
+    worksheet.getCell('A4').value = `Project: ${this.selectedProjectName || 'N/A'}`;
     worksheet.getCell('A4').font = { bold: true, size: 11, name: 'Calibri' };
 
     // Leave rows 5-7 empty for spacing
@@ -685,6 +692,15 @@ export class VehicleStationTrackerComponent implements OnInit {
     return (item as any)[key] || '';
   }
 
+  getStationNumber(key: string): string {
+    return key.replace('station', '');
+  }
+
+  getStationLabel(label: string): string {
+    const labelParts = label.split(' - ');
+    return labelParts.length > 1 ? labelParts.slice(1).join(' - ') : label;
+  }
+
   /**
    * Toggle legend visibility
    */
@@ -766,7 +782,7 @@ export class VehicleStationTrackerComponent implements OnInit {
    */
   getCompletionPercentage(item: VehicleStationTracker): number {
     let completed = 0;
-    const total = 21;
+    const total = this.stationColumns.length;
     
     for (let i = 1; i <= total; i++) {
       const stationKey = `station${String(i).padStart(2, '0')}` as keyof VehicleStationTracker;
@@ -796,12 +812,21 @@ export class VehicleStationTrackerComponent implements OnInit {
     return !!((item as any)[key]);
   }
 
+  get selectedProjectName(): string {
+    if (!this.selectedProjectId) {
+      return '';
+    }
+
+    const selectedProject = this.projects.find((project) => Number(project.id) === this.selectedProjectId);
+    return String(selectedProject?.name ?? '').trim();
+  }
+
   /**
    * Get all completed stations count
    */
   getCompletedStationsCount(item: VehicleStationTracker): number {
     let count = 0;
-    for (let i = 1; i <= 21; i++) {
+    for (let i = 1; i <= this.stationColumns.length; i++) {
       const stationKey = `station${String(i).padStart(2, '0')}` as keyof VehicleStationTracker;
       if ((item as any)[stationKey]) {
         count++;

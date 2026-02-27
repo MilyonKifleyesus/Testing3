@@ -71,8 +71,9 @@ export class AuthService {
     const req: LoginRequest = { usernameOrEmail: email, password };
     return new Promise((resolve, reject) => {
       this.login(req).subscribe({
-        next: () => {
-          resolve(this.currentUserValue);
+        next: (res) => {
+          // Security: user data is stored as before
+          resolve(res);
         },
         error: (err) => {
           reject(err);

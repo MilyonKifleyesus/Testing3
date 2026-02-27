@@ -160,27 +160,18 @@ export const adminRoutingModule: Routes = [
     data: { roles: ['superadmin', 'admin'] },
     loadChildren: () => import('../../shared/reports/reports.routes').then((m) => m.sharedReportsRoutes)
   },
-  {
+    {
     path: 'vehicles',
     canActivate: [roleGuard],
-    data: { roles: ['superadmin'] },
+    data: { roles: ['superadmin', 'user'] },
     children: [
       {
         path: 'list',
-        loadComponent: () => import('./vehicles/vehicle-list/vehicle-list.component').then(m => m.VehicleListComponent)
+        loadComponent: () => import('../../shared/features/vehicles/vehicle-list.component').then(m => m.VehicleListComponent)
       },
       {
         path: 'view/:id',
-        loadComponent: () => import('./vehicles/vehicle-view/vehicle-view.component').then(m => m.VehicleViewComponent)
-      },
-      {
-        path: 'management',
-        loadComponent: () => import('./vehicles/vehicle-management/vehicle-management.component').then(m => m.VehicleManagementComponent)
-      },
-      {
-        path: '',
-        redirectTo: 'list',
-        pathMatch: 'full'
+        loadComponent: () => import('../../shared/features/vehicles/vehicle-view/vehicle-view.component').then(m => m.VehicleViewComponent)
       }
     ]
   },

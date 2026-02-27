@@ -124,6 +124,8 @@ export class VehicleTicketReportComponent implements OnInit {
         this.isLoadingFilters = false;
         this.selectedProject = 'all';
         this.onProjectChange();
+        this.selectedProject = 'all';
+        this.onProjectChange();
       },
       error: (error) => {
         console.error('Error loading projects:', error);
@@ -144,13 +146,16 @@ export class VehicleTicketReportComponent implements OnInit {
       this.filteredTickets = [];
       this.totalCount = 0;
       this.reportGenerated = false;
+      this.tickets = [];
+      this.filteredTickets = [];
+      this.totalCount = 0;
+      this.reportGenerated = false;
       return;
     }
 
     // If "All Projects" is selected, load vehicles from all projects
     if (this.selectedProject === 'all') {
       this.isLoadingVehicles = true;
-
       const requests = this.projects.map((project) => this.vehicleReportService.getVehiclesByProject(project.id));
       if (!requests.length) {
         this.vehicles = [];
@@ -158,7 +163,6 @@ export class VehicleTicketReportComponent implements OnInit {
         this.isLoadingVehicles = false;
         return;
       }
-
       forkJoin(requests).subscribe({
         next: (vehicleGroups: Vehicle[][]) => {
           const merged = vehicleGroups.flat();
@@ -186,6 +190,7 @@ export class VehicleTicketReportComponent implements OnInit {
       next: (vehicles: Vehicle[]) => {
         this.vehicles = vehicles;
         this.selectedVehicle = 'all';
+        this.selectedVehicle = 'all';
         this.isLoadingVehicles = false;
       },
       error: (error: any) => {
@@ -211,7 +216,6 @@ export class VehicleTicketReportComponent implements OnInit {
     if (!this.selectedProject || this.selectedProject === '') {
       return;
     }
-
     if (!this.selectedVehicle || this.selectedVehicle === '') {
       return;
     }
@@ -226,11 +230,14 @@ export class VehicleTicketReportComponent implements OnInit {
   loadReport() {
     this.isLoading = true;
     this.errorMessage = '';
+
+    const selectedVehicleId = this.getSelectedVehicleId();
     
     const request: VehicleTicketReportRequest = {
       projectId: this.selectedProject === 'all' ? undefined : Number(this.selectedProject),
       projectName: this.selectedProject === 'all' ? '' : this.getSelectedProjectName(),
-      vehicleNumber: this.selectedVehicle === 'all' ? '' : this.selectedVehicle,
+      vehicleId: selectedVehicleId,
+      vehicleNumber: selectedVehicleId ? '' : (this.selectedVehicle === 'all' ? '' : this.selectedVehicle),
       searchTerm: this.searchTerm || undefined,
       page: this.currentPage,
       pageSize: this.pageSize
@@ -268,12 +275,14 @@ export class VehicleTicketReportComponent implements OnInit {
       return;
     }
 
+
     const search = this.searchTerm.toLowerCase();
     this.filteredTickets = this.tickets.filter(ticket =>
       ticket.ticketNumber.toLowerCase().includes(search) ||
       ticket.description.toLowerCase().includes(search) ||
       ticket.defectType.toLowerCase().includes(search)
     );
+
 
     if (this.sortColumn) {
       this.sortTickets(this.sortColumn);
@@ -293,9 +302,7 @@ export class VehicleTicketReportComponent implements OnInit {
       const allTickets = await this.fetchAllTicketsForExport();
       const logoBase64 = await this.loadLogoAsBase64();
       const html = this.generatePrintHTML(allTickets, logoBase64);
-
       const printWindow = window.open('', '', 'height=900,width=1100');
-
       if (printWindow) {
         printWindow.document.write(html);
         printWindow.document.close();
@@ -308,6 +315,7 @@ export class VehicleTicketReportComponent implements OnInit {
     } catch (err) {
       console.error('Failed to generate print content:', err);
       alert('Failed to prepare report for printing: ' + (err as any).message);
+      alert('Failed to prepare report for printing: ' + (err as any).message);
     }
   }
 
@@ -315,7 +323,7 @@ export class VehicleTicketReportComponent implements OnInit {
     return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.src = 'assets/images/brand-logos/desktop-logo.png';
+      img.src = 'assets/images/brand-logos/login-optimized.jpg';
 
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -324,7 +332,7 @@ export class VehicleTicketReportComponent implements OnInit {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/png'));
+          resolve(canvas.toDataURL('image/jpeg'));
         } else {
           resolve('');
         }
@@ -340,7 +348,7 @@ export class VehicleTicketReportComponent implements OnInit {
     const today = new Date();
     const printDate = `${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getDate().toString().padStart(2, '0')}/${today.getFullYear()}`;
     const projectDisplay = this.selectedProject === 'all' ? 'All Projects' : this.getSelectedProjectName();
-    const vehicleDisplay = this.selectedVehicle === 'all' ? 'All Vehicles' : this.selectedVehicle;
+    const vehicleDisplay = this.getSelectedVehicleName();
 
     let html = `
     <!DOCTYPE html>
@@ -480,8 +488,12 @@ export class VehicleTicketReportComponent implements OnInit {
         @media print {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           body { margin: 0; padding: 15px; background: white; }
-          table { page-break-inside: avoid; }
-          .footer { page-break-inside: avoid; }
+          table { page-break-inside: auto; }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
+          tr { page-break-inside: avoid; page-break-after: auto; }
+          .section-header { page-break-after: avoid; }
+          .footer { page-break-inside: auto; }
           .section-header { background: #1DB954 !important; color: white !important; }
           table thead { background: #1DB954 !important; }
           table th { background: #1DB954 !important; color: white !important; }
@@ -566,6 +578,7 @@ export class VehicleTicketReportComponent implements OnInit {
     `;
 
     return html;
+    return html;
   }
 
   /**
@@ -593,11 +606,14 @@ export class VehicleTicketReportComponent implements OnInit {
   }
 
   private async fetchAllTicketsForExport(): Promise<VehicleTicket[]> {
+    const selectedVehicleId = this.getSelectedVehicleId();
+
     // Base request
     const baseRequest: VehicleTicketReportRequest = {
       projectId: this.selectedProject === 'all' ? undefined : Number(this.selectedProject),
       projectName: this.selectedProject === 'all' ? '' : this.getSelectedProjectName(),
-      vehicleNumber: this.selectedVehicle === 'all' ? '' : this.selectedVehicle,
+      vehicleId: selectedVehicleId,
+      vehicleNumber: selectedVehicleId ? '' : (this.selectedVehicle === 'all' ? '' : this.selectedVehicle),
       searchTerm: this.searchTerm || undefined,
       page: 1,
       pageSize: 200
@@ -632,7 +648,7 @@ export class VehicleTicketReportComponent implements OnInit {
     ws.getCell('A1').font = { bold: true, size: 14, name: 'Calibri' };
     
     const projectDisplay = this.selectedProject === 'all' ? 'All Projects' : this.getSelectedProjectName();
-    const vehicleDisplay = this.selectedVehicle === 'all' ? 'All Vehicles' : this.selectedVehicle;
+    const vehicleDisplay = this.getSelectedVehicleName();
     
     // Get client name from first ticket if available
     const clientName = tickets.length > 0 ? tickets[0].clientName : 'N/A';
@@ -744,7 +760,7 @@ export class VehicleTicketReportComponent implements OnInit {
     });
 
     const projectDisplay = this.selectedProject === 'all' ? 'All Projects' : this.getSelectedProjectName();
-    const vehicleDisplay = this.selectedVehicle === 'all' ? 'All Vehicles' : this.selectedVehicle;
+    const vehicleDisplay = this.getSelectedVehicleName();
     const clientName = tickets.length > 0 ? tickets[0].clientName : 'N/A';
 
     return `
@@ -854,6 +870,29 @@ export class VehicleTicketReportComponent implements OnInit {
     return project?.name ?? this.selectedProject;
   }
 
+  private getSelectedVehicleId(): number | undefined {
+    if (!this.selectedVehicle || this.selectedVehicle === 'all') {
+      return undefined;
+    }
+
+    const parsed = Number(this.selectedVehicle);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }
+
+  private getSelectedVehicleName(): string {
+    if (!this.selectedVehicle || this.selectedVehicle === 'all') {
+      return 'All Vehicles';
+    }
+
+    const vehicleId = this.getSelectedVehicleId();
+    if (!vehicleId) {
+      return this.selectedVehicle;
+    }
+
+    const vehicle = this.vehicles.find((item) => Number(item.id) === vehicleId);
+    return vehicle?.fleetNumber || String(vehicleId);
+  }
+
   /**
    * Go to next page
    */
@@ -897,6 +936,7 @@ export class VehicleTicketReportComponent implements OnInit {
    * Get page numbers array for pagination display
    */
   getPageNumbers(): number[] {
+    return buildPaginationItems(this.getTotalPages(), this.currentPage, 5);
     return buildPaginationItems(this.getTotalPages(), this.currentPage, 5);
   }
 }

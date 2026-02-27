@@ -20,6 +20,7 @@ import {
 } from '../../models/client-dashboard.models';
 import { AuthService, CurrentUser } from '../../services/auth.service';
 import { ClientService } from '../../services/client.service';
+import { ClientDashboardService } from '../../services/client-dashboard.service';
 import {
   DashboardProjectOption,
   DashboardProjectsService,
@@ -53,6 +54,7 @@ import {
   getNextFullscreenWidgetId,
   getResizeCursor,
 } from './dashboard-interactions.utils';
+import { Inject } from '@angular/core';
 
 @Component({
   selector: 'app-dashboard',
@@ -100,6 +102,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   customerLogoName = '';
   currentProjectStats: ProjectStats = projectStats[0];
 
+  allClientVehicles: any[] = [];
+  allClientTickets: any[] = [];
+
   private readonly STORAGE_KEY = DASHBOARD_LAYOUT_STORAGE_KEY;
   private resizeSession: DashboardResizeSession | null = null;
   private projectsRequestVersion = 0;
@@ -119,10 +124,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private dashboardProjectsService: DashboardProjectsService,
     private clientService: ClientService,
+    @Inject(ClientDashboardService) private clientDashboardService: ClientDashboardService,
   ) {}
 
   ngOnInit(): void {
     this.applyRole(this.authService.userRole);
+    this.fetchAllClientVehiclesAndTickets();
 
     this.userSubscription = this.authService.currentUser$.subscribe((user) => {
       this.applyRole(user?.role ?? null);
@@ -189,8 +196,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedProject = projectId;
     this.selectedVehicle = 'all';
     this.loadVehicles(projectId);
-
     if (!this.isAdminRole) {
+      this.fetchAllClientVehiclesAndTickets();
       this.refreshClientView();
     }
   }
@@ -210,8 +217,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   onVehicleChange(vehicleId: string): void {
     this.selectedVehicle = vehicleId;
-
     if (!this.isAdminRole) {
+      this.fetchAllClientVehiclesAndTickets();
       this.refreshClientView();
     }
   }
@@ -317,6 +324,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       : (isClientByRoleType ? 'client' : 'client');
     this.showFilters = !this.isAdminRole;
     this.includeClosedProjects = false;
+    if (!this.isAdminRole) {
+      this.fetchAllClientVehiclesAndTickets();
+    }
 
     this.welcomeUserName = String(user?.username ?? user?.email ?? 'User').split('@')[0] || 'User';
     this.title = this.isAdminRole ? 'BusPulse Fleet Dashboard' : 'BusPulse Client Dashboard';
@@ -457,6 +467,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (this.isAdminRole) {
           this.setAdminStatCards();
         } else {
+          this.fetchAllClientVehiclesAndTickets();
           this.refreshClientView();
         }
       },
@@ -571,6 +582,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.selectedProject,
     );
 
+    // Optionally update widgets or other UI with allClientVehicles/allClientTickets
     this.widgets = this.buildWidgets();
     this.loadLayoutFromStorage();
   }
@@ -658,5 +670,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
     document.body.style.cursor = '';
     window.dispatchEvent(new Event('resize'));
     this.saveLayoutToStorage();
+  }
+
+  private fetchAllClientVehiclesAndTickets(): void {
+    if (this.isAdminRole) return;
+    const clientId = this.getEffectiveClientId();
+    // Fetch all vehicles
+    this.dashboardProjectsService.getAllVehicleOptionsResult({ clientId }).subscribe({
+      next: (result) => {
+        this.allClientVehicles = result.options || [];
+      },
+    });
+    // Fetch all tickets
+    this.clientDashboardService.getTickets({ clientId, page: 1, pageSize: 1000 }).subscribe({
+      next: (tickets: any[]) => {
+        this.allClientTickets = tickets || [];
+      },
+    });
   }
 }

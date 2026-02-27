@@ -23,19 +23,6 @@
       <div class="card custom-card">
         <div class="card-body">
           <div class="row g-3">
-            <!-- Search -->
-            <div class="col-md-4">
-              <label class="form-label">Search</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="ti ti-search"></i></span>
-                <input 
-                  type="text" 
-                  class="form-control" 
-                  placeholder="Fleet #, VIN, Make, Model..." 
-                  [(ngModel)]="searchTerm"
-                  (ngModelChange)="filterVehicles()">
-              </div>
-            </div>
 
             <!-- Client Filter -->
             <div class="col-md-4">
@@ -43,21 +30,22 @@
               <select 
                 class="form-select" 
                 [(ngModel)]="selectedClient"
-                (ngModelChange)="filterVehicles()">
+                (ngModelChange)="onClientChange()"
+                [disabled]="!isAdminPortal">
                 <option value="all">All Clients</option>
-                <option *ngFor="let client of clients" [value]="client.toLowerCase()">{{client}}</option>
+                <option *ngFor="let client of clients" [value]="client.id">{{client.name}}</option>
               </select>
             </div>
 
-            <!-- Propulsion Filter -->
+            <!-- Project Filter -->
             <div class="col-md-4">
-              <label class="form-label">Propulsion</label>
+              <label class="form-label">Project</label>
               <select 
                 class="form-select" 
-                [(ngModel)]="selectedPropulsion"
-                (ngModelChange)="filterVehicles()">
-                <option value="all">All Types</option>
-                <option *ngFor="let type of propulsionTypes" [value]="type.toLowerCase()">{{type}}</option>
+                [(ngModel)]="selectedProject"
+                (ngModelChange)="onProjectChange()">
+                <option value="all">All Projects</option>
+                <option *ngFor="let project of projects" [value]="project.id">{{project.name}}</option>
               </select>
             </div>
           </div>
@@ -84,20 +72,20 @@
                   <th scope="col" class="text-center" style="width: 80px;">
                     <i class="ti ti-photo"></i>
                   </th>
-                  <th scope="col">Client</th>
-                  <th scope="col">Fleet Number</th>
-                  <th scope="col">Make</th>
-                  <th scope="col">Model</th>
-                  <th scope="col">VIN</th>
-                  <th scope="col">Mileage Type</th>
-                  <th scope="col">Propulsion</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Inspector</th>
+                  <th scope="col" (click)="sortVehicles('client')" style="cursor:pointer">Client <span *ngIf="sortColumn === 'client'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('fleetNumber')" style="cursor:pointer">Fleet Number <span *ngIf="sortColumn === 'fleetNumber'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('make')" style="cursor:pointer">Make <span *ngIf="sortColumn === 'make'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('model')" style="cursor:pointer">Model <span *ngIf="sortColumn === 'model'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('vin')" style="cursor:pointer">VIN <span *ngIf="sortColumn === 'vin'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('mileageType')" style="cursor:pointer">Mileage Type <span *ngIf="sortColumn === 'mileageType'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('propulsion')" style="cursor:pointer">Propulsion <span *ngIf="sortColumn === 'propulsion'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('status')" style="cursor:pointer">Status <span *ngIf="sortColumn === 'status'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('inspector')" style="cursor:pointer">Inspector <span *ngIf="sortColumn === 'inspector'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th scope="col" class="text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let vehicle of filteredVehicles" class="vehicle-row">
+                <tr *ngFor="let vehicle of paginatedVehicles" class="vehicle-row">
                   <!-- Image -->
                   <td class="text-center">
                     <div class="vehicle-thumbnail">
@@ -193,6 +181,35 @@
               </div>
               <h5 class="text-muted">No vehicles found</h5>
               <p class="text-muted">Try adjusting your search or filter criteria</p>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <div class="d-flex align-items-center">
+            <div>
+              Showing {{ pageStartItem }} to {{ pageEndItem }} of {{ filteredVehicles.length }} Entries
+            </div>
+            <div class="ms-auto">
+              <nav aria-label="Vehicle pagination" class="pagination-style-4">
+                <ul class="pagination mb-0">
+                  <li class="page-item" [class.disabled]="currentPage === 1">
+                    <a class="page-link" href="javascript:void(0);" (click)="previousPage()">Prev</a>
+                  </li>
+                  <li
+                    class="page-item"
+                    *ngFor="let page of visiblePages"
+                    [class.active]="isPaginationNumber(page) && page === currentPage"
+                    [class.disabled]="!isPaginationNumber(page)">
+                    <a
+                      class="page-link"
+                      href="javascript:void(0);"
+                      (click)="isPaginationNumber(page) && changePage(page)">{{ page === paginationEllipsis ? '...' : page }}</a>
+                  </li>
+                  <li class="page-item" [class.disabled]="currentPage === totalPages || filteredVehicles.length === 0">
+                    <a class="page-link text-primary" href="javascript:void(0);" (click)="nextPage()">Next</a>
+                  </li>
+                </ul>
+              </nav>
             </div>
           </div>
         </div>

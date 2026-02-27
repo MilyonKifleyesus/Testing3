@@ -182,7 +182,9 @@ export class TicketReportsComponent implements OnInit {
     // Navigate to appropriate route
     if (type === 'weekly') {
       this.router.navigate([`${this.reportsPath}/ticket-reports/weekly`]);
+      this.router.navigate([`${this.reportsPath}/ticket-reports/weekly`]);
     } else {
+      this.router.navigate([`${this.reportsPath}/ticket-reports/daily`]);
       this.router.navigate([`${this.reportsPath}/ticket-reports/daily`]);
     }
   }
@@ -217,6 +219,7 @@ export class TicketReportsComponent implements OnInit {
     
     this.reportService.getTicketReports(request).subscribe({
       next: (response) => {
+        console.log('Report API response:', response);
         if (response.success) {
           this.allTickets = response.data;
           this.filteredTickets = response.data;
@@ -324,7 +327,7 @@ export class TicketReportsComponent implements OnInit {
     return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.src = 'assets/images/brand-logos/desktop-logo.png';
+      img.src = 'assets/images/brand-logos/login-optimized.jpg';
       img.onload = () => {
         try {
           const canvas = document.createElement('canvas');
@@ -535,6 +538,7 @@ export class TicketReportsComponent implements OnInit {
    * Get page numbers array for pagination display
    */
   getPageNumbers(): number[] {
+    return buildPaginationItems(this.getTotalPages(), this.currentPage, 5);
     return buildPaginationItems(this.getTotalPages(), this.currentPage, 5);
   }
 }

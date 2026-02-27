@@ -75,6 +75,10 @@ export const clientRoutingModule: Routes = [
       {
         path: 'mileage',
         loadComponent: () => import('../../shared/features/vehicles/vehicle-list.component').then(m => m.VehicleListComponent)
+      },
+      {
+        path: 'view/:id',
+        loadComponent: () => import('../../shared/features/vehicles/vehicle-view/vehicle-view.component').then(m => m.VehicleViewComponent)
       }
     ]
   },

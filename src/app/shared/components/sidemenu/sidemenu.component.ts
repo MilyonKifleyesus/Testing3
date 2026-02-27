@@ -7,7 +7,6 @@ import {
 } from '@angular/core';
 import { Menu, NavService } from '../../services/nav.service';
 import { Subscription, fromEvent } from 'rxjs';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
 @Component({
   selector: 'app-sidemenu',

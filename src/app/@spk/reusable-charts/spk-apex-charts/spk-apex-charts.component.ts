@@ -1,15 +1,4 @@
-import {
-  Component,
-  Input,
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  ElementRef,
-  AfterViewInit,
-  OnDestroy,
-  ViewChild,
-  OnChanges,
-  SimpleChanges,
-} from '@angular/core';
+import { Component, Input, ChangeDetectorRef, ElementRef, AfterViewInit, OnDestroy, ViewChild, OnChanges, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import ApexCharts from 'apexcharts';
 

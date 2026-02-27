@@ -16,7 +16,12 @@
       <div class="card custom-card">
         <div class="card-header d-flex justify-content-between">
           <div class="card-title">Projects List</div>
-          <div class="d-flex">
+          <div class="d-flex align-items-center">
+            <div class="me-3" *ngIf="canManageProjects">
+              <select class="form-select" style="min-width: 180px; height: 40px; font-size: 1rem;" [(ngModel)]="selectedClientId" (ngModelChange)="onClientFilterChange()" [disabled]="isLoadingClients || isClientPortal">
+                <option *ngFor="let client of clients" [value]="client.id">{{ client.name }}</option>
+              </select>
+            </div>
             <div class="me-3">
               <input class="form-control form-control-sm" type="text" placeholder="Search Projects..." aria-label="Search" [(ngModel)]="searchTerm" (ngModelChange)="onSearchTermChange()">
             </div>
@@ -37,17 +42,20 @@
               <table class="table text-nowrap table-hover border table-bordered">
                 <thead>
                   <tr>
-                    <th scope="col">ID</th>
-                    <th scope="col">Project Name</th>
-                    <th scope="col">Client</th>
-                    <th scope="col">Assessment Type</th>
-                    <th scope="col">Location</th>
-                    <th scope="col">Total Assets</th>
-                    <th scope="col">User Access</th>
+                    <th scope="col" (click)="sortProjects('id')" style="cursor:pointer">ID <span *ngIf="sortColumn === 'id'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                    <th scope="col" (click)="sortProjects('projectName')" style="cursor:pointer">Project Name <span *ngIf="sortColumn === 'projectName'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                    <th scope="col" (click)="sortProjects('client')" style="cursor:pointer">Client <span *ngIf="sortColumn === 'client'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                    <th scope="col" (click)="sortProjects('assessmentType')" style="cursor:pointer">Assessment Type <span *ngIf="sortColumn === 'assessmentType'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                    <th scope="col" (click)="sortProjects('location')" style="cursor:pointer">Location <span *ngIf="sortColumn === 'location'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                    <th scope="col" (click)="sortProjects('totalAssets')" style="cursor:pointer">Total Assets <span *ngIf="sortColumn === 'totalAssets'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                    <th scope="col" (click)="sortProjects('userAccess')" style="cursor:pointer">User Access <span *ngIf="sortColumn === 'userAccess'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                     <th scope="col">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
+                  <tr *ngIf="paginatedProjects.length === 0">
+                    <td colspan="8" class="text-center text-muted">No projects found.</td>
+                  </tr>
                   <tr *ngFor="let project of paginatedProjects">
                     <td>{{ project.id }}</td>
                     <td>

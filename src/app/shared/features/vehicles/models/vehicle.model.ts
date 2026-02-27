@@ -4,7 +4,10 @@
  */
 export interface Vehicle {
   id: number;
+  clientId?: string;
   client: string;
+  projectId?: string;
+  project?: string;
   fleetNumber: string;
   make: string;
   model: string;
@@ -45,6 +48,7 @@ export interface VehicleDetail {
   defects: Defect[];
   tickets: Ticket[];
   snags: Snag[];
+  timeline?: TimelineEvent[];
 }
 
 /**
@@ -81,6 +85,7 @@ export interface VehicleImages {
   left: string;
   right: string;
   interior: string;
+  gallery?: GalleryImage[];
 }
 
 /**
@@ -177,6 +182,7 @@ export type SnagStatus = 'open' | 'in-progress' | 'resolved' | 'closed';
 export interface VehicleFilter {
   searchTerm?: string;
   client?: string;
+  project?: string;
   propulsion?: string;
   status?: VehicleStatus;
 }

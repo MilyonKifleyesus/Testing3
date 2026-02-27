@@ -1,24 +1,23 @@
 // Table responsive with scrollbar
 .table-responsive {
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   max-width: 100%;
-  
-  // Custom scrollbar styling
+  border-radius: 8px;
+  border: 1px solid #e3e3e3;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   &::-webkit-scrollbar {
     height: 8px;
   }
-  
   &::-webkit-scrollbar-track {
     background: #f1f1f1;
     border-radius: 4px;
   }
-  
   &::-webkit-scrollbar-thumb {
     background: #888;
     border-radius: 4px;
-    
     &:hover {
       background: #555;
     }
@@ -94,12 +93,12 @@
     letter-spacing: 0.5px;
     color: var(--text-muted);
     background-color: rgba(var(--primary-rgb), 0.02);
-    padding: 1rem 0.75rem;
+    padding: 0.7rem 0.6rem;
   }
   
   td {
     vertical-align: middle;
-    padding: 0.875rem 0.75rem;
+    padding: 0.55rem 0.6rem;
   }
 }
 
