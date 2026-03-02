@@ -1,3 +1,4 @@
+import { GameModalModule } from './features/game/game-modal.module';
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 // COMPONENTS 
@@ -47,6 +48,7 @@ import { TranslateModule } from '@ngx-translate/core';
     FormsModule,
     SpkNgSelectComponent,
     TranslateModule
+    ,GameModalModule
   ],
   providers: [
     // other providers

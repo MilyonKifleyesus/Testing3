@@ -1,0 +1,178 @@
+<div class="game-wrapper" tabindex="0" #gameWrapper>
+
+  <!-- Header -->
+  <div class="game-header">
+    <div class="header-left">
+      <span class="logo-icon">🚌</span>
+      <span class="logo-text">BUS<span class="accent">PULSE</span> DASH</span>
+    </div>
+    <div class="header-stats">
+      <div class="stat-box">
+        <span class="stat-label">SCORE</span>
+        <span class="stat-value">{{ score }}</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">PASSENGERS</span>
+        <span class="stat-value">{{ passengers }} 👤</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">LIVES</span>
+        <span class="stat-value">
+          <span *ngFor="let h of livesArray" class="heart">❤️</span>
+        </span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">BEST</span>
+        <span class="stat-value accent-text">{{ highScore }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Canvas Area -->
+  <div class="game-area">
+
+    <!-- Road -->
+    <div class="road">
+      <!-- Lane dividers -->
+      <div class="lane-divider" *ngFor="let d of [1,2]" [style.left.%]="d * 33.33"></div>
+
+      <!-- Road markings (animated) -->
+      <div class="road-marking" *ngFor="let m of roadMarkings; trackBy: trackByIndex"
+           [style.left.px]="m.x"
+           [style.top.px]="m.y">
+      </div>
+
+      <!-- Player Bus -->
+      <div class="player-bus"
+           [style.left.px]="playerX"
+           [style.top.px]="playerY"
+           [class.hit-flash]="isHitFlashing">
+        <div class="bus-body">
+          <div class="bus-windows">
+            <span class="window" *ngFor="let w of [1,2,3]"></span>
+          </div>
+          <div class="bus-sign">BusPulse</div>
+          <div class="bus-wheels">
+            <span class="wheel"></span>
+            <span class="wheel"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Obstacles (cars) -->
+      <div class="obstacle"
+           *ngFor="let obs of obstacles; trackBy: trackById"
+           [style.left.px]="obs.x"
+           [style.top.px]="obs.y"
+           [class]="'obstacle car-' + obs.type">
+        <div class="car-body">
+          <div class="car-top"></div>
+          <div class="car-windows"></div>
+          <div class="car-wheels">
+            <span class="wheel"></span>
+            <span class="wheel"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Passengers (coins to collect) -->
+      <div class="passenger-pickup"
+           *ngFor="let p of passengerItems; trackBy: trackById"
+           [style.left.px]="p.x"
+           [style.top.px]="p.y">
+        <span class="pickup-icon">🧍</span>
+        <span class="pickup-label">+10</span>
+      </div>
+
+      <!-- Speed boost items -->
+      <div class="boost-item"
+           *ngFor="let b of boostItems; trackBy: trackById"
+           [style.left.px]="b.x"
+           [style.top.px]="b.y">
+        ⚡
+      </div>
+
+    </div>
+
+    <!-- Speed indicator -->
+    <div class="speed-indicator">
+      <div class="speed-bar-wrapper">
+        <div class="speed-label">SPEED</div>
+        <div class="speed-bar">
+          <div class="speed-fill" [style.width.%]="speedPercent"></div>
+        </div>
+        <div class="speed-value">{{ currentSpeed }} km/h</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Overlay screens -->
+  <!-- Start Screen -->
+  <div class="overlay start-screen" *ngIf="gameState === 'idle'">
+    <div class="overlay-card">
+      <div class="overlay-icon">🚌</div>
+      <h1 class="overlay-title">BUSPULSE DASH</h1>
+      <p class="overlay-subtitle">Dodge traffic · Collect passengers · Beat your score</p>
+      <div class="controls-info">
+        <div class="control-row"><kbd>← →</kbd> or <kbd>A D</kbd> — Move lanes</div>
+        <div class="control-row"><kbd>↑ ↓</kbd> or <kbd>W S</kbd> — Speed up / Brake</div>
+        <div class="control-row">Collect <strong>🧍 passengers</strong> for bonus points!</div>
+        <div class="control-row">Grab <strong>⚡ boosts</strong> for extra speed!</div>
+      </div>
+      <button class="btn-start" (click)="startGame()">🚦 START ENGINE</button>
+      <p class="high-score-text" *ngIf="highScore > 0">Your Best: <span class="accent-text">{{ highScore }}</span></p>
+    </div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div class="overlay gameover-screen" *ngIf="gameState === 'gameover'">
+    <div class="overlay-card">
+      <div class="overlay-icon">💥</div>
+      <h1 class="overlay-title">GAME OVER</h1>
+      <div class="result-stats">
+        <div class="result-row">
+          <span>Score</span>
+          <span class="accent-text">{{ score }}</span>
+        </div>
+        <div class="result-row">
+          <span>Passengers Picked Up</span>
+          <span>{{ passengers }}</span>
+        </div>
+        <div class="result-row highlight" *ngIf="isNewHighScore">
+          <span>🏆 New High Score!</span>
+          <span class="accent-text">{{ highScore }}</span>
+        </div>
+      </div>
+      <button class="btn-start" (click)="startGame()">🔄 TRY AGAIN</button>
+      <button class="btn-secondary" (click)="resetToMenu()">🏠 MAIN MENU</button>
+    </div>
+  </div>
+
+  <!-- Paused Screen -->
+  <div class="overlay pause-screen" *ngIf="gameState === 'paused'">
+    <div class="overlay-card">
+      <div class="overlay-icon">⏸️</div>
+      <h1 class="overlay-title">PAUSED</h1>
+      <button class="btn-start" (click)="resumeGame()">▶ RESUME</button>
+      <button class="btn-secondary" (click)="resetToMenu()">🏠 MAIN MENU</button>
+    </div>
+  </div>
+
+  <!-- Mobile Controls -->
+  <div class="mobile-controls" *ngIf="gameState === 'playing'">
+    <div class="mobile-row">
+      <button class="mob-btn" (touchstart)="mobileLeft()" (mousedown)="mobileLeft()">◀</button>
+      <button class="mob-btn center-btn" (touchstart)="mobilePause()" (mousedown)="mobilePause()">⏸</button>
+      <button class="mob-btn" (touchstart)="mobileRight()" (mousedown)="mobileRight()">▶</button>
+    </div>
+    <div class="mobile-row">
+      <button class="mob-btn wide-btn" (touchstart)="mobileBrake()" (mousedown)="mobileBrake()">🔻 BRAKE</button>
+      <button class="mob-btn wide-btn boost-mob" (touchstart)="mobileAccel()" (mousedown)="mobileAccel()">🔺 ACCEL</button>
+    </div>
+  </div>
+
+  <!-- Pause button during gameplay -->
+  <button class="pause-btn" *ngIf="gameState === 'playing'" (click)="pauseGame()">⏸</button>
+
+</div>

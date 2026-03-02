@@ -7,6 +7,7 @@ import { NgbModal, NgbOffcanvas } from '@ng-bootstrap/ng-bootstrap';
 import { SwitcherComponent } from '../switcher/switcher.component';
 import { AppStateService } from '../../services/app-state.service';
 import { AuthService } from '../../services/auth.service';
+import { GameModalWrapperComponent } from '../../../shared/features/game/game-modal-wrapper.component';
 interface Item {
   id: number;
   name: string;
@@ -21,6 +22,41 @@ interface Item {
   styleUrls: ['./header.component.scss']
 })
 export class HeaderComponent implements OnInit {
+    openGamePopup() {
+      try {
+        console.log('Opening game modal with GameModalWrapperComponent');
+        console.log('GameModalWrapperComponent:', GameModalWrapperComponent);
+        console.log('modalService:', this.modalService);
+        
+        const modalRef = this.modalService.open(GameModalWrapperComponent, {
+          size: 'xl',
+          centered: true,
+          backdrop: 'static',
+          keyboard: false,
+          windowClass: 'game-modal-container modal-fullscreen-custom',
+          scrollable: false
+        });
+        console.log('Modal opened successfully:', modalRef);
+        
+        modalRef.result.then(
+          (result) => {
+            console.log('Modal closed with result:', result);
+          },
+          (reason) => {
+            console.log('Modal dismissed:', reason);
+          }
+        ).catch((error) => {
+          console.error('Modal promise error:', error);
+        });
+      } catch (error) {
+        console.error('Error opening game modal - Full error:', error);
+        if (error instanceof Error) {
+          console.error('Error message:', error.message);
+          console.error('Error stack:', error.stack);
+        }
+        alert('Failed to open game. Error: ' + (error instanceof Error ? error.message : String(error)));
+      }
+    }
   profile = {
     name: 'User',
     role: 'Admin'

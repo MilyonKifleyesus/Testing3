@@ -60,8 +60,8 @@ export const openClosedProjectsChart = {
  * 2. Vehicles Inspected by Make and Model (Donut Chart)
  */
 export const vehiclesByMakeModelChart = {
-  series: [45, 38, 27, 15],
-  labels: ['Tata Motors', 'Ashok Leyland', 'Mahindra', 'Volvo'],
+  series: [1],
+  labels: ['No Vehicles'],
   chart: {
     height: 280,
     type: 'donut',
@@ -84,8 +84,8 @@ export const vehiclesByMakeModelChart = {
  * 3. Vehicles Inspected by Propulsion Type (Donut Chart)
  */
 export const vehiclesByPropulsionChart = {
-  series: [62, 28, 10],
-  labels: ['Diesel', 'CNG', 'Electric'],
+  series: [1],
+  labels: ['No Vehicles'],
   chart: {
     height: 280,
     type: 'donut',

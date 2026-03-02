@@ -1,4 +1,7 @@
-import { DashboardProjectOption } from '../../services/dashboard-projects.service';
+import {
+  DashboardProjectOption,
+  DashboardVehicleMakeModelDatum,
+} from '../../services/dashboard-projects.service';
 
 const CLOSED_STATUSES = new Set(['closed', 'inactive', 'completed', 'complete']);
 
@@ -32,5 +35,42 @@ export function buildProjectStatusChartOptions(
     ...baseChartOptions,
     series: [openProjects, closedProjects],
     labels: ['Open Projects', 'Closed Projects'],
+  };
+}
+
+export function buildVehiclesByMakeModelChartOptions(
+  baseChartOptions: any,
+  items: DashboardVehicleMakeModelDatum[],
+): any {
+  return buildVehicleDistributionChartOptions(baseChartOptions, items);
+}
+
+export function buildVehiclesByPropulsionTypeChartOptions(
+  baseChartOptions: any,
+  items: DashboardVehicleMakeModelDatum[],
+): any {
+  return buildVehicleDistributionChartOptions(baseChartOptions, items);
+}
+
+function buildVehicleDistributionChartOptions(
+  baseChartOptions: any,
+  items: DashboardVehicleMakeModelDatum[],
+): any {
+  const validItems = (items ?? [])
+    .filter((item) => !!String(item?.label ?? '').trim())
+    .filter((item) => Number(item?.count ?? 0) > 0);
+
+  if (!validItems.length) {
+    return {
+      ...baseChartOptions,
+      series: [1],
+      labels: ['No Vehicles'],
+    };
+  }
+
+  return {
+    ...baseChartOptions,
+    series: validItems.map((item) => Number(item.count ?? 0)),
+    labels: validItems.map((item) => String(item.label ?? '').trim()),
   };
 }

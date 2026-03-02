@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, shareReplay, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { getFirstDefinedValue, toOptionalText, toText } from '../utils/api-data.utils';
 
 export interface DashboardProjectOption {
   id: string;
@@ -18,6 +19,11 @@ export interface DashboardVehicleOption {
 export interface DashboardVehicleOptionsResult {
   options: DashboardVehicleOption[];
   totalCount: number;
+}
+
+export interface DashboardVehicleMakeModelDatum {
+  label: string;
+  count: number;
 }
 
 export interface DashboardTicketsDashboardResult {
@@ -106,11 +112,22 @@ export class DashboardProjectsService {
 
             const mapped: DashboardProjectOption[] = items
               .map((item: any) => ({
-                id: String(item?.id ?? item?.projectId ?? item?.projectID ?? item?.ProjectId ?? item?.ProjectID ?? ''),
+                id: String(
+                  item?.id ??
+                  item?.projectId ??
+                  item?.projectID ??
+                  item?.ProjectId ??
+                  item?.ProjectID ??
+                  item?.project_id ??
+                  item?.Project_Id ??
+                  '',
+                ),
                 name:
                   item?.name ??
                   item?.projectName ??
                   item?.ProjectName ??
+                  item?.project_name ??
+                  item?.Project_Name ??
                   item?.title ??
                   `Project ${item?.id ?? item?.projectId ?? ''}`,
                 status: String(
@@ -253,11 +270,22 @@ export class DashboardProjectsService {
 
             const mapped: DashboardVehicleOption[] = items
               .map((item: any) => ({
-                id: String(item?.id ?? item?.vehicleId ?? item?.vehicleID ?? item?.VehicleId ?? item?.VehicleID ?? ''),
+                id: String(
+                  item?.id ??
+                  item?.vehicleId ??
+                  item?.vehicleID ??
+                  item?.VehicleId ??
+                  item?.VehicleID ??
+                  item?.vehicle_id ??
+                  item?.Vehicle_Id ??
+                  '',
+                ),
                 name:
                   item?.name ??
                   item?.vehicleName ??
                   item?.VehicleName ??
+                  item?.fleetNumber ??
+                  item?.fleet_number ??
                   item?.displayName ??
                   `Vehicle ${item?.id ?? item?.vehicleId ?? ''}`,
               }))
@@ -353,6 +381,177 @@ export class DashboardProjectsService {
     );
   }
 
+  getVehiclesByMakeModelData(params: {
+    projectIds?: string[];
+    clientId?: number;
+    userId?: number;
+    includeClosed?: boolean;
+    page?: number;
+    pageSize?: number;
+    maxItems?: number;
+  } = {}): Observable<DashboardVehicleMakeModelDatum[]> {
+    return this.getVehiclesDistributionData(
+      params,
+      (vehicle) => this.resolveVehicleMakeLabel(vehicle),
+      'All Makes & Models',
+    );
+  }
+
+  getVehiclesByPropulsionTypeData(params: {
+    projectIds?: string[];
+    clientId?: number;
+    userId?: number;
+    includeClosed?: boolean;
+    page?: number;
+    pageSize?: number;
+    maxItems?: number;
+  } = {}): Observable<DashboardVehicleMakeModelDatum[]> {
+    return this.getVehiclesDistributionData(
+      params,
+      (vehicle) => this.resolveVehiclePropulsionLabel(vehicle),
+      'All Propulsion Types',
+    );
+  }
+
+  private getVehiclesDistributionData(
+    params: {
+      projectIds?: string[];
+      clientId?: number;
+      userId?: number;
+      includeClosed?: boolean;
+      page?: number;
+      pageSize?: number;
+      maxItems?: number;
+    },
+    resolveLabel: (vehicle: unknown) => string | null,
+    aggregateLabel: string,
+  ): Observable<DashboardVehicleMakeModelDatum[]> {
+    const {
+      projectIds,
+      clientId,
+      userId,
+      includeClosed,
+      page,
+      pageSize,
+      maxItems = 7,
+    } = params;
+
+    const normalizedProjectIds = Array.from(new Set(
+      (projectIds ?? [])
+        .map((projectId) => this.normalizeProjectId(projectId))
+        .filter((projectId) => !!projectId),
+    ));
+
+    const projectIds$ = normalizedProjectIds.length
+      ? of(normalizedProjectIds)
+      : this.getProjectOptions({
+        clientId,
+        includeClosed,
+        page: 1,
+        pageSize: 10000,
+        includeAllOption: false,
+      }).pipe(
+        map((projects) => Array.from(new Set(
+          (projects ?? [])
+            .map((project) => this.normalizeProjectId(project.id))
+            .filter((projectId) => !!projectId),
+        ))),
+      );
+
+    return projectIds$.pipe(
+      switchMap((resolvedProjectIds) => {
+        if (!resolvedProjectIds.length) {
+          return of({ resolvedProjectIds, vehicles: [] as any[] });
+        }
+
+        return forkJoin(
+          resolvedProjectIds.map((projectId) =>
+            this.getProjectVehiclesRaw(projectId, {
+              clientId,
+              userId,
+              includeClosed,
+              page,
+              pageSize,
+            }),
+          ),
+        ).pipe(
+          map((responses) => ({
+            resolvedProjectIds,
+            vehicles: responses.flat(),
+          })),
+        );
+      }),
+      map(({ resolvedProjectIds, vehicles }) => {
+        const filteredVehicles = this.filterVehiclesByProjectIds(vehicles, resolvedProjectIds);
+        const seenVehicleKeys = new Set<string>();
+        const countsByLabel = new Map<string, number>();
+
+        filteredVehicles.forEach((vehicle) => {
+          const vehicleIdentity = toOptionalText(getFirstDefinedValue(vehicle, [
+            'id',
+            'vehicleId',
+            'vehicleID',
+            'VehicleId',
+            'VehicleID',
+            'vehicle_id',
+            'Vehicle_Id',
+            'vin',
+            'VIN',
+            'vehicleVin',
+            'fleetNumber',
+            'fleet_number',
+            'fleetNo',
+            'vehicleNumber',
+          ]));
+
+          if (vehicleIdentity) {
+            const dedupeKey = vehicleIdentity.toLowerCase();
+            if (seenVehicleKeys.has(dedupeKey)) {
+              return;
+            }
+            seenVehicleKeys.add(dedupeKey);
+          }
+
+          const label = resolveLabel(vehicle);
+          if (!label) {
+            return;
+          }
+
+          countsByLabel.set(label, (countsByLabel.get(label) ?? 0) + 1);
+        });
+
+        const sortedBuckets = Array.from(countsByLabel.entries())
+          .map(([label, count]) => ({ label, count }))
+          .sort((left, right) => {
+            if (right.count !== left.count) {
+              return right.count - left.count;
+            }
+            return left.label.localeCompare(right.label);
+          });
+
+        const normalizedMaxItems = Math.max(1, Math.floor(Number(maxItems) || 1));
+        if (sortedBuckets.length <= normalizedMaxItems) {
+          return sortedBuckets;
+        }
+
+        if (normalizedMaxItems === 1) {
+          const total = sortedBuckets.reduce((sum, item) => sum + item.count, 0);
+          return [{ label: aggregateLabel, count: total }];
+        }
+
+        const visibleItems = sortedBuckets.slice(0, normalizedMaxItems - 1);
+        const othersCount = sortedBuckets
+          .slice(normalizedMaxItems - 1)
+          .reduce((sum, item) => sum + item.count, 0);
+
+        return [
+          ...visibleItems,
+          { label: 'Others', count: othersCount },
+        ];
+      }),
+    );
+  }
+
   getAllVehicleOptions(params: {
     clientId?: number;
     userId?: number;
@@ -395,11 +594,22 @@ export class DashboardProjectsService {
 
           const mapped: DashboardVehicleOption[] = items
             .map((item: any) => ({
-              id: String(item?.id ?? item?.vehicleId ?? item?.vehicleID ?? item?.VehicleId ?? item?.VehicleID ?? ''),
+              id: String(
+                item?.id ??
+                item?.vehicleId ??
+                item?.vehicleID ??
+                item?.VehicleId ??
+                item?.VehicleID ??
+                item?.vehicle_id ??
+                item?.Vehicle_Id ??
+                '',
+              ),
               name:
                 item?.name ??
                 item?.vehicleName ??
                 item?.VehicleName ??
+                item?.fleetNumber ??
+                item?.fleet_number ??
                 item?.displayName ??
                 `Vehicle ${item?.id ?? item?.vehicleId ?? ''}`,
             }))
@@ -465,11 +675,22 @@ export class DashboardProjectsService {
             const items = this.extractItems(response);
             const mapped: DashboardVehicleOption[] = items
               .map((item: any) => ({
-                id: String(item?.id ?? item?.vehicleId ?? item?.vehicleID ?? item?.VehicleId ?? item?.VehicleID ?? ''),
+                id: String(
+                  item?.id ??
+                  item?.vehicleId ??
+                  item?.vehicleID ??
+                  item?.VehicleId ??
+                  item?.VehicleID ??
+                  item?.vehicle_id ??
+                  item?.Vehicle_Id ??
+                  '',
+                ),
                 name:
                   item?.name ??
                   item?.vehicleName ??
                   item?.VehicleName ??
+                  item?.fleetNumber ??
+                  item?.fleet_number ??
                   item?.displayName ??
                   `Vehicle ${item?.id ?? item?.vehicleId ?? ''}`,
               }))
@@ -582,6 +803,14 @@ export class DashboardProjectsService {
       return response.data;
     }
 
+    if (Array.isArray(response?.data?.projects)) {
+      return response.data.projects;
+    }
+
+    if (Array.isArray(response?.data?.results)) {
+      return response.data.results;
+    }
+
     if (Array.isArray(response?.vehicles)) {
       return response.vehicles;
     }
@@ -598,11 +827,194 @@ export class DashboardProjectsService {
       return response.result.vehicles;
     }
 
+    if (Array.isArray(response?.result?.data)) {
+      return response.result.data;
+    }
+
     if (Array.isArray(response?.projects)) {
       return response.projects;
     }
 
+    if (response && typeof response === 'object') {
+      const hasVehicleIdentity =
+        response?.vehicleId !== undefined ||
+        response?.VehicleId !== undefined ||
+        response?.id !== undefined ||
+        response?.make !== undefined ||
+        response?.manufacturer !== undefined;
+
+      if (hasVehicleIdentity) {
+        return [response];
+      }
+    }
+
+    if (response?.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
+      const hasVehicleIdentity =
+        response.data?.vehicleId !== undefined ||
+        response.data?.VehicleId !== undefined ||
+        response.data?.id !== undefined ||
+        response.data?.make !== undefined ||
+        response.data?.manufacturer !== undefined;
+
+      if (hasVehicleIdentity) {
+        return [response.data];
+      }
+    }
+
     return [];
+  }
+
+  private getProjectVehiclesRaw(
+    projectId: string,
+    params: {
+      clientId?: number;
+      userId?: number;
+      includeClosed?: boolean;
+      page?: number;
+      pageSize?: number;
+    } = {},
+  ): Observable<any[]> {
+    const normalizedProjectId = this.normalizeProjectId(projectId);
+    if (!normalizedProjectId) {
+      return of([]);
+    }
+
+    const { clientId, userId, includeClosed, page, pageSize } = params;
+    let httpParams = new HttpParams();
+
+    if (clientId !== undefined && clientId !== null) {
+      httpParams = httpParams.set('clientId', String(clientId));
+    }
+    if (userId !== undefined && userId !== null) {
+      httpParams = httpParams.set('userId', String(userId));
+    }
+    if (includeClosed !== undefined && includeClosed !== null) {
+      httpParams = httpParams.set('includeClosed', String(includeClosed));
+    }
+    if (page !== undefined && page !== null) {
+      httpParams = httpParams.set('page', String(page));
+    }
+    if (pageSize !== undefined && pageSize !== null) {
+      httpParams = httpParams.set('pageSize', String(pageSize));
+    }
+
+    const encodedProjectId = encodeURIComponent(normalizedProjectId);
+
+    return this.http
+      .get<unknown>(`${this.apiBaseUrl}/projects/${encodedProjectId}/vehicles`, {
+        params: httpParams,
+      })
+      .pipe(
+        catchError(() =>
+          this.http.get<unknown>(`${this.apiBaseUrl}/projects/${encodedProjectId}/Vehicles`, {
+            params: httpParams,
+          }),
+        ),
+        catchError(() =>
+          this.http.get<unknown>(`${this.apiBaseUrl}/Projects/${encodedProjectId}/vehicles`, {
+            params: httpParams,
+          }),
+        ),
+        catchError(() =>
+          this.http.get<unknown>(`${this.apiBaseUrl}/Projects/${encodedProjectId}/Vehicles`, {
+            params: httpParams,
+          }),
+        ),
+        catchError(() =>
+          this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, {
+            params: httpParams.set('projectId', String(normalizedProjectId)),
+          }),
+        ),
+        catchError(() =>
+          this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, {
+            params: httpParams.set('projectID', String(normalizedProjectId)),
+          }),
+        ),
+        catchError(() =>
+          this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, {
+            params: httpParams.set('ProjectID', String(normalizedProjectId)),
+          }),
+        ),
+        catchError(() =>
+          this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, {
+            params: httpParams.set('project_id', String(normalizedProjectId)),
+          }),
+        ),
+        catchError(() =>
+          this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, {
+            params: httpParams.set('ProjectId', String(normalizedProjectId)),
+          }),
+        ),
+        map((response: unknown): any[] => this.extractItems(response)),
+        catchError(() => of([] as any[])),
+      ) as Observable<any[]>;
+  }
+
+  private resolveVehicleMakeLabel(vehicle: unknown): string | null {
+    const make = toOptionalText(getFirstDefinedValue(vehicle, [
+      'make',
+      'Make',
+      'manufacturer',
+      'brand',
+      'makeName',
+      'manufacturerName',
+      'vehicle.make',
+      'vehicle.Make',
+      'data.make',
+      'data.Make',
+    ]));
+
+    const normalizedMake = toText(make, '').trim();
+    return normalizedMake || null;
+  }
+
+  private resolveVehiclePropulsionLabel(vehicle: unknown): string | null {
+    const propulsion = toOptionalText(getFirstDefinedValue(vehicle, [
+      'propulsionTypeName',
+      'PropulsionTypeName',
+      'propulsionType',
+      'PropulsionType',
+      'propulsion',
+      'fuelType',
+      'engineType',
+      'data.propulsionTypeName',
+      'vehicle.propulsionTypeName',
+    ]));
+
+    const normalizedPropulsion = toText(propulsion, '').trim();
+    return normalizedPropulsion || null;
+  }
+
+  private filterVehiclesByProjectIds(vehicles: any[], projectIds: string[]): any[] {
+    const normalizedProjectIds = Array.from(new Set(
+      (projectIds ?? [])
+        .map((projectId) => this.normalizeProjectId(projectId))
+        .filter((projectId) => !!projectId),
+    ));
+
+    if (!normalizedProjectIds.length) {
+      return vehicles;
+    }
+
+    const projectIdSet = new Set(normalizedProjectIds.map((projectId) => String(projectId).trim().toLowerCase()));
+
+    return (vehicles ?? []).filter((vehicle) => {
+      const vehicleProjectId = toOptionalText(getFirstDefinedValue(vehicle, [
+        'projectId',
+        'ProjectId',
+        'projectID',
+        'ProjectID',
+        'project_id',
+        'Project_Id',
+      ]));
+
+      if (!vehicleProjectId) {
+        return true;
+      }
+
+      const normalizedVehicleProjectId = this.normalizeProjectId(vehicleProjectId).trim().toLowerCase();
+      return projectIdSet.has(normalizedVehicleProjectId);
+    });
   }
 
   private normalizeProjectId(projectId: string): string {

@@ -61,7 +61,7 @@
                 [(ngModel)]="selectedInspector"
                 [disabled]="isLoadingFilters">
                 <option value="all">All inspectors</option>
-                <option *ngFor="let inspector of inspectors" [value]="inspector.name">{{ inspector.name }}</option>
+                <option *ngFor="let inspector of inspectors" [value]="inspector.id">{{ inspector.name }}</option>
               </select>
             </div>
 

@@ -60,11 +60,11 @@ export class WarRoomService {
 
   // Computed signals
   readonly subsidiaries = computed(() =>
-    this._parentGroups().flatMap((group) => group.subsidiaries)
+    this._parentGroups().flatMap((group: ParentGroup) => group.subsidiaries)
   );
 
   readonly factories = computed(() =>
-    this.subsidiaries().flatMap((subsidiary) => subsidiary.factories)
+    this.subsidiaries().flatMap((subsidiary: SubsidiaryCompany) => subsidiary.factories)
   );
 
   readonly nodes = computed(() => {
@@ -268,49 +268,12 @@ export class WarRoomService {
     factoryFilterSubsidiaryId: string | null
   ): Node[] {
     const parentGroups = this._parentGroups();
-    if (viewMode === 'parent') {
-      return parentGroups
-        .map((group) => this.createParentNode(group))
-        .filter((node): node is Node => node !== null);
-    }
-
-    if (viewMode === 'subsidiary') {
-      if (factoryFilterSubsidiaryId) {
-        return this.factories()
-          .filter((factory) => factory.subsidiaryId === factoryFilterSubsidiaryId)
-          .map((factory) => {
-            const subsidiary = this.subsidiaries().find((sub) => sub.id === factory.subsidiaryId);
-            return this.createFactoryNode(factory, subsidiary);
-          });
-      }
-
-      return this.subsidiaries()
-        .map((subsidiary) => this.createSubsidiaryNode(subsidiary))
-        .filter((node): node is Node => node !== null);
-    }
-
-    if (viewMode === 'client') {
-      return [];
-    }
-
-    if (viewMode === 'project') {
-      let factories = this.factories();
-      if (factoryFilterSubsidiaryId) {
-        factories = factories.filter((factory) => factory.subsidiaryId === factoryFilterSubsidiaryId);
-      }
-      return factories.map((factory) => {
-        const subsidiary = this.subsidiaries().find((sub) => sub.id === factory.subsidiaryId);
-        return this.createFactoryNode(factory, subsidiary);
-      });
-    }
-
     let factories = this.factories();
     if (factoryFilterSubsidiaryId) {
-      factories = factories.filter((factory) => factory.subsidiaryId === factoryFilterSubsidiaryId);
+      factories = factories.filter((factory: FactoryLocation) => factory.subsidiaryId === factoryFilterSubsidiaryId);
     }
-
-    return factories.map((factory) => {
-      const subsidiary = this.subsidiaries().find((sub) => sub.id === factory.subsidiaryId);
+    return factories.map((factory: FactoryLocation) => {
+      const subsidiary = this.subsidiaries().find((sub: SubsidiaryCompany) => sub.id === factory.subsidiaryId);
       return this.createFactoryNode(factory, subsidiary);
     });
   }

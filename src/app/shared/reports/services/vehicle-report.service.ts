@@ -439,38 +439,101 @@ export class VehicleReportService {
    */
   getVehiclesByProject(projectId: number): Observable<Vehicle[]> {
     const scopedClientId = this.getScopedClientId();
+    const userId = Number(this.authService.currentUserValue?.userId ?? 0) || undefined;
 
     if (this.isClientScopedRole() && !scopedClientId) {
       return of([]);
     }
 
-    return this.dashboardProjectsService.getVehicleOptionsByProject(String(projectId), {
+    return this.clientDashboardService.getProjectVehicles(projectId, {
       clientId: scopedClientId,
-      includeClosed: true,
-      includeAllOption: false,
+      userId,
       page: 1,
       pageSize: 10000,
     }).pipe(
-      map((vehicles) => vehicles
-        .map((vehicle) => {
-          const id = Number(vehicle.id);
-          const name = String(vehicle.name ?? '').trim();
-          if (!Number.isFinite(id) || id <= 0 || !name) {
-            return null;
-          }
+      map((response: unknown) => this.extractItems(response)
+        .map((item: any) => this.mapApiVehicle(item, projectId))
+        .filter((vehicle): vehicle is Vehicle => vehicle !== null),
+      ),
+      catchError(() => this.dashboardProjectsService.getVehicleOptionsByProject(String(projectId), {
+        clientId: scopedClientId,
+        includeClosed: true,
+        includeAllOption: false,
+        page: 1,
+        pageSize: 10000,
+      }).pipe(
+        map((vehicles) =>
+          vehicles
+            .map((vehicle) => {
+              const id = Number(vehicle.id);
+              const name = String(vehicle.name ?? '').trim();
+              if (!Number.isFinite(id) || id <= 0 || !name) {
+                return null;
+              }
 
-          return {
-            id,
-            vehicleNumber: name,
-            fleetNumber: name,
-            vin: '',
-            projectId,
-            projectName: '',
-          } as Vehicle;
-        })
+              return {
+                id,
+                vehicleNumber: name,
+                fleetNumber: name,
+                vin: '',
+                projectId,
+                projectName: this.resolveProjectName(projectId, ''),
+              } as Vehicle;
+            })
+            .filter((vehicle): vehicle is Vehicle => vehicle !== null)
+        ),
+      )),
+    );
+  }
+
+  getAllVehicles(): Observable<Vehicle[]> {
+    const scopedClientId = this.getScopedClientId();
+
+    if (this.isClientScopedRole() && !scopedClientId) {
+      return of([]);
+    }
+
+    return this.clientDashboardService.getVehicles({
+      clientId: scopedClientId,
+      page: 1,
+      pageSize: 10000,
+    }).pipe(
+      map((response: unknown) => this.extractItems(response)
+        .map((item: any) => this.mapApiVehicle(item))
         .filter((vehicle): vehicle is Vehicle => vehicle !== null),
       ),
     );
+  }
+
+  private mapApiVehicle(item: any, fallbackProjectId?: number): Vehicle | null {
+    const id = this.toPositiveNumber(this.first(item, ['id', 'vehicleId', 'VehicleId', 'vehicle.id']));
+    if (!id) {
+      return null;
+    }
+
+    const projectId = this.toPositiveNumber(this.first(item, ['projectId', 'ProjectId', 'project.id'])) ?? fallbackProjectId ?? 0;
+    const fallbackName = id > 0 ? `Vehicle ${id}` : 'N/A';
+    const fleetNumber = this.toText(this.first(item, [
+      'fleetNumber',
+      'FleetNumber',
+      'vehicleFleetNumber',
+      'vehicle.fleetNumber',
+      'vehicle.fleetNo',
+      'vehicle.unitNumber',
+      'vehicleNumber',
+      'name',
+      'title',
+    ]), fallbackName);
+    const vin = this.toText(this.first(item, ['vin', 'VIN', 'vehicle.vin']), '');
+
+    return {
+      id,
+      vehicleNumber: fleetNumber,
+      fleetNumber,
+      vin,
+      projectId,
+      projectName: this.resolveProjectName(projectId, projectId > 0 ? `Project ${projectId}` : ''),
+    };
   }
 
   // ==================== Vehicle Station Tracker Methods ====================

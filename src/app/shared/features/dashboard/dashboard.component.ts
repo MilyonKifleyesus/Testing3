@@ -12,7 +12,6 @@ import { SharedModule } from '../../shared.module';
 import * as busPulseData from '../../data/bus-pulse-dashboard';
 import { defaultClientProfile } from '../../data/client-profiles-dashboard';
 import { projectStats } from '../../data/client-tickets-assets';
-import { clientProjects, clientVehicles } from '../../data/client-projects-vehicles';
 import {
   DashboardWidget,
   ProjectStats,
@@ -24,6 +23,7 @@ import { ClientDashboardService } from '../../services/client-dashboard.service'
 import {
   DashboardProjectOption,
   DashboardProjectsService,
+  DashboardVehicleMakeModelDatum,
   DashboardVehicleOption,
 } from '../../services/dashboard-projects.service';
 import {
@@ -44,7 +44,11 @@ import {
   buildClientStatCards,
   resolveClientProjectStats,
 } from './dashboard-stats.utils';
-import { buildProjectStatusChartOptions } from './dashboard-chart.utils';
+import {
+  buildProjectStatusChartOptions,
+  buildVehiclesByMakeModelChartOptions,
+  buildVehiclesByPropulsionTypeChartOptions,
+} from './dashboard-chart.utils';
 import { DashboardResizeHandle, DashboardRole, DashboardStatCard } from './dashboard.types';
 import { createDefaultDashboardWidgets } from './dashboard.widget-factory';
 import {
@@ -109,6 +113,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private resizeSession: DashboardResizeSession | null = null;
   private projectsRequestVersion = 0;
   private vehiclesRequestVersion = 0;
+  private makeModelRequestVersion = 0;
+  private propulsionRequestVersion = 0;
 
   private readonly mouseMoveHandler = (event: MouseEvent) => this.onMouseMove(event);
   private readonly mouseUpHandler = (event: MouseEvent) => this.onMouseUp();
@@ -195,6 +201,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   onProjectChange(projectId: string): void {
     this.selectedProject = projectId;
     this.selectedVehicle = 'all';
+    this.refreshVehiclesByMakeModelChart();
+    this.refreshVehiclesByPropulsionTypesChart();
     this.loadVehicles(projectId);
     if (!this.isAdminRole) {
       this.fetchAllClientVehiclesAndTickets();
@@ -337,8 +345,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedClient = 'all';
     this.totalVehiclesCount = null;
     this.clients = this.isAdminRole ? [{ id: 'all', name: 'All Clients' }] : [];
-    this.projects = this.isAdminRole ? [{ id: 'all', name: 'All Projects' }] : [...clientProjects];
-    this.vehicles = this.isAdminRole ? [{ id: 'all', name: 'All Vehicles' }] : [...clientVehicles];
+    this.projects = [{ id: 'all', name: 'All Projects' }];
+    this.vehicles = [{ id: 'all', name: 'All Vehicles' }];
 
     if (this.isAdminRole) {
       this.loadClientOptions();
@@ -371,9 +379,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         this.projects = items.length
           ? items
-          : (this.isAdminRole
-              ? [{ id: 'all', name: 'All Projects' }]
-              : [...clientProjects]);
+          : [{ id: 'all', name: 'All Projects' }];
 
         const hasSelectedProject = this.projects.some((project) => project.id === this.selectedProject);
         if (!hasSelectedProject) {
@@ -381,6 +387,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
 
         this.updateProjectStatusChart(this.projects);
+        this.refreshVehiclesByMakeModelChart();
+        this.refreshVehiclesByPropulsionTypesChart();
 
         this.loadVehicles(this.selectedProject);
         if (!this.isAdminRole) {
@@ -390,10 +398,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       error: () => {
         if (requestVersion !== this.projectsRequestVersion) return;
 
-        this.projects = this.isAdminRole ? [{ id: 'all', name: 'All Projects' }] : [...clientProjects];
+        this.projects = [{ id: 'all', name: 'All Projects' }];
         this.selectedProject = 'all';
         this.selectedVehicle = 'all';
         this.updateProjectStatusChart(this.projects);
+        this.refreshVehiclesByMakeModelChart();
+        this.refreshVehiclesByPropulsionTypesChart();
         this.loadVehicles(this.selectedProject);
         if (!this.isAdminRole) {
           this.refreshClientView();
@@ -476,7 +486,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       error: () => {
         if (requestVersion !== this.vehiclesRequestVersion) return;
 
-        this.vehicles = this.isAdminRole ? [{ id: 'all', name: 'All Vehicles' }] : [...clientVehicles];
+        this.vehicles = [{ id: 'all', name: 'All Vehicles' }];
         this.selectedVehicle = 'all';
         this.totalVehiclesCount = null;
       },
@@ -836,6 +846,92 @@ export class DashboardComponent implements OnInit, OnDestroy {
         ? { ...widget, chartOptions }
         : widget
     ));
+  }
+
+  private refreshVehiclesByMakeModelChart(): void {
+    this.refreshVehicleDistributionWidget(
+      'widget-2',
+      () => ++this.makeModelRequestVersion,
+      () => this.makeModelRequestVersion,
+      () => this.dashboardProjectsService.getVehiclesByMakeModelData({
+        projectIds: this.getSelectedOrAllVisibleProjectIds(),
+        clientId: this.getEffectiveClientId(),
+        userId: undefined,
+        includeClosed: this.includeClosedProjects,
+        maxItems: 7,
+      }),
+      (items) => buildVehiclesByMakeModelChartOptions(
+        busPulseData.vehiclesByMakeModelChart,
+        items,
+      ),
+    );
+  }
+
+  private refreshVehiclesByPropulsionTypesChart(): void {
+    this.refreshVehicleDistributionWidget(
+      'widget-3',
+      () => ++this.propulsionRequestVersion,
+      () => this.propulsionRequestVersion,
+      () => this.dashboardProjectsService.getVehiclesByPropulsionTypeData({
+        projectIds: this.getSelectedOrAllVisibleProjectIds(),
+        clientId: this.getEffectiveClientId(),
+        userId: undefined,
+        includeClosed: this.includeClosedProjects,
+        maxItems: 7,
+      }),
+      (items) => buildVehiclesByPropulsionTypeChartOptions(
+        busPulseData.vehiclesByPropulsionChart,
+        items,
+      ),
+    );
+  }
+
+  private refreshVehicleDistributionWidget(
+    widgetId: 'widget-2' | 'widget-3',
+    nextRequestVersion: () => number,
+    currentRequestVersion: () => number,
+    loadData: () => Observable<DashboardVehicleMakeModelDatum[]>,
+    buildChartOptions: (items: DashboardVehicleMakeModelDatum[]) => unknown,
+  ): void {
+    const requestVersion = nextRequestVersion();
+
+    loadData().subscribe({
+      next: (items: DashboardVehicleMakeModelDatum[]) => {
+        if (requestVersion !== currentRequestVersion()) {
+          return;
+        }
+
+        this.updateVehicleDistributionWidget(widgetId, buildChartOptions(items));
+      },
+      error: () => {
+        if (requestVersion !== currentRequestVersion()) {
+          return;
+        }
+
+        this.updateVehicleDistributionWidget(widgetId, buildChartOptions([]));
+      },
+    });
+  }
+
+  private updateVehicleDistributionWidget(widgetId: 'widget-2' | 'widget-3', chartOptions: unknown): void {
+    if (!this.widgets.length) return;
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === widgetId
+        ? { ...widget, chartOptions }
+        : widget
+    ));
+  }
+
+  private getSelectedOrAllVisibleProjectIds(): string[] {
+    const selectedProjectId = String(this.selectedProject ?? '').trim().toLowerCase();
+    if (selectedProjectId && selectedProjectId !== 'all') {
+      return [String(this.selectedProject ?? '').trim()];
+    }
+
+    return this.projects
+      .map((project) => String(project.id ?? '').trim())
+      .filter((projectId) => !!projectId && projectId.toLowerCase() !== 'all');
   }
 
   private buildWidgets(): DashboardWidget[] {
