@@ -430,7 +430,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }),
       }).pipe(
         map(({ scoped, authoritative }) => ({
-          options: scoped.options,
+          options: (authoritative?.options && authoritative.options.length)
+            ? authoritative.options
+            : scoped.options,
           totalCount: this.includeClosedProjects
             ? (Number(authoritative.totalCount ?? 0) > 0
                 ? authoritative.totalCount
@@ -576,11 +578,234 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.selectedVehicle,
     );
 
-    this.statCards = buildClientStatCards(
-      this.currentProjectStats,
-      this.showFilters,
-      this.selectedProject,
-    );
+    {
+      let totalAssets = Number(this.currentProjectStats.totalAssets ?? 0);
+
+      if (this.selectedProject === 'all') {
+        if (this.selectedVehicle && this.selectedVehicle !== 'all') {
+          totalAssets = 1;
+        } else {
+          totalAssets = Array.isArray(this.allClientVehicles) ? this.allClientVehicles.length : 0;
+        }
+      } else {
+        // Specific project
+        if (this.selectedVehicle && this.selectedVehicle !== 'all') {
+          totalAssets = 1;
+        } else {
+          totalAssets = (Number.isFinite(this.totalVehiclesCount as number) && (this.totalVehiclesCount ?? 0) > 0)
+            ? (this.totalVehiclesCount as number)
+            : (this.vehicles ? this.vehicles.filter((v) => v.id !== 'all').length : 0);
+        }
+      }
+
+      this.currentProjectStats = {
+        ...this.currentProjectStats,
+        totalAssets,
+      };
+    }
+    
+    // If a client has selected a specific project, fetch authoritative ticket totals
+    // from the tickets dashboard API. Use project-level totals when "All Vehicles"
+    // is selected, and vehicle-level totals when a single vehicle is selected.
+    if (!this.isAdminRole && this.selectedProject !== 'all') {
+      const projectIdParam = this.selectedProject;
+
+      if (this.selectedVehicle === 'all') {
+        this.dashboardProjectsService.getTicketsDashboard({ projectId: projectIdParam }).subscribe({
+          next: (res) => {
+            const result: any = res ?? {};
+            const candidates = [result.totalTickets, result.total, result.count, result.totalItems, result.totalRecords];
+            let total = Number(this.currentProjectStats.totalTickets ?? 0);
+            for (const c of candidates) {
+              const n = Number(c);
+              if (Number.isFinite(n) && n >= 0) {
+                total = n;
+                break;
+              }
+            }
+
+            this.currentProjectStats = {
+              ...this.currentProjectStats,
+              totalTickets: total,
+            };
+
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+          },
+          error: () => {
+            // keep demo stats on error
+          },
+        });
+      } else {
+        const vehicleIdParam = this.selectedVehicle;
+        this.dashboardProjectsService.getTicketsDashboard({ projectId: projectIdParam, vehicleId: vehicleIdParam }).subscribe({
+          next: (res) => {
+            const result: any = res ?? {};
+            const candidates = [result.totalTickets, result.total, result.count, result.totalItems, result.totalRecords];
+            let total = Number(this.currentProjectStats.totalTickets ?? 0);
+            for (const c of candidates) {
+              const n = Number(c);
+              if (Number.isFinite(n) && n >= 0) {
+                total = n;
+                break;
+              }
+            }
+
+            this.currentProjectStats = {
+              ...this.currentProjectStats,
+              totalTickets: total,
+            };
+
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+          },
+          error: () => {
+            // keep demo stats on error
+          },
+        });
+      }
+    }
+    // If a specific vehicle is selected, request the tickets dashboard for that vehicle
+    // and update the Total Tickets card with the API result (if present).
+    if (!this.isAdminRole && this.selectedProject !== 'all' && this.selectedVehicle !== 'all') {
+      const projectIdParam = this.selectedProject;
+      const vehicleIdParam = this.selectedVehicle;
+
+      this.dashboardProjectsService.getTicketsDashboard({ projectId: projectIdParam, vehicleId: vehicleIdParam }).subscribe({
+        next: (result) => {
+          const res: any = result ?? {};
+          const candidates = [res.totalTickets, res.total, res.count, res.totalItems, res.totalRecords];
+
+          let total = 0;
+          for (const c of candidates) {
+            const n = Number(c);
+            if (Number.isFinite(n) && n >= 0) {
+              total = n;
+              break;
+            }
+          }
+
+          this.currentProjectStats = {
+            ...this.currentProjectStats,
+            totalTickets: total,
+          };
+
+          this.statCards = buildClientStatCards(
+            this.currentProjectStats,
+            this.showFilters,
+            this.selectedProject,
+          );
+        },
+        error: () => {
+          // on error, keep existing (demo) stats
+        },
+      });
+    }
+    // If All Projects is selected, either fetch vehicle-scoped totals (option A)
+    // or aggregate per-project totals when no vehicle is selected.
+    if (!this.isAdminRole && this.selectedProject === 'all') {
+      if (this.selectedVehicle && this.selectedVehicle !== 'all') {
+        // Option A: single call by vehicleId across all projects
+        this.dashboardProjectsService.getTicketsDashboard({ vehicleId: this.selectedVehicle }).subscribe({
+          next: (res) => {
+            const r: any = res ?? {};
+            const candidates = [r.totalTickets, r.total, r.count, r.totalItems, r.totalRecords];
+            let total = Number(this.currentProjectStats.totalTickets ?? 0);
+            for (const c of candidates) {
+              const n = Number(c);
+              if (Number.isFinite(n) && n >= 0) {
+                total = n;
+                break;
+              }
+            }
+
+            this.currentProjectStats = {
+              ...this.currentProjectStats,
+              totalTickets: total,
+            };
+
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+          },
+          error: () => {
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+          },
+        });
+      } else {
+        const visibleProjectIds = this.projects
+          .map((project) => String(project.id ?? ''))
+          .filter((id) => id && id.toLowerCase() !== 'all');
+
+        if (visibleProjectIds.length) {
+          const requests = visibleProjectIds.map((pid) =>
+            this.dashboardProjectsService.getTicketsDashboard({ projectId: pid }),
+          );
+
+          forkJoin(requests).subscribe({
+            next: (results) => {
+              let aggregate = 0;
+              for (const res of results) {
+                const r: any = res ?? {};
+                const candidates = [r.totalTickets, r.total, r.count, r.totalItems, r.totalRecords];
+                let value = 0;
+                for (const c of candidates) {
+                  const n = Number(c);
+                  if (Number.isFinite(n) && n >= 0) {
+                    value = n;
+                    break;
+                  }
+                }
+                aggregate += value;
+              }
+
+              this.currentProjectStats = {
+                ...this.currentProjectStats,
+                totalTickets: aggregate,
+              };
+
+              this.statCards = buildClientStatCards(
+                this.currentProjectStats,
+                this.showFilters,
+                this.selectedProject,
+              );
+            },
+            error: () => {
+              // fallback to demo data
+              this.statCards = buildClientStatCards(
+                this.currentProjectStats,
+                this.showFilters,
+                this.selectedProject,
+              );
+            },
+          });
+        } else {
+          this.statCards = buildClientStatCards(
+            this.currentProjectStats,
+            this.showFilters,
+            this.selectedProject,
+          );
+        }
+      }
+    } else {
+      this.statCards = buildClientStatCards(
+        this.currentProjectStats,
+        this.showFilters,
+        this.selectedProject,
+      );
+    }
 
     // Optionally update widgets or other UI with allClientVehicles/allClientTickets
     this.widgets = this.buildWidgets();

@@ -491,7 +491,32 @@ export class DashboardProjectsService {
     vehicleId?: number | string;
     userId?: number;
   } = {}): Observable<DashboardTicketsDashboardResult> {
-    const httpParams = this.buildHttpParams(params);
+    // Normalize incoming ids so API receives numeric IDs when possible
+    const normalizedParams: Record<string, string | number | boolean | null | undefined> = { ...params };
+
+    if (normalizedParams['projectId'] !== undefined && normalizedParams['projectId'] !== null) {
+      const asString = String(normalizedParams['projectId'] ?? '').trim();
+      const normalizedProject = this.normalizeProjectId(asString);
+      if (normalizedProject) {
+        normalizedParams['projectId'] = normalizedProject;
+      } else {
+        const parsed = Number(asString);
+        normalizedParams['projectId'] = Number.isFinite(parsed) ? parsed : asString;
+      }
+    }
+
+    if (normalizedParams['vehicleId'] !== undefined && normalizedParams['vehicleId'] !== null) {
+      const asString = String(normalizedParams['vehicleId'] ?? '').trim();
+      const numericMatch = asString.match(/\d+/);
+      if (numericMatch) {
+        normalizedParams['vehicleId'] = numericMatch[0];
+      } else {
+        const parsed = Number(asString);
+        normalizedParams['vehicleId'] = Number.isFinite(parsed) ? parsed : asString;
+      }
+    }
+
+    const httpParams = this.buildHttpParams(normalizedParams);
     return this.http.get<DashboardTicketsDashboardResult>(`${this.apiBaseUrl}/tickets/dashboard`, {
       params: httpParams,
     });
