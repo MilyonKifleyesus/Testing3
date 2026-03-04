@@ -515,16 +515,99 @@ export const projectMagnitudeBubble = {
  * 14. Tickets by Status (Horizontal Bar Chart)
  */
 export const buildTicketsByStatusBar = (data?: TicketsByStatusData) => {
-  const categories = data?.categories ?? [
-    'Open Tickets',
-    'In Progress',
+  // If the backend supplies `ticketsByStatus` use it. Prefer ordering that
+  // matches the product's canonical statuses when present, otherwise fall
+  // back to the API-provided ordering or demo values.
+  const apiStatus = data?.ticketsByStatus ?? undefined;
+
+  // Canonical labels (exact order required for the product)
+  const canonical = [
+    'Open',
     'Resolved',
-    'Escalated',
+    'Client Verification',
+    'Approved with Defects',
+    'Rejected with Defects',
     'Closed',
-    'On Hold',
-    'Reopened'
   ];
-  const values = data?.values ?? [28.5, 22.3, 18.7, 12.4, 10.2, 5.1, 2.8];
+
+  // Use keyword-based matching (case-insensitive) to canonicalize API status labels.
+  // This handles many variants, spacing/typo differences, and compound labels.
+  const getCanonicalLabel = (rawLabel: string | null | undefined): string | null => {
+    const s = String(rawLabel ?? '').trim().toLowerCase();
+    if (!s) return null;
+
+    // Normalize punctuation and collapse whitespace for simpler substring checks
+    const normalized = s.replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+    // Priority-ordered keyword checks
+    const checks: Array<{ label: string; keywords: string[] }> = [
+      { label: 'Approved with Defects', keywords: ['approved with defects', 'approved w/ defects', 'approved', 'reviewdandapproved', 'reviewedandapproved', 'review and approved'] },
+      { label: 'Rejected with Defects', keywords: ['rejected with defects', 'rejected w/ defects', 'rejected'] },
+      { label: 'Client Verification', keywords: ['client verification', 'clientreview', 'client review', 'verification', 'client verification pending', 'client review pending'] },
+      { label: 'Resolved', keywords: ['resolved'] },
+      { label: 'Closed', keywords: ['closed'] },
+      { label: 'Open', keywords: ['open tickets', 'open', 'in progress', 'in-progress', 'in_progress', 'escalat', 'on hold', 'on-hold', 'on_hold', 'reopened', 're-opened', 're_opened'] },
+    ];
+
+    for (const chk of checks) {
+      for (const kw of chk.keywords) {
+        if (normalized.includes(kw)) return chk.label;
+      }
+    }
+
+    return null;
+  };
+
+  // Aggregate API values into canonical labels using keyword-based mapping when
+  // an array of status items is provided. Otherwise, produce canonical labels
+  // with zero counts. This ensures the widget never falls back to demo data.
+  const agg = new Map<string, number>();
+  if (Array.isArray(apiStatus) && apiStatus.length) {
+    for (const item of apiStatus) {
+      const raw = String(item?.name ?? '').trim();
+      if (!raw) continue;
+      const canonicalLabel = getCanonicalLabel(raw);
+      if (canonicalLabel) {
+        agg.set(canonicalLabel, (agg.get(canonicalLabel) ?? 0) + (Number(item?.value ?? 0) || 0));
+      }
+      // ignore unknown statuses for this canonical chart
+    }
+  }
+
+  // Always render canonical labels in the required order; zero-fill when absent
+  const categories = canonical.slice();
+  const values = canonical.map((label) => agg.get(label) ?? 0);
+
+  // Prepare percent series and keep absolute counts for tooltip when available.
+  // Only treat counts as "absolute" when the API supplied an array and the
+  // aggregated total is greater than zero. Otherwise render zeros for all
+  // percents (avoid divide-by-zero) and do not show absolute counts in tooltips.
+  const counts = values.slice();
+  const totalCount = counts.reduce((s, v) => s + (Number(v) || 0), 0);
+  const countsAreAbsolute = Array.isArray(apiStatus) && apiStatus.length > 0 && totalCount > 0;
+  const percentValues = totalCount > 0
+    ? counts.map((v) => (Number(v) || 0) / totalCount * 100)
+    : categories.map(() => 0);
+
+  // Formatter that truncates (does not round) and shows adaptive decimals.
+  const formatPercent = (raw: number) => {
+    const val = Number(raw) || 0;
+    if (val === 0) return '0%';
+    if (val >= 1) {
+      // For values >= 1%, show two decimals, truncated
+      const truncated = Math.floor(val * 100) / 100;
+      return truncated.toFixed(2) + '%';
+    }
+
+    // For values < 1%, show up to 6 decimals, truncated, trim trailing zeros
+    const multiplier = 1e6;
+    const truncated = Math.floor(val * multiplier) / multiplier;
+    let s = truncated.toFixed(6);
+    // trim trailing zeros and possibly trailing dot
+    s = s.replace(/(?:\.0+|0+)$/, (m) => m.replace(/0+$/, ''));
+    s = s.replace(/\.$/, '');
+    return s + '%';
+  };
 
   return {
     chart: {
@@ -544,7 +627,7 @@ export const buildTicketsByStatusBar = (data?: TicketsByStatusData) => {
     dataLabels: {
       enabled: true,
       formatter: function (val: number) {
-        return val + '%';
+        return formatPercent(val);
       },
       offsetX: 8,
       style: {
@@ -567,7 +650,7 @@ export const buildTicketsByStatusBar = (data?: TicketsByStatusData) => {
     series: [
       {
         name: 'Tickets (%)',
-        data: values
+        data: percentValues
       }
     ],
     colors: TICKETS_STATUS_BAR_COLOR,
@@ -578,7 +661,15 @@ export const buildTicketsByStatusBar = (data?: TicketsByStatusData) => {
     },
     tooltip: {
       y: {
-        formatter: function (val: number) { return val.toFixed(1) + '%'; },
+        formatter: function (val: number, opts?: any) {
+          const idx = opts?.dataPointIndex ?? 0;
+          const abs = counts[idx] ?? 0;
+          const pct = formatPercent(val);
+          if (countsAreAbsolute) {
+            return `${abs} (${pct})`;
+          }
+          return pct;
+        },
         title: { formatter: function () { return ''; } }
       }
     },

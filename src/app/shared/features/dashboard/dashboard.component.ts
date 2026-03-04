@@ -579,6 +579,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.updateProjectStatusChart(this.projects);
     this.statCards = buildAdminStatCards(source, totalProjects, this.totalVehiclesCount);
+    // Update Tickets by Status widget for admin view as well.
+    // If a project is selected, request project-scoped totals, otherwise request overall dashboard.
+    if (this.selectedProject && this.selectedProject !== 'all') {
+      this.dashboardProjectsService.getTicketsDashboard({ projectId: this.selectedProject }).subscribe({
+        next: (res) => this.updateTicketsByStatusWidgetFromApi(res),
+        error: () => { this.updateTicketsByStatusWidgetFromApi([]); },
+      });
+    } else if (this.selectedVehicle && this.selectedVehicle !== 'all') {
+      this.dashboardProjectsService.getTicketsDashboard({ vehicleId: this.selectedVehicle }).subscribe({
+        next: (res) => this.updateTicketsByStatusWidgetFromApi(res),
+        error: () => { this.updateTicketsByStatusWidgetFromApi([]); },
+      });
+    } else {
+      this.dashboardProjectsService.getTicketsDashboard().subscribe({
+        next: (res) => this.updateTicketsByStatusWidgetFromApi(res),
+        error: () => { this.updateTicketsByStatusWidgetFromApi([]); },
+      });
+    }
   }
 
   private refreshClientView(): void {
@@ -644,9 +662,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
               this.showFilters,
               this.selectedProject,
             );
+            // Update Tickets by Status widget from API response when available
+            this.updateTicketsByStatusWidgetFromApi(result);
           },
           error: () => {
-            // keep demo stats on error
+            // Show canonical zeros on API error
+            this.updateTicketsByStatusWidgetFromApi([]);
           },
         });
       } else {
@@ -674,9 +695,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
               this.showFilters,
               this.selectedProject,
             );
+            // Update Tickets by Status widget from API response when available
+            this.updateTicketsByStatusWidgetFromApi(result);
           },
           error: () => {
-            // keep demo stats on error
+            // Show canonical zeros on API error
+            this.updateTicketsByStatusWidgetFromApi([]);
           },
         });
       }
@@ -711,9 +735,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this.showFilters,
             this.selectedProject,
           );
+          // Update Tickets by Status widget from API response when available
+          this.updateTicketsByStatusWidgetFromApi(res);
         },
         error: () => {
-          // on error, keep existing (demo) stats
+          // Show canonical zeros on API error
+          this.updateTicketsByStatusWidgetFromApi([]);
         },
       });
     }
@@ -745,8 +772,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
               this.showFilters,
               this.selectedProject,
             );
+            // Update Tickets by Status widget from API response when available
+            this.updateTicketsByStatusWidgetFromApi(r);
           },
           error: () => {
+            // Show canonical zeros on API error and keep stat cards
+            this.updateTicketsByStatusWidgetFromApi([]);
             this.statCards = buildClientStatCards(
               this.currentProjectStats,
               this.showFilters,
@@ -791,9 +822,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 this.showFilters,
                 this.selectedProject,
               );
+              // Update Tickets by Status widget by aggregating per-project responses
+              this.updateTicketsByStatusWidgetFromApi(results);
             },
             error: () => {
-              // fallback to demo data
+              // On error, show canonical zeros and keep demo/stat cards
+              this.updateTicketsByStatusWidgetFromApi([]);
               this.statCards = buildClientStatCards(
                 this.currentProjectStats,
                 this.showFilters,
@@ -923,6 +957,43 @@ export class DashboardComponent implements OnInit, OnDestroy {
     ));
   }
 
+  private updateTicketsByStatusWidgetFromApi(payload: any | any[]): void {
+    if (!this.widgets.length) return;
+
+    // Temporary debug logging to help capture API payloads that cause the
+    // Tickets-by-Status widget to fall back to demo/demo values. Reproduce
+    // the failing selection and check the browser console for these entries.
+    try {
+      console.debug('[TicketsByStatus] raw payload:', payload, { project: this.selectedProject, vehicle: this.selectedVehicle });
+    } catch (e) {
+      // Ignore console failures in restricted environments
+    }
+
+    let combined: Array<{ name: string; value: number }> = [];
+
+    if (Array.isArray(payload)) {
+      for (const p of payload) {
+        const items = this.normalizeTicketsByStatusShape(p?.ticketsByStatus ?? p?.data?.ticketsByStatus ?? p?.ticketsByStatus?.items ?? null);
+        combined = combined.concat(items.map((it: any) => ({ name: String(it?.name ?? ''), value: Number(it?.value ?? 0) || 0 })));
+      }
+    } else {
+      const items = this.normalizeTicketsByStatusShape(payload?.ticketsByStatus ?? payload?.data?.ticketsByStatus ?? payload?.ticketsByStatus?.items ?? null);
+      combined = items.map((it: any) => ({ name: String(it?.name ?? ''), value: Number(it?.value ?? 0) || 0 }));
+    }
+
+    try {
+      console.debug('[TicketsByStatus] normalized combined:', combined);
+    } catch (e) {
+      // swallow
+    }
+
+    const chartOptions = busPulseData.buildTicketsByStatusBar({ ticketsByStatus: combined });
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-9' ? { ...widget, chartOptions } : widget
+    ));
+  }
+
   private getSelectedOrAllVisibleProjectIds(): string[] {
     const selectedProjectId = String(this.selectedProject ?? '').trim().toLowerCase();
     if (selectedProjectId && selectedProjectId !== 'all') {
@@ -932,6 +1003,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.projects
       .map((project) => String(project.id ?? '').trim())
       .filter((projectId) => !!projectId && projectId.toLowerCase() !== 'all');
+  }
+
+  private normalizeTicketsByStatusShape(input: any): Array<{ name: string; value: number }> {
+    // Accepts multiple shapes and returns an array of { name, value }.
+    if (!input && input !== 0) return [];
+
+    // If already an array of items
+    if (Array.isArray(input)) {
+      return input.map((it: any) => ({ name: String(it?.name ?? it?.label ?? ''), value: Number(it?.value ?? it?.count ?? 0) || 0 }));
+    }
+
+    // If it's an object map: { 'Open': 10, 'In Progress': 5 }
+    if (typeof input === 'object') {
+      // If it has categories/values shape
+      const categories = Array.isArray(input?.categories) ? input.categories : null;
+      const values = Array.isArray(input?.values) ? input.values : null;
+      if (categories && values && categories.length === values.length) {
+        return categories.map((c: any, i: number) => ({ name: String(c ?? ''), value: Number(values[i] ?? 0) || 0 }));
+      }
+
+      // Fallback: enumerate own keys
+      return Object.keys(input).map((k) => ({ name: String(k), value: Number((input as any)[k] ?? 0) || 0 }));
+    }
+
+    return [];
   }
 
   private buildWidgets(): DashboardWidget[] {

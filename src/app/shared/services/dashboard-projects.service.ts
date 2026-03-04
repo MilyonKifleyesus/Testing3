@@ -728,13 +728,11 @@ export class DashboardProjectsService {
 
     if (normalizedParams['vehicleId'] !== undefined && normalizedParams['vehicleId'] !== null) {
       const asString = String(normalizedParams['vehicleId'] ?? '').trim();
-      const numericMatch = asString.match(/\d+/);
-      if (numericMatch) {
-        normalizedParams['vehicleId'] = numericMatch[0];
-      } else {
-        const parsed = Number(asString);
-        normalizedParams['vehicleId'] = Number.isFinite(parsed) ? parsed : asString;
-      }
+      // Only convert to a numeric vehicleId when the entire string is numeric.
+      // Avoid extracting digit groups from alphanumeric external IDs
+      // (e.g. "SR3054-2607") because that causes incorrect API queries.
+      const parsed = Number(asString);
+      normalizedParams['vehicleId'] = Number.isFinite(parsed) ? parsed : asString;
     }
 
     const httpParams = this.buildHttpParams(normalizedParams);

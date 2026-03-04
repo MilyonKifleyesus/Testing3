@@ -63,9 +63,15 @@ export interface ProjectStats {
   vehicles: VehicleStats[];
 }
 
+export interface TicketStatusItem {
+  name: string;
+  value: number;
+}
+
 export interface TicketsByStatusData {
-  categories: string[];
-  values: number[];
+  categories?: string[];
+  values?: number[];
+  ticketsByStatus?: TicketStatusItem[];
 }
 
 export interface RecentActivity {
