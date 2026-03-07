@@ -68,6 +68,8 @@ type PaginationItem = number;
 export class TicketsComponent implements OnInit {
   readonly paginationEllipsis = PAGINATION_ELLIPSIS;
   showColumnMenu = false;
+  sortColumn: keyof TicketRow | '' = '';
+  sortDirection: 'asc' | 'desc' = 'asc';
   tickets: TicketRow[] = [];
   filteredTickets: TicketRow[] = [];
   private vehicleClientIdMap = new Map<string, string>();
@@ -645,6 +647,17 @@ export class TicketsComponent implements OnInit {
     this.fetchTicketsFromApi();
   }
 
+  sortTickets(column: keyof TicketRow): void {
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortColumn = column;
+      this.sortDirection = 'asc';
+    }
+
+    this.applyFilters();
+  }
+
   applyFilters(): void {
     this.filteredTickets = this.tickets.filter(t => {
       const search = this.filters.search?.toLowerCase() || '';
@@ -656,6 +669,27 @@ export class TicketsComponent implements OnInit {
         (t.client?.toLowerCase().includes(search) || false);
       return matchesSearch;
     });
+
+    if (this.sortColumn) {
+      const column = this.sortColumn;
+      this.filteredTickets.sort((left, right) => {
+        const leftValue = left[column];
+        const rightValue = right[column];
+
+        const leftComparable = this.toComparableValue(leftValue);
+        const rightComparable = this.toComparableValue(rightValue);
+
+        if (leftComparable < rightComparable) {
+          return this.sortDirection === 'asc' ? -1 : 1;
+        }
+
+        if (leftComparable > rightComparable) {
+          return this.sortDirection === 'asc' ? 1 : -1;
+        }
+
+        return 0;
+      });
+    }
 
     if (this.currentPage > this.totalPages) {
       this.currentPage = this.totalPages;
@@ -768,5 +802,24 @@ export class TicketsComponent implements OnInit {
     if (value === null || value === undefined) return '-';
     const text = String(value).trim();
     return text ? text : '-';
+  }
+
+  private toComparableValue(value: unknown): string | number {
+    if (value === null || value === undefined) return '';
+
+    if (typeof value === 'boolean') {
+      return value ? 1 : 0;
+    }
+
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    const date = new Date(String(value));
+    if (!Number.isNaN(date.getTime())) {
+      return date.getTime();
+    }
+
+    return String(value).toLowerCase();
   }
 }

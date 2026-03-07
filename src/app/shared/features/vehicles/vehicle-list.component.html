@@ -58,21 +58,41 @@
   <div class="row">
     <div class="col-xl-12">
       <div class="card custom-card">
-        <div class="card-header justify-content-between">
-          <div class="card-title">
-            Vehicle List
-            <span class="badge bg-primary-transparent ms-2">{{filteredVehicles.length}} vehicles</span>
+        <div class="card-header d-flex justify-content-between">
+          <div class="card-title">Vehicle List</div>
+          <div class="d-flex align-items-center">
+            <div class="me-3">
+              <input
+                class="form-control form-control-sm"
+                type="text"
+                placeholder="Search Vehicles..."
+                aria-label="Search"
+                [(ngModel)]="searchTerm"
+                (ngModelChange)="filterVehicles()">
+            </div>
+            <span class="badge bg-primary-transparent">{{ filteredVehicles.length }} vehicles</span>
           </div>
         </div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table text-nowrap table-hover">
+        <div class="card-body project-table-body">
+          <div *ngIf="isLoadingVehicles" class="project-loader-overlay">
+            <div class="d-flex flex-column align-items-center justify-content-center py-5">
+              <div class="spinner-border text-success" role="status" aria-label="Loading vehicles">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="text-success mt-3 mb-0 fw-semibold">Loading vehicle data...</p>
+            </div>
+          </div>
+
+          <ng-container *ngIf="!isLoadingVehicles">
+            <div class="table-responsive">
+              <table class="table text-nowrap table-hover border table-bordered">
               <thead>
                 <tr>
                   <th scope="col" class="text-center" style="width: 80px;">
                     <i class="ti ti-photo"></i>
                   </th>
                   <th scope="col" (click)="sortVehicles('client')" style="cursor:pointer">Client <span *ngIf="sortColumn === 'client'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('project')" style="cursor:pointer">Project <span *ngIf="sortColumn === 'project'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th scope="col" (click)="sortVehicles('fleetNumber')" style="cursor:pointer">Fleet Number <span *ngIf="sortColumn === 'fleetNumber'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th scope="col" (click)="sortVehicles('make')" style="cursor:pointer">Make <span *ngIf="sortColumn === 'make'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th scope="col" (click)="sortVehicles('model')" style="cursor:pointer">Model <span *ngIf="sortColumn === 'model'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
@@ -84,8 +104,11 @@
                   <th scope="col" class="text-center">Action</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr *ngFor="let vehicle of paginatedVehicles" class="vehicle-row">
+                <tbody>
+                  <tr *ngIf="paginatedVehicles.length === 0">
+                    <td colspan="12" class="text-center text-muted">No vehicles found.</td>
+                  </tr>
+                  <tr *ngFor="let vehicle of paginatedVehicles" class="vehicle-row">
                   <!-- Image -->
                   <td class="text-center">
                     <div class="vehicle-thumbnail">
@@ -96,6 +119,11 @@
                   <!-- Client -->
                   <td>
                     <span class="badge bg-info-transparent">{{vehicle.client}}</span>
+                  </td>
+
+                  <!-- Project -->
+                  <td>
+                    <span class="badge bg-primary-transparent">{{ vehicle.project || '-' }}</span>
                   </td>
                   
                   <!-- Fleet Number -->
@@ -125,10 +153,7 @@
                   
                   <!-- Propulsion -->
                   <td>
-                    <span class="badge bg-success-transparent" 
-                          [class.bg-success-transparent]="vehicle.propulsion === 'Hybrid' || vehicle.propulsion === 'Electric'"
-                          [class.bg-warning-transparent]="vehicle.propulsion === 'CNG'"
-                          [class.bg-secondary-transparent]="vehicle.propulsion === 'Diesel'">
+                    <span [class]="getPropulsionBadgeClass(vehicle.propulsion)">
                       <i class="ti ti-bolt me-1"></i>{{vehicle.propulsion}}
                     </span>
                   </td>
@@ -170,21 +195,13 @@
                       </button>
                     </div>
                   </td>
-                </tr>
-              </tbody>
-            </table>
-            
-            <!-- Empty State -->
-            <div *ngIf="filteredVehicles.length === 0" class="text-center py-5">
-              <div class="mb-3">
-                <i class="ti ti-car-off fs-1 text-muted"></i>
-              </div>
-              <h5 class="text-muted">No vehicles found</h5>
-              <p class="text-muted">Try adjusting your search or filter criteria</p>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </div>
+          </ng-container>
         </div>
-        <div class="card-footer">
+        <div class="card-footer" *ngIf="!isLoadingVehicles">
           <div class="d-flex align-items-center">
             <div>
               Showing {{ pageStartItem }} to {{ pageEndItem }} of {{ filteredVehicles.length }} Entries

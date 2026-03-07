@@ -75,7 +75,7 @@
 
   <!-- Table Card -->
   <div class="card custom-card">
-    <div class="card-body p-0">
+    <div class="card-body project-table-body p-0">
       <div *ngIf="isLoadingTickets" class="d-flex flex-column align-items-center justify-content-center py-5">
         <div class="spinner-border text-primary" role="status" aria-label="Loading tickets">
           <span class="visually-hidden">Loading...</span>
@@ -84,24 +84,24 @@
       </div>
 
       <div class="table-responsive" *ngIf="!isLoadingTickets">
-        <table class="table table-hover align-middle mb-0">
+        <table class="table text-nowrap table-hover border table-bordered align-middle mb-0">
           <thead>
             <tr>
               <th style="width: 48px;" class="text-center"><input type="checkbox" class="form-check-input" [checked]="allSelected" (change)="toggleAll($event)"></th>
-              <th *ngIf="isColumnVisible('id')">Ticket #</th>
-              <th *ngIf="isColumnVisible('client')">Client</th>
-              <th *ngIf="isColumnVisible('status')">Status</th>
-              <th *ngIf="isColumnVisible('project')">Project</th>
-              <th *ngIf="isColumnVisible('vehicle')">Vehicle</th>
-              <th *ngIf="isColumnVisible('safetyCritical')">Safety Critical</th>
-              <th *ngIf="isColumnVisible('repeater')">Repeater</th>
-              <th *ngIf="isColumnVisible('createdDate')">Created Date</th>
-              <th *ngIf="isColumnVisible('defectType')">Defect Type</th>
-              <th *ngIf="isColumnVisible('description')">Description</th>
-              <th *ngIf="isColumnVisible('hasImages')">Images</th>
-              <th *ngIf="isColumnVisible('assignedBy')">Assign By</th>
-              <th *ngIf="isColumnVisible('assignedTo')">Assign To</th>
-              <th *ngIf="isColumnVisible('station')">Station</th>
+              <th *ngIf="isColumnVisible('id')" (click)="sortTickets('id')" style="cursor:pointer">Ticket # <span *ngIf="sortColumn === 'id'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('client')" (click)="sortTickets('client')" style="cursor:pointer">Client <span *ngIf="sortColumn === 'client'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('status')" (click)="sortTickets('status')" style="cursor:pointer">Status <span *ngIf="sortColumn === 'status'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('project')" (click)="sortTickets('project')" style="cursor:pointer">Project <span *ngIf="sortColumn === 'project'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('vehicle')" (click)="sortTickets('vehicle')" style="cursor:pointer">Vehicle <span *ngIf="sortColumn === 'vehicle'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('safetyCritical')" (click)="sortTickets('safetyCritical')" style="cursor:pointer">Safety Critical <span *ngIf="sortColumn === 'safetyCritical'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('repeater')" (click)="sortTickets('repeater')" style="cursor:pointer">Repeater <span *ngIf="sortColumn === 'repeater'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('createdDate')" (click)="sortTickets('createdDate')" style="cursor:pointer">Created Date <span *ngIf="sortColumn === 'createdDate'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('defectType')" (click)="sortTickets('defectType')" style="cursor:pointer">Defect Type <span *ngIf="sortColumn === 'defectType'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('description')" (click)="sortTickets('description')" style="cursor:pointer">Description <span *ngIf="sortColumn === 'description'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('hasImages')" (click)="sortTickets('hasImages')" style="cursor:pointer">Images <span *ngIf="sortColumn === 'hasImages'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('assignedBy')" (click)="sortTickets('assignedBy')" style="cursor:pointer">Assign By <span *ngIf="sortColumn === 'assignedBy'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('assignedTo')" (click)="sortTickets('assignedTo')" style="cursor:pointer">Assign To <span *ngIf="sortColumn === 'assignedTo'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('station')" (click)="sortTickets('station')" style="cursor:pointer">Station <span *ngIf="sortColumn === 'station'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
             </tr>
           </thead>
           <tbody>

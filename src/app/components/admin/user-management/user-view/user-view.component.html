@@ -56,7 +56,7 @@
           <div class="text-start">
             <div class="mb-3">
               <p class="mb-1 text-muted fs-12">Email</p>
-              <p class="mb-0 fw-semibold fs-14">{{ user.email }}</p>
+              <p class="mb-0 fw-semibold fs-14">{{ user.email || 'Not provided' }}</p>
             </div>
             <div class="mb-3">
               <p class="mb-1 text-muted fs-12">Phone</p>
@@ -65,6 +65,10 @@
             <div class="mb-3">
               <p class="mb-1 text-muted fs-12">User ID</p>
               <p class="mb-0 fw-semibold fs-14">#{{ user.id }}</p>
+            </div>
+            <div class="mb-3">
+              <p class="mb-1 text-muted fs-12">Client ID</p>
+              <p class="mb-0 fw-semibold fs-14">{{ user.clientId || '0' }}</p>
             </div>
             <div *ngIf="user.client" class="mb-3">
               <p class="mb-1 text-muted fs-12">Client</p>
@@ -114,7 +118,7 @@
             </div>
             <div class="col-xl-6">
               <label class="form-label fw-semibold text-muted fs-12">Email Address</label>
-              <p class="fw-semibold fs-15">{{ user.email }}</p>
+              <p class="fw-semibold fs-15">{{ user.email || 'Not provided' }}</p>
             </div>
             <div class="col-xl-6">
               <label class="form-label fw-semibold text-muted fs-12">Phone Number</label>
@@ -125,8 +129,8 @@
               <p class="fw-semibold fs-15">{{ user.address || 'Not provided' }}</p>
             </div>
             <div class="col-xl-6">
-              <label class="form-label fw-semibold text-muted fs-12">Created Date</label>
-              <p class="fw-semibold fs-15">{{ user.createdDate }}</p>
+              <label class="form-label fw-semibold text-muted fs-12">Updated At</label>
+              <p class="fw-semibold fs-15">{{ user.updatedAt || user.createdDate || '—' }}</p>
             </div>
             <div class="col-xl-6">
               <label class="form-label fw-semibold text-muted fs-12">Last Login</label>

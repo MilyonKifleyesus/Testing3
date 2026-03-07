@@ -2,6 +2,12 @@ export type PaginationItem = number;
 
 export const PAGINATION_ELLIPSIS = -1;
 
+export function calculateTotalPages(totalCount: number, pageSize: number): number {
+  const total = Math.max(0, Math.floor(totalCount));
+  const size = Math.max(1, Math.floor(pageSize));
+  return Math.max(1, Math.ceil(total / size));
+}
+
 export function buildPaginationItems(
   totalPages: number,
   currentPage: number,

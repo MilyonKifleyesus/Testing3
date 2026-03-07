@@ -1,4 +1,4 @@
-import { catchError, forkJoin, map, of, take } from 'rxjs';
+import { catchError, firstValueFrom, forkJoin, from, map, of, take } from 'rxjs';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
@@ -44,31 +44,530 @@ function normalizeId(value: unknown): string {
   styleUrl: './vehicle-list.component.scss'
 })
 export class VehicleListComponent implements OnInit {
+  private readonly projectVehiclesFetchPageSize = 250;
+  private readonly maxProjectVehiclePages = 500;
+  private readonly projectEnrichmentConcurrency = 6;
+  private vehiclesRequestVersion = 0;
+  private readonly allVehiclesEnrichedCache = new Map<string, unknown[]>();
+  private readonly projectVehiclesCache = new Map<string, unknown[]>();
+
         /** Called when client filter changes */
         onClientChange(): void {
-          this.filterVehicles();
+          const clientId = this.getSelectedClientIdForRequest();
+          this.selectedProject = 'all';
+          this.loadProjectsForDropdown(clientId);
         }
 
         /** Called when project filter changes */
         onProjectChange(): void {
-          this.filterVehicles();
+          this.loadVehicles();
         }
       projects: SelectOption[] = [];
 
-      // Stub for admin client loading
       loadClientsForAdmin(): void {
-        // TODO: Implement admin client loading logic
+        this.clientService.getClients()
+          .pipe(
+            take(1),
+            catchError((error) => {
+              console.error('Failed to load clients for vehicle filters:', error);
+              return of([] as Array<{ id: string; name: string }>);
+            }),
+          )
+          .subscribe((clients) => {
+            const mappedClients = clients
+              .map((client) => ({
+                id: String(client.id ?? '').trim(),
+                name: String(client.name ?? '').trim(),
+              }))
+              .filter((client) => client.id.length > 0 && client.name.length > 0)
+              .sort((left, right) => left.name.localeCompare(right.name));
+
+            this.clients = mappedClients;
+          });
       }
 
-      // Stub for vehicle loading
       loadVehicles(): void {
-        // TODO: Implement vehicle loading logic
+        const requestVersion = ++this.vehiclesRequestVersion;
+        this.isLoadingVehicles = true;
+
+        const clientId = this.getSelectedClientIdForRequest();
+        const selectedProjectId = Number(String(this.selectedProject ?? '').trim());
+        const hasSelectedProject = this.selectedProject !== 'all' && Number.isFinite(selectedProjectId) && selectedProjectId > 0;
+
+        const projectIds = this.projects
+          .map((project) => Number(String(project.id ?? '').trim()))
+          .filter((projectId) => Number.isFinite(projectId) && projectId > 0);
+
+        const vehiclesPromise = hasSelectedProject
+          ? this.getCachedProjectVehicles(selectedProjectId, clientId)
+          : this.getCachedAllVehiclesEnriched(clientId, projectIds);
+
+        from(vehiclesPromise)
+          .pipe(take(1))
+          .subscribe((items) => {
+            if (requestVersion !== this.vehiclesRequestVersion) {
+              return;
+            }
+
+            this.vehicles = this.mapApiVehicles(Array.isArray(items) ? items : [], hasSelectedProject ? selectedProjectId : undefined);
+            this.filterVehicles();
+            this.totalVehicles = this.vehicles.length;
+            this.updateTicketsCard(clientId);
+            this.isLoadingVehicles = false;
+          }, () => {
+            if (requestVersion !== this.vehiclesRequestVersion) {
+              return;
+            }
+
+            this.vehicles = [];
+            this.filterVehicles();
+            this.totalVehicles = 0;
+            this.updateTicketsCard(clientId);
+            this.isLoadingVehicles = false;
+          });
       }
 
-      // Stub for client id selection
+      private getClientScopeCacheKey(clientId?: number): string {
+        return typeof clientId === 'number' && clientId > 0 ? String(clientId) : 'all';
+      }
+
+      private getCachedProjectVehicles(projectId: number, clientId?: number): Promise<unknown[]> {
+        const cacheKey = `${this.getClientScopeCacheKey(clientId)}|${projectId}`;
+        const cached = this.projectVehiclesCache.get(cacheKey);
+        if (cached) {
+          return Promise.resolve(cached);
+        }
+
+        return this.fetchAllProjectVehicles(projectId, clientId).then((items) => {
+          this.projectVehiclesCache.set(cacheKey, items);
+          return items;
+        });
+      }
+
+      private getCachedAllVehiclesEnriched(clientId: number | undefined, projectIds: number[]): Promise<unknown[]> {
+        const normalizedProjectIds = [...projectIds].sort((left, right) => left - right);
+        const cacheKey = `${this.getClientScopeCacheKey(clientId)}|${normalizedProjectIds.join(',')}`;
+        const cached = this.allVehiclesEnrichedCache.get(cacheKey);
+        if (cached) {
+          return Promise.resolve(cached);
+        }
+
+        return this.fetchAllVehiclesEnrichedByProjects(clientId, normalizedProjectIds).then((items) => {
+          this.allVehiclesEnrichedCache.set(cacheKey, items);
+          return items;
+        });
+      }
+
+      private async fetchAllVehiclesEnrichedByProjects(clientId?: number, projectIds?: number[]): Promise<unknown[]> {
+        const effectiveProjectIds = projectIds && projectIds.length > 0
+          ? projectIds
+          : this.projects
+              .map((project) => Number(String(project.id ?? '').trim()))
+              .filter((projectId) => Number.isFinite(projectId) && projectId > 0);
+
+        if (effectiveProjectIds.length === 0) {
+          return this.fetchAllVehicles(clientId);
+        }
+
+        const projectItems: unknown[] = [];
+        for (let index = 0; index < effectiveProjectIds.length; index += this.projectEnrichmentConcurrency) {
+          const batch = effectiveProjectIds.slice(index, index + this.projectEnrichmentConcurrency);
+          const batchResults = await Promise.all(
+            batch.map((projectId) => this.getCachedProjectVehicles(projectId, clientId)),
+          );
+
+          batchResults.forEach((items, batchIndex) => {
+            const projectId = batch[batchIndex];
+            if (Array.isArray(items) && items.length > 0) {
+              projectItems.push(...items.map((item) => this.ensureProjectIdOnVehicleItem(item, projectId)));
+            }
+          });
+        }
+
+        return projectItems;
+      }
+
+      private ensureProjectIdOnVehicleItem(item: unknown, projectId: number): unknown {
+        if (!item || typeof item !== 'object') {
+          return item;
+        }
+
+        const source = item as Record<string, unknown>;
+        if (
+          source['projectId'] !== undefined ||
+          source['ProjectId'] !== undefined ||
+          source['projectID'] !== undefined ||
+          source['project_id'] !== undefined
+        ) {
+          return item;
+        }
+
+        return {
+          ...source,
+          projectId,
+          ProjectId: projectId,
+        };
+      }
+
+      private async fetchAllVehicles(clientId?: number): Promise<unknown[]> {
+        const items: unknown[] = [];
+        let page = 1;
+
+        while (page <= this.maxProjectVehiclePages) {
+          const pageItems = await firstValueFrom(
+            this.clientDashboardService
+              .getVehicles({
+                ...(typeof clientId === 'number' ? { clientId } : {}),
+                page,
+                pageSize: this.projectVehiclesFetchPageSize,
+              })
+              .pipe(
+                map((response) => extractArrayFromApiResponse(response)),
+                map((result) => (Array.isArray(result) ? result : [])),
+                catchError((error) => {
+                  console.error(`Failed to load vehicles page ${page}:`, error);
+                  return of([] as unknown[]);
+                }),
+              ),
+          );
+
+          if (pageItems.length === 0) {
+            break;
+          }
+
+          items.push(...pageItems);
+
+          page += 1;
+        }
+
+        return items;
+      }
+
+      private async fetchAllProjectVehicles(projectId: number, clientId?: number): Promise<unknown[]> {
+        const primaryItems = await this.fetchProjectVehiclesFromProjectApi(projectId, clientId);
+
+        // Avoid a second full crawl when the project endpoint already returned data.
+        if (primaryItems.length > 0) {
+          return primaryItems;
+        }
+
+        return this.fetchAllVehiclesByProjectFromVehiclesApi(projectId, clientId);
+      }
+
+      private async fetchProjectVehiclesFromProjectApi(projectId: number, clientId?: number): Promise<unknown[]> {
+        const items: unknown[] = [];
+        let page = 1;
+        let noGrowthCount = 0;
+        const seenVehicleIds = new Set<string>();
+
+        while (page <= this.maxProjectVehiclePages) {
+          const pageItems = await firstValueFrom(
+            this.clientDashboardService
+              .getProjectVehicles(projectId, {
+                ...(typeof clientId === 'number' ? { clientId } : {}),
+                page,
+                pageSize: this.projectVehiclesFetchPageSize,
+              })
+              .pipe(
+                map((response) => extractArrayFromApiResponse(response)),
+                map((result) => (Array.isArray(result) ? result : [])),
+                catchError((error) => {
+                  console.error(`Failed to load vehicles for project ${projectId} page ${page}:`, error);
+                  return of([] as unknown[]);
+                }),
+              ),
+          );
+
+          if (pageItems.length === 0) {
+            break;
+          }
+
+          items.push(...pageItems);
+
+          let addedCount = 0;
+          pageItems.forEach((item) => {
+            const vehicleId = String(
+              getFirstDefinedValue(item, ['id', 'vehicleId', 'vehicleID', 'VehicleId', 'VehicleID', 'assetId', 'AssetId']) ?? '',
+            ).trim();
+
+            if (!vehicleId) {
+              return;
+            }
+
+            if (!seenVehicleIds.has(vehicleId)) {
+              seenVehicleIds.add(vehicleId);
+              addedCount += 1;
+            }
+          });
+
+          if (addedCount === 0) {
+            noGrowthCount += 1;
+          } else {
+            noGrowthCount = 0;
+          }
+
+          if (noGrowthCount >= 2) {
+            break;
+          }
+
+          page += 1;
+        }
+
+        return items;
+      }
+
+      private async fetchAllVehiclesByProjectFromVehiclesApi(projectId: number, clientId?: number): Promise<unknown[]> {
+        const items: unknown[] = [];
+        let page = 1;
+        let noGrowthCount = 0;
+        const seenVehicleIds = new Set<string>();
+
+        while (page <= this.maxProjectVehiclePages) {
+          const pageItems = await firstValueFrom(
+            this.clientDashboardService
+              .getVehicles({
+                ...(typeof clientId === 'number' ? { clientId } : {}),
+                page,
+                pageSize: this.projectVehiclesFetchPageSize,
+                projectId,
+              } as any)
+              .pipe(
+                map((response) => extractArrayFromApiResponse(response)),
+                map((result) => (Array.isArray(result) ? result : [])),
+                catchError(() =>
+                  this.clientDashboardService
+                    .getVehicles({
+                      ...(typeof clientId === 'number' ? { clientId } : {}),
+                      page,
+                      pageSize: this.projectVehiclesFetchPageSize,
+                      ProjectId: projectId,
+                    } as any)
+                    .pipe(
+                      map((response) => extractArrayFromApiResponse(response)),
+                      map((result) => (Array.isArray(result) ? result : [])),
+                      catchError((error) => {
+                        console.error(`Failed to load Vehicles API fallback for project ${projectId} page ${page}:`, error);
+                        return of([] as unknown[]);
+                      }),
+                    ),
+                ),
+              ),
+          );
+
+          if (pageItems.length === 0) {
+            break;
+          }
+
+          items.push(...pageItems);
+
+          let addedCount = 0;
+          pageItems.forEach((item) => {
+            const vehicleId = String(
+              getFirstDefinedValue(item, ['id', 'vehicleId', 'vehicleID', 'VehicleId', 'VehicleID', 'assetId', 'AssetId']) ?? '',
+            ).trim();
+
+            if (!vehicleId) {
+              return;
+            }
+
+            if (!seenVehicleIds.has(vehicleId)) {
+              seenVehicleIds.add(vehicleId);
+              addedCount += 1;
+            }
+          });
+
+          if (addedCount === 0) {
+            noGrowthCount += 1;
+          } else {
+            noGrowthCount = 0;
+          }
+
+          if (noGrowthCount >= 2) {
+            break;
+          }
+
+          page += 1;
+        }
+
+        return items;
+      }
+
+      private mapApiVehicles(items: unknown[], forcedProjectId?: number): Vehicle[] {
+        const projectNameById = new Map<string, string>();
+        this.projects.forEach((project) => {
+          const id = String(project.id ?? '').trim();
+          const name = String(project.name ?? '').trim();
+          if (id && name) {
+            projectNameById.set(id, name);
+          }
+        });
+
+        const mappedVehicles = items
+          .map((item): Vehicle | null => {
+            const id = Number(getFirstDefinedValue(item, ['id', 'vehicleId', 'vehicleID', 'assetId', 'AssetId']) ?? 0);
+            if (!Number.isFinite(id) || id <= 0) {
+              return null;
+            }
+
+            const clientId = String(
+              getFirstDefinedValue(item, ['clientId', 'ClientId', 'clientID', 'client_id']) ?? '',
+            ).trim();
+            const rawProjectId = String(
+              getFirstDefinedValue(item, ['projectId', 'ProjectId', 'projectID', 'project_id']) ?? '',
+            ).trim();
+
+            const projectId = rawProjectId || (typeof forcedProjectId === 'number' ? String(forcedProjectId) : '');
+
+            const fallbackClientName = toText(
+              getFirstDefinedValue(item, ['clientName', 'ClientName', 'client']),
+              '-',
+            );
+
+            const resolvedProjectName =
+              projectNameById.get(projectId) ??
+              toOptionalText(getFirstDefinedValue(item, ['projectName', 'ProjectName', 'project'])) ??
+              '-';
+
+            const statusRaw = String(getFirstDefinedValue(item, ['status', 'inspectionStatus']) ?? '').trim().toLowerCase();
+            const status: Vehicle['status'] =
+              statusRaw === 'completed' || statusRaw === 'complete' || statusRaw === 'closed'
+                ? 'completed'
+                : statusRaw === 'in-progress' || statusRaw === 'inprogress' || statusRaw === 'ongoing'
+                ? 'in-progress'
+                : 'pending';
+
+            return {
+              id,
+              clientId: clientId || undefined,
+              client: this.clientService.resolveClientName(clientId, fallbackClientName),
+              projectId: projectId || undefined,
+              project: resolvedProjectName,
+              fleetNumber: toText(
+                getFirstDefinedValue(item, ['fleetNumber', 'FleetNumber', 'fleetNo', 'vehicleNumber', 'assetNumber']),
+                '-',
+              ),
+              make: toText(getFirstDefinedValue(item, ['make', 'Make', 'manufacturer']), '-'),
+              model: toText(getFirstDefinedValue(item, ['model', 'Model']), '-'),
+              vin: toText(getFirstDefinedValue(item, ['vin', 'VIN', 'vehicleVin']), '-'),
+              mileageType: toText(getFirstDefinedValue(item, ['mileageType', 'MileageType', 'odometerType']), '-'),
+              propulsion: toText(
+                getFirstDefinedValue(item, ['propulsionTypeName', 'PropulsionTypeName', 'propulsion', 'Propulsion', 'fuelType', 'FuelType']),
+                '-',
+              ),
+              status,
+              imageUrl: toText(
+                getFirstDefinedValue(item, ['imageUrl', 'vehicleImage', 'thumbnailUrl', 'photoUrl']),
+                'assets/images/faces/1.jpg',
+              ),
+              inspectionDate: toOptionalText(getFirstDefinedValue(item, ['inspectionDate', 'updatedAt', 'createdAt'])) ?? undefined,
+              inspector: toOptionalText(getFirstDefinedValue(item, ['inspectorName', 'inspector', 'assignedTo'])) ?? undefined,
+            };
+          })
+          .filter((vehicle): vehicle is Vehicle => vehicle !== null);
+
+        const hasValue = (value: string | undefined): boolean => {
+          const text = String(value ?? '').trim();
+          return text.length > 0 && text !== '-';
+        };
+
+        const choose = (left: string | undefined, right: string | undefined): string | undefined => {
+          if (hasValue(right)) {
+            return right;
+          }
+          return left;
+        };
+
+        const uniqueById = new Map<number, Vehicle>();
+        mappedVehicles.forEach((vehicle) => {
+          const existing = uniqueById.get(vehicle.id);
+          if (!existing) {
+            uniqueById.set(vehicle.id, vehicle);
+            return;
+          }
+
+          uniqueById.set(vehicle.id, {
+            ...existing,
+            ...vehicle,
+            fleetNumber: choose(existing.fleetNumber, vehicle.fleetNumber) ?? '-',
+            make: choose(existing.make, vehicle.make) ?? '-',
+            model: choose(existing.model, vehicle.model) ?? '-',
+            propulsion: choose(existing.propulsion, vehicle.propulsion) ?? '-',
+            mileageType: choose(existing.mileageType, vehicle.mileageType) ?? '-',
+            vin: choose(existing.vin, vehicle.vin) ?? '-',
+          });
+        });
+
+        return Array.from(uniqueById.values());
+      }
+
       getSelectedClientIdForRequest(): number | undefined {
-        // TODO: Implement client id selection logic
+        const selectedClientId = String(this.selectedClient ?? '').trim();
+        if (selectedClientId && selectedClientId.toLowerCase() !== 'all') {
+          const parsedSelected = Number(selectedClientId);
+          return Number.isFinite(parsedSelected) && parsedSelected > 0 ? parsedSelected : undefined;
+        }
+
+        if (!this.isAdminPortal && this.scopedClientId) {
+          const parsedScoped = Number(this.scopedClientId);
+          return Number.isFinite(parsedScoped) && parsedScoped > 0 ? parsedScoped : undefined;
+        }
+
         return undefined;
+      }
+
+      private loadProjectsForDropdown(clientId?: number): void {
+        const effectiveClientId = this.isAdminPortal ? clientId : this.getSelectedClientIdForRequest();
+
+        this.clientDashboardService
+          .getProjects({
+            ...(typeof effectiveClientId === 'number' ? { clientId: effectiveClientId } : {}),
+            page: 1,
+            pageSize: 5000,
+          })
+          .pipe(
+            map((response) => extractArrayFromApiResponse(response)),
+            map((items: unknown[]) =>
+              items
+                .map((item): SelectOption | null => {
+                  const id = String(
+                    getFirstDefinedValue(item, ['id', 'projectId', 'projectID', 'ProjectId', 'ProjectID', 'project_id']) ?? '',
+                  ).trim();
+                  const name = String(getFirstDefinedValue(item, ['projectName', 'name', 'title', 'projectCode']) ?? '').trim();
+                  if (!id || !name) {
+                    return null;
+                  }
+
+                  return { id, name };
+                })
+                .filter((project): project is SelectOption => project !== null),
+            ),
+            catchError((error) => {
+              console.error('Failed to load projects for vehicle filters:', error);
+              return of([] as SelectOption[]);
+            }),
+            take(1),
+          )
+          .subscribe((projects) => {
+            const uniqueById = new Map<string, SelectOption>();
+            projects.forEach((project) => {
+              if (!uniqueById.has(project.id)) {
+                uniqueById.set(project.id, project);
+              }
+            });
+
+            this.projects = Array.from(uniqueById.values())
+              .sort((left, right) => left.name.localeCompare(right.name));
+
+            const selectedProjectExists =
+              this.selectedProject === 'all' ||
+              this.projects.some((project) => normalizeId(project.id) === normalizeId(this.selectedProject));
+
+            if (!selectedProjectExists) {
+              this.selectedProject = 'all';
+            }
+
+            this.loadVehicles();
+          });
       }
     get isAdminPortal(): boolean {
       return this.portalPrefix === '/admin';
@@ -109,56 +608,40 @@ export class VehicleListComponent implements OnInit {
   totalTickets: number = 0;
   ticketStatusFilter: 'all' | 'open' | 'closed' = 'all';
   statCards: Array<{ label: string; value: number; icon: string }> = [];
+  isLoadingVehicles: boolean = false;
 
   ngOnInit(): void {
     if (this.isAdminPortal) {
       this.loadClientsForAdmin();
+      this.loadProjectsForDropdown();
     } else {
       if (this.scopedClientId) {
-        this.clientService.getClients().pipe(take(1)).subscribe((clients: any[]) => {
-          const found = clients.find((c: any) => String(c.id) === String(this.scopedClientId));
-          if (found) {
-            this.clients = [{ id: String(found.id), name: found.name }];
-            this.selectedClient = String(found.id);
-            this.clientDashboardService.getProjects({ clientId: Number(found.id), page: 1, pageSize: 5000 })
-              .pipe(
-                map((response) => extractArrayFromApiResponse(response)),
-                map((items: any[]) =>
-                  items
-                    .map((item: any): SelectOption | null => {
-                      const id = String(
-                        getFirstDefinedValue(item, ['id', 'projectId', 'projectID', 'ProjectId', 'ProjectID', 'project_id']) ?? '',
-                      ).trim();
-                      const name = String(getFirstDefinedValue(item, ['projectName', 'name', 'title', 'projectCode']) ?? '').trim();
-                      if (!id || !name) return null;
-                      return { id, name };
-                    })
-                    .filter((project: SelectOption | null): project is SelectOption => project !== null),
-                ),
-                catchError((error) => {
-                  console.error('Failed to load projects for client:', error);
-                  return of([] as SelectOption[]);
-                }),
-                take(1),
-              )
-              .subscribe((projects: SelectOption[]) => {
-                const uniqueById = new Map<string, SelectOption>();
-                projects.forEach((project: SelectOption) => {
-                  if (!uniqueById.has(project.id)) {
-                    uniqueById.set(project.id, project);
-                  }
-                });
-                const validProjects = Array.from(uniqueById.values())
-                  .filter(p => p.id !== 'all' && p.name && p.name !== '-')
-                  .sort((a, b) => a.name.localeCompare(b.name));
-                this.projects = [...validProjects];
-                this.loadVehicles();
-              });
-          }
-        });
+        this.clientService
+          .getClientById(String(this.scopedClientId))
+          .pipe(
+            take(1),
+            catchError((error) => {
+              console.error('Failed to load scoped client for vehicle filters:', error);
+              return of(null);
+            }),
+          )
+          .subscribe((client) => {
+            if (client) {
+              const clientId = String(client.id ?? '').trim();
+              const clientName = String(client.name ?? '').trim();
+
+              if (clientId && clientName) {
+                this.clients = [{ id: clientId, name: clientName }];
+                this.selectedClient = clientId;
+              }
+            }
+
+            this.loadProjectsForDropdown();
+          });
+      } else {
+        this.loadProjectsForDropdown();
       }
     }
-    this.loadVehicles();
   }
   /** Update stats cards for dashboard */
   updateStatsCards(): void {
@@ -257,6 +740,28 @@ export class VehicleListComponent implements OnInit {
     return this.vehicleUtil.getStatusIcon(status as any);
   }
 
+  getPropulsionBadgeClass(propulsion: string | undefined): string {
+    const normalized = String(propulsion ?? '').trim().toLowerCase();
+
+    if (normalized === 'electric' || normalized === 'hybrid') {
+      return 'badge bg-success-transparent';
+    }
+
+    if (normalized === 'cng') {
+      return 'badge bg-warning-transparent';
+    }
+
+    if (normalized === 'diesel') {
+      return 'badge bg-secondary-transparent';
+    }
+
+    if (normalized === 'gas' || normalized === 'gasoline' || normalized === 'petrol' || normalized === 'lpg') {
+      return 'badge bg-info-transparent';
+    }
+
+    return 'badge bg-primary-transparent';
+  }
+
   getInspectorInitial(inspector: string | any): string {
     const name = typeof inspector === 'string' ? inspector : (inspector?.name || 'Unknown');
     return name.charAt(0).toUpperCase();
@@ -303,7 +808,6 @@ export class VehicleListComponent implements OnInit {
 
     this.portalPrefix = context.portalPrefix;
     this.scopedClientId = context.scopedClientId;
-    this.initializeSampleData();
   }
 
   /**

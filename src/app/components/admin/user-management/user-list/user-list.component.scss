@@ -43,6 +43,22 @@
   padding: 0 15px;
 }
 
+.project-table-body {
+  position: relative;
+  min-height: 260px;
+}
+
+.project-loader-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 2;
+}
+
 .page-header-breadcrumb {
   gap: 20px;
   

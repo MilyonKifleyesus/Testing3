@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { UserManagementService } from '../../../../shared/services/user-management.service';
 
 interface User {
   id: number;
@@ -10,10 +11,12 @@ interface User {
   email: string;
   phone?: string;
   role: string;
+  clientId?: string;
   client?: string;
   manufacturer?: string;
   status: 'active' | 'inactive' | 'suspended';
   createdDate: string;
+  updatedAt?: string;
   lastLogin?: string;
   address?: string;
   permissions: string[];
@@ -37,15 +40,12 @@ export class UserViewComponent implements OnInit {
     { key: 'activity', label: 'Activity Log', icon: 'ti-history' }
   ];
 
-  activityLogs = [
-    { date: '2026-01-14 10:30 AM', action: 'Logged In', details: 'User logged in from IP 192.168.1.100', type: 'login' },
-    { date: '2026-01-14 09:15 AM', action: 'Updated Profile', details: 'Changed phone number', type: 'update' },
-    { date: '2026-01-13 03:45 PM', action: 'Viewed Project', details: 'Accessed Project #234', type: 'view' },
-    { date: '2026-01-13 02:20 PM', action: 'Created Ticket', details: 'Created ticket #5420-W787', type: 'create' },
-    { date: '2026-01-13 11:00 AM', action: 'Logged In', details: 'User logged in from IP 192.168.1.100', type: 'login' }
-  ];
+  activityLogs: { date: string; action: string; details: string; type: string }[] = [];
 
-  constructor(private route: ActivatedRoute) {}
+  constructor(
+    private route: ActivatedRoute,
+    private userManagementService: UserManagementService,
+  ) {}
 
   ngOnInit(): void {
     const idParam = this.route.snapshot.paramMap.get('id');
@@ -54,32 +54,33 @@ export class UserViewComponent implements OnInit {
   }
 
   loadUserData(): void {
-    // Sample user data
-    this.user = {
-      id: this.userId || 923,
-      name: 'Shakeeb Ahmed',
-      username: 'shakeeb',
-      email: 'shakeeb@buspulse.com',
-      phone: '+1 (416) 555-0123',
-      role: 'Admin',
-      client: undefined,
-      manufacturer: undefined,
-      status: 'active',
-      createdDate: '2024-06-15',
-      lastLogin: '2026-01-14 10:30 AM',
-      address: '123 Main Street, Toronto, ON M5H 2N2',
-      permissions: [
-        'View Dashboard',
-        'Manage Users',
-        'Manage Projects',
-        'Manage Vehicles',
-        'Manage Tickets',
-        'Manage Inspections',
-        'View Reports',
-        'Export Data',
-        'System Settings'
-      ]
-    };
+    if (!this.userId) {
+      this.user = null;
+      return;
+    }
+
+    this.userManagementService.getUserById(this.userId).subscribe((user) => {
+      if (!user) {
+        this.user = null;
+        return;
+      }
+
+      this.user = {
+        id: user.id,
+        name: user.name !== 'N/A' ? user.name : user.username,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        clientId: user.clientId,
+        client: user.client || undefined,
+        manufacturer: user.manufacturer || undefined,
+        status: typeof user.isActive === 'boolean' ? (user.isActive ? 'active' : 'inactive') : (user.status === 'inactive' || user.status === 'suspended' ? user.status : 'active'),
+        createdDate: user.createdDate || user.updatedAt || '—',
+        updatedAt: user.updatedAt || undefined,
+        lastLogin: user.updatedAt || undefined,
+        permissions: [],
+      };
+    });
   }
 
   setTab(tabKey: string): void {

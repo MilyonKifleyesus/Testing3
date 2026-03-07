@@ -3,6 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { map, catchError } from 'rxjs/operators';
 import { ClientDashboardService } from '../../services/client-dashboard.service';
 import { DashboardProjectsService } from '../../services/dashboard-projects.service';
+import { ClientService } from '../../services/client.service';
+import { AuthService } from '../../services/auth.service';
 import { Observable, of, delay } from 'rxjs';
 
 // API Request/Response Interfaces
@@ -145,6 +147,8 @@ export class ReportService {
     private readonly http: HttpClient,
     private readonly clientDashboardService: ClientDashboardService,
     private readonly dashboardProjectsService: DashboardProjectsService,
+    private readonly clientService: ClientService,
+    private readonly authService: AuthService,
   ) {}
 
   // Stub for getMockTicketReports
@@ -159,14 +163,20 @@ export class ReportService {
     };
   }
 
-  // Stub for getScopedClientId
+  // Resolve client scope from logged-in user for report pages.
   private getScopedClientId(): string | undefined {
-    return undefined;
+    if (!this.isClientScopedRole()) {
+      return undefined;
+    }
+
+    const clientId = Number(this.authService.currentUserValue?.clientId ?? 0);
+    return Number.isFinite(clientId) && clientId > 0 ? String(clientId) : undefined;
   }
 
-  // Stub for isClientScopedRole
+  // Client/user roles should only see their own client projects.
   private isClientScopedRole(): boolean {
-    return false;
+    const role = (this.authService.currentUserValue?.role ?? '').toLowerCase().trim();
+    return role === 'client' || role === 'user' || role.includes('client');
   }
 
   // ...existing code...
@@ -176,10 +186,148 @@ export class ReportService {
    * TODO: Replace with actual HttpClient call when backend is ready
    */
   getTicketReports(request: TicketReportRequest): Observable<TicketReportResponse> {
-    // Simulated API call - Replace with actual HTTP call
-    // return this.http.post<TicketReportResponse>(`${this.apiUrl}/tickets`, request);
-    
-    return of(this.getMockTicketReports(request)).pipe(delay(500));
+    const scopedClientId = this.getScopedClientId();
+    const page = request.page ?? 1;
+    const pageSize = request.pageSize ?? 10;
+    const projectId = this.toPositiveNumber(request.projectId);
+
+    return this.clientDashboardService
+      .getTickets({
+        clientId: scopedClientId ? Number(scopedClientId) : undefined,
+        projectId: projectId ?? 0,
+        userId: 0,
+        vehicleId: 0,
+        page,
+        pageSize,
+      } as any)
+      .pipe(
+        map((response: any) => {
+          const items = this.extractItems(response);
+          const mapped = items
+            .map((item: any, index: number) => this.mapApiTicketReport(item, index))
+            .filter((ticket): ticket is TicketReport => ticket !== null);
+
+          const filtered = this.applyTicketReportFilters(mapped, request);
+
+          return {
+            success: true,
+            data: filtered,
+            totalCount: this.extractTotalCount(response, filtered.length),
+            page,
+            pageSize,
+            message: response?.message ?? 'Ticket reports fetched successfully',
+          } as TicketReportResponse;
+        }),
+        catchError(() =>
+          of({
+            success: false,
+            data: [],
+            totalCount: 0,
+            page,
+            pageSize,
+            message: 'Failed to fetch ticket reports',
+          } as TicketReportResponse),
+        ),
+      );
+  }
+
+  private applyTicketReportFilters(tickets: TicketReport[], request: TicketReportRequest): TicketReport[] {
+    let filtered = [...tickets];
+
+    const projectId = this.toPositiveNumber(request.projectId);
+    if (projectId) {
+      filtered = filtered.filter((ticket) => ticket.projectId === projectId);
+    }
+
+    if (request.searchTerm) {
+      const search = request.searchTerm.toLowerCase();
+      filtered = filtered.filter((ticket) =>
+        ticket.ticketNumber.toLowerCase().includes(search) ||
+        ticket.vehicleIdentifier.toLowerCase().includes(search) ||
+        ticket.description.toLowerCase().includes(search) ||
+        ticket.defectType.toLowerCase().includes(search) ||
+        ticket.clientName.toLowerCase().includes(search),
+      );
+    }
+
+    return filtered;
+  }
+
+  private mapApiTicketReport(item: any, index: number): TicketReport | null {
+    const id = this.toPositiveNumber(this.first(item, ['id', 'ticketId', 'ticketID'])) ?? index + 1;
+    const projectId = this.toPositiveNumber(this.first(item, ['projectId', 'ProjectId', 'project.id'])) ?? 0;
+    const vehicleId = this.toPositiveNumber(this.first(item, ['vehicleId', 'VehicleId', 'vehicle.id'])) ?? 0;
+
+    const ticketClientId = this.toPositiveNumber(
+      this.first(item, ['clientId', 'ClientId', 'client.id', 'project.clientId', 'project.ClientId']),
+    ) ?? 0;
+    const projectClientId = projectId > 0 ? (this.projectClientIdByProjectId.get(projectId) ?? 0) : 0;
+    const clientId = projectClientId || ticketClientId;
+
+    const explicitClientName = this.toOptionalText(
+      this.first(item, ['clientName', 'ClientName', 'customerName', 'client.name', 'client.displayName', 'client']),
+    );
+
+    const explicitProjectName = this.toOptionalText(
+      this.first(item, ['projectName', 'ProjectName', 'project.name', 'project.title', 'project']),
+    );
+
+    const projectName = explicitProjectName && !/^\d+$/.test(explicitProjectName)
+      ? explicitProjectName
+      : (this.projectNameById.get(projectId) ?? (projectId > 0 ? `Project ${projectId}` : 'N/A'));
+
+    const fleetNumber = this.toOptionalText(
+      this.first(item, ['fleetNumber', 'FleetNumber', 'vehicleFleetNumber', 'vehicle.fleetNumber', 'vehicle.fleetNo', 'vehicle.unitNumber']),
+    );
+
+    return {
+      id,
+      ticketNumber: this.toText(this.first(item, ['ticketNumber', 'ticketNo', 'number', 'ticketCode']), `T${id}`),
+      clientId,
+      clientName: clientId > 0
+        ? this.clientService.resolveClientName(clientId, explicitClientName ?? 'N/A')
+        : (explicitClientName ?? 'N/A'),
+      projectId,
+      projectName,
+      vehicleId,
+      vehicleIdentifier: this.toText(
+        vehicleId > 0
+          ? String(vehicleId)
+          : (fleetNumber ?? this.first(item, ['vehicleNumber', 'vehicleIdentifier', 'vehicle.vehicleNumber'])),
+        vehicleId > 0 ? `Fleet ${vehicleId}` : 'N/A',
+      ),
+      safetyCritical: Boolean(this.first(item, ['safetyCritical', 'isSafetyCritical'])),
+      createdDate: this.toText(this.first(item, ['createdDate', 'createdAt', 'date']), ''),
+      defectType: this.toText(this.first(item, [
+        'defectType',
+        'defectTypeName',
+        'issueType',
+        'defectLocationName',
+      ]), '-'),
+      defectLocation: this.toText(this.first(item, ['defectLocationName', 'defectLocation', 'location', 'defect.locationName']), '-'),
+      description: this.toText(this.first(item, ['ticketDescription', 'description', 'details', 'comment']), '-'),
+      hasImages: Boolean(this.first(item, ['hasImages', 'hasAttachments', 'hasPhotos'])),
+      imageCount: this.toPositiveNumber(this.first(item, ['imageCount', 'attachmentsCount'])) ?? 0,
+      assignedById: this.toPositiveNumber(this.first(item, ['assignedById', 'ticketAssignedBy', 'createdById', 'userId'])) ?? 0,
+      assignedByName: this.toText(this.first(item, ['assignedByName', 'ticketAssignedByName', 'createdByName', 'reportedBy']), '-'),
+      assignedToId: this.toPositiveNumber(this.first(item, ['assignedToId', 'ownerId'])) ?? 0,
+      assignedToName: this.toText(this.first(item, ['assignedToName', 'ownerName', 'assigneeName']), '-'),
+      stationId: this.toPositiveNumber(this.first(item, ['stationId', 'StationId', 'station.id', 'station.stationId'])),
+      stationName: this.toOptionalText(this.first(item, [
+        'stationName',
+        'StationName',
+        'station_name',
+        'stationname',
+        'station',
+        'station.title',
+        'station.displayName',
+        'station.name',
+        'station.stationName',
+        'station.station',
+      ])),
+      status: this.toText(this.first(item, ['statusTicketName', 'ticketStatusName', 'statusName', 'status', 'ticketStatus', 'state']), 'Pending'),
+      resolvedDate: this.toOptionalText(this.first(item, ['resolvedDate', 'closedDate'])),
+    };
   }
 
   /**

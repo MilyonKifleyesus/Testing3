@@ -30,8 +30,8 @@
                 class="form-select" 
                 [(ngModel)]="selectedClient"
                 (ngModelChange)="filterUsers()">
-                <option value="all">All Clients</option>
-                <option *ngFor="let client of clients" [value]="client.toLowerCase()">{{client}}</option>
+                <option value="0">All Clients</option>
+                <option *ngFor="let client of clients" [value]="client.id">{{client.name}}</option>
               </select>
             </div>
 
@@ -42,8 +42,8 @@
                 class="form-select" 
                 [(ngModel)]="selectedManufacturer"
                 (ngModelChange)="filterUsers()">
-                <option value="all">All Manufacturers</option>
-                <option *ngFor="let manufacturer of manufacturers" [value]="manufacturer.toLowerCase()">{{manufacturer}}</option>
+                <option value="0">All Manufacturers</option>
+                <option *ngFor="let manufacturer of manufacturers" [value]="manufacturer.id">{{manufacturer.name}}</option>
               </select>
             </div>
 
@@ -53,9 +53,9 @@
               <select 
                 class="form-select" 
                 [(ngModel)]="selectedRole"
-                (ngModelChange)="filterUsers()">
+                (ngModelChange)="onRoleChange($event)">
                 <option value="all">All Roles</option>
-                <option *ngFor="let role of roles" [value]="role.toLowerCase()">{{role}}</option>
+                <option *ngFor="let role of roles" [value]="role">{{role}}</option>
               </select>
             </div>
           </div>
@@ -79,142 +79,133 @@
               class="form-control" 
               placeholder="Search:"
               [(ngModel)]="searchTerm"
-              (ngModelChange)="filterUsers()">
+              (ngModelChange)="onSearchChange()">
           </div>
         </div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table text-nowrap table-hover">
-              <thead>
-                <tr>
-                  <th scope="col">ID</th>
-                  <th scope="col">Name</th>
-                  <th scope="col">UserName</th>
-                  <th scope="col">Role</th>
-                  <th scope="col">Client</th>
-                  <th scope="col">Manufacturer</th>
-                  <th scope="col" class="text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let user of filteredUsers" class="user-row">
-                  <!-- ID -->
-                  <td>
-                    <span class="text-muted">{{user.id}}</span>
-                  </td>
-
-                  <!-- Name -->
-                  <td>
-                    <div class="d-flex align-items-center gap-2">
-                      <div class="avatar avatar-sm">
-                        <div class="avatar-title rounded-circle bg-primary-transparent text-primary fw-bold">
-                          {{getUserInitials(user.name)}}
-                        </div>
-                      </div>
-                      <span class="fw-semibold">{{user.name}}</span>
-                    </div>
-                  </td>
-
-                  <!-- UserName -->
-                  <td>
-                    <code class="text-dark">{{user.username}}</code>
-                  </td>
-
-                  <!-- Role -->
-                  <td>
-                    <span class="badge" [ngClass]="getRoleClass(user.role)">
-                      {{user.role | titlecase}}
-                    </span>
-                  </td>
-
-                  <!-- Client -->
-                  <td>
-                    <span *ngIf="user.client" class="badge bg-info-transparent">{{user.client}}</span>
-                    <span *ngIf="!user.client" class="text-muted">—</span>
-                  </td>
-
-                  <!-- Manufacturer -->
-                  <td>
-                    <span *ngIf="user.manufacturer" class="badge bg-secondary-transparent">{{user.manufacturer}}</span>
-                    <span *ngIf="!user.manufacturer" class="text-muted">—</span>
-                  </td>
-
-                  <!-- Action (using spk-dropdowns) -->
-                  <td class="text-center">
-                    <spk-dropdowns
-                      [title]="'Action'"
-                      [Arrowicon]="false"
-                      [Menuclass]="'dropdown-menu dropdown-menu-end'"
-                      [class]="'btn btn-sm btn-primary'"
-                    >
-                      <li><a class="dropdown-item" [routerLink]="['/admin/users/view', user.id]"><i class="ti ti-eye me-2"></i>View</a></li>
-                      <li><a class="dropdown-item" [routerLink]="['/admin/users/edit', user.id]"><i class="ti ti-edit me-2"></i>Edit</a></li>
-                      <li><a class="dropdown-item" (click)="resetPassword(user, confirmModal)" href="javascript:void(0);"><i class="ti ti-lock me-2"></i>Reset Password</a></li>
-                      <li><hr class="dropdown-divider"></li>
-                      <li><a class="dropdown-item text-danger" (click)="deleteUser(user, confirmModal)" href="javascript:void(0);"><i class="ti ti-trash me-2"></i>Delete</a></li>
-                    <!-- Confirmation Modal Template -->
-                    <ng-template #confirmModal let-modal>
-                      <div class="modal-header">
-                        <h5 class="modal-title">{{ confirmTitle }}</h5>
-                        <button type="button" class="btn-close" aria-label="Close" (click)="confirmModalNo()"></button>
-                      </div>
-                      <div class="modal-body">
-                        <p>{{ confirmMessage }}</p>
-                      </div>
-                      <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" (click)="confirmModalNo()">Cancel</button>
-                        <button type="button" class="btn btn-danger" (click)="confirmModalYes()">Yes</button>
-                      </div>
-                    </ng-template>
-                    </spk-dropdowns>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <!-- Empty State -->
-            <div *ngIf="filteredUsers.length === 0" class="text-center py-5">
-              <div class="mb-3">
-                <i class="ti ti-users-off fs-1 text-muted"></i>
+        <div class="card-body project-table-body">
+          <div *ngIf="isLoading" class="project-loader-overlay">
+            <div class="d-flex flex-column align-items-center justify-content-center py-5">
+              <div class="spinner-border text-success" role="status" aria-label="Loading users">
+                <span class="visually-hidden">Loading...</span>
               </div>
-              <h5 class="text-muted">No users found</h5>
-              <p class="text-muted">Try adjusting your search or filter criteria</p>
+              <p class="text-success mt-3 mb-0 fw-semibold">Loading user data...</p>
             </div>
           </div>
-        </div>
-        
-        <!-- Pagination Controls -->
-        <div class="card-footer border-top" *ngIf="totalCount > 10">
-          <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
-            <div class="text-muted small">
-              Showing <strong>{{ (currentPage - 1) * pageSize + 1 }}</strong> to <strong>{{ Math.min(currentPage * pageSize, totalCount) }}</strong> of <strong>{{ totalCount }}</strong> users
+
+          <ng-container *ngIf="!isLoading">
+            <div class="table-responsive">
+              <table class="table text-nowrap table-hover border table-bordered">
+                <thead>
+                  <tr>
+                    <th scope="col" (click)="onSort('id')" style="cursor:pointer">ID <span>{{ getSortIndicator('id') }}</span></th>
+                    <th scope="col" (click)="onSort('name')" style="cursor:pointer">Name <span>{{ getSortIndicator('name') }}</span></th>
+                    <th scope="col" (click)="onSort('username')" style="cursor:pointer">UserName <span>{{ getSortIndicator('username') }}</span></th>
+                    <th scope="col" (click)="onSort('role')" style="cursor:pointer">Role <span>{{ getSortIndicator('role') }}</span></th>
+                    <th scope="col" (click)="onSort('client')" style="cursor:pointer">Client <span>{{ getSortIndicator('client') }}</span></th>
+                    <th scope="col" (click)="onSort('manufacturer')" style="cursor:pointer">Manufacturer <span>{{ getSortIndicator('manufacturer') }}</span></th>
+                    <th scope="col" class="text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngIf="filteredUsers.length === 0">
+                    <td colspan="7" class="text-center text-muted">No users found.</td>
+                  </tr>
+
+                  <tr *ngFor="let user of filteredUsers" class="user-row">
+                    <td>
+                      <span class="text-muted">{{user.id}}</span>
+                    </td>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="avatar avatar-sm">
+                          <div class="avatar-title rounded-circle bg-primary-transparent text-primary fw-bold">
+                            {{getUserInitials(user.name)}}
+                          </div>
+                        </div>
+                        <span class="fw-semibold">{{user.name}}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <code class="text-dark">{{user.username}}</code>
+                    </td>
+                    <td>
+                      <span class="badge" [ngClass]="getRoleClass(user.role)">
+                        {{user.role | titlecase}}
+                      </span>
+                    </td>
+                    <td>
+                      <span *ngIf="user.client" class="badge bg-info-transparent">{{user.client}}</span>
+                      <span *ngIf="!user.client" class="text-muted">—</span>
+                    </td>
+                    <td>
+                      <span *ngIf="user.manufacturer" class="badge bg-secondary-transparent">{{user.manufacturer}}</span>
+                      <span *ngIf="!user.manufacturer" class="text-muted">—</span>
+                    </td>
+                    <td class="text-center">
+                      <spk-dropdowns
+                        [title]="'Action'"
+                        [Arrowicon]="false"
+                        [Menuclass]="'dropdown-menu dropdown-menu-end'"
+                        [class]="'btn btn-sm btn-primary'"
+                      >
+                        <li><a class="dropdown-item" [routerLink]="['/admin/users/view', user.id]"><i class="ti ti-eye me-2"></i>View</a></li>
+                        <li><a class="dropdown-item" [routerLink]="['/admin/users/edit', user.id]"><i class="ti ti-edit me-2"></i>Edit</a></li>
+                        <li><a class="dropdown-item" (click)="resetPassword(user, confirmModal)" href="javascript:void(0);"><i class="ti ti-lock me-2"></i>Reset Password</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" (click)="deleteUser(user, confirmModal)" href="javascript:void(0);"><i class="ti ti-trash me-2"></i>Delete</a></li>
+                      </spk-dropdowns>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <nav aria-label="Pagination" *ngIf="getTotalPages() > 1">
-              <ul class="pagination mb-0">
-                <!-- Previous Button -->
-                <li class="page-item" [class.disabled]="currentPage === 1">
-                  <button class="page-link" (click)="previousPage()" [disabled]="currentPage === 1">
-                    <i class="ti ti-chevron-left"></i> Previous
-                  </button>
-                </li>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+  </div>
 
-                <li class="page-item" *ngFor="let pageNum of getPageNumbers()" [class.active]="pageNum === currentPage" [class.disabled]="pageNum === paginationEllipsis">
-                  <button class="page-link" (click)="pageNum !== paginationEllipsis && goToPage(pageNum)">
-                    {{ pageNum === paginationEllipsis ? '...' : pageNum }}
-                  </button>
-                </li>
-
-                <!-- Next Button -->
-                <li class="page-item" [class.disabled]="currentPage === getTotalPages()">
-                  <button class="page-link" (click)="nextPage()" [disabled]="currentPage === getTotalPages()">
-                    Next <i class="ti ti-chevron-right"></i>
-                  </button>
-                </li>
-              </ul>
-            </nav>
+  <div class="row">
+    <div class="col-xl-12" *ngIf="!isLoading && filteredUsers.length > 0">
+      <div class="card custom-card mt-3">
+        <div class="card-footer">
+          <div class="d-flex align-items-center">
+            <div>
+              Showing {{ getShowingStart() }} to {{ getShowingEnd() }} of {{ totalCount }} Entries
+            </div>
+            <div class="ms-auto">
+              <nav aria-label="Page navigation" class="pagination-style-4" *ngIf="getTotalPages() > 1">
+                <ul class="pagination mb-0">
+                  <li class="page-item" [class.disabled]="currentPage === 1">
+                    <a class="page-link" href="javascript:void(0);" (click)="previousPage()">Prev</a>
+                  </li>
+                  <li class="page-item" *ngFor="let pageNum of getPageNumbers()" [class.active]="pageNum === currentPage" [class.disabled]="pageNum === paginationEllipsis">
+                    <a class="page-link" href="javascript:void(0);" (click)="pageNum !== paginationEllipsis && goToPage(pageNum)">{{ pageNum === paginationEllipsis ? '...' : pageNum }}</a>
+                  </li>
+                  <li class="page-item" [class.disabled]="currentPage === getTotalPages()">
+                    <a class="page-link text-primary" href="javascript:void(0);" (click)="nextPage()">next</a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Confirmation Modal Template -->
+  <ng-template #confirmModal let-modal>
+    <div class="modal-header">
+      <h5 class="modal-title">{{ confirmTitle }}</h5>
+      <button type="button" class="btn-close" aria-label="Close" (click)="confirmModalNo()"></button>
+    </div>
+    <div class="modal-body">
+      <p>{{ confirmMessage }}</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="confirmModalNo()">Cancel</button>
+      <button type="button" class="btn btn-danger" (click)="confirmModalYes()">Yes</button>
+    </div>
+  </ng-template>
 </div>

@@ -1,27 +1,17 @@
-// Table responsive with scrollbar
-.table-responsive {
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  max-width: 100%;
-  border-radius: 8px;
-  border: 1px solid #e3e3e3;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  &::-webkit-scrollbar {
-    height: 8px;
-  }
-  &::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-    &:hover {
-      background: #555;
-    }
-  }
+.project-table-body {
+  position: relative;
+  min-height: 260px;
+}
+
+.project-loader-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 2;
 }
 
 .vehicle-row {
@@ -54,12 +44,6 @@
   &:hover img {
     transform: scale(1.1);
   }
-}
-
-// Card styling
-.card-header {
-  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--secondary-rgb), 0.05) 100%);
-  border-bottom: 1px solid var(--default-border);
 }
 
 // Badge styling
@@ -141,7 +125,3 @@ code {
   }
 }
 
-// Empty state
-.ti-car-off {
-  opacity: 0.3;
-}

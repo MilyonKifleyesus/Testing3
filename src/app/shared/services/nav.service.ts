@@ -363,24 +363,6 @@ export class NavService implements OnDestroy {
       ]
     },
     {
-      title: 'Project Management',
-      type: 'sub',
-      icon: 'ti-layout',
-      active: false,
-      children: [
-        {
-          path: '/client/projects/list',
-          title: 'List of Projects',
-          type: 'link',
-        },
-        {
-          path: '/client/projects/final-vehicle',
-          title: 'Final Vehicle',
-          type: 'link',
-        }
-      ]
-    },
-    {
       path: '/client/vehicles',
       title: 'Vehicles',
       type: 'sub',

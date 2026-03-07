@@ -38,7 +38,6 @@ export class TicketReportsComponent implements OnInit {
         safetyCritical: 'safetyCritical',
         createdDate: 'createdDate',
         defectType: 'defectType',
-        defectLocation: 'defectLocation',
         description: 'description',
         hasImages: 'hasImages',
         assignedByName: 'assignedByName',
@@ -249,17 +248,26 @@ export class TicketReportsComponent implements OnInit {
     } else {
       const search = this.searchTerm.toLowerCase();
       this.filteredTickets = this.allTickets.filter((ticket) =>
-        ticket.ticketNumber.toLowerCase().includes(search) ||
-        ticket.description.toLowerCase().includes(search) ||
-        ticket.defectType.toLowerCase().includes(search) ||
-        ticket.projectName.toLowerCase().includes(search) ||
-        ticket.clientName.toLowerCase().includes(search),
+        this.toSearchText(ticket.ticketNumber).includes(search) ||
+        this.toSearchText(ticket.description).includes(search) ||
+        this.toSearchText(ticket.defectType).includes(search) ||
+        this.toSearchText(ticket.projectName).includes(search) ||
+        this.toSearchText(ticket.clientName).includes(search),
       );
     }
 
     if (this.sortColumn) {
       this.sortTickets(this.sortColumn);
     }
+  }
+
+  displayValue(value: unknown): string {
+    const text = String(value ?? '').trim();
+    return text || '-';
+  }
+
+  private toSearchText(value: unknown): string {
+    return String(value ?? '').toLowerCase();
   }
 
   /**
@@ -387,7 +395,7 @@ export class TicketReportsComponent implements OnInit {
     html += `<div class="section">Tickets</div>`;
 
     html += `<table><thead><tr>`;
-    const cols = ['Ticket #', 'Vehicle', 'Safety Critical', 'Created Date', 'Defect Type', 'Defect Location', 'Description', 'Images', 'Assign To', 'Station', 'Status', 'Resolved Date', 'Resolved Comment'];
+    const cols = ['Ticket #', 'Vehicle', 'Safety Critical', 'Created Date', 'Defect Type', 'Description', 'Images', 'Assign To', 'Station', 'Status', 'Resolved Date', 'Resolved Comment'];
     cols.forEach(c => html += `<th>${c}</th>`);
     html += `</tr></thead><tbody>`;
 
@@ -398,7 +406,6 @@ export class TicketReportsComponent implements OnInit {
       html += `<td>${t.safetyCritical ? 'Yes' : 'No'}</td>`;
       html += `<td>${t.createdDate ? this.formatDate(t.createdDate) : '-'}</td>`;
       html += `<td>${t.defectType || '-'}</td>`;
-      html += `<td>${t.defectLocation || '-'}</td>`;
       html += `<td>${(t.description || '-').replace(/</g, '&lt;')}</td>`;
       html += `<td>${t.hasImages ? '✓' : '-'}</td>`;
       html += `<td>${t.assignedToName || '-'}</td>`;

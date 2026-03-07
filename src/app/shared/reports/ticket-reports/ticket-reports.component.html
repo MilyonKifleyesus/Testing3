@@ -173,7 +173,6 @@
                   <th (click)="sortTickets('safetyCritical')" style="cursor:pointer">Safety Critical <span *ngIf="sortColumn === 'safetyCritical'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th (click)="sortTickets('createdDate')" style="cursor:pointer">Created Date <span *ngIf="sortColumn === 'createdDate'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th (click)="sortTickets('defectType')" style="cursor:pointer">Defect Type <span *ngIf="sortColumn === 'defectType'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                  <th (click)="sortTickets('defectLocation')" style="cursor:pointer">Defect Location <span *ngIf="sortColumn === 'defectLocation'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th (click)="sortTickets('description')" style="cursor:pointer">Description <span *ngIf="sortColumn === 'description'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th (click)="sortTickets('hasImages')" style="cursor:pointer">Images <span *ngIf="sortColumn === 'hasImages'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th (click)="sortTickets('assignedByName')" style="cursor:pointer">Assign By <span *ngIf="sortColumn === 'assignedByName'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
@@ -202,10 +201,9 @@
                     </span>
                   </td>
                   <td>{{ formatDate(ticket.createdDate) }}</td>
-                  <td>{{ ticket.defectType }}</td>
-                  <td>{{ ticket.defectLocation }}</td>
+                  <td>{{ displayValue(ticket.defectType) }}</td>
                   <td>
-                    <div class="description-cell">{{ ticket.description }}</div>
+                    <div class="description-cell" [title]="displayValue(ticket.description)">{{ displayValue(ticket.description) }}</div>
                   </td>
                   <td class="text-center">
                     <i *ngIf="ticket.hasImages" class="ti-image text-primary"></i>
@@ -222,7 +220,7 @@
                   <td>{{ ticket.resolvedDate ? formatDate(ticket.resolvedDate) : '-' }}</td>
                 </tr>
                 <tr *ngIf="filteredTickets.length === 0">
-                  <td colspan="16" class="text-center py-5">
+                  <td colspan="15" class="text-center py-5">
                     <i class="ti-info-alt tx-48 text-muted mb-3"></i>
                     <p class="text-muted mb-0">No tickets found matching your criteria</p>
                   </td>

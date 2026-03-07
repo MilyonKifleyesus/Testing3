@@ -40,7 +40,6 @@ export class VehicleTicketReportComponent implements OnInit {
         safetyCritical: 'safetyCritical',
         createdDate: 'createdDate',
         defectType: 'defectType',
-        defectLocation: 'defectLocation',
         description: 'description',
         hasImages: 'hasImages',
         assignedByName: 'assignedByName',
@@ -278,15 +277,24 @@ export class VehicleTicketReportComponent implements OnInit {
 
     const search = this.searchTerm.toLowerCase();
     this.filteredTickets = this.tickets.filter(ticket =>
-      ticket.ticketNumber.toLowerCase().includes(search) ||
-      ticket.description.toLowerCase().includes(search) ||
-      ticket.defectType.toLowerCase().includes(search)
+      this.toSearchText(ticket.ticketNumber).includes(search) ||
+      this.toSearchText(ticket.description).includes(search) ||
+      this.toSearchText(ticket.defectType).includes(search)
     );
 
 
     if (this.sortColumn) {
       this.sortTickets(this.sortColumn);
     }
+  }
+
+  displayValue(value: unknown): string {
+    const text = String(value ?? '').trim();
+    return text || '-';
+  }
+
+  private toSearchText(value: unknown): string {
+    return String(value ?? '').toLowerCase();
   }
 
   /**
@@ -530,7 +538,6 @@ export class VehicleTicketReportComponent implements OnInit {
             <th>Safety Critical</th>
             <th>Created Date</th>
             <th>Defect Type</th>
-            <th>Defect Location</th>
             <th>Description</th>
             <th>Images</th>
             <th>Assign To</th>
@@ -552,7 +559,6 @@ export class VehicleTicketReportComponent implements OnInit {
             <td>${ticket.safetyCritical ? 'Yes' : 'No'}</td>
             <td>${ticket.createdDate ? this.formatDate(ticket.createdDate) : '-'}</td>
             <td>${ticket.defectType || '-'}</td>
-            <td>${ticket.defectLocation || '-'}</td>
             <td>${(ticket.description || '-').substring(0, 50)}</td>
             <td>${ticket.hasImages ? '✓' : '-'}</td>
             <td>${ticket.assignedToName || '-'}</td>
@@ -668,7 +674,7 @@ export class VehicleTicketReportComponent implements OnInit {
     const headerRowIndex = 7;
     const headers = [
       'Ticket #', 'Vehicle #', 'VIN', 'Client', 'Project',
-      'Description', 'Defect Type', 'Defect Location', 'Safety Critical',
+      'Description', 'Defect Type', 'Safety Critical',
       'Assigned By', 'Assigned To', 'Station', 'Status',
       'Created Date', 'Resolved Date'
     ];
@@ -680,7 +686,7 @@ export class VehicleTicketReportComponent implements OnInit {
     headerRow.height = 20;
 
     // Column widths
-    const widths = [12, 12, 20, 14, 16, 40, 16, 18, 14, 16, 16, 16, 12, 18, 18];
+    const widths = [12, 12, 20, 14, 16, 40, 16, 14, 16, 16, 16, 12, 18, 18];
     widths.forEach((w, idx) => ws.getColumn(idx + 1).width = w);
 
     // Data rows start at row 8
@@ -693,7 +699,6 @@ export class VehicleTicketReportComponent implements OnInit {
         t.projectName,
         t.description,
         t.defectType,
-        t.defectLocation,
         t.safetyCritical ? 'Yes' : 'No',
         t.assignedByName,
         t.assignedToName,
