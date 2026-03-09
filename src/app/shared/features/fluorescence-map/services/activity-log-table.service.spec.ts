@@ -125,4 +125,38 @@ describe('ActivityLogTableService', () => {
     expect(rows[0].manufacturerName).toBe('Multiple');
     expect(rows[0].manufacturerId).toBeNull();
   });
+
+  it('filters manufacturers using normalized names and linked ids consistently', () => {
+    const rows = service.buildRows(
+      [baseProject({ manufacturerName: 'OEM One, Inc.', manufacturerLocationId: '30' })],
+      clients,
+      manufacturers,
+      locations,
+      { status: 'all', manufacturerIds: ['8'] }
+    );
+
+    expect(rows.length).toBe(1);
+    expect(rows[0].manufacturerName).toBe('OEM One, Inc.');
+    expect(rows[0].manufacturerId).toBe('8');
+  });
+
+  it('filters project types by canonical projectTypeId before assessmentType fallback', () => {
+    const matchingRows = service.buildRows(
+      [baseProject({ projectTypeId: '42', assessmentType: 'Condition Assessment' })],
+      clients,
+      manufacturers,
+      locations,
+      { status: 'all', projectTypeIds: ['42'] }
+    );
+    const fallbackRows = service.buildRows(
+      [baseProject({ projectTypeId: null, assessmentType: 'Condition Assessment' })],
+      clients,
+      manufacturers,
+      locations,
+      { status: 'all', projectTypeIds: ['Condition Assessment'] }
+    );
+
+    expect(matchingRows.length).toBe(1);
+    expect(fallbackRows.length).toBe(1);
+  });
 });

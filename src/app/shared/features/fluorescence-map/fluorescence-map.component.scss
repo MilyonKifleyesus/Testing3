@@ -1753,6 +1753,20 @@ $toolbar-font-size: 0.75rem;
   overflow: hidden;
 }
 
+.fleet-shell.fleet-shell-admin-layout {
+  grid-template-rows: auto auto auto minmax(420px, 1fr) minmax(220px, 30vh);
+  height: min(1080px, calc(100dvh - 94px));
+  min-height: 680px;
+}
+
+.fleet-shell.table-collapsed {
+  grid-template-rows: auto auto auto minmax(320px, 1fr) minmax(64px, auto);
+}
+
+.fleet-shell.fleet-shell-admin-layout.table-collapsed {
+  grid-template-rows: auto auto auto minmax(480px, 1fr) minmax(64px, auto);
+}
+
 .fleet-shell:fullscreen,
 .fleet-shell:-webkit-full-screen,
 .fleet-shell:-moz-full-screen,
@@ -2010,6 +2024,14 @@ $toolbar-font-size: 0.75rem;
   gap: 0.3rem;
   flex-wrap: wrap;
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.15rem;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    height: 5px;
+  }
 }
 
 .quick-filter-pill {
@@ -2038,7 +2060,7 @@ $toolbar-font-size: 0.75rem;
   border: 1px solid var(--fleet-border);
   background: var(--fleet-surface);
   overflow: hidden;
-  min-height: 0;
+  min-height: 320px;
   box-shadow: inset 0 -18px 22px rgba(15, 23, 42, 0.06);
 }
 
@@ -2063,10 +2085,13 @@ $toolbar-font-size: 0.75rem;
   left: auto;
   right: auto;
   bottom: auto;
-  height: auto;
+  height: 100%;
   min-height: 0;
   z-index: 1;
   pointer-events: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .fleet-filter-overlay {
@@ -2425,6 +2450,22 @@ $toolbar-font-size: 0.75rem;
     width: min(420px, 100%);
   }
 
+  .fleet-shell.table-collapsed {
+    grid-template-rows: auto auto auto minmax(260px, 1fr) minmax(64px, auto);
+  }
+
+  .fleet-shell.fleet-shell-admin-layout {
+    grid-template-rows: auto auto auto minmax(320px, 1fr) minmax(220px, 34vh);
+    min-height: 580px;
+  }
+
+  .fleet-shell.fleet-shell-admin-layout.table-collapsed {
+    grid-template-rows: auto auto auto minmax(360px, 1fr) minmax(64px, auto);
+  }
+
+  .fleet-shell-map-stage {
+    min-height: 260px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -2465,6 +2506,20 @@ $toolbar-font-size: 0.75rem;
     box-shadow: none;
   }
 
+  .fleet-quick-filters-left {
+    width: 100%;
+  }
+
+  .fleet-quick-filter-pills {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    padding-bottom: 0.2rem;
+  }
+
+  .quick-filter-pill {
+    flex: 0 0 auto;
+  }
+
   .fleet-filter-overlay-body {
     padding: 0.75rem;
   }
@@ -2476,5 +2531,22 @@ $toolbar-font-size: 0.75rem;
 
   .fleet-filter-overlay-footer {
     padding: 0.75rem;
+  }
+
+  .fleet-shell.table-collapsed {
+    grid-template-rows: auto auto auto minmax(220px, 1fr) minmax(56px, auto);
+  }
+
+  .fleet-shell.fleet-shell-admin-layout {
+    grid-template-rows: auto auto auto minmax(250px, 1fr) minmax(220px, 38vh);
+    min-height: 520px;
+  }
+
+  .fleet-shell.fleet-shell-admin-layout.table-collapsed {
+    grid-template-rows: auto auto auto minmax(280px, 1fr) minmax(56px, auto);
+  }
+
+  .fleet-shell-map-stage {
+    min-height: 220px;
   }
 }

@@ -12,7 +12,7 @@
     "verify:admin:api": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-admin-dashboard-api.ps1",
     "verify:admin:ui": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-admin-dashboard-ui.ps1",
     "verify:admin:all": "npm run verify:admin:api && npm run verify:admin:ui",
-    "verify:fluorescence-map:ui": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-fluorescence-map-ui.ps1",
+    "verify:fluorescence-map:ui": "node ./scripts/verify-fluorescence-map-ui.mjs",
     "verify:fluorescence-map:video": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-testsprite-fluorescence-map.ps1 -VideoUrlOutputPath ./output/playwright/verification-video.url.txt",
     "verify:fluorescence-map:all": "npm run verify:fluorescence-map:ui",
     "sass": "sass ./public/assets/scss:./public/assets/css/",
@@ -56,6 +56,7 @@
     "chart.js": "^4.5.1",
     "date-fns": "^4.1.0",
     "echarts": "^6.0.0",
+    "echarts-wordcloud": "^2.1.0",
     "exceljs": "^4.4.0",
     "filepond": "^4.32.11",
     "flatpickr": "^4.6.13",
@@ -110,6 +111,7 @@
     "karma-coverage": "~2.2.1",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
+    "playwright": "^1.58.2",
     "typescript": "~5.7.3"
   }
 }

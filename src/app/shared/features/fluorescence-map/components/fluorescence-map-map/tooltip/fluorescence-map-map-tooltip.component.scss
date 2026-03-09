@@ -24,16 +24,15 @@
   .tooltip-content {
     background:
       linear-gradient(135deg, rgba(10, 20, 15, 0.98), rgba(8, 12, 18, 0.95));
-    backdrop-filter: blur(14px);
+    backdrop-filter: blur(10px);
     border: 1px solid rgba(0, 255, 65, 0.35);
     border-radius: 12px;
     padding: 0 !important;
-    width: 360px;
-    max-width: 360px;
-    max-height: 340px;
+    width: 284px;
+    max-width: 284px;
     box-shadow:
-      0 8px 24px rgba(0, 0, 0, 0.6),
-      0 0 24px rgba(0, 255, 65, 0.25),
+      0 8px 24px rgba(0, 0, 0, 0.5),
+      0 0 16px rgba(0, 255, 65, 0.16),
       inset 0 1px 0 rgba(255, 255, 255, 0.08);
     overflow: visible;
     position: relative;
@@ -46,8 +45,8 @@
       background-image:
         linear-gradient(rgba(0, 255, 100, 0.08) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0, 255, 100, 0.06) 1px, transparent 1px);
-      background-size: 24px 24px;
-      opacity: 0.25;
+      background-size: 28px 28px;
+      opacity: 0.14;
       pointer-events: none;
     }
   }
@@ -55,22 +54,21 @@
   .tooltip-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 14px !important;
+    gap: 8px;
+    padding: 10px 12px !important;
     background: rgba(0, 255, 65, 0.08);
     border-bottom: 1px solid rgba(0, 255, 65, 0.25);
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(4px);
 
     .tooltip-logo {
-      width: 38px !important;
-      height: 38px !important;
+      width: 34px !important;
+      height: 34px !important;
       object-fit: contain;
       border-radius: 6px;
       background: rgba(255, 255, 255, 0.08);
       padding: 3px;
       border: 1px solid rgba(0, 255, 65, 0.25);
       flex-shrink: 0;
-      animation: logoPulse 2s ease-in-out infinite;
     }
 
     .tooltip-title-block {
@@ -83,25 +81,25 @@
 
     .tooltip-title {
       font-weight: 700;
-      font-size: 0.8rem !important;
+      font-size: 0.76rem !important;
       color: #00ff84;
-      letter-spacing: 0.6px;
+      letter-spacing: 0.4px;
       text-transform: uppercase;
       line-height: 1.1;
     }
 
     .tooltip-subtitle {
-      font-size: 0.6rem;
-      letter-spacing: 0.5px;
+      font-size: 0.56rem;
+      letter-spacing: 0.4px;
       text-transform: uppercase;
       color: rgba(230, 249, 239, 0.7);
     }
 
     .tooltip-status-pill {
-      font-size: 0.6rem;
-      letter-spacing: 0.8px;
+      font-size: 0.56rem;
+      letter-spacing: 0.6px;
       text-transform: uppercase;
-      padding: 4px 8px;
+      padding: 3px 7px;
       border-radius: 999px;
       border: 1px solid rgba(0, 255, 65, 0.4);
       color: #0a0f14;
@@ -120,22 +118,22 @@
   }
 
   .tooltip-body {
-    padding: 14px !important;
+    padding: 12px !important;
     max-height: none !important;
     overflow-y: visible !important;
 
     .tooltip-chips {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 10px;
+      gap: 5px;
+      margin-bottom: 8px;
     }
 
     .tooltip-chip {
-      font-size: 0.55rem;
+      font-size: 0.52rem;
       text-transform: uppercase;
-      letter-spacing: 0.6px;
-      padding: 4px 8px;
+      letter-spacing: 0.5px;
+      padding: 3px 7px;
       border-radius: 999px;
       border: 1px solid rgba(0, 255, 65, 0.25);
       background: rgba(0, 255, 65, 0.08);
@@ -143,42 +141,30 @@
     }
 
     .tooltip-description {
-      font-size: 0.75rem !important;
-      line-height: 1.45 !important;
+      font-size: 0.72rem !important;
+      line-height: 1.38 !important;
       letter-spacing: 0 !important;
       color: rgba(230, 249, 239, 0.85);
-      margin-bottom: 12px !important;
+      margin-bottom: 8px !important;
       text-align: left;
     }
+  }
 
-    .tooltip-details {
-      display: grid;
-      gap: 8px;
-      padding-top: 10px;
-      border-top: 1px solid rgba(0, 255, 65, 0.12);
-    }
+  .tooltip-meta {
+    display: grid;
+    gap: 4px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0, 255, 65, 0.12);
+  }
 
-    .tooltip-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.7rem !important;
-    }
+  .tooltip-meta-line {
+    font-size: 0.64rem;
+    line-height: 1.35;
+    color: rgba(230, 249, 239, 0.78);
+  }
 
-    .tooltip-label {
-      color: rgba(176, 176, 176, 0.85);
-      font-size: 0.6rem !important;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      font-weight: 600;
-    }
-
-    .tooltip-value {
-      color: #ffffff;
-      font-weight: 600;
-      font-size: 0.7rem !important;
-      text-align: right;
-    }
+  .tooltip-meta-line-muted {
+    color: rgba(230, 249, 239, 0.58);
   }
 
   .tooltip-arrow {
@@ -227,22 +213,22 @@
 
     .tooltip-body {
       .tooltip-chip {
-        border-color: rgba(0, 140, 70, 0.2);
-        background: rgba(0, 140, 70, 0.08);
-        color: rgba(11, 93, 44, 0.85);
-      }
+      border-color: rgba(0, 140, 70, 0.2);
+      background: rgba(0, 140, 70, 0.08);
+      color: rgba(11, 93, 44, 0.85);
+    }
 
-      .tooltip-description {
-        color: #3f3f3f;
-      }
+    .tooltip-description {
+      color: #3f3f3f;
+    }
+    }
 
-      .tooltip-label {
-        color: rgba(80, 80, 80, 0.8);
-      }
+    .tooltip-meta-line {
+      color: rgba(34, 34, 34, 0.8);
+    }
 
-      .tooltip-value {
-        color: #222;
-      }
+    .tooltip-meta-line-muted {
+      color: rgba(80, 80, 80, 0.78);
     }
   }
 }
@@ -250,30 +236,30 @@
 @media (max-width: 575.98px) {
   .company-logo-tooltip {
     .tooltip-content {
-      min-width: 280px;
-      max-width: 320px;
+      min-width: 248px;
+      max-width: 280px;
     }
 
     .tooltip-header {
-      padding: 12px 14px;
-      gap: 10px;
+      padding: 10px 12px;
+      gap: 8px;
 
       .tooltip-logo {
-        width: 40px;
-        height: 40px;
+        width: 34px;
+        height: 34px;
       }
 
       .tooltip-title {
-        font-size: 0.875rem;
+        font-size: 0.74rem;
       }
     }
 
     .tooltip-body {
-      padding: 12px;
+      padding: 10px;
 
       .tooltip-description {
-        font-size: 0.75rem;
-        margin-bottom: 12px;
+        font-size: 0.7rem;
+        margin-bottom: 8px;
       }
     }
   }
@@ -287,18 +273,6 @@
   100% {
     opacity: 1;
     transform: translate(-50%, var(--tooltip-translate-y)) scale(1);
-  }
-}
-
-@keyframes logoPulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(0, 255, 65, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 4px rgba(0, 255, 65, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(0, 255, 65, 0.4);
   }
 }
 
@@ -316,7 +290,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .company-logo-tooltip,
-  .company-logo-tooltip .tooltip-logo,
   .company-logo-tooltip .tooltip-arrow {
     animation: none !important;
     transition: none !important;

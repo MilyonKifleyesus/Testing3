@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { By } from '@angular/platform-browser';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { FluorescenceMapComponent } from './fluorescence-map.component';
@@ -197,6 +198,7 @@ describe('FluorescenceMapComponent (unit)', () => {
   beforeEach(async () => {
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
     spyOn(FluorescenceMapMapComponent.prototype as any, 'createMap').and.returnValue(createMapStub());
+    spyOn(FluorescenceMapMapComponent.prototype, 'ngAfterViewInit').and.stub();
     spyOn(FluorescenceMapMapComponent.prototype as any, 'setupResizeObserver').and.stub();
     spyOn(FluorescenceMapMapComponent.prototype as any, 'setupFullscreenListeners').and.stub();
     spyOn(FluorescenceMapMapComponent.prototype as any, 'zoomToEntity').and.stub();
@@ -238,7 +240,7 @@ describe('FluorescenceMapComponent (unit)', () => {
     } as unknown as AuthService;
 
     await TestBed.configureTestingModule({
-      imports: [FluorescenceMapComponent, BrowserAnimationsModule],
+      imports: [FluorescenceMapComponent, NoopAnimationsModule],
       providers: [
         WarRoomService,
         { provide: AuthService, useValue: authServiceMock },
@@ -283,6 +285,9 @@ describe('FluorescenceMapComponent (unit)', () => {
   afterEach(() => {
     document.body.classList.remove(MAP_EXPANDED_CLASS);
     document.body.style.overflow = '';
+    fixture?.destroy();
+    httpMock?.verify({ ignoreCancelled: true } as never);
+    localStorage.clear();
   });
 
 
@@ -352,6 +357,94 @@ describe('FluorescenceMapComponent (unit)', () => {
     fixture.detectChanges();
 
     expect(component.filteredTransitRoutes().length).toBe(0);
+  });
+
+  it('passes visible transit routes into the map component instead of dropping them at the template boundary', () => {
+    const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
+    const factoryB = buildFactory({ id: 'factory-b', subsidiaryId: 'sub-2', city: 'Denver' });
+    const subsidiaryA = buildSubsidiary({ id: 'sub-1', factories: [factoryA] });
+    const subsidiaryB = buildSubsidiary({ id: 'sub-2', factories: [factoryB] });
+    const parentGroup = buildParentGroup([subsidiaryA, subsidiaryB]);
+    const route: TransitRoute = {
+      id: 'route-a-b',
+      from: 'factory-a',
+      to: 'factory-b',
+      fromCoordinates: factoryA.coordinates,
+      toCoordinates: factoryB.coordinates,
+      animated: true,
+    };
+
+    setServiceState([parentGroup], [route]);
+    warRoomService.setMapViewMode('factory');
+    fixture.detectChanges();
+
+    expect(component.shouldPassMapData()).toBeTrue();
+    expect(component.filteredTransitRoutes().map((item) => item.id)).toEqual(['route-a-b']);
+
+    const mapDebug = fixture.debugElement.query(By.directive(FluorescenceMapMapComponent));
+    const mapChild = mapDebug.componentInstance as FluorescenceMapMapComponent;
+
+    expect(mapChild.transitRoutes().map((item) => item.id)).toEqual(['route-a-b']);
+  });
+
+  it('hides client-only controls for restricted roles without relying on the UI integration harness', () => {
+    fixture.destroy();
+    localStorage.clear();
+    warRoomService.setMapViewMode('project');
+
+    authUserSubject.next({
+      userId: 2,
+      username: 'test-client',
+      role: 'client',
+      clientId: 2,
+      isGeneralAdmin: false,
+    });
+
+    fixture = TestBed.createComponent(FluorescenceMapComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/clients')), { items: [] });
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/projects')), { items: [] });
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/manufacturers')), { items: [] });
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/locations')), { items: [] });
+
+    expect(component.isClientOrUser()).toBeTrue();
+    expect(component.canSeeClientView()).toBeFalse();
+    expect(component.canAddProject()).toBeFalse();
+
+    const modeTabLabels = Array.from(
+      fixture.nativeElement.querySelectorAll('.fleet-mode-tabs button') as NodeListOf<HTMLButtonElement>
+    ).map((el) => (el.textContent ?? '').trim());
+    expect(modeTabLabels).not.toContain('Clients');
+    expect(fixture.debugElement.query(By.css('.map-add-project-btn'))).toBeNull();
+    expect(fixture.debugElement.query(By.css('.sidebar-edit-toggle'))).toBeNull();
+  });
+
+  it('forces project view when restoring client mode for restricted users without relying on the UI integration harness', () => {
+    fixture.destroy();
+    localStorage.clear();
+    localStorage.setItem('war-room-state-v1', JSON.stringify({ mapViewMode: 'client' }));
+    warRoomService.setMapViewMode('project');
+
+    authUserSubject.next({
+      userId: 4,
+      username: 'restricted',
+      role: 'client',
+      clientId: 4,
+      isGeneralAdmin: false,
+    });
+
+    fixture = TestBed.createComponent(FluorescenceMapComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/clients')), { items: [] });
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/projects')), { items: [] });
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/manufacturers')), { items: [] });
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/locations')), { items: [] });
+
+    expect(warRoomService.mapViewMode()).toBe('project');
   });
 
   it('toggleMapExpanded toggles mapExpanded and body class', () => {
@@ -1599,7 +1692,7 @@ describe('FluorescenceMapComponent (unit)', () => {
     expect(component.mapViewModelStrict().routes.length).toBe(0);
   });
 
-  it('strict pipeline clears filtered-out selection and shows notice', () => {
+  it('strict pipeline clears filtered-out selection without duplicating the empty-state notice', () => {
     const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
     const subsidiary = buildSubsidiary({ id: 'sub-1', factories: [factoryA] });
     setServiceState([buildParentGroup([subsidiary])], []);
@@ -1638,7 +1731,7 @@ describe('FluorescenceMapComponent (unit)', () => {
 
     expect(warRoomService.selectedEntity()).toBeNull();
     expect(component.selectedRouteId()).toBeNull();
-    expect(component.selectionOutsideFiltersNotice()).toBe('Current selection is outside applied filters');
+    expect(component.selectionOutsideFiltersNotice()).toBeNull();
   });
 
 });

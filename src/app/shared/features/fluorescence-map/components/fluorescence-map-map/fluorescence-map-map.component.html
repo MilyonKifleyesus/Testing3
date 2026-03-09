@@ -1,4 +1,7 @@
-<div class="war-room-map-container" [attr.data-theme-mode]="currentTheme()">
+<div
+  class="war-room-map-container"
+  [attr.data-theme-mode]="currentTheme()"
+  [attr.data-has-selection]="hasRouteSelection() ? 'true' : null">
   @if (!screenshotMode()) {
   <div class="grid-overlay"></div>
   }

@@ -8,7 +8,9 @@
 }
 
 :host.inline-layout-host {
-  height: auto;
+  display: block;
+  height: 100%;
+  min-height: 0;
 }
 
 .fleet-activity-table {
@@ -39,6 +41,7 @@
   z-index: 40;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   background: var(--fleet-table-bg);
   border-top: 1px solid var(--fleet-table-border);
   box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.14);
@@ -57,14 +60,20 @@
 
   &.inline-layout {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
     border: 1px solid var(--fleet-table-border);
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+    overflow: hidden;
   }
 
   &.inline-layout.collapsed {
     transform: none;
     overflow: hidden;
+    max-height: 74px;
   }
 }
 
@@ -103,6 +112,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  flex: 0 0 auto;
   padding: 0.8rem 1rem;
   border-bottom: 1px solid var(--fleet-table-border);
   background: var(--fleet-table-bg-soft);
@@ -175,6 +185,7 @@
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .secondary-controls {
@@ -249,6 +260,41 @@
   }
 }
 
+@media (max-width: 768px) {
+  .fleet-activity-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+  }
+
+  .toolbar-right {
+    justify-content: space-between;
+  }
+
+  .search-wrap {
+    flex: 1 1 100%;
+    width: 100%;
+
+    input {
+      width: 100%;
+      min-width: 0;
+    }
+  }
+
+  .toolbar-tabs {
+    flex-wrap: wrap;
+  }
+
+  .secondary-controls-menu {
+    right: auto;
+    left: 0;
+  }
+}
+
 .search-icon {
   color: var(--fleet-table-muted);
   margin-right: 0.35rem;
@@ -307,6 +353,8 @@
 }
 
 .fleet-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -350,7 +398,14 @@
     }
 
     &.selected {
-      background: var(--fleet-table-primary-soft);
+      background:
+        linear-gradient(90deg, var(--fleet-table-primary-border) 0 4px, transparent 4px),
+        color-mix(in srgb, var(--fleet-table-primary-soft) 88%, var(--fleet-table-bg) 12%);
+      box-shadow: inset 0 0 0 1px var(--fleet-table-primary-border);
+
+      .entity-name {
+        color: var(--fleet-table-primary);
+      }
     }
   }
 
@@ -728,6 +783,8 @@
   box-shadow: -14px 0 34px rgba(15, 23, 42, 0.14);
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   z-index: 45;
 }
 
@@ -760,6 +817,7 @@
 
 .drawer-body {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 0.9rem 1rem;
   display: flex;

@@ -1,5 +1,9 @@
 import { Injectable } from '@angular/core';
 import { ActivityLogRow, ClientVm, LocationVm, ManufacturerVm, ProjectVm } from '../models/fleet-vm.models';
+import {
+  normalizeManufacturerCandidates,
+  normalizeProjectTypeFilterKey,
+} from '../state/fluorescence-map.selectors';
 
 export interface ActivityLogProjectionFilters {
   status?: 'all' | 'active' | 'inactive';
@@ -39,7 +43,12 @@ export class ActivityLogTableService {
       }
     }
 
-    const filteredProjects = this.filterProjects(projects, filters);
+    const filteredProjects = this.filterProjects(
+      projects,
+      filters,
+      manufacturerById,
+      manufacturerByLocationId
+    );
     const rows = filteredProjects.map((project) =>
       this.mapProjectToRow(project, clientById, locationById, manufacturerById, manufacturerByLocationId)
     );
@@ -105,27 +114,48 @@ export class ActivityLogTableService {
     });
   }
 
-  private filterProjects(projects: ProjectVm[], filters: ActivityLogProjectionFilters): ProjectVm[] {
+  private filterProjects(
+    projects: ProjectVm[],
+    filters: ActivityLogProjectionFilters,
+    manufacturerById: Map<string, ManufacturerVm>,
+    manufacturerByLocationId: Map<string, ManufacturerVm[]>
+  ): ProjectVm[] {
     return projects.filter((project) => {
       const projectId = String(project.id);
       const clientId = String(project.clientId);
       const status = this.toRowStatus(project.status);
-      const manufacturerName = (project.manufacturerName ?? '').toLowerCase();
-      const manufacturerLocationId = String(project.manufacturerLocationId ?? '');
-      const projectTypeId = String(project.projectTypeId ?? project.assessmentType ?? '');
+      const resolvedManufacturers = this.resolveManufacturersForProject(
+        project,
+        manufacturerById,
+        manufacturerByLocationId
+      );
+      const manufacturerCandidates = [
+        project.manufacturerName,
+        project.manufacturerLocationId,
+        project.locationId,
+        ...(project.locationIds ?? []).map((locationId) => String(locationId)),
+        ...resolvedManufacturers.flatMap((manufacturer) => [manufacturer.id, manufacturer.name]),
+      ].flatMap((value) => normalizeManufacturerCandidates(value));
+      const normalizedProjectTypeId = normalizeProjectTypeFilterKey(
+        project.projectTypeId,
+        project.assessmentType
+      );
 
       if (filters.projectIds?.length && !filters.projectIds.includes(projectId)) return false;
       if (filters.clientIds?.length && !filters.clientIds.includes(clientId)) return false;
       if (
         filters.manufacturerIds?.length &&
-        !filters.manufacturerIds.some((manufacturerId) => {
-          const normalizedId = manufacturerId.toLowerCase();
-          return manufacturerLocationId === manufacturerId || manufacturerName.includes(normalizedId);
-        })
+        !filters.manufacturerIds.some((manufacturerId) =>
+          normalizeManufacturerCandidates(manufacturerId).some((candidate) =>
+            manufacturerCandidates.includes(candidate)
+          )
+        )
       ) {
         return false;
       }
-      if (filters.projectTypeIds?.length && !filters.projectTypeIds.includes(projectTypeId)) return false;
+      if (filters.projectTypeIds?.length && (!normalizedProjectTypeId || !filters.projectTypeIds.includes(normalizedProjectTypeId))) {
+        return false;
+      }
       if (filters.status === 'active' && status !== 'Active') return false;
       if (filters.status === 'inactive' && status === 'Active') return false;
       return true;

@@ -2,6 +2,8 @@
   class="fleet-shell"
   [id]="shellElementId"
   [class.route-screenshot-mode]="screenshotMode()"
+  [class.table-collapsed]="!dataManagementOnly() && !panelVisible()"
+  [class.fleet-shell-admin-layout]="layoutPreset() === 'admin'"
   [class.fleet-shell-inline-table]="true">
   <div class="visually-hidden" aria-live="polite" aria-atomic="true">{{ announcementMessage() }}</div>
 
@@ -385,7 +387,7 @@
               [class.active]="filterDraft().status === 'all'"
               [attr.aria-pressed]="filterDraft().status === 'all'"
               (click)="setStatusFilter('all')">
-              All
+              All ({{ statusCounts().total }})
             </button>
             <button
               type="button"
@@ -393,7 +395,7 @@
               [class.active]="filterDraft().status === 'active'"
               [attr.aria-pressed]="filterDraft().status === 'active'"
               (click)="setStatusFilter('active')">
-              Active
+              Active ({{ statusCounts().active }})
             </button>
             <button
               type="button"
@@ -401,7 +403,7 @@
               [class.active]="filterDraft().status === 'inactive'"
               [attr.aria-pressed]="filterDraft().status === 'inactive'"
               (click)="setStatusFilter('inactive')">
-              Inactive
+              Inactive ({{ statusCounts().inactive }})
             </button>
           </div>
         </div>
@@ -470,9 +472,10 @@
       [dashboardFullscreenMode]="dashboardFullscreenMode()"
       [dashboardFullscreen]="dashboardFullscreen()"
       [fullscreenContainerSelector]="shellFullscreenSelector"
+      [overlaySnapshot]="mapOverlaySnapshot()"
       [nodes]="shouldPassMapData() ? strictMapNodes() : []"
       [selectedEntity]="selectedEntity()"
-      [transitRoutes]="[]"
+      [transitRoutes]="shouldPassMapData() ? filteredTransitRoutes() : []"
       [projectRoutes]="shouldPassMapData() ? strictMapProjectRoutes() : []"
       [filterStatus]="effectiveStatusFilter()"
       (nodeSelected)="onNodeSelected($event)"

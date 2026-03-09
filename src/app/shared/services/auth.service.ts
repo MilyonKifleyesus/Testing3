@@ -41,10 +41,6 @@ export class AuthService {
       .post<LoginResponse>(`${environment.apiBaseUrl}/auth/login`, req)
       .pipe(
         tap((res) => {
-          console.log('[AuthService] /api/auth/login response:', {
-            ...res,
-            accessToken: res?.accessToken ? '[redacted]' : res?.accessToken,
-          });
           localStorage.setItem(LS_TOKEN, res.accessToken);
           const user: CurrentUser = {
             userId: res.userId,

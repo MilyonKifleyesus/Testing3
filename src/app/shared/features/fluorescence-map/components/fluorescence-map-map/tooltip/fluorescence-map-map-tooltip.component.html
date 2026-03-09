@@ -21,30 +21,12 @@
         <span class="tooltip-chip">{{ tooltip()!.locationLabel || 'Location Pending' }}</span>
       </div>
       <div class="tooltip-description">{{ tooltip()!.description }}</div>
-      <div class="tooltip-details">
-        <div class="tooltip-row">
-          <span class="tooltip-label">TYPE</span>
-          <span class="tooltip-value">{{ tooltip()!.typeLabel }}</span>
-        </div>
-        <div class="tooltip-row">
-          <span class="tooltip-label">LOCATION</span>
-          <span class="tooltip-value">{{ tooltip()!.locationLabel || 'Location Pending' }}</span>
-        </div>
-        <div class="tooltip-row">
-          <span class="tooltip-label">STATUS</span>
-          <span class="tooltip-value" [ngClass]="tooltip()!.statusClass">{{ tooltip()!.statusLabel || 'STATUS' }}</span>
-        </div>
+      <div class="tooltip-meta">
         @if (tooltip()!.fullAddress) {
-        <div class="tooltip-row">
-          <span class="tooltip-label">ADDRESS</span>
-          <span class="tooltip-value">{{ tooltip()!.fullAddress }}</span>
-        </div>
+        <div class="tooltip-meta-line">{{ tooltip()!.fullAddress }}</div>
         }
         @if (tooltip()!.notes) {
-        <div class="tooltip-row">
-          <span class="tooltip-label">NOTES</span>
-          <span class="tooltip-value italic">{{ tooltip()!.notes }}</span>
-        </div>
+        <div class="tooltip-meta-line tooltip-meta-line-muted">{{ tooltip()!.notes }}</div>
         }
       </div>
     </div>

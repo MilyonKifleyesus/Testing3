@@ -18,6 +18,7 @@ import { FluorescenceMapMapRoutesComponent, RouteVm } from './routes/fluorescenc
 import { FluorescenceMapMapMarkersComponent } from './markers/fluorescence-map-map-markers.component';
 import { ToastrService } from 'ngx-toastr';
 import { isValidCoordinates } from '../../../../utils/coordinate.utils';
+import { MapOverlaySnapshot } from '../../fluorescence-map.types';
 import { environment } from '../../../../../../environments/environment';
 import html2canvas from 'html2canvas';
 
@@ -45,6 +46,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   dashboardFullscreenMode = input<boolean>(false);
   dashboardFullscreen = input<boolean>(false);
   fullscreenContainerSelector = input<string | null>(null);
+  overlaySnapshot = input<MapOverlaySnapshot | null>(null);
   nodes = input<WarRoomNode[]>([]);
   selectedEntity = input<FleetSelection | null>(null);
   transitRoutes = input<TransitRoute[]>([]);
@@ -80,6 +82,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   private resizeTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private previousViewState: { center: [number, number]; zoom: number } | null = null;
   private initMapRetryCount = 0;
+  private basemapFallbackApplied = false;
   private static readonly INIT_MAP_MAX_RETRIES = 10;
 
   private readonly defaultView = {
@@ -95,13 +98,17 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   private readonly LOD_LOGO_ONLY_THRESHOLD = 1.2;
   private readonly LOD_FULL_DETAIL_THRESHOLD = 2.5;
   /** Pin label shows when zoomFactor >= this. Lower = label appears earlier when zooming in; higher = only when more zoomed in. */
-  private readonly LOD_PIN_LABEL_THRESHOLD = 1.8;
+  private readonly LOD_PIN_LABEL_THRESHOLD = 1.35;
 
   /** Map style URLs by theme (from environment). */
   private readonly MAP_STYLE = this.envConfig.mapStyles;
   private readonly DEFAULT_MAP_STYLE = {
     light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
     dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  } as const;
+  private readonly FALLBACK_MAP_STYLE_COLORS = {
+    light: '#edf3ee',
+    dark: '#0b1215',
   } as const;
 
   // ----- Marker size tuning (adjust these to change how big markers are) -----
@@ -129,6 +136,25 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   readonly effectiveFullscreen = computed(() =>
     this.dashboardFullscreenMode() ? this.dashboardFullscreen() : this.fullscreenState()
   );
+  readonly effectiveOverlaySnapshot = computed<MapOverlaySnapshot>(() => {
+    const snapshot = this.overlaySnapshot();
+    if (snapshot) {
+      return snapshot;
+    }
+
+    return {
+      nodes: this.nodes(),
+      projectRoutes: this.projectRoutes(),
+      transitRoutes: this.transitRoutes(),
+      selected: this.selectedEntity(),
+      hovered: this.warRoomService.hoveredEntity(),
+      filterStatus: this.filterStatus(),
+    };
+  });
+  readonly hasRouteSelection = computed(() => {
+    const selected = this.effectiveOverlaySnapshot().selected;
+    return !!selected?.id && selected.level !== 'parent';
+  });
   private readonly hoveredNode = signal<WarRoomNode | null>(null);
   private readonly pinnedNodeId = signal<string | null>(null);
   readonly containerRect = signal<DOMRect | null>(null);
@@ -148,6 +174,8 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   readonly mapErrorUnrecoverable = signal<boolean>(false);
   private mapErrorToastShown = false;
   private mapWarningToastShown = false;
+  private lastOverlayEnsureKey: string | null = null;
+  private appliedMapTheme: 'light' | 'dark' | null = null;
 
   // Services
   private warRoomService = inject(WarRoomService);
@@ -193,47 +221,23 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     });
 
     effect(() => {
-      const selected = this.selectedEntity();
-      const container = document.querySelector('.war-room-map-container') as HTMLElement | null;
-      if (container) {
-        // Parent-level default selection should not mute all route lines.
-        const shouldMuteNonHighlightedRoutes = !!selected?.id && selected.level !== 'parent';
-        if (shouldMuteNonHighlightedRoutes) {
-          container.setAttribute('data-has-selection', 'true');
-        } else {
-          container.removeAttribute('data-has-selection');
-        }
-      }
-    });
-
-    effect(() => {
-      const nodes = this.nodes();
-      void nodes;
+      const snapshot = this.effectiveOverlaySnapshot();
+      const ensureKey = this.buildOverlayEnsureKey(snapshot);
+      const interactionKey = this.buildOverlayInteractionKey(snapshot);
+      void interactionKey;
+      const shouldEnsure = ensureKey !== this.lastOverlayEnsureKey;
+      this.lastOverlayEnsureKey = ensureKey;
       if (this.mapInstance && this.mapLoaded && !this.destroyed) {
-        this.scheduleOverlayUpdate(true);
-      }
-    });
-
-    effect(() => {
-      const selected = this.selectedEntity();
-      const hovered = this.warRoomService.hoveredEntity();
-      const projectRoutes = this.projectRoutes();
-      const status = this.filterStatus();
-      void selected;
-      void hovered;
-      void projectRoutes;
-      void status;
-      if (this.mapInstance && this.mapLoaded && !this.destroyed) {
-        this.scheduleOverlayUpdate(false);
+        this.scheduleOverlayUpdate(shouldEnsure);
       }
     });
 
     effect(() => {
       const theme = this.currentTheme();
       void theme;
-      if (this.mapInstance && this.mapLoaded && !this.destroyed) {
-        const styleUrl = this.getMapStyleUrl(this.currentTheme());
-        this.mapInstance.setStyle(styleUrl);
+      if (this.mapInstance && this.mapLoaded && !this.destroyed && this.appliedMapTheme !== theme) {
+        this.appliedMapTheme = theme;
+        this.mapInstance.setStyle(this.getMapStyle(this.currentTheme()) as never);
         const onStyleLoad = () => {
           this.mapInstance?.off('style.load', onStyleLoad);
           if (!this.destroyed) this.scheduleOverlayUpdate(false);
@@ -302,6 +306,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   retryMapLoad(): void {
     if (this.mapErrorUnrecoverable()) return;
     this.disposeMapInstance();
+    this.basemapFallbackApplied = false;
     this.mapErrorToastShown = false;
     this.mapWarningToastShown = false;
     this.mapLoadError.set(null);
@@ -562,7 +567,9 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     this.overlaySyncInFlight = true;
     void this.syncOverlays(shouldEnsure)
       .catch((err) => {
-        console.warn('Map overlay sync failed:', err);
+        if (this.isDev) {
+          console.warn('Map overlay sync failed:', err);
+        }
       })
       .finally(() => {
         this.overlaySyncInFlight = false;
@@ -624,6 +631,43 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       this.mapWarningToastShown = true;
       this.toastr.warning(msg, 'Map warning');
     }
+  }
+
+  private isBasemapStyleError(msg: string, detail: string | null): boolean {
+    const combined = `${msg} ${detail ?? ''}`.toLowerCase();
+    return (
+      combined.includes('cartocdn.com') ||
+      combined.includes('positron-gl-style') ||
+      combined.includes('dark-matter-gl-style') ||
+      (combined.includes('style.json') && combined.includes('failed to fetch'))
+    );
+  }
+
+  private getFallbackMapStyle(theme: 'light' | 'dark'): object {
+    return {
+      version: 8,
+      sources: {},
+      layers: [
+        {
+          id: 'fleetpulse-fallback-background',
+          type: 'background',
+          paint: {
+            'background-color': this.FALLBACK_MAP_STYLE_COLORS[theme],
+          },
+        },
+      ],
+    };
+  }
+
+  private applyBasemapFallback(): void {
+    if (!this.mapInstance || this.basemapFallbackApplied) return;
+    this.basemapFallbackApplied = true;
+    this.mapLoadError.set(null);
+    this.mapLoadErrorDetail.set(null);
+    this.mapErrorDismissed.set(false);
+    this.mapErrorUnrecoverable.set(false);
+    this.mapInstance.setStyle(this.getFallbackMapStyle(this.currentTheme()) as never);
+    this.setRecoverableMapWarning('Primary basemap unavailable. Using simplified fallback map style.');
   }
 
   private getFactoriesSafe(): MapFactoryRef[] {
@@ -707,6 +751,10 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       const msg = (e.error as Error)?.message ?? 'Map failed to load';
       const errorObj = e.error as Error | undefined;
       const detail = errorObj?.stack ?? errorObj?.message ?? null;
+      if (this.isBasemapStyleError(msg, detail)) {
+        this.applyBasemapFallback();
+        return;
+      }
       const unrecoverable = this.isUnrecoverableMapError(msg, String(detail ?? ''));
       const isRecoverableRuntime = this.mapLoaded && !unrecoverable;
       if (isRecoverableRuntime) {
@@ -727,6 +775,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       this.mapErrorToastShown = false;
       this.mapWarningToastShown = false;
       this.mapLoaded = true;
+      this.appliedMapTheme = this.currentTheme();
       this.updateContainerRect();
       this.scheduleOverlayUpdate(true);
 
@@ -772,10 +821,16 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       ?? this.DEFAULT_MAP_STYLE.dark;
   }
 
+  private getMapStyle(theme: 'light' | 'dark'): string | object {
+    return this.basemapFallbackApplied
+      ? this.getFallbackMapStyle(theme)
+      : this.getMapStyleUrl(theme);
+  }
+
   private createMap(container: HTMLElement): MapLibreMap {
     const map = new maplibregl.Map({
       container,
-      style: this.getMapStyleUrl(this.currentTheme()),
+      style: this.getMapStyle(this.currentTheme()) as never,
       center: this.defaultView.center,
       zoom: this.defaultView.zoom,
       pitch: this.defaultView.pitch,
@@ -783,7 +838,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       minZoom: 0.5,
       maxZoom: 14,
       attributionControl: false,
-      canvasContextAttributes: { preserveDrawingBuffer: true },
+      ...(this.screenshotMode() ? { canvasContextAttributes: { preserveDrawingBuffer: true } } : {}),
     });
     this.currentZoomLevel.set(this.defaultView.zoom);
     return map;
@@ -877,18 +932,19 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     // Defensive check for initialization state (rare but possible in some test/mock scenarios)
     if (!this.routesVm || !this.markersVm) return;
 
-    const nodes = this.nodes();
+    const snapshot = this.effectiveOverlaySnapshot();
+    const nodes = snapshot.nodes;
     if (ensureCoords) {
       await this.ensureNodeCoordinates(nodes);
     }
 
     const overlays = this.overlayService.buildOverlayModels({
       nodes,
-      selected: this.selectedEntity(),
-      hovered: this.warRoomService.hoveredEntity(),
-      projectRoutes: this.projectRoutes(),
-      transitRoutes: [],
-      filterStatus: this.filterStatus(),
+      selected: snapshot.selected,
+      hovered: snapshot.hovered,
+      projectRoutes: snapshot.projectRoutes,
+      transitRoutes: snapshot.transitRoutes,
+      filterStatus: snapshot.filterStatus,
       routeColor: this.getRouteColor(),
       map: this.mapInstance,
       factories: this.getFactoriesSafe(),
@@ -915,6 +971,24 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     this.markerPixelCoordinates.set(overlays.markerPixels);
     this.markersVm.set(overlays.markers);
     this.routesVm.set(overlays.routes);
+  }
+
+  private buildOverlayEnsureKey(snapshot: MapOverlaySnapshot): string {
+    return [
+      snapshot.nodes.map((node) => `${node.id}:${node.status ?? ''}`).join('|'),
+      snapshot.projectRoutes.map((route) => `${route.id}:${route.status ?? ''}`).join('|'),
+      snapshot.transitRoutes.map((route) => route.id).join('|'),
+    ].join('::');
+  }
+
+  private buildOverlayInteractionKey(snapshot: MapOverlaySnapshot): string {
+    const selected = snapshot.selected;
+    const hovered = snapshot.hovered;
+    return [
+      snapshot.filterStatus,
+      `${selected?.level ?? ''}:${selected?.id ?? ''}:${selected?.factoryId ?? ''}:${selected?.manufacturerLocationId ?? ''}`,
+      `${hovered?.level ?? ''}:${hovered?.id ?? ''}:${hovered?.factoryId ?? ''}:${hovered?.manufacturerLocationId ?? ''}`,
+    ].join('::');
   }
 
   private buildMarkerVm(

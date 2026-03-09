@@ -7,6 +7,7 @@ import {
   selectMapViewModelStrict,
   selectNodesWithClients,
   selectProjectRoutesForMap,
+  selectAvailableRegionsFromValues,
   selectStatusCounts,
 } from './fluorescence-map.selectors';
 import { WarRoomFilters } from '../fluorescence-map.types';
@@ -436,6 +437,108 @@ describe('fluorescence-map selectors', () => {
     expect(filtered.map((route) => route.id)).toEqual(['r-lookup-match']);
   });
 
+  it('selectFilteredProjectRoutesStrict matches normalized manufacturer names and ids consistently', () => {
+    const routes = [
+      {
+        id: 'r-name-match',
+        projectId: 'A',
+        fromNodeId: 'client-1',
+        toNodeId: 'loc-10',
+        status: 'Open',
+        manufacturerName: 'New Flyer Industries, Inc.',
+        fromCoordinates: { latitude: 1, longitude: 1 },
+        toCoordinates: { latitude: 2, longitude: 2 },
+      },
+      {
+        id: 'r-id-match',
+        projectId: 'B',
+        fromNodeId: 'client-2',
+        toNodeId: 'loc-20',
+        status: 'Open',
+        manufacturerLocationId: '008',
+        fromCoordinates: { latitude: 1, longitude: 1 },
+        toCoordinates: { latitude: 2, longitude: 2 },
+      },
+      {
+        id: 'r-no-match',
+        projectId: 'C',
+        fromNodeId: 'client-3',
+        toNodeId: 'loc-30',
+        status: 'Open',
+        manufacturerName: 'ARBoc',
+        fromCoordinates: { latitude: 1, longitude: 1 },
+        toCoordinates: { latitude: 2, longitude: 2 },
+      },
+    ] as unknown as ProjectRoute[];
+
+    expect(
+      selectFilteredProjectRoutesStrict(routes, {
+        status: 'all',
+        regions: [],
+        clientIds: [],
+        manufacturerIds: ['New Flyer'],
+        projectTypeIds: [],
+        projectIds: [],
+      }).map((route) => route.id)
+    ).toEqual(['r-name-match']);
+
+    expect(
+      selectFilteredProjectRoutesStrict(routes, {
+        status: 'all',
+        regions: [],
+        clientIds: [],
+        manufacturerIds: ['8'],
+        projectTypeIds: [],
+        projectIds: [],
+      }).map((route) => route.id)
+    ).toEqual(['r-id-match']);
+  });
+
+  it('selectFilteredProjectRoutesStrict resolves project type through project lookup when route metadata is incomplete', () => {
+    const routes = [
+      {
+        id: 'r-project-type-lookup',
+        projectId: 'P-7',
+        fromNodeId: 'client-7',
+        toNodeId: 'loc-7',
+        status: 'Open',
+        fromCoordinates: { latitude: 1, longitude: 1 },
+        toCoordinates: { latitude: 2, longitude: 2 },
+      },
+    ] as unknown as ProjectRoute[];
+
+    const filtered = selectFilteredProjectRoutesStrict(
+      routes,
+      {
+        status: 'all',
+        regions: [],
+        clientIds: [],
+        manufacturerIds: [],
+        projectTypeIds: ['42'],
+        projectIds: [],
+      },
+      {
+        getRegionForNodeId: () => null,
+        getProjectTypeIdForProjectId: (projectId: string) => (projectId === 'P-7' ? '42' : null),
+      }
+    );
+
+    expect(filtered.map((route) => route.id)).toEqual(['r-project-type-lookup']);
+  });
+
+  it('selectAvailableRegionsFromValues merges preferred and derived regions in stable order', () => {
+    expect(
+      selectAvailableRegionsFromValues([
+        'Europe',
+        'Asia Pacific',
+        'North America',
+        'Middle East',
+        null,
+        'LATAM',
+      ])
+    ).toEqual(['North America', 'Europe', 'Asia Pacific', 'LATAM', 'Middle East']);
+  });
+
   it('strict selectors derive endpoint nodes and labels from markers only', () => {
     const routes: ProjectRoute[] = [
       {
@@ -545,5 +648,81 @@ describe('fluorescence-map selectors', () => {
     const filteredNodes = selectFilteredNodesStrict(nodes, ids.allNodeIds);
 
     expect(filteredNodes.map((node) => node.id).sort()).toEqual(['30', 'client-1']);
+  });
+
+  it('selectMapViewModelStrict keeps alias-matched nodes visible when marker ids are normalized differently', () => {
+    const vm = selectMapViewModelStrict({
+      mode: 'project',
+      filteredRoutes: [
+        {
+          id: 'r-source',
+          projectId: 'P-1',
+          fromNodeId: 'source-123',
+          toNodeId: 'loc-30',
+          status: 'Open',
+          fromCoordinates: { latitude: 10, longitude: 10 },
+          toCoordinates: { latitude: 20, longitude: 20 },
+        },
+      ],
+      filteredNodes: [
+        {
+          id: '123',
+          name: 'Client 123',
+          company: 'Client 123',
+          companyId: '123',
+          city: 'Toronto',
+          coordinates: { latitude: 10, longitude: 10 },
+          type: 'Hub',
+          status: 'ACTIVE',
+        },
+        {
+          id: '30',
+          name: 'Factory 30',
+          company: 'Factory 30',
+          companyId: '30',
+          city: 'Concord',
+          coordinates: { latitude: 20, longitude: 20 },
+          type: 'Facility',
+          status: 'ACTIVE',
+        },
+      ],
+      derivedNodeIds: {
+        fromNodeIds: new Set(['source-123', '123']),
+        toNodeIds: new Set(['loc-30', '30']),
+        allNodeIds: new Set(['source-123', '123', 'loc-30', '30']),
+      },
+      filtersActive: true,
+    });
+
+    expect(vm.markers.map((marker) => marker.nodeId).sort()).toEqual(['123', '30']);
+  });
+
+  it('selectMapViewModelStrict shows an empty state when routes exist but no visible nodes remain', () => {
+    const vm = selectMapViewModelStrict({
+      mode: 'project',
+      filteredRoutes: [
+        {
+          id: 'r-blank',
+          projectId: 'P-1',
+          fromNodeId: 'client-1',
+          toNodeId: 'factory-1',
+          status: 'Open',
+          fromCoordinates: { latitude: 10, longitude: 10 },
+          toCoordinates: { latitude: 20, longitude: 20 },
+        },
+      ],
+      filteredNodes: [],
+      derivedNodeIds: {
+        fromNodeIds: new Set(['client-1']),
+        toNodeIds: new Set(['factory-1']),
+        allNodeIds: new Set(['client-1', 'factory-1']),
+      },
+      filtersActive: true,
+    });
+
+    expect(vm.routes.length).toBe(1);
+    expect(vm.markers.length).toBe(0);
+    expect(vm.emptyState.show).toBeTrue();
+    expect(vm.emptyState.message).toBe('Filtered results have no visible map entities');
   });
 });

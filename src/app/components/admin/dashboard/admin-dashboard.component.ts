@@ -14,6 +14,7 @@ import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-
 import { ConfirmModalComponent } from './confirm-modal.component';
 import { AuthService } from '../../../shared/services/auth.service';
 import { FluorescenceMapComponent } from '../../../shared/features/fluorescence-map/fluorescence-map.component';
+import { DefectWordCloudComponent } from '../../../shared/features/defect-word-cloud/defect-word-cloud.component';
 import {
   DashboardProjectOption,
   DashboardProjectsService,
@@ -27,7 +28,7 @@ export interface DashboardWidget {
   id: string;                    // Unique identifier for the widget
   title: string;                 // Display title
   subtitle: string;              // Description/subtitle
-  type: 'chart' | 'stat' | 'gauge' | 'treemap' | 'heatmap' | 'timeline' | 'bar' | 'map'; // Content type
+  type: 'chart' | 'stat' | 'gauge' | 'treemap' | 'heatmap' | 'timeline' | 'bar' | 'map' | 'wordcloud'; // Content type
   chartOptions?: any;            // Chart configuration (flexible placeholder)
   width: number;                 // Grid columns (1-12)
   height: number;                // Height in pixels
@@ -47,7 +48,8 @@ export interface DashboardWidget {
     CommonModule, 
     FormsModule,
     DragDropModule,
-    FluorescenceMapComponent
+    FluorescenceMapComponent,
+    DefectWordCloudComponent,
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss']
@@ -484,6 +486,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         width: 4,
         height: 400,
         order: 3
+      },
+      {
+        id: 'widget-wordcloud',
+        title: 'Defect Word Cloud',
+        subtitle: 'Most common ticket descriptions across the selected scope',
+        type: 'wordcloud',
+        width: 12,
+        height: 500,
+        order: 3.5
       },
       {
         id: 'widget-4',

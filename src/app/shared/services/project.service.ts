@@ -29,6 +29,7 @@ import {
 import { ClientService } from './client.service';
 import { LocationService, ApiLocation } from '../services/location.service';
 import { normalizeNumericLikeId } from '../utils/id-normalizer.util';
+import { normalizeProjectTypeFilterKey } from '../features/fluorescence-map/state/fluorescence-map.selectors';
 import { environment } from '../../../environments/environment';
 import { fetchAllPages } from './adapters/pagination-fetch.util';
 import { parsePagedResponse } from './adapters/paged-response.adapter';
@@ -1713,11 +1714,16 @@ export class ProjectService {
       map((projects) => {
         const byId = new Map<string, number>();
         for (const p of projects) {
-          if (!p.assessmentType) continue;
-          byId.set(p.assessmentType, (byId.get(p.assessmentType) ?? 0) + 1);
+          const key = normalizeProjectTypeFilterKey(p.projectTypeId, p.assessmentType);
+          if (!key) continue;
+          byId.set(key, (byId.get(key) ?? 0) + 1);
         }
         return Array.from(byId.entries())
-          .map(([id, count]) => ({ id, name: id, count }))
+          .map(([id, count]) => ({
+            id,
+            name: projects.find((project) => normalizeProjectTypeFilterKey(project.projectTypeId, project.assessmentType) === id)?.assessmentType ?? id,
+            count,
+          }))
           .sort((a, b) => a.name.localeCompare(b.name));
       })
     );

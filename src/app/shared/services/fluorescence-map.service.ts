@@ -123,9 +123,8 @@ export class WarRoomService {
   }
 
   private logDebug(message: string, ...args: unknown[]): void {
-    if (isDevMode()) {
-      console.log(message, ...args);
-    }
+    void message;
+    void args;
   }
 
   private logWarn(message: string, ...args: unknown[]): void {

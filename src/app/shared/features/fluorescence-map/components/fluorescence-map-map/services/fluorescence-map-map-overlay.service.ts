@@ -124,6 +124,7 @@ export class FluorescenceMapMapOverlayService {
       routeColor
     );
     const routes: RouteVm[] = [];
+    const routeFeatureCount = featureCollection.features.length;
 
     const projectRouteGroups = new Map<string, number[]>();
     featureCollection.features.forEach((feature, index) => {
@@ -191,6 +192,7 @@ export class FluorescenceMapMapOverlayService {
         index,
         beginOffset: this.getRouteBeginOffset(routeId, index),
         highlighted: feature.properties.highlighted,
+        animated: feature.properties.highlighted || routeFeatureCount <= 12 || index < 8,
         strokeWidth: feature.properties.strokeWidth || 1.5,
         dashArray: feature.properties.dashArray,
         strokeColor: feature.properties.strokeColor,
@@ -456,6 +458,15 @@ export class FluorescenceMapMapOverlayService {
     routeColor: string
   ): RouteFeatureCollection {
     const features: RouteFeature[] = [];
+    const isEndpointSelected = (fromId: string | undefined, toId: string | undefined): boolean => {
+      if (!selected) return false;
+      const selectedIds = new Set(
+        [selected.id, selected.factoryId, selected.manufacturerLocationId]
+          .map((value) => String(value ?? '').trim())
+          .filter(Boolean)
+      );
+      return selectedIds.has(String(fromId ?? '').trim()) || selectedIds.has(String(toId ?? '').trim());
+    };
 
     const projectRoutes =
       filterStatus === 'active'
@@ -468,12 +479,7 @@ export class FluorescenceMapMapOverlayService {
 
     projectRoutes.forEach((route) => {
       if (!isValidCoordinates(route.fromCoordinates) || !isValidCoordinates(route.toCoordinates)) return;
-      const highlighted = !!selected && (
-        route.fromNodeId === selected.id ||
-        route.toNodeId === selected.id ||
-        route.fromNodeId === selected.factoryId ||
-        route.toNodeId === selected.factoryId
-      );
+      const highlighted = isEndpointSelected(route.fromNodeId, route.toNodeId);
       const strokeColor =
         filterStatus === 'all'
           ? route.status === 'Open'
@@ -499,6 +505,31 @@ export class FluorescenceMapMapOverlayService {
           strokeColor,
           fromNodeId: route.toNodeId,
           toNodeId: route.fromNodeId,
+        },
+      });
+    });
+
+    (transitRoutes ?? []).forEach((route) => {
+      if (!isValidCoordinates(route.fromCoordinates) || !isValidCoordinates(route.toCoordinates)) return;
+      const startCoords = route.fromCoordinates;
+      const endCoords = route.toCoordinates;
+      features.push({
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [startCoords.longitude, startCoords.latitude],
+            [endCoords.longitude, endCoords.latitude],
+          ],
+        },
+        properties: {
+          strokeWidth: route.strokeWidth ?? 1.5,
+          dashArray: route.dashArray,
+          highlighted: isEndpointSelected(route.from, route.to),
+          routeId: route.id,
+          strokeColor: route.strokeColor ?? routeColor,
+          fromNodeId: route.from,
+          toNodeId: route.to,
         },
       });
     });

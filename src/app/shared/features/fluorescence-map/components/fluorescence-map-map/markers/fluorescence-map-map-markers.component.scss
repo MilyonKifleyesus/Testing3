@@ -39,14 +39,12 @@
     circle,
     rect,
     text,
-    image {
-      pointer-events: auto;
-    }
-
-    .marker-tag,
-    .marker-dot-group,
-    .marker-shell {
-      pointer-events: auto;
+    image,
+    path,
+    polygon,
+    ellipse,
+    line {
+      pointer-events: none;
     }
   }
 

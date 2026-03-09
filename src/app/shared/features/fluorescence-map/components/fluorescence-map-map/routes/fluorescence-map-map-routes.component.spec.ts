@@ -21,6 +21,7 @@ describe('FluorescenceMapMapRoutesComponent', () => {
       index: 2,
       beginOffset: '0.8s',
       highlighted: false,
+      animated: true,
       strokeWidth: 2,
       dashArray: '1000',
     };

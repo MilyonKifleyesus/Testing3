@@ -9,6 +9,7 @@ export interface RouteVm {
   index: number;
   beginOffset: string;
   highlighted: boolean;
+  animated: boolean;
   strokeWidth: number;
   dashArray?: string;
   /** Per-route stroke color for project routes (energy conduit styling) */

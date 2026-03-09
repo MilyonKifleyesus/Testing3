@@ -7,7 +7,10 @@ import { FluorescenceMapComponent } from '../../../shared/features/fluorescence-
   standalone: true,
   imports: [CommonModule, FluorescenceMapComponent],
   template: `
-    <app-fluorescence-map [dataManagementMode]="'edit'" [tableLayout]="'inline'"></app-fluorescence-map>
+    <app-fluorescence-map
+      [dataManagementMode]="'edit'"
+      [tableLayout]="'inline'"
+      [layoutPreset]="'admin'"></app-fluorescence-map>
   `,
   styles: [
     `

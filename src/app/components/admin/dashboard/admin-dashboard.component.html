@@ -220,6 +220,12 @@
                 [chartOptions]="widget.chartOptions"
               ></spk-apex-charts>
 
+              <app-defect-word-cloud
+                *ngIf="widget.id === 'widget-wordcloud'"
+                [projectId]="selectedProject"
+                [fullscreen]="false"
+              ></app-defect-word-cloud>
+
   <!-- Fluorescence Map widget -->
               <app-fluorescence-map
               *ngIf="widget.id === 'widget-map' && fullscreenWidgetId !== 'widget-map'"
@@ -319,6 +325,12 @@
             (dashboardFullscreenToggleRequested)="toggleFullscreen('widget-map')"
             class="dashboard-map-embed"
           ></app-fluorescence-map>
+
+          <app-defect-word-cloud
+            *ngIf="fullscreenWidget.id === 'widget-wordcloud'"
+            [projectId]="selectedProject"
+            [fullscreen]="true"
+          ></app-defect-word-cloud>
 
           <spk-apex-charts 
             *ngIf="fullscreenWidget.chartOptions" 

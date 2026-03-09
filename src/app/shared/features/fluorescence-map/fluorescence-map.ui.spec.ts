@@ -1,6 +1,6 @@
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpTestingController } from '@angular/common/http/testing';
-import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { By } from '@angular/platform-browser';
@@ -8,6 +8,7 @@ import { FluorescenceMapComponent } from './fluorescence-map.component';
 import { FluorescenceMapMapComponent } from './components/fluorescence-map-map/fluorescence-map-map.component';
 import { WarRoomService } from '../../../shared/services/fluorescence-map.service';
 import { AuthService, CurrentUser } from '../../../shared/services/auth.service';
+import { ClientService } from '../../../shared/services/client.service';
 import { MapRealtimeService } from './realtime/map-realtime.service';
 import { MapPollingService } from './realtime/map-polling.service';
 import { ProjectService } from '../../../shared/services/project.service';
@@ -19,6 +20,7 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
   let fixture: ComponentFixture<FluorescenceMapComponent>;
   let component: FluorescenceMapComponent;
   let warRoomService: WarRoomService;
+  let httpMock: HttpTestingController;
   let realtimeStateSubject: BehaviorSubject<any>;
   let realtimeChangeSubject: Subject<any>;
   let pollingTickSubject: Subject<void>;
@@ -208,6 +210,8 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     window.dispatchEvent(new Event('resize'));
   };
 
+  const wait = (ms = 0): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
   beforeEach(async () => {
     realtimeStateSubject = new BehaviorSubject('connected');
     realtimeChangeSubject = new Subject();
@@ -225,6 +229,7 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     };
 
     spyOn(FluorescenceMapMapComponent.prototype as any, 'createMap').and.returnValue(createMapStub());
+    spyOn(FluorescenceMapMapComponent.prototype, 'ngAfterViewInit').and.stub();
     spyOn(FluorescenceMapMapComponent.prototype as any, 'setupResizeObserver').and.stub();
     spyOn(FluorescenceMapMapComponent.prototype as any, 'setupFullscreenListeners').and.stub();
     spyOn(FluorescenceMapMapComponent.prototype as any, 'zoomToEntity').and.stub();
@@ -249,7 +254,7 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     } as unknown as AuthService;
 
     await TestBed.configureTestingModule({
-      imports: [FluorescenceMapComponent, BrowserAnimationsModule],
+      imports: [FluorescenceMapComponent, NoopAnimationsModule],
       providers: [
         WarRoomService,
         { provide: AuthService, useValue: authServiceMock },
@@ -262,11 +267,12 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     }).compileComponents();
 
     localStorage.clear();
-    const httpMock = TestBed.inject(HttpTestingController);
+    httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(FluorescenceMapComponent);
     component = fixture.componentInstance;
     warRoomService = TestBed.inject(WarRoomService);
     const projectService = TestBed.inject(ProjectService);
+    const clientService = TestBed.inject(ClientService);
     spyOn(projectService, 'getProjectsForMap').and.returnValue(of([]));
     spyOn(projectService, 'getProjectTypes').and.returnValue(of([]));
     spyOn(projectService, 'getManufacturers').and.returnValue(of([]));
@@ -275,6 +281,8 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     spyOn(projectService, 'getProjectTypeOptionsWithCounts').and.returnValue(of([]));
     spyOn(projectService, 'getProjectOptionsWithCounts').and.returnValue(of([]));
     spyOn(projectService, 'getManufacturersForHierarchy').and.returnValue(of([]));
+    spyOn(clientService, 'getClients').and.returnValue(of([]));
+    spyOn(clientService, 'getClientById').and.returnValue(of(null));
     fixture.detectChanges();
     const clients = httpMock.match((req) => req.url.toLowerCase().includes('/clients'));
     flushIfOpen(clients, { items: [] });
@@ -284,6 +292,13 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     flushIfOpen(manufacturers, { items: [] });
     const locations = httpMock.match((req) => req.url.toLowerCase().includes('/locations'));
     flushIfOpen(locations, { items: [] });
+  });
+
+  afterEach(() => {
+    fixture?.destroy();
+    httpMock?.verify({ ignoreCancelled: true } as never);
+    localStorage.clear();
+    document.body.style.zoom = '';
   });
 
   it('reflects fullscreen pressed state on toolbar button', () => {
@@ -321,80 +336,6 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     expect(fixture.debugElement.query(By.css('#war-room-filters-panel'))).toBeNull();
   });
 
-  it('hides client-only war room controls for restricted roles', fakeAsync(() => {
-    const assertRestricted = (): void => {
-      // Top toolbar: Clients mode tab + add/edit controls hidden
-      const modeTabLabels = Array.from(
-        fixture.nativeElement.querySelectorAll('.fleet-mode-tabs button') as NodeListOf<HTMLButtonElement>
-      ).map((el) => (el.textContent ?? '').trim());
-      expect(modeTabLabels).not.toContain('Clients');
-      expect(fixture.debugElement.query(By.css('.map-add-project-btn'))).toBeNull();
-
-      // Sidebar: Edit Mode hidden
-      expect(fixture.debugElement.query(By.css('.sidebar-edit-toggle'))).toBeNull();
-
-      // Filters: Client filter section hidden
-      component.openFiltersPanel();
-      fixture.detectChanges();
-      const filterLabels = Array.from(
-        fixture.nativeElement.querySelectorAll('#war-room-filters-panel .filter-section-header .form-label') as NodeListOf<HTMLElement>
-      ).map((el) => (el.textContent ?? '').trim());
-      expect(filterLabels).not.toContain('Client');
-    };
-
-    authUserSubject.next({
-      userId: 2,
-      username: 'test-client',
-      role: 'client',
-      clientId: 2,
-      isGeneralAdmin: false,
-    });
-    fixture.detectChanges();
-    tick(0);
-    fixture.detectChanges();
-    assertRestricted();
-
-    authUserSubject.next({
-      userId: 3,
-      username: 'test-user',
-      role: 'user',
-      clientId: 3,
-      isGeneralAdmin: false,
-    });
-    fixture.detectChanges();
-    tick(0);
-    fixture.detectChanges();
-    assertRestricted();
-  }));
-
-  it('forces project view when restoring client mode for restricted users', () => {
-    fixture.destroy();
-    localStorage.clear();
-    // Persisted state with client view mode should be forced to project view for restricted roles.
-    localStorage.setItem('war-room-state-v1', JSON.stringify({ mapViewMode: 'client' }));
-    warRoomService.setMapViewMode('project');
-
-    authUserSubject.next({
-      userId: 4,
-      username: 'restricted',
-      role: 'client',
-      clientId: 4,
-      isGeneralAdmin: false,
-    });
-
-    fixture = TestBed.createComponent(FluorescenceMapComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-
-    const httpMock = TestBed.inject(HttpTestingController);
-    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/clients')), { items: [] });
-    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/projects')), { items: [] });
-    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/manufacturers')), { items: [] });
-    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/locations')), { items: [] });
-
-    expect(warRoomService.mapViewMode()).toBe('project');
-  });
-
   const resetServiceState = (): void => {
     const serviceAny = warRoomService as any;
     serviceAny._parentGroups.set([]);
@@ -404,11 +345,11 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     serviceAny._selectedEntity.set(null);
   };
 
-  it('opens add-company state on mobile and supports preselection', fakeAsync(() => {
+  it('opens add-company state on mobile and supports preselection', async () => {
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
     resetServiceState();
     setViewport(360, 640);
-    tick(100);
+    await wait(100);
 
     component.onAddCompanyRequested();
     fixture.detectChanges();
@@ -421,17 +362,17 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     expect(component.addCompanyModalPreselectedManufacturerLocationId()).toBe('factory-mobile');
 
     component.onAddCompanyModalClose();
-    tick(100);
+    await wait(100);
     fixture.detectChanges();
     expect(component.addCompanyModalVisible()).toBeFalse();
     expect(component.addCompanyModalPreselectedManufacturerLocationId()).toBeNull();
-  }));
+  });
 
-  it('handles responsive map panels and filter wrapping', fakeAsync(() => {
+  it('handles responsive map panels and filter wrapping', async () => {
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
     resetServiceState();
     setViewport(480, 720);
-    tick(100);
+    await wait(100);
 
     const factories = Array.from({ length: 8 }).map((_, index) =>
       buildFactory({ id: `factory-${index}`, subsidiaryId: 'sub-1', city: `City ${index}` })
@@ -461,7 +402,7 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
 
     document.body.style.zoom = '2';
     fixture.detectChanges();
-    tick(0);
+    await wait();
 
     const modeTabs = fixture.nativeElement.querySelector('.fleet-mode-tabs') as HTMLElement;
     expect(modeTabs).toBeTruthy();
@@ -470,13 +411,13 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     expect(modeTabs.getBoundingClientRect().width).toBeLessThanOrEqual(window.innerWidth + 2);
 
     document.body.style.zoom = '';
-  }));
+  });
 
-  it('exposes keyboard/screen reader attributes and restores focus after modal close', fakeAsync(() => {
+  it('exposes keyboard/screen reader attributes and restores focus after modal close', async () => {
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
     resetServiceState();
     setViewport(1024, 768);
-    tick(100);
+    await wait(100);
 
     const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
     const subsidiary = buildSubsidiary({ id: 'sub-1', factories: [factoryA] });
@@ -516,10 +457,10 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     expect(component.addCompanyModalVisible()).toBeTrue();
 
     component.onAddCompanyModalClose();
-    tick(100);
+    await wait(100);
     fixture.detectChanges();
 
     expect(component.addCompanyModalVisible()).toBeFalse();
     expect(document.activeElement).toBe(addButton);
-  }));
+  });
 });

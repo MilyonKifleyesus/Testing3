@@ -1,9 +1,10 @@
-import { MapViewMode, NodeStatus } from '../../../shared/models/fluorescence-map.interface';
+import { FleetSelection, MapViewMode, NodeStatus, TransitRoute } from '../../../shared/models/fluorescence-map.interface';
 import { OperationalStatus } from '../../../shared/models/fluorescence-map.interface';
 import { Node, ProjectRoute } from '../../../shared/models/fluorescence-map.interface';
 
 export type FilterStatus = 'all' | 'active' | 'inactive';
 export type EndpointStatus = 'idle' | 'loading' | 'ready' | 'error';
+export type FluorescenceMapLayoutPreset = 'default' | 'admin';
 
 export interface ActiveFilterItem {
   type: 'status' | 'region' | 'client' | 'manufacturer' | 'projectType' | 'project';
@@ -106,4 +107,36 @@ export interface MapViewModelStrict {
     maxLng: number;
   } | null;
   emptyState: MapEmptyStateVm;
+}
+
+export interface FluorescenceMapBootstrapData {
+  nodes: Node[];
+  projectRoutes: ProjectRoute[];
+  transitRoutes: TransitRoute[];
+}
+
+export interface FluorescenceMapFilteredState {
+  filtersActive: boolean;
+  filteredProjectRoutes: ProjectRoute[];
+  filteredNodes: Node[];
+  strictMapNodes: Node[];
+  strictMapProjectRoutes: ProjectRoute[];
+  filteredTransitRoutes: TransitRoute[];
+  mapViewModel: MapViewModelStrict;
+}
+
+export interface FluorescenceMapSelectionState {
+  selectedEntityVisible: boolean;
+  selectedRouteVisible: boolean;
+  selectionInvalidated: boolean;
+  noticeMessage: string | null;
+}
+
+export interface MapOverlaySnapshot {
+  nodes: Node[];
+  projectRoutes: ProjectRoute[];
+  transitRoutes: TransitRoute[];
+  selected: FleetSelection | null;
+  hovered: FleetSelection | null;
+  filterStatus: FilterStatus;
 }

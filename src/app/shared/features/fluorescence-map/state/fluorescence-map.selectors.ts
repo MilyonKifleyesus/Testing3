@@ -35,6 +35,8 @@ interface StrictRegionLookup {
 interface StrictFilterLookup extends StrictRegionLookup {
   getClientIdForProjectId?: (projectId: string) => string | null;
   getManufacturerIdsForNodeId?: (nodeId: string) => string[];
+  getManufacturerIdsForProjectId?: (projectId: string) => string[];
+  getProjectTypeIdForProjectId?: (projectId: string) => string | null;
 }
 
 const buildStrictNodeIdCandidates = (rawId: unknown): string[] => {
@@ -74,6 +76,78 @@ const normalizeStrictIdCandidates = (rawId: unknown): string[] => {
   return Array.from(normalized.values());
 };
 
+export const normalizeManufacturerCandidates = (rawValue: unknown): string[] => {
+  const raw = String(rawValue ?? '').trim();
+  if (!raw) return [];
+
+  const candidates = new Set<string>();
+  const push = (value: string | null | undefined): void => {
+    const normalized = String(value ?? '').trim();
+    if (!normalized) return;
+    candidates.add(normalized);
+    candidates.add(normalized.toLowerCase());
+    const numericLike = normalizeNumericLikeId(normalized);
+    if (numericLike) {
+      candidates.add(numericLike);
+    }
+  };
+
+  push(raw);
+  const normalizedWords = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\b(incorporated|inc|corporation|corp|company|co|limited|ltd|llc|gmbh|ag|plc)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  push(normalizedWords);
+
+  const tokens = normalizedWords.split(' ').filter(Boolean);
+  if (tokens.length >= 2) {
+    push(tokens.slice(0, 2).join(' '));
+  }
+  if (tokens.length >= 3) {
+    push(tokens.slice(0, 3).join(' '));
+  }
+  push(
+    raw
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\b(incorporated|inc|corporation|corp|company|co|limited|ltd|llc|gmbh|ag|plc)\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+
+  return Array.from(candidates.values());
+};
+
+export const normalizeProjectTypeFilterKey = (
+  projectTypeId: unknown,
+  assessmentType?: unknown
+): string | null => {
+  const primary = String(projectTypeId ?? '').trim();
+  if (primary) return primary;
+
+  const fallback = String(assessmentType ?? '').trim();
+  return fallback || null;
+};
+
+const normalizeLifecycleStatus = (
+  status: unknown,
+  closed?: boolean | null
+): 'active' | 'inactive' => {
+  const normalizedStatus = String(status ?? '').trim().toLowerCase();
+  if (normalizedStatus === 'active' || normalizedStatus === 'open') {
+    return 'active';
+  }
+  if (normalizedStatus === 'closed' || normalizedStatus === 'delayed' || normalizedStatus === 'inactive') {
+    return 'inactive';
+  }
+  if (closed != null) {
+    return closed ? 'inactive' : 'active';
+  }
+  return 'active';
+};
+
 export const selectProjectRoutesForMap = (
   viewMode: string,
   routes: ProjectRoute[],
@@ -93,8 +167,8 @@ export const selectStatusCounts = (projects: Project[]): { total: number; active
   let inactive = 0;
 
   for (const p of projects) {
-    const st = p.status ?? 'Open';
-    if (st === 'Open') active++;
+    const lifecycleStatus = normalizeLifecycleStatus(p.status, p.closed);
+    if (lifecycleStatus === 'active') active++;
     else inactive++;
   }
 
@@ -184,6 +258,18 @@ export const selectAvailableRegions = (
     }
   });
 
+  return selectAvailableRegionsFromValues(Array.from(regionSet.values()));
+};
+
+export const selectAvailableRegionsFromValues = (regions: Array<string | null | undefined>): string[] => {
+  const regionSet = new Set<string>();
+  regions.forEach((region) => {
+    const trimmed = String(region ?? '').trim();
+    if (trimmed) {
+      regionSet.add(trimmed);
+    }
+  });
+
   const preferredOrder = ['North America', 'Europe', 'Asia Pacific', 'LATAM'];
   const orderedPreferred = preferredOrder.filter((region) => regionSet.has(region));
   const remaining = Array.from(regionSet)
@@ -259,7 +345,11 @@ export const selectFilteredProjectRoutesStrict = (
 ): ProjectRoute[] => {
   const normalizedProjectIds = new Set((filters.projectIds ?? []).map((id) => String(id).trim()).filter(Boolean));
   const normalizedClientIds = new Set((filters.clientIds ?? []).map((id) => normalizeNumericLikeId(id)).filter(Boolean));
-  const normalizedManufacturerIds = new Set((filters.manufacturerIds ?? []).map((id) => String(id).trim()).filter(Boolean));
+  const normalizedManufacturerIds = new Set(
+    (filters.manufacturerIds ?? [])
+      .flatMap((id) => normalizeManufacturerCandidates(id))
+      .filter(Boolean)
+  );
   const normalizedProjectTypeIds = new Set((filters.projectTypeIds ?? []).map((id) => String(id).trim()).filter(Boolean));
   const selectedRegions = new Set((filters.regions ?? []).map((region) => String(region).trim()).filter(Boolean));
 
@@ -301,9 +391,8 @@ export const selectFilteredProjectRoutesStrict = (
         manufacturerMeta.manufacturer,
         manufacturerMeta.manufacturerName,
         ...(nodeRegionLookup?.getManufacturerIdsForNodeId?.(route.toNodeId) ?? []),
-      ]
-        .map((value) => String(value ?? '').trim())
-        .filter(Boolean);
+        ...(nodeRegionLookup?.getManufacturerIdsForProjectId?.(String(route.projectId ?? '').trim()) ?? []),
+      ].flatMap((value) => normalizeManufacturerCandidates(value));
 
       if (manufacturerCandidates.length > 0) {
         const matchesManufacturer = manufacturerCandidates.some((candidate) => normalizedManufacturerIds.has(candidate));
@@ -316,11 +405,12 @@ export const selectFilteredProjectRoutesStrict = (
     }
 
     // 4) projectTypeIds
-    const routeProjectTypeId = String(
+    const routeProjectTypeId = normalizeProjectTypeFilterKey(
       (route as ProjectRoute & { projectTypeId?: string; assessmentType?: string }).projectTypeId ??
-      (route as ProjectRoute & { projectTypeId?: string; assessmentType?: string }).assessmentType ??
-      ''
-    ).trim();
+        nodeRegionLookup?.getProjectTypeIdForProjectId?.(String(route.projectId ?? '').trim()) ??
+        null,
+      (route as ProjectRoute & { projectTypeId?: string; assessmentType?: string }).assessmentType
+    );
     if (normalizedProjectTypeIds.size > 0 && (!routeProjectTypeId || !normalizedProjectTypeIds.has(routeProjectTypeId))) {
       return false;
     }
@@ -328,13 +418,8 @@ export const selectFilteredProjectRoutesStrict = (
     // 5) status
     if (selectedStatus !== 'all') {
       const routeStatusRaw = (route as ProjectRoute & { status?: string; closed?: boolean }).status;
-      const routeStatus = routeStatusRaw ? routeStatusRaw.trim().toLowerCase() : null;
       const routeClosed = (route as ProjectRoute & { closed?: boolean; includeClosed?: boolean }).closed;
-      const isActiveByStatus = routeStatus != null
-        ? routeStatus === 'active' || routeStatus === 'open'
-        : routeClosed != null
-          ? !routeClosed
-          : true;
+      const isActiveByStatus = normalizeLifecycleStatus(routeStatusRaw, routeClosed) === 'active';
       if (selectedStatus === 'active' && !isActiveByStatus) {
         return false;
       }
@@ -412,7 +497,8 @@ export const selectMapViewModelStrict = (params: {
   const markerById = new Map<string, MapMarkerStrictVm>();
   (filteredNodes ?? []).forEach((node) => {
     const nodeId = String(node.id ?? '').trim();
-    if (!nodeId || !visibleNodeIds.has(nodeId) || markerById.has(nodeId)) return;
+    const nodeVisible = buildStrictNodeIdCandidates(node.id).some((candidate) => visibleNodeIds.has(candidate));
+    if (!nodeId || !nodeVisible || markerById.has(nodeId)) return;
     markerById.set(nodeId, { id: nodeId, nodeId, node });
   });
   const markers = Array.from(markerById.values());
@@ -428,6 +514,15 @@ export const selectMapViewModelStrict = (params: {
   const routes: MapRouteStrictVm[] = shouldRenderRoutes
     ? (filteredRoutes ?? []).map((route) => ({ id: route.id, route }))
     : [];
+
+  const hasVisibleMapEntities = markers.length > 0;
+  const shouldShowEmptyState = filtersActive && !hasVisibleMapEntities;
+  const emptyMessage =
+    !shouldShowEmptyState
+      ? null
+      : (filteredRoutes?.length ?? 0) > 0
+        ? 'Filtered results have no visible map entities'
+        : 'No routes match the selected filters';
 
   const bounds = markers.reduce<{
     minLat: number;
@@ -458,10 +553,8 @@ export const selectMapViewModelStrict = (params: {
     labels,
     bounds,
     emptyState: {
-      show: filtersActive && (filteredRoutes?.length ?? 0) === 0,
-      message: filtersActive && (filteredRoutes?.length ?? 0) === 0
-        ? 'No routes match the selected filters'
-        : null,
+      show: shouldShowEmptyState,
+      message: emptyMessage,
     },
   };
 };

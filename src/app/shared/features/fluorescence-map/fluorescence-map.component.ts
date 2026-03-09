@@ -63,6 +63,10 @@ import {
   EndpointStatus,
   FactoryEditPayload,
   FilterStatus,
+  FluorescenceMapFilteredState,
+  FluorescenceMapLayoutPreset,
+  FluorescenceMapSelectionState,
+  MapOverlaySnapshot,
   SubsidiaryEditPayload,
   WarRoomFilters,
   WarRoomPersistedState,
@@ -72,10 +76,12 @@ import {
   selectActiveFilterCount,
   selectActiveFilters,
   selectAvailableRegions,
+  selectAvailableRegionsFromValues,
   selectDerivedNodeIdsFromRoutes,
   selectFilteredNodesStrict,
   selectFilteredProjectRoutesStrict,
   selectMapViewModelStrict,
+  normalizeProjectTypeFilterKey,
   selectNodesWithClients,
   selectProjectRoutesForMap,
   selectStatusCounts,
@@ -157,6 +163,8 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   readonly dataManagementMode = input<'view' | 'edit'>('view');
   /** Table layout mode: overlay on top of map or inline below map. */
   readonly tableLayout = input<'overlay' | 'inline'>('overlay');
+  /** Layout preset for host pages that need a map-first admin shell. */
+  readonly layoutPreset = input<FluorescenceMapLayoutPreset>('default');
   /** Requests that the host toggle its fullscreen overlay state for the map widget. */
   readonly dashboardFullscreenToggleRequested = output<void>();
   readonly shellElementId = `fluorescence-map-shell-${FluorescenceMapComponent.nextShellId++}`;
@@ -305,7 +313,11 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   readonly hasLoadedRequiredData = signal(false);
   /** True when map should receive node/route data: after required load or whenever we have filtered nodes (avoids blank map when filter is applied before hasLoadedRequiredData is set). */
   readonly shouldPassMapData = computed(
-    () => this.hasLoadedRequiredData() || this.strictMapNodes().length > 0 || this.strictMapProjectRoutes().length > 0
+    () =>
+      this.hasLoadedRequiredData() ||
+      this.strictMapNodes().length > 0 ||
+      this.strictMapProjectRoutes().length > 0 ||
+      this.filteredTransitRoutes().length > 0
   );
   readonly showBlockingRequiredDataLoading = computed(() =>
     this.requiredDataLoading() &&
@@ -482,47 +494,112 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   );
   readonly projectTypesSignal = toSignal(this.projectService.getProjectTypes().pipe(catchError(() => of([]))), { initialValue: [] });
   readonly manufacturersSignal = toSignal(this.projectService.getManufacturers().pipe(catchError(() => of([]))), { initialValue: [] });
-  private readonly clientOptionsSignalRaw = toSignal(this.projectService.getClientOptionsWithCounts().pipe(catchError(() => of([]))), { initialValue: [] });
   readonly clientOptionsSignal = computed(() => {
-    const pinnedClientId = this.pinnedClientId();
-    if (!pinnedClientId) return this.clientOptionsSignalRaw();
-    const client = this.effectiveClients().find((c) => this.normalizeClientId(c.id) === pinnedClientId);
-    return [{
-      id: pinnedClientId,
-      name: client?.name ?? pinnedClientId,
-      count: this.effectiveProjects().length,
-    }];
-  });
-  readonly manufacturerOptionsSignal = toSignal(this.projectService.getManufacturerOptionsWithCounts().pipe(catchError(() => of([]))), { initialValue: [] });
-  private readonly projectTypeOptionsSignalRaw = toSignal(this.projectService.getProjectTypeOptionsWithCounts().pipe(catchError(() => of([]))), { initialValue: [] });
-  readonly projectTypeOptionsSignal = computed(() => {
-    const pinnedClientId = this.pinnedClientId();
-    if (!pinnedClientId) return this.projectTypeOptionsSignalRaw();
+    const countByClientId = new Map<string, number>();
+    for (const project of this.effectiveProjects()) {
+      const clientId = this.normalizeClientId(project.clientId);
+      if (!clientId) continue;
+      countByClientId.set(clientId, (countByClientId.get(clientId) ?? 0) + 1);
+    }
 
+    const optionById = new Map<string, { id: string; name: string; count: number }>();
+    for (const client of this.effectiveClients()) {
+      const clientId = this.normalizeClientId(client.id);
+      if (!clientId) continue;
+      optionById.set(clientId, {
+        id: clientId,
+        name: client.name ?? clientId,
+        count: countByClientId.get(clientId) ?? 0,
+      });
+    }
+
+    for (const [clientId, count] of countByClientId.entries()) {
+      if (!optionById.has(clientId)) {
+        optionById.set(clientId, { id: clientId, name: clientId, count });
+      }
+    }
+
+    const options = Array.from(optionById.values()).sort((a, b) => a.name.localeCompare(b.name));
+    const pinnedClientId = this.pinnedClientId();
+    if (!pinnedClientId) return options;
+
+    const pinnedClient = optionById.get(pinnedClientId);
+    return [
+      pinnedClient ?? {
+        id: pinnedClientId,
+        name: pinnedClientId,
+        count: countByClientId.get(pinnedClientId) ?? 0,
+      },
+    ];
+  });
+  readonly projectTypeDisplayNameById = computed(() => {
+    const displayNameById = new Map<string, string>();
+
+    for (const item of this.projectTypesSignal() as Array<Record<string, unknown>>) {
+      const id = normalizeProjectTypeFilterKey(item['id'], item['name'] ?? item['projectTypeName']);
+      if (!id) continue;
+      const displayName = String(item['name'] ?? item['projectTypeName'] ?? id).trim() || id;
+      displayNameById.set(id, displayName);
+    }
+
+    for (const project of this.effectiveProjects()) {
+      const key = normalizeProjectTypeFilterKey(project.projectTypeId, project.assessmentType);
+      if (!key || displayNameById.has(key)) continue;
+      displayNameById.set(key, (project.assessmentType ?? key).trim() || key);
+    }
+
+    return displayNameById;
+  });
+  readonly manufacturerOptionsSignal = computed(() => {
+    const optionById = new Map<string, { id: string; name: string; count: number }>();
+    for (const manufacturer of this.effectiveManufacturers()) {
+      const manufacturerId = String(manufacturer.id ?? '').trim();
+      if (!manufacturerId) continue;
+      optionById.set(manufacturerId, {
+        id: manufacturerId,
+        name: manufacturer.name ?? manufacturerId,
+        count: 0,
+      });
+    }
+
+    for (const project of this.effectiveProjects()) {
+      const option = this.resolveManufacturerFilterOption(project);
+      if (!option) continue;
+      const current = optionById.get(option.id);
+      optionById.set(option.id, {
+        id: option.id,
+        name: current?.name ?? option.name,
+        count: (current?.count ?? 0) + 1,
+      });
+    }
+
+    return Array.from(optionById.values()).sort((a, b) => a.name.localeCompare(b.name));
+  });
+  readonly projectTypeOptionsSignal = computed(() => {
     const byId = new Map<string, number>();
     for (const project of this.effectiveProjects()) {
-      const type = (project.assessmentType ?? '').trim();
-      if (!type) continue;
-      byId.set(type, (byId.get(type) ?? 0) + 1);
+      const key = normalizeProjectTypeFilterKey(project.projectTypeId, project.assessmentType);
+      if (!key) continue;
+      byId.set(key, (byId.get(key) ?? 0) + 1);
     }
 
     return Array.from(byId.entries())
-      .map(([id, count]) => ({ id, name: id, count }))
+      .map(([id, count]) => ({
+        id,
+        name: this.projectTypeDisplayNameById().get(id) ?? id,
+        count,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
-  private readonly projectOptionsSignalRaw = toSignal(this.projectService.getProjectOptionsWithCounts().pipe(catchError(() => of([]))), { initialValue: [] });
-  readonly projectOptionsSignal = computed(() => {
-    const pinnedClientId = this.pinnedClientId();
-    if (!pinnedClientId) return this.projectOptionsSignalRaw();
-
-    return this.effectiveProjects()
+  readonly projectOptionsSignal = computed(() =>
+    this.effectiveProjects()
       .map((project) => ({
         id: String(project.id),
         name: project.projectName ?? String(project.id),
         count: 1,
       }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  });
+      .sort((a, b) => a.name.localeCompare(b.name))
+  );
   readonly projectRoutes = signal<ProjectRoute[]>([]);
   /**
    * Optional external project filter (for host pages like Admin Dashboard).
@@ -532,7 +609,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   readonly externalProjectId = input<string | null | undefined>(undefined);
   readonly selectedProjectId = signal<string | null>(null);
   readonly selectedRouteId = signal<string | null>(null);
-  readonly selectionOutsideFiltersNotice = signal<string | null>(null);
   /** When true, hide UI for clean route screenshot capture */
   readonly screenshotMode = signal(false);
   /** Increments when a route preview is saved; used to refresh thumbnails in panels */
@@ -577,6 +653,8 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
         });
         return Array.from(manufacturerIds.values());
       },
+      getManufacturerIdsForProjectId: (projectId: string) => this.manufacturerIdsByProjectId().get(projectId) ?? [],
+      getProjectTypeIdForProjectId: (projectId: string) => this.projectTypeIdByProjectId().get(projectId) ?? null,
     })
   );
 
@@ -597,6 +675,16 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       filtersActive: this.filtersActiveStrict(),
     })
   );
+
+  readonly filteredState = computed<FluorescenceMapFilteredState>(() => ({
+    filtersActive: this.filtersActiveStrict(),
+    filteredProjectRoutes: this.filteredProjectRoutesStrict(),
+    filteredNodes: this.filteredNodesStrict(),
+    strictMapNodes: this.mapViewModelStrict().markers.map((marker) => marker.node),
+    strictMapProjectRoutes: this.mapViewModelStrict().routes.map((route) => route.route),
+    filteredTransitRoutes: this.filteredTransitRoutes(),
+    mapViewModel: this.mapViewModelStrict(),
+  }));
 
   readonly strictMapNodes = computed(() => this.mapViewModelStrict().markers.map((marker) => marker.node));
   readonly strictMapProjectRoutes = computed(() => this.mapViewModelStrict().routes.map((route) => route.route));
@@ -949,6 +1037,27 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     }
     return map;
   });
+  readonly manufacturerIdsByProjectId = computed(() => {
+    const map = new Map<string, string[]>();
+    for (const project of this.effectiveProjects()) {
+      const projectId = String(project.id ?? '').trim();
+      if (!projectId) continue;
+      const option = this.resolveManufacturerFilterOption(project);
+      if (!option) continue;
+      map.set(projectId, [option.id]);
+    }
+    return map;
+  });
+  readonly projectTypeIdByProjectId = computed(() => {
+    const map = new Map<string, string>();
+    for (const project of this.effectiveProjects()) {
+      const projectId = String(project.id ?? '').trim();
+      const projectTypeId = normalizeProjectTypeFilterKey(project.projectTypeId, project.assessmentType);
+      if (!projectId || !projectTypeId) continue;
+      map.set(projectId, projectTypeId);
+    }
+    return map;
+  });
   readonly projectClientIdByProjectId = computed(() => {
     const map = new Map<string, string>();
     for (const project of this.effectiveProjects()) {
@@ -1059,9 +1168,35 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   });
 
   readonly availableRegions = computed(() => {
-    return selectAvailableRegions(this.factories(), (factory) =>
+    const resolvedRegions: Array<string | null> = [];
+
+    selectAvailableRegions(this.factories(), (factory) =>
       this.getRegionForFactory(factory as FactoryLocation)
-    );
+    ).forEach((region) => resolvedRegions.push(region));
+
+    for (const project of this.effectiveProjects()) {
+      resolvedRegions.push(this.resolveProjectRegion(project));
+    }
+
+    for (const location of this.effectiveLocations()) {
+      const coordinates = coerceCoordinates(location.latitude, location.longitude);
+      resolvedRegions.push(this.resolveRegion(location.name ?? '', coordinates ?? undefined));
+    }
+
+    for (const client of this.effectiveClientsWithResolvedCoordinates()) {
+      resolvedRegions.push(this.resolveRegion(client.name ?? '', client.coordinates ?? undefined));
+    }
+
+    for (const node of this.nodesWithClients()) {
+      resolvedRegions.push(
+        this.resolveRegion(
+          [node.city, node.country].filter(Boolean).join(', ') || node.name || '',
+          node.coordinates ?? undefined
+        )
+      );
+    }
+
+    return selectAvailableRegionsFromValues(resolvedRegions);
   });
 
   /** Nodes merged with client nodes: clients in routes OR clients with projects (for pan-to-client fallback).
@@ -1316,6 +1451,98 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     return overlap >= minimumOverlap;
   }
 
+  private resolveManufacturerFilterOption(project: Project): { id: string; name: string } | null {
+    const projectManufacturerName = (project.manufacturer ?? '').trim();
+    const projectLocationIds = this.parseLocationIds([
+      ...(Array.isArray((project as Project & { locationIds?: unknown[] }).locationIds)
+        ? ((project as Project & { locationIds?: unknown[] }).locationIds as unknown[])
+        : []),
+      project.manufacturerLocationId ?? null,
+      project.locationId ?? null,
+    ]).map((value) => String(value));
+    const projectLocationIdSet = new Set(projectLocationIds);
+
+    for (const manufacturer of this.effectiveManufacturers()) {
+      const manufacturerId = String(manufacturer.id ?? '').trim();
+      const manufacturerLocationIds = new Set(
+        this.parseLocationIds([
+          ...(manufacturer.locationIds ?? []),
+          manufacturer.locationId ?? null,
+        ]).map((value) => String(value))
+      );
+
+      const sameLocation = Array.from(projectLocationIdSet).some((locationId) =>
+        manufacturerLocationIds.has(locationId)
+      );
+      const sameName =
+        !!projectManufacturerName &&
+        this.manufacturerNamesEquivalent(projectManufacturerName, manufacturer.name ?? '');
+
+      if (sameLocation || sameName) {
+        return {
+          id: manufacturerId || projectManufacturerName,
+          name: manufacturer.name ?? (projectManufacturerName || manufacturerId),
+        };
+      }
+    }
+
+    const fallbackId =
+      this.normalizeEntityId(project.manufacturerLocationId) ??
+      projectManufacturerName ??
+      null;
+    if (!fallbackId) {
+      return null;
+    }
+
+    return {
+      id: fallbackId,
+      name: projectManufacturerName || fallbackId,
+    };
+  }
+
+  private resolveProjectRegion(project: Project): string | null {
+    const factoryByNormalizedId = new Map<string, FactoryLocation>();
+    for (const factory of this.factories()) {
+      const factoryId = this.normalizeEntityId(factory.id);
+      if (!factoryId) continue;
+      factoryByNormalizedId.set(factoryId, factory);
+    }
+
+    const candidateLocationIds = this.parseLocationIds([
+      ...(Array.isArray((project as Project & { locationIds?: unknown[] }).locationIds)
+        ? ((project as Project & { locationIds?: unknown[] }).locationIds as unknown[])
+        : []),
+      project.manufacturerLocationId ?? null,
+      project.locationId ?? null,
+    ]);
+
+    for (const locationId of candidateLocationIds.map((value) => String(value))) {
+      const normalizedLocationId = this.normalizeEntityId(locationId);
+      if (!normalizedLocationId) continue;
+      const factory = factoryByNormalizedId.get(normalizedLocationId);
+      if (factory) {
+        const factoryRegion = this.getRegionForFactory(factory);
+        if (factoryRegion) return factoryRegion;
+      }
+
+      const location = this.locationsById().get(normalizedLocationId);
+      const coords = coerceCoordinates(location?.latitude, location?.longitude);
+      const locationRegion = this.resolveRegion(location?.name ?? '', coords ?? undefined);
+      if (locationRegion) return locationRegion;
+    }
+
+    const projectRegion = this.resolveRegion(project.location ?? '', undefined);
+    if (projectRegion) return projectRegion;
+
+    const client = this.clientsById().get(this.normalizeClientId(project.clientId) ?? '');
+    if (client) {
+      const clientCoordinates = coerceCoordinates(client.latitude, client.longitude);
+      return this.resolveRegion(client.name ?? '', clientCoordinates ?? undefined);
+    }
+
+    return null;
+  }
+
   private getSelectedManufacturerSubsidiaryIds(selectedManufacturerKeys: Set<string>): Set<string> {
     if (selectedManufacturerKeys.size === 0) return new Set<string>();
     return new Set(
@@ -1563,8 +1790,12 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       return [];
     }
     const routes = this.transitRoutes();
-    const nodes = this.filteredNodes();
-    const filteredNodeIds = new Set(nodes.map(n => n.id));
+    const strictNodes = this.strictMapNodes();
+    const nodes = strictNodes.length > 0 ? strictNodes : this.filteredNodes();
+    const filteredNodeIds = new Set<string>();
+    nodes.forEach((node) => {
+      this.buildEndpointIdVariants(node.id).forEach((candidate) => filteredNodeIds.add(candidate));
+    });
 
     const lookup = this.nodeLookup();
     const findNode = (id: string): Node | undefined => {
@@ -1604,7 +1835,8 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       }
 
       const isEndpointVisible = (node: Node | undefined) =>
-        node != null && filteredNodeIds.has(node.id);
+        node != null &&
+        this.buildEndpointIdVariants(node.id).some((candidate) => filteredNodeIds.has(candidate));
 
       const bothEndpointsVisible = isEndpointVisible(fromNode) && isEndpointVisible(toNode);
 
@@ -1627,6 +1859,59 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   readonly showEmptyStateOverlay = computed(() => {
     if (this.requiredDataLoading()) return false;
     return this.mapViewModelStrict().emptyState.show;
+  });
+
+  readonly selectionState = computed<FluorescenceMapSelectionState>(() => {
+    const selected = this.selectedEntity();
+    const selectedRouteId = this.selectedRouteId();
+    const visibleNodeIds = new Set<string>();
+    for (const marker of this.mapViewModelStrict().markers) {
+      this.buildEndpointIdVariants(marker.nodeId).forEach((candidate) => visibleNodeIds.add(candidate));
+    }
+
+    const selectedEntityVisible =
+      !selected ||
+      [
+        selected.id,
+        selected.factoryId,
+        selected.manufacturerLocationId,
+      ]
+        .flatMap((candidate) => this.buildEndpointIdVariants(candidate ?? null))
+        .some((candidate) => visibleNodeIds.has(candidate));
+
+    const visibleRouteIds = new Set(this.mapViewModelStrict().routes.map((route) => route.id));
+    const selectedRouteVisible = !selectedRouteId || visibleRouteIds.has(selectedRouteId);
+    const selectionInvalidated =
+      this.filtersActiveStrict() &&
+      ((!selectedEntityVisible && !!selected) || (!selectedRouteVisible && !!selectedRouteId));
+
+    return {
+      selectedEntityVisible,
+      selectedRouteVisible,
+      selectionInvalidated,
+      noticeMessage:
+        selectionInvalidated && !this.showEmptyStateOverlay()
+          ? 'Current selection is outside applied filters'
+          : null,
+    };
+  });
+
+  readonly selectionOutsideFiltersNotice = computed(() => this.selectionState().noticeMessage);
+
+  readonly mapOverlaySnapshot = computed<MapOverlaySnapshot | null>(() => {
+    if (!this.shouldPassMapData()) {
+      return null;
+    }
+
+    const filteredState = this.filteredState();
+    return {
+      nodes: filteredState.strictMapNodes,
+      projectRoutes: filteredState.strictMapProjectRoutes,
+      transitRoutes: filteredState.filteredTransitRoutes,
+      selected: this.selectedEntity(),
+      hovered: this.warRoomService.hoveredEntity(),
+      filterStatus: this.effectiveStatusFilter(),
+    };
   });
 
   // ViewChild reference to map component
@@ -2344,72 +2629,21 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
 
     // Strict map pipeline selection validation: filtered routes -> derived nodes -> validate selection.
     effect(() => {
-      const viewModel = this.mapViewModelStrict();
-      const filtersActive = this.filtersActiveStrict();
+      const selectionState = this.selectionState();
       const selected = this.selectedEntity();
       const selectedRouteId = this.selectedRouteId();
-      const visibleMarkerIds = new Set(viewModel.markers.map((marker) => marker.nodeId));
-      const visibleRouteIds = new Set(viewModel.routes.map((route) => route.id));
 
-      if (!filtersActive) {
+      if (!selectionState.selectionInvalidated) {
         return;
       }
 
-      let cleared = false;
-
-      if (selected) {
-        const isNodeVisible = visibleMarkerIds.has(selected.id)
-          || (selected.manufacturerLocationId != null && visibleMarkerIds.has(selected.manufacturerLocationId))
-          || (selected.factoryId != null && visibleMarkerIds.has(selected.factoryId));
-        if (!isNodeVisible) {
-          this.warRoomService.selectEntity(null);
-          cleared = true;
-        }
+      if (selected && !selectionState.selectedEntityVisible) {
+        this.warRoomService.selectEntity(null);
       }
 
-      if (selectedRouteId && !visibleRouteIds.has(selectedRouteId)) {
+      if (selectedRouteId && !selectionState.selectedRouteVisible) {
         this.selectedRouteId.set(null);
-        cleared = true;
       }
-
-      if (cleared) {
-        const hasMatchingRoutes = this.filteredProjectRoutesStrict().length > 0;
-        this.selectionOutsideFiltersNotice.set(
-          hasMatchingRoutes ? null : 'Current selection is outside applied filters'
-        );
-      }
-    });
-
-    // Keep notice strictly tied to filtered route availability.
-    effect(() => {
-      const filtersActive = this.filtersActiveStrict();
-      const hasMatchingRoutes = this.filteredProjectRoutesStrict().length > 0;
-      if (!filtersActive || hasMatchingRoutes) {
-        this.selectionOutsideFiltersNotice.set(null);
-      } else {
-        this.selectionOutsideFiltersNotice.set('Current selection is outside applied filters');
-      }
-    });
-
-    // Dev-only diagnostics for strict filtering pipeline.
-    effect(() => {
-      if (!isDevMode()) return;
-      const filters = this.filterApplied();
-      const totalRoutes = this.projectRoutes().length;
-      const filteredRoutes = this.filteredProjectRoutesStrict();
-      const derived = this.derivedNodeIdsStrict();
-      const markers = this.mapViewModelStrict().markers.length;
-      if (!this.filtersActiveStrict()) return;
-      console.debug('[FleetPulse][strict-filter]', {
-        filters,
-        totalRoutes,
-        filteredRoutes: filteredRoutes.length,
-        sampleFilteredRouteIds: filteredRoutes.slice(0, 6).map((route) => route.id),
-        derivedFromNodeIds: derived.fromNodeIds.size,
-        derivedToNodeIds: derived.toNodeIds.size,
-        derivedAllNodeIds: derived.allNodeIds.size,
-        markers,
-      });
     });
 
     // Re-apply saved view mode after service JSON load overwrites mapViewMode.
@@ -2791,16 +3025,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     const requestedManufacturerLocationId = this.normalizeEntityId(request.draft.manufacturerDraft.locationId);
     const currentManufacturerLocationId = this.normalizeEntityId(row.manufacturerLocationId ?? row.locationId);
 
-    if (isDevMode()) {
-      console.info('[DataManagement] Project row save requested', {
-        projectId: row.projectId,
-        resolvedManufacturerId: manufacturer?.id ?? null,
-        requestedManufacturerLocationId,
-        currentManufacturerLocationId,
-        manufacturerDraftDisabled: request.draft.manufacturerDraft.disabled,
-      });
-    }
-
     void this.dataManagementMutation
       .saveRowDraft({
         row,
@@ -2812,15 +3036,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       })
       .then((result) => {
         const hasChanges = Object.values(result.changed).some(Boolean);
-        if (isDevMode()) {
-          console.info('[DataManagement] Project row save result', {
-            projectId: row.projectId,
-            changed: result.changed,
-            updatedManufacturerId: result.updatedManufacturer?.id ?? null,
-            updatedManufacturerLocationId: result.updatedManufacturer?.locationId ?? null,
-          });
-        }
-
         if (!hasChanges) {
           this.toastr.info('No changes were saved.', 'Data management');
           request.resolve();
@@ -3496,7 +3711,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     };
     this.filterApplied.set(nextApplied);
     this.filterDraft.set(this.cloneFilters(nextApplied));
-    this.selectionOutsideFiltersNotice.set(null);
     this.filtersPanelVisible.set(false);
     this.announce('Filters applied. ' + this.activeFilterCount() + ' filters active.');
   }
@@ -3632,36 +3846,10 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     if (selectedRegions.length === 0) {
       return new Set(this.effectiveProjects().map((project) => String(project.id)));
     }
-
-    const factoryByNormalizedId = new Map<string, FactoryLocation>();
-    for (const factory of this.factories()) {
-      const factoryId = this.normalizeEntityId(factory.id);
-      if (!factoryId) continue;
-      factoryByNormalizedId.set(factoryId, factory);
-    }
-
-    const locationsById = this.locationsById();
     const matchingProjectIds = new Set<string>();
     for (const project of this.effectiveProjects()) {
-      const locationId = this.normalizeEntityId(project.manufacturerLocationId ?? project.locationId);
-      const factory = locationId ? factoryByNormalizedId.get(locationId) : undefined;
-      if (factory && this.matchesRegionsForFactory(factory, selectedRegions)) {
-        matchingProjectIds.add(String(project.id));
-        continue;
-      }
-
-      if (locationId) {
-        const location = locationsById.get(locationId);
-        const coords = coerceCoordinates(location?.latitude, location?.longitude);
-        const region = this.resolveRegion(location?.name, coords ?? undefined);
-        if (region && selectedRegions.includes(region)) {
-          matchingProjectIds.add(String(project.id));
-          continue;
-        }
-      }
-
-      const directRegion = this.resolveRegion(project.location, undefined);
-      if (directRegion && selectedRegions.includes(directRegion)) {
+      const projectRegion = this.resolveProjectRegion(project);
+      if (projectRegion && selectedRegions.includes(projectRegion)) {
         matchingProjectIds.add(String(project.id));
       }
     }
@@ -3774,7 +3962,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   }
 
   onRouteSelected(payload: { routeId: string; projectId?: string }): void {
-    this.selectionOutsideFiltersNotice.set(null);
     this.selectedRouteId.set(payload.routeId ?? null);
     if (payload.projectId) {
       this.selectedProjectId.set(payload.projectId);
@@ -3825,7 +4012,6 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   }
 
   onNodeSelected(node: Node | undefined): void {
-    this.selectionOutsideFiltersNotice.set(null);
     if (node) {
       const selection = this.panelActionsWorkflow.onNodeSelected(node);
       if (selection) {
@@ -3833,24 +4019,48 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       }
 
       // Sync selectedProjectId: factory → first matching project
-      const manufacturerLocationId = node.manufacturerLocationId ?? node.factoryId;
-      if (manufacturerLocationId) {
-        this.projectService.getProjectsByManufacturerLocation(manufacturerLocationId).pipe(take(1)).subscribe((projects) => {
-          const first = projects[0];
-          this.selectedProjectId.set(first ? String(first.id) : null);
-        });
-      } else if (node.level === 'client' || node.clientId) {
-        this.projectService.getProjectsByClient(node.companyId).pipe(take(1)).subscribe((projects) => {
-          const first = projects[0];
-          this.selectedProjectId.set(first ? String(first.id) : null);
-        });
-      } else {
-        this.selectedProjectId.set(null);
-      }
+      this.selectedProjectId.set(this.deriveSelectedProjectIdFromNode(node));
     } else {
       this.warRoomService.selectEntity(null);
       this.selectedProjectId.set(null);
     }
+  }
+
+  private deriveSelectedProjectIdFromNode(node: Node): string | null {
+    const manufacturerLocationId = this.normalizeEntityId(node.manufacturerLocationId ?? node.factoryId);
+    if (manufacturerLocationId) {
+      const matchingRow = this.activityTableRows().find(
+        (row) => this.normalizeEntityId(row.manufacturerLocationId ?? row.locationId) === manufacturerLocationId
+      );
+      if (matchingRow) {
+        return matchingRow.projectId;
+      }
+
+      const matchingProject = this.effectiveProjects().find(
+        (project) =>
+          this.normalizeEntityId(project.manufacturerLocationId ?? project.locationId) === manufacturerLocationId
+      );
+      if (matchingProject) {
+        return String(matchingProject.id);
+      }
+    }
+
+    const clientId = this.normalizeClientId(node.companyId ?? node.clientId ?? node.id);
+    if (!clientId) {
+      return null;
+    }
+
+    const matchingRow = this.activityTableRows().find(
+      (row) => this.normalizeClientId(row.clientId) === clientId
+    );
+    if (matchingRow) {
+      return matchingRow.projectId;
+    }
+
+    const matchingProject = this.effectiveProjects().find(
+      (project) => this.normalizeClientId(project.clientId) === clientId
+    );
+    return matchingProject ? String(matchingProject.id) : null;
   }
 
   async onFactoryDetailsUpdated(payload: FactoryEditPayload): Promise<void> {

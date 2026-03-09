@@ -181,6 +181,123 @@ describe('FluorescenceMapMapComponent logic helpers', () => {
     expect(routes[0].highlighted).toBeTrue();
   });
 
+  it('syncOverlays preserves transit route styling overrides', async () => {
+    const nodeA = {
+      id: 'factory-1',
+      name: 'Factory One',
+      company: 'Factory One',
+      companyId: 'factory-1',
+      city: 'Alpha',
+      coordinates: { latitude: 10, longitude: 20 },
+      type: 'Factory',
+      status: 'ACTIVE',
+      level: 'factory',
+    } as any;
+
+    const nodeB = {
+      id: 'factory-2',
+      name: 'Factory Two',
+      company: 'Factory Two',
+      companyId: 'factory-2',
+      city: 'Beta',
+      coordinates: { latitude: 30, longitude: 40 },
+      type: 'Factory',
+      status: 'ACTIVE',
+      level: 'factory',
+    } as any;
+
+    (component as any).nodes = signal([nodeA, nodeB]);
+    (component as any).selectedEntity = signal({ level: 'factory', id: 'factory-2' });
+    (component as any).projectRoutes = signal([]);
+    (component as any).transitRoutes = signal([{
+      id: 'route-styled',
+      from: 'factory-1',
+      to: 'factory-2',
+      fromCoordinates: { latitude: 10, longitude: 20 },
+      toCoordinates: { latitude: 30, longitude: 40 },
+      strokeWidth: 3,
+      dashArray: '4 2',
+      strokeColor: '#123456',
+    }]);
+
+    (component as any).filterStatus = signal('inactive');
+    (component as any).mapLoaded = true;
+    (component as any).destroyed = false;
+    (component as any).mapInstance = {
+      getZoom: () => 4,
+      project: ([lng, lat]: [number, number]) => ({ x: lng * 10, y: lat * 10 }),
+      remove: () => undefined,
+    };
+
+    await (component as any).syncOverlays(false);
+
+    const routes = (component as any).routesVm() as Array<{
+      strokeWidth: number;
+      dashArray?: string;
+      strokeColor?: string;
+      highlighted: boolean;
+      projectId?: string;
+    }>;
+
+    expect(routes.length).toBe(1);
+    expect(routes[0].strokeWidth).toBe(3);
+    expect(routes[0].dashArray).toBe('4 2');
+    expect(routes[0].strokeColor).toBe('#123456');
+    expect(routes[0].highlighted).toBeTrue();
+    expect(routes[0].projectId).toBeUndefined();
+  });
+
+  it('syncOverlays prefers overlaySnapshot data when provided', async () => {
+    const snapshotNode = {
+      id: 'snapshot-node',
+      name: 'Snapshot Node',
+      company: 'Snapshot Node',
+      companyId: 'snapshot-node',
+      city: 'Toronto',
+      coordinates: { latitude: 12, longitude: 34 },
+      type: 'Factory',
+      status: 'ACTIVE',
+      level: 'factory',
+    } as any;
+
+    const inputNode = {
+      id: 'input-node',
+      name: 'Input Node',
+      company: 'Input Node',
+      companyId: 'input-node',
+      city: 'Ottawa',
+      coordinates: { latitude: 1, longitude: 2 },
+      type: 'Factory',
+      status: 'ACTIVE',
+      level: 'factory',
+    } as any;
+
+    (component as any).nodes = signal([inputNode]);
+    (component as any).projectRoutes = signal([]);
+    (component as any).transitRoutes = signal([]);
+    (component as any).selectedEntity = signal(null);
+    (component as any).overlaySnapshot = signal({
+      nodes: [snapshotNode],
+      projectRoutes: [],
+      transitRoutes: [],
+      selected: null,
+      hovered: null,
+      filterStatus: 'all',
+    });
+    (component as any).mapLoaded = true;
+    (component as any).destroyed = false;
+    (component as any).mapInstance = {
+      getZoom: () => 4,
+      project: ([lng, lat]: [number, number]) => ({ x: lng * 10, y: lat * 10 }),
+      remove: () => undefined,
+    };
+
+    await (component as any).syncOverlays(false);
+
+    const markers = (component as any).markersVm() as Array<{ id: string }>;
+    expect(markers.map((marker) => marker.id)).toEqual(['snapshot-node']);
+  });
+
   it('syncOverlays prefers exact project-route endpoint coordinates over node/transit coordinates', async () => {
     const node = {
       id: 'factory-1',
@@ -630,6 +747,37 @@ describe('FluorescenceMapMapComponent logic helpers', () => {
     expect(component.mapLoadError()).toBeNull();
     expect(component.mapErrorDismissed()).toBeFalse();
     expect(toastr.warning).toHaveBeenCalled();
+  });
+
+  it('falls back to a local basemap style when the remote style cannot be fetched', () => {
+    const handlers = new Map<string, Array<(event?: unknown) => void>>();
+    const setStyle = jasmine.createSpy('setStyle');
+    const mapStub = {
+      on: (event: string, cb: (event?: unknown) => void) => {
+        const list = handlers.get(event) ?? [];
+        list.push(cb);
+        handlers.set(event, list);
+        return mapStub;
+      },
+      remove: () => undefined,
+      getContainer: () => document.createElement('div'),
+      setStyle,
+    } as any;
+
+    spyOn(component as any, 'isWebglSupported').and.returnValue(true);
+    spyOn(component as any, 'getMapContainer').and.returnValue({
+      getBoundingClientRect: () => ({ width: 320, height: 240 }),
+    } as any);
+    spyOn(component as any, 'createMap').and.returnValue(mapStub);
+
+    (component as any).initMap();
+    handlers.get('error')?.[0]?.({
+      error: new Error('AJAXError: Failed to fetch (0): https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'),
+    });
+
+    expect(component.mapLoadError()).toBeNull();
+    expect(component.mapRuntimeWarning()).toContain('fallback map style');
+    expect(setStyle).toHaveBeenCalled();
   });
 
   it('shows blocking overlay for pre-load fatal map errors', () => {
