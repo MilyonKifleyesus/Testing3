@@ -1,5 +1,12 @@
-import * as Chartist from 'chartist';
-import { ChartEvent, ChartType } from 'ng-chartist';
+// NOTE: This project no longer includes `chartist` / `ng-chartist` dependencies.
+// Keep these chart config objects compile-safe by using local minimal types.
+export type ChartType = 'Line' | 'Pie' | 'Bar';
+export type ChartEvent = unknown;
+
+export interface IChartistData {
+	labels?: Array<string | number>;
+	series: unknown[];
+}
 
 var seq: number = 0;
 var delays: number = 80;
@@ -10,7 +17,7 @@ let secondary_color = localStorage.getItem('secondary_color') || '#53caed';
 
 export interface Chart {
 	type: ChartType;
-	data: Chartist.IChartistData;
+	data: IChartistData;
 	options?: any;
 	responsiveOptions?: any;
 	events?: ChartEvent | any;
@@ -44,7 +51,7 @@ export var chart1: Chart = {
 						dur: 2000,
 						from: data.path.clone().scale(1, 0).translate(0, data.chartRect.height()).stringify(),
 						to: data.path.clone().stringify(),
-						easing: Chartist.Svg.Easing.easeOutQuint
+						easing: undefined
 					}
 				});
 			}
@@ -78,7 +85,7 @@ export var chart2: Chart = {
 						dur: 1000,
 						from: -pathLength + 'px',
 						to: '0px',
-						easing: Chartist.Svg.Easing.easeOutQuint,
+						easing: undefined,
 						fill: 'freeze'
 					}
 				};
@@ -162,7 +169,7 @@ export var chart5: Chart = {
 export var chart6: Chart = {
 	type: 'Bar',
 	data: {
-		labels: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'Q10', 'Q11', 'Q13', 'Q14'],
+		labels: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'Q10', 'Q11', 'Q12', 'Q13'],
 		series: [
 			[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300],
 			[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300],
@@ -226,7 +233,15 @@ export var chart8: Chart = {
 		colors: [primary_color, secondary_color]
 	},
 	responsiveOptions: [
-		['screen and (min-width: 641px) and (max-width: 1024px) and (max-width: 768px)', {
+		['screen and (min-width: 641px) and (max-width: 768px)', {
+			showPoint: false,
+			axisX: {
+				labelInterpolationFnc: function (value:any) {
+					return 'Week ' + value;
+				}
+			}
+		}],
+		['screen and (min-width: 769px) and (max-width: 1024px)', {
 			showPoint: false,
 			axisX: {
 				labelInterpolationFnc: function (value:any) {
@@ -322,9 +337,7 @@ export var chart11: Chart | any= {
 		chartPadding: {
 			right: 10
 		},
-		lineSmooth: Chartist.Interpolation.cardinal({
-			fillHoles: true,
-		}),
+		lineSmooth: { fillHoles: true },
 		low: 0,
 		colors: [primary_color, secondary_color]
 	},

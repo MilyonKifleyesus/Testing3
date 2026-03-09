@@ -64,9 +64,15 @@ export class FluorescenceMapMapMarkersComponent {
     return value?.trim() || '';
   }
 
+  getMarkerDomKey(marker: MarkerVm): string {
+    const raw = marker.renderKey || `${marker.nodeType}:${marker.id}`;
+    return raw.replace(/[^a-zA-Z0-9_-]/g, '-');
+  }
+
   truncateTag(value: string, maxLength: number): string {
     const v = value?.trim() || '';
     if (v.length <= maxLength) return v;
-    return `${v.slice(0, Math.max(0, maxLength - 1))}…`;
+    if (maxLength <= 3) return v.slice(0, maxLength);
+    return `${v.slice(0, Math.max(0, maxLength - 3))}...`;
   }
 }

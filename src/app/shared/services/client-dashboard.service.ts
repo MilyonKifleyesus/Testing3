@@ -13,17 +13,21 @@ import {
   TicketsByStatusData,
 } from '../models/client-dashboard.models';
 
-const USE_MOCK = true;
+type ClientDashboardEnvironmentConfig = typeof environment & {
+  useMockClientDashboard?: boolean;
+};
 
 @Injectable({ providedIn: 'root' })
 export class ClientDashboardService {
+  private readonly envConfig = environment as ClientDashboardEnvironmentConfig;
   private readonly baseUrl = `${environment.apiBaseUrl}/client-dashboard`;
   private readonly apiBaseUrl = environment.apiBaseUrl;
+  private readonly PROJECTS_ROUTE = 'projects';
 
   constructor(private http: HttpClient) {}
 
   getClientDashboard(clientId: number): Observable<ClientDashboardResponse> {
-    if (USE_MOCK) {
+    if (this.envConfig.useMockClientDashboard === true) {
       return of(this.buildMockResponse(clientId));
     }
 
@@ -31,28 +35,43 @@ export class ClientDashboardService {
   }
 
   getProjects(params: { clientId?: number; includeClosed?: boolean; page?: number; pageSize?: number } = {}): Observable<any> {
+    if (this.envConfig.useMockClientDashboard === true) {
+      return of({ items: clientProjects });
+    }
     const httpParams = this.buildParams(params);
-    return this.http.get<any>(`${this.apiBaseUrl}/Projects`, { params: httpParams });
+    return this.http.get<any>(`${this.apiBaseUrl}/${this.PROJECTS_ROUTE}`, { params: httpParams });
   }
 
   getProjectVehicles(projectId: number, params: { clientId?: number; userId?: number; page?: number; pageSize?: number } = {}): Observable<any> {
+    if (this.envConfig.useMockClientDashboard === true) {
+      return of({ items: clientVehicles });
+    }
     const httpParams = this.buildParams(params);
-    return this.http.get<any>(`${this.apiBaseUrl}/projects/${projectId}/vehicles`, { params: httpParams });
+    return this.http.get<any>(`${this.apiBaseUrl}/${this.PROJECTS_ROUTE}/${projectId}/vehicles`, { params: httpParams });
   }
 
   getTickets(params: { projectId?: number; userId?: number; vehicleId?: number; page?: number; pageSize?: number } = {}): Observable<any> {
+    if (this.envConfig.useMockClientDashboard === true) {
+      return of(projectStats);
+    }
     const httpParams = this.buildParams(params);
-    return this.http.get<any>(`${this.apiBaseUrl}/Tickets`, { params: httpParams });
+    return this.http.get<any>(`${this.apiBaseUrl}/tickets`, { params: httpParams });
   }
 
   getTicketsDashboard(params: { projectId?: number; userId?: number; vehicleId?: number } = {}): Observable<any> {
+    if (this.envConfig.useMockClientDashboard === true) {
+      return of(projectStats);
+    }
     const httpParams = this.buildParams(params);
     return this.http.get<any>(`${this.apiBaseUrl}/tickets/dashboard`, { params: httpParams });
   }
 
   getVehicles(params: { clientId?: number; page?: number; pageSize?: number } = {}): Observable<any> {
+    if (this.envConfig.useMockClientDashboard === true) {
+      return of({ items: clientVehicles });
+    }
     const httpParams = this.buildParams(params);
-    return this.http.get<any>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams });
+    return this.http.get<any>(`${this.apiBaseUrl}/vehicles`, { params: httpParams });
   }
 
   private buildParams(params: Record<string, string | number | boolean | null | undefined>): HttpParams {
@@ -180,43 +199,43 @@ export class ClientDashboardService {
         order: 10,
       },
       {
-        id: 'widget-14',
+        id: 'widget-11',
         title: 'Recent Activities',
         subtitle: 'Latest system activities and updates',
         type: 'stat',
         width: 4,
         height: 450,
-        order: 10.1,
+        order: 11,
       },
       {
-        id: 'widget-11',
+        id: 'widget-12',
         title: 'Projects Comparison by Station',
         subtitle: 'Color-range heatmap of average defects by project and station',
         type: 'heatmap',
         chartOptions: busPulseData.projectsByStationHeatmap,
         width: 12,
         height: 500,
-        order: 11,
+        order: 12,
       },
       {
-        id: 'widget-12',
+        id: 'widget-13',
         title: 'Average Station Time Comparison',
         subtitle: 'Setup, inspection, and reporting times by project',
         type: 'chart',
         chartOptions: busPulseData.stationTimeComparisonChart,
         width: 12,
         height: 450,
-        order: 12,
+        order: 13,
       },
       {
-        id: 'widget-13',
+        id: 'widget-14',
         title: 'Project Timeline',
         subtitle: 'Project schedules and milestones across 2024',
         type: 'timeline',
         chartOptions: busPulseData.projectTimelineChart,
         width: 12,
         height: 450,
-        order: 13,
+        order: 14,
       },
     ];
 

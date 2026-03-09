@@ -8,8 +8,19 @@ export type NodeType = 'Hub' | 'Facility' | 'Center' | 'Terminal';
 export type NodeStatus = 'ACTIVE' | 'INACTIVE';
 
 // Fleet hierarchy levels
-export type FleetLevel = 'parent' | 'subsidiary' | 'factory' | 'client';
-export type MapViewMode = 'parent' | 'subsidiary' | 'factory' | 'project' | 'client';
+export type FleetLevel =
+  | 'parent'
+  | 'subsidiary'
+  | 'manufacturer'
+  /** @deprecated Legacy level retained during migration; prefer manufacturerLocationId + 'manufacturer'. */
+  | 'factory'
+  | 'client';
+
+/*
+ * 'subsidiary' is an alias for 'manufacturer' during transition.
+ * This is a union alias only; the MapViewMode type itself is not deprecated.
+ */
+export type MapViewMode = 'parent' | 'subsidiary' | 'manufacturer' | 'factory' | 'project' | 'client';
 
 // Operational status for parent/subsidiary entities
 export type OperationalStatus = 'ACTIVE' | 'INACTIVE';
@@ -55,7 +66,9 @@ export interface SubsidiaryCompany {
   name: string;
   status: OperationalStatus;
   metrics: FleetMetrics;
-  factories: FactoryLocation[];
+  manufacturerLocations?: ManufacturerLocation[];
+  /** @deprecated Use manufacturerLocations */
+  factories?: ManufacturerLocation[];
   hubs: Hub[];
   quantumChart: QuantumChartData;
   description?: string;
@@ -64,9 +77,9 @@ export interface SubsidiaryCompany {
 }
 
 /**
- * Factory Location - Physical site belonging to a subsidiary
+ * Manufacturer Location - Physical site belonging to a subsidiary
  */
-export interface FactoryLocation {
+export interface ManufacturerLocation {
   id: string;
   parentGroupId: string;
   subsidiaryId: string;
@@ -89,7 +102,7 @@ export interface FactoryLocation {
 }
 
 /**
- * Map Node - Represents a marker on the map (parent, subsidiary, or factory)
+ * Map Node - Represents a marker on the map (parent, subsidiary, or manufacturer)
  */
 export interface Node {
   id: string;
@@ -111,6 +124,8 @@ export interface Node {
   level?: FleetLevel;
   parentGroupId?: string;
   subsidiaryId?: string;
+  manufacturerLocationId?: string;
+  /** @deprecated Use manufacturerLocationId */
   factoryId?: string;
   /** For client nodes when in client view */
   clientId?: string;
@@ -120,7 +135,7 @@ export interface Node {
 }
 
 /**
- * Project Route - Connection from Client to Factory for project visualization
+ * Project Route - Connection from Client to Manufacturer for project visualization
  */
 export interface ProjectRoute {
   id: string;
@@ -166,7 +181,9 @@ export interface ActivityLog {
   description: string; // e.g., "PEAK EFFICIENCY // LOAD BALANCING COMPLETE"
   parentGroupId: string;
   subsidiaryId: string;
-  factoryId: string;
+  manufacturerLocationId?: string;
+  /** @deprecated Use manufacturerLocationId */
+  factoryId?: string;
   location?: string;
   logo?: string | ArrayBuffer; // Company logo (base64 or data URL)
   /** @deprecated Legacy fields retained for backward compatibility. */
@@ -232,6 +249,8 @@ export interface FleetSelection {
   id: string;
   parentGroupId?: string;
   subsidiaryId?: string;
+  manufacturerLocationId?: string;
+  /** @deprecated Use manufacturerLocationId */
   factoryId?: string;
 }
 
@@ -281,3 +300,8 @@ export interface WarRoomState {
  * @deprecated Legacy alias retained for compatibility with older imports.
  */
 export type CompanyData = SubsidiaryCompany;
+
+/**
+ * @deprecated Use ManufacturerLocation
+ */
+export type FactoryLocation = ManufacturerLocation;

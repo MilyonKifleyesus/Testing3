@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, map, of, shareReplay, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { parsePagedResponse } from './adapters/paged-response.adapter';
 
 export interface DashboardProjectOption {
   id: string;
@@ -32,6 +33,9 @@ export interface DashboardTicketsDashboardResult {
 @Injectable({ providedIn: 'root' })
 export class DashboardProjectsService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
+  private readonly useApiV2 = environment.useApiV2 !== false;
+  private readonly PROJECTS_ROUTE = 'Projects';
+  private readonly PROJECTS_VEHICLES_ROUTE = 'projects';
   private readonly cacheTtlMs = 30000;
   private readonly projectsCache = new Map<
     string,
@@ -47,6 +51,19 @@ export class DashboardProjectsService {
   >();
 
   constructor(private http: HttpClient) {}
+
+  private mapVehicleItem = (item: any): DashboardVehicleOption => {
+    const idCandidate = item?.id ?? item?.vehicleId ?? item?.vehicleID ?? item?.VehicleId ?? item?.VehicleID ?? '';
+    return {
+      id: String(idCandidate ?? ''),
+      name:
+        item?.name ??
+        item?.vehicleName ??
+        item?.VehicleName ??
+        item?.displayName ??
+        `Vehicle ${item?.id ?? item?.vehicleId ?? ''}`,
+    };
+  };
 
   getProjectOptions(params: {
     clientId?: number;
@@ -99,10 +116,11 @@ export class DashboardProjectsService {
 
     return this.getCachedObservable(this.projectsCache, cacheKey, () =>
       this.http
-        .get<unknown>(`${this.apiBaseUrl}/Projects`, { params: httpParams })
+        .get<unknown>(`${this.apiBaseUrl}/${this.PROJECTS_ROUTE}`, { params: httpParams })
         .pipe(
           map((response: any) => {
-            const items = this.extractItems(response);
+            const parsed = parsePagedResponse<any>(response);
+            const items = parsed.items;
 
             const mapped: DashboardProjectOption[] = items
               .map((item: any) => ({
@@ -155,8 +173,10 @@ export class DashboardProjectsService {
     } = params;
 
     return this.getVehicleOptionsByProjectResult(projectId, params).pipe(
-      map((result: DashboardVehicleOptionsResult) => result.options),
-      switchMap((vehicles) => of(vehicles.length ? vehicles : [{ id: 'all', name: 'All Vehicles' }])),
+      map((result: DashboardVehicleOptionsResult) => {
+        const options = result.options;
+        return options.length ? options : (includeAllOption ? [{ id: 'all', name: 'All Vehicles' }] : []);
+      }),
     );
   }
 
@@ -221,40 +241,35 @@ export class DashboardProjectsService {
     });
 
     return this.getCachedObservable(this.projectVehiclesCache, cacheKey, () =>
-      this.http
-        .get<unknown>(`${this.apiBaseUrl}/projects/${encodedProjectId}/vehicles`)
-        .pipe(
-          catchError(() =>
-            this.http.get<unknown>(`${this.apiBaseUrl}/Projects/${encodedProjectId}/vehicles`, {
+      (this.useApiV2
+        ? this.http.get<unknown>(`${this.apiBaseUrl}/${this.PROJECTS_VEHICLES_ROUTE}/${encodedProjectId}/vehicles`, {
+            params: httpParams,
+          })
+        : this.http
+            .get<unknown>(`${this.apiBaseUrl}/${this.PROJECTS_VEHICLES_ROUTE}/${encodedProjectId}/vehicles`, {
               params: httpParams,
-            }),
-          ),
-          catchError(() =>
-            this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, {
-              params: httpParams.set('projectId', String(normalizedProjectId)),
-            }),
-          ),
-          catchError(() =>
-            this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, {
-              params: httpParams.set('ProjectId', String(normalizedProjectId)),
-            }),
-          ),
+            })
+            .pipe(
+              catchError(() =>
+                this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, {
+                  params: httpParams.set('projectId', String(normalizedProjectId)),
+                })
+              ),
+              catchError(() =>
+                this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, {
+                  params: httpParams.set('ProjectId', String(normalizedProjectId)),
+                })
+              )
+            )).pipe(
           map((response: any) => {
-            const items = this.extractItems(response);
+            const parsed = parsePagedResponse<any>(response);
+            const items = parsed.items;
 
             const mapped: DashboardVehicleOption[] = items
-              .map((item: any) => ({
-                id: String(item?.id ?? item?.vehicleId ?? item?.vehicleID ?? item?.VehicleId ?? item?.VehicleID ?? ''),
-                name:
-                  item?.name ??
-                  item?.vehicleName ??
-                  item?.VehicleName ??
-                  item?.displayName ??
-                  `Vehicle ${item?.id ?? item?.vehicleId ?? ''}`,
-              }))
+              .map(this.mapVehicleItem)
               .filter((vehicle: DashboardVehicleOption) => vehicle.id);
 
-            const totalCount = this.extractTotalCount(response, mapped.length);
+            const totalCount = parsed.total ?? mapped.length;
 
             return {
               options: includeAllOption ? [{ id: 'all', name: 'All Vehicles' }, ...mapped] : mapped,
@@ -298,18 +313,10 @@ export class DashboardProjectsService {
       .get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams })
       .pipe(
         map((response: any) => {
-          const items = this.extractItems(response);
+          const items = parsePagedResponse<any>(response).items;
 
           const mapped: DashboardVehicleOption[] = items
-            .map((item: any) => ({
-              id: String(item?.id ?? item?.vehicleId ?? item?.vehicleID ?? item?.VehicleId ?? item?.VehicleID ?? ''),
-              name:
-                item?.name ??
-                item?.vehicleName ??
-                item?.VehicleName ??
-                item?.displayName ??
-                `Vehicle ${item?.id ?? item?.vehicleId ?? ''}`,
-            }))
+            .map(this.mapVehicleItem)
             .filter((vehicle: DashboardVehicleOption) => vehicle.id);
 
           if (!includeAllOption) {
@@ -363,20 +370,13 @@ export class DashboardProjectsService {
         .get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams })
         .pipe(
           map((response: any) => {
-            const items = this.extractItems(response);
+            const parsed = parsePagedResponse<any>(response);
+            const items = parsed.items;
             const mapped: DashboardVehicleOption[] = items
-              .map((item: any) => ({
-                id: String(item?.id ?? item?.vehicleId ?? item?.vehicleID ?? item?.VehicleId ?? item?.VehicleID ?? ''),
-                name:
-                  item?.name ??
-                  item?.vehicleName ??
-                  item?.VehicleName ??
-                  item?.displayName ??
-                  `Vehicle ${item?.id ?? item?.vehicleId ?? ''}`,
-              }))
+              .map(this.mapVehicleItem)
               .filter((vehicle: DashboardVehicleOption) => vehicle.id);
 
-            const totalCount = this.extractTotalCount(response, mapped.length);
+            const totalCount = parsed.total ?? mapped.length;
 
             return {
               options: includeAllOption ? [{ id: 'all', name: 'All Vehicles' }, ...mapped] : mapped,
@@ -441,46 +441,6 @@ export class DashboardProjectsService {
     }
   }
 
-  private extractItems(response: any): any[] {
-    if (Array.isArray(response)) {
-      return response;
-    }
-
-    if (Array.isArray(response?.items)) {
-      return response.items;
-    }
-
-    if (Array.isArray(response?.data?.items)) {
-      return response.data.items;
-    }
-
-    if (Array.isArray(response?.data)) {
-      return response.data;
-    }
-
-    if (Array.isArray(response?.vehicles)) {
-      return response.vehicles;
-    }
-
-    if (Array.isArray(response?.data?.vehicles)) {
-      return response.data.vehicles;
-    }
-
-    if (Array.isArray(response?.result?.items)) {
-      return response.result.items;
-    }
-
-    if (Array.isArray(response?.result?.vehicles)) {
-      return response.result.vehicles;
-    }
-
-    if (Array.isArray(response?.projects)) {
-      return response.projects;
-    }
-
-    return [];
-  }
-
   private normalizeProjectId(projectId: string): string {
     const trimmed = String(projectId ?? '').trim();
     if (!trimmed || trimmed === 'all') {
@@ -538,58 +498,5 @@ export class DashboardProjectsService {
     return undefined;
   }
 
-  private extractTotalCount(response: any, fallback: number): number {
-    const candidates = [
-      response?.totalCount,
-      response?.TotalCount,
-      response?.data?.totalCount,
-      response?.data?.TotalCount,
-      response?.result?.totalCount,
-      response?.result?.TotalCount,
-      response?.meta?.totalCount,
-      response?.meta?.TotalCount,
-      response?.pagination?.totalCount,
-      response?.pagination?.TotalCount,
-      response?.data?.pagination?.totalCount,
-      response?.data?.pagination?.TotalCount,
-      response?.totalItems,
-      response?.TotalItems,
-      response?.totalRecords,
-      response?.TotalRecords,
-      response?.recordsTotal,
-      response?.RecordsTotal,
-      response?.data?.totalItems,
-      response?.data?.TotalItems,
-      response?.data?.totalRecords,
-      response?.data?.TotalRecords,
-      response?.data?.recordsTotal,
-      response?.data?.RecordsTotal,
-      response?.result?.totalItems,
-      response?.result?.TotalItems,
-      response?.result?.totalRecords,
-      response?.result?.TotalRecords,
-      response?.result?.recordsTotal,
-      response?.result?.RecordsTotal,
-      response?.total,
-      response?.Total,
-      response?.meta?.total,
-      response?.pagination?.total,
-      response?.data?.total,
-      response?.result?.total,
-      response?.count,
-      response?.Count,
-      response?.result?.count,
-      response?.pagination?.count,
-      response?.data?.count,
-    ];
 
-    for (const candidate of candidates) {
-      const value = Number(candidate);
-      if (Number.isFinite(value) && value >= 0) {
-        return value;
-      }
-    }
-
-    return fallback;
-  }
 }

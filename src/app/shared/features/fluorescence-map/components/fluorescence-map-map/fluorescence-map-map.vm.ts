@@ -1,9 +1,10 @@
 import { Node as WarRoomNode } from '../../../../models/fluorescence-map.interface';
 
-export type MarkerNodeType = 'client' | 'factory' | 'subsidiary' | 'parent';
+export type MarkerNodeType = 'client' | 'factory' | 'parent' | 'manufacturer' | 'subsidiary';
 
 export interface MarkerVm {
-    id: string; // Internal unique ID
+    id: string; // Raw API ID (selection/route identity)
+    renderKey: string; // UI-only unique key for Angular track + SVG ids
     node: WarRoomNode; // Reference to original data
     nodeType: MarkerNodeType;
     isCluster: boolean;

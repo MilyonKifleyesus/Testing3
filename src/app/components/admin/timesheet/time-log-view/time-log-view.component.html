@@ -1,0 +1,51 @@
+<div class="main-container container-fluid px-0">
+  <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
+    <div>
+      <h1 class="page-title fw-semibold fs-20 mb-0">View Time Log</h1>
+      <nav>
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a routerLink="/admin">Home</a></li>
+          <li class="breadcrumb-item"><a routerLink="/admin/timesheet">Time Logs</a></li>
+          <li class="breadcrumb-item active" aria-current="page">View</li>
+        </ol>
+      </nav>
+    </div>
+    <div class="btn-list">
+      <button type="button" class="btn btn-light btn-wave btn-sm" (click)="backToList()">
+        <i class="ti ti-arrow-left me-2"></i>Back to Time Logs
+      </button>
+      <button type="button" class="btn btn-primary btn-wave btn-sm" (click)="edit()" *ngIf="log">
+        <i class="ti ti-edit me-2"></i>Edit
+      </button>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-xl-12">
+      <div class="card custom-card">
+        <div class="card-body">
+          <p *ngIf="loading" class="text-muted mb-0">Loading…</p>
+          <p *ngIf="error" class="text-danger mb-0">{{ error }}</p>
+          <dl class="row mb-0" *ngIf="log && !loading && !error">
+            <dt class="col-sm-3 text-muted">ID</dt>
+            <dd class="col-sm-9">{{ log.id }}</dd>
+            <dt class="col-sm-3 text-muted">Start Date</dt>
+            <dd class="col-sm-9">{{ formatDate(log.startDate) }}</dd>
+            <dt class="col-sm-3 text-muted">Spent Time (hours)</dt>
+            <dd class="col-sm-9">{{ log.spentTimeHours | number:'1.2-2' }}</dd>
+            <dt class="col-sm-3 text-muted">Description</dt>
+            <dd class="col-sm-9">{{ log.description || '—' }}</dd>
+            <dt class="col-sm-3 text-muted">Project</dt>
+            <dd class="col-sm-9">{{ log.projectName ?? log.projectId }}</dd>
+            <dt class="col-sm-3 text-muted">Vehicle</dt>
+            <dd class="col-sm-9">{{ log.vehicleFleetNumber ?? log.vehicleId }}</dd>
+            <dt class="col-sm-3 text-muted">Type of Time</dt>
+            <dd class="col-sm-9">{{ log.typeOfTime }}</dd>
+            <dt class="col-sm-3 text-muted">User</dt>
+            <dd class="col-sm-9">{{ log.userName ?? log.userId }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

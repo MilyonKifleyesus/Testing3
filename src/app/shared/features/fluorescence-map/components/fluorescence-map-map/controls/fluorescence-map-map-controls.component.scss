@@ -1,8 +1,8 @@
 .map-controls {
   position: absolute;
-  bottom: 0.75rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px) + var(--war-room-controls-bottom-offset, 0px));
   top: auto;
-  right: 0.75rem;
+  right: calc(0.75rem + env(safe-area-inset-right, 0px));
   display: flex;
   flex-direction: column;
   gap: 0.45rem;

@@ -65,6 +65,17 @@
             ],
             "scripts": [
               "public/assets/libs/bootstrap/js/bootstrap.bundle.min.js"
+            ],
+            "allowedCommonJsDependencies": [
+              "exceljs",
+              "inputmask",
+              "moment",
+              "sweetalert2",
+              "leaflet",
+              "maplibre-gl",
+              "html2canvas",
+              "filepond",
+              "dropzone"
             ]
           },
           "configurations": {
@@ -81,6 +92,14 @@
                   "maximumError": "5mb"
                 }
               ],
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": true
+              },
               "outputHashing": "all"
             },
             "development": {

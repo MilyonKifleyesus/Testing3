@@ -1,0 +1,35 @@
+{
+  "/api/inspectors": {
+    "__note": "Non-default emergency mock path for local debugging only.",
+    "target": "http://localhost:3001",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/inspectors$": "/items"
+    }
+  },
+  "/api/timelogs": {
+    "__note": "Non-default emergency mock path for local debugging only.",
+    "target": "http://localhost:3001",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/timelogs": "/timelogs"
+    }
+  },
+  "/api": {
+    "target": "https://api.fleetpulse.net",
+    "secure": true,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/yrt": {
+    "target": "http://rtu.york.ca",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug",
+    "pathRewrite": {
+      "^/yrt": ""
+    }
+  }
+}

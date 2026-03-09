@@ -15,22 +15,38 @@ export const adminRoutingModule: Routes = [
     loadComponent: () => import('./dashboard/index').then(m => m.AdminDashboardComponent)
   },
   {
+    path: 'map',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
+    loadComponent: () =>
+      import('./map/admin-map.component').then((m) => m.AdminMapComponent)
+  },
+  {
+    path: 'data-management',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
+    loadComponent: () =>
+      import('./data-management/admin-data-management.component').then((m) => m.AdminDataManagementComponent)
+  },
+  {
     path: 'projects',
     canActivate: [roleGuard],
     data: { roles: ['superadmin'] },
     children: [
       {
         path: 'list',
-        loadComponent: () => import('./project-management/project-list/project-list.component').then(m => m.ProjectListComponent)
+        redirectTo: '/admin/data-management',
+        pathMatch: 'full',
       },
       {
         path: 'new',
-        loadComponent: () => import('./project-management/new-project/new-project.component').then(m => m.NewProjectComponent)
+        redirectTo: '/admin/data-management',
+        pathMatch: 'full',
       }
       ,
       {
         path: 'view/:id',
-        loadComponent: () => import('./project-management/project-view/project-view.component').then(m => m.ProjectViewComponent)
+        redirectTo: '/admin/data-management',
       }
     ]
   },
@@ -120,7 +136,13 @@ export const adminRoutingModule: Routes = [
     path: 'timesheet',
     canActivate: [roleGuard],
     data: { roles: ['superadmin'] },
-    loadComponent: () => import('./timesheet/timesheet.component').then(m => m.TimesheetComponent)
+    loadComponent: () => import('./timesheet/timesheet-layout/timesheet-layout.component').then(m => m.TimesheetLayoutComponent),
+    children: [
+      { path: '', loadComponent: () => import('./timesheet/timesheet/timesheet.component').then(m => m.TimesheetComponent) },
+      { path: 'new', loadComponent: () => import('./timesheet/new-time-log/new-time-log.component').then(m => m.NewTimeLogComponent) },
+      { path: 'view/:id', loadComponent: () => import('./timesheet/time-log-view/time-log-view.component').then(m => m.TimeLogViewComponent) },
+      { path: 'edit/:id', loadComponent: () => import('./timesheet/time-log-edit/time-log-edit.component').then(m => m.TimeLogEditComponent) }
+    ]
   },
   {
     path: 'logs',
@@ -160,7 +182,8 @@ export const adminRoutingModule: Routes = [
       },
       {
         path: 'create-timesheet',
-        loadComponent: () => import('./simulator/create-timesheet/create-timesheet.component').then(m => m.CreateTimesheetComponent)
+        redirectTo: '/admin/timesheet/new',
+        pathMatch: 'full'
       },
       {
         path: 'inspection-list',

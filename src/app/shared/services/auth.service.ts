@@ -28,7 +28,9 @@ export class AuthService {
   constructor(
     private http: HttpClient,
     private router: Router,
-  ) {}
+  ) {
+    this.pruneExpiredSession();
+  }
 
   public showLoader = false;
 
@@ -39,7 +41,10 @@ export class AuthService {
       .post<LoginResponse>(`${environment.apiBaseUrl}/auth/login`, req)
       .pipe(
         tap((res) => {
-          console.log('[AuthService] /api/auth/login response:', res);
+          console.log('[AuthService] /api/auth/login response:', {
+            ...res,
+            accessToken: res?.accessToken ? '[redacted]' : res?.accessToken,
+          });
           localStorage.setItem(LS_TOKEN, res.accessToken);
           const user: CurrentUser = {
             userId: res.userId,
@@ -88,7 +93,13 @@ export class AuthService {
   }
 
   get accessToken(): string | null {
-    return localStorage.getItem(LS_TOKEN);
+    const token = localStorage.getItem(LS_TOKEN);
+    if (!token) return null;
+    if (!this.isJwtTokenValid(token)) {
+      this.clearStoredAuth();
+      return null;
+    }
+    return token;
   }
 
   get currentUserValue(): CurrentUser | null {
@@ -166,5 +177,60 @@ export class AuthService {
       clientId: Number(value?.clientId ?? 0),
       isGeneralAdmin: Boolean(value?.isGeneralAdmin),
     };
+  }
+
+  private pruneExpiredSession(): void {
+    const token = localStorage.getItem(LS_TOKEN);
+    if (!token) return;
+    if (this.isJwtTokenValid(token)) return;
+    this.clearStoredAuth();
+  }
+
+  private clearStoredAuth(): void {
+    localStorage.removeItem(LS_TOKEN);
+    localStorage.removeItem(LS_USER);
+    localStorage.removeItem(LS_USER_LEGACY);
+    this.currentUserSubject.next(null);
+  }
+
+  private isJwtTokenValid(token: string): boolean {
+    const expMs = this.tryGetJwtExpMs(token);
+    if (expMs == null) return false;
+    const skewMs = 30_000;
+    return Date.now() + skewMs < expMs;
+  }
+
+  private tryGetJwtExpMs(token: string): number | null {
+    const payload = this.tryDecodeJwtPayload(token);
+    const exp = payload ? payload['exp'] : undefined;
+    if (typeof exp === 'number' && Number.isFinite(exp)) return exp * 1000;
+    if (typeof exp === 'string' && exp.trim() && Number.isFinite(Number(exp))) return Number(exp) * 1000;
+    return null;
+  }
+
+  private tryDecodeJwtPayload(token: string): Record<string, unknown> | null {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    try {
+      const json = this.base64UrlDecodeToString(parts[1]);
+      const parsed = JSON.parse(json);
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private base64UrlDecodeToString(input: string): string {
+    const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const binary = atob(padded);
+
+    // Handle UTF-8 payloads safely.
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    try {
+      return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    } catch {
+      return binary;
+    }
   }
 }

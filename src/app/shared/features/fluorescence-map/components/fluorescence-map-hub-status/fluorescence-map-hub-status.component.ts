@@ -5,11 +5,12 @@ import { HubStatus, SubsidiaryCompany } from '../../../../../shared/models/fluor
 @Component({
   selector: 'app-fluorescence-map-hub-status',
   imports: [CommonModule],
-  templateUrl: './fluorescence-map-hub-status.component.html',
-  styleUrls: ['./fluorescence-map-hub-status.component.scss'],
+  template: '',
+  styles: [':host { display: none; }'],
 })
 export class FluorescenceMapHubStatusComponent {
   selectedSubsidiary = input<SubsidiaryCompany | null>(null);
+  canAddCompany = input<boolean>(true);
 
   addCompanyRequested = output<void>();
 

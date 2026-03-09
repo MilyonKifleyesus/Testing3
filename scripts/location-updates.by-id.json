@@ -1,0 +1,58 @@
+[
+  {
+    "id": 10,
+    "name": "St. Eustache (Nova)"
+  },
+  {
+    "id": 11,
+    "name": "Crookston (New Flyer)"
+  },
+  {
+    "id": 12,
+    "name": "Winnipeg (New Flyer)"
+  },
+  {
+    "id": 13,
+    "name": "Winnipeg-Crookston (New Flyer)"
+  },
+  {
+    "id": 14,
+    "name": "Middlebury IN (Arboc)"
+  },
+  {
+    "id": 15,
+    "name": "Ottawa (Eastway)"
+  },
+  {
+    "id": 16,
+    "name": "Pembroke (Eastway)"
+  },
+  {
+    "id": 17,
+    "name": "Ottawa - Pembroke (Eastway)"
+  },
+  {
+    "id": 18,
+    "name": "YRT - Bus Garage"
+  },
+  {
+    "id": 19,
+    "name": "Riverside California"
+  },
+  {
+    "id": 20,
+    "name": "Dexter Michigan"
+  },
+  {
+    "id": 21,
+    "name": "China (TAM Facility)"
+  },
+  {
+    "id": 23,
+    "name": "Mississauga (North Bay)"
+  },
+  {
+    "id": 24,
+    "name": "Arboc Plant"
+  }
+]

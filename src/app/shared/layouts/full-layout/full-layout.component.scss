@@ -1,5 +1,16 @@
+.page {
+    justify-content: flex-start !important;
+    align-items: stretch;
+    min-height: 100vh;
+}
+
 .main-content{
-    min-height: calc(100vh - 47px);
+    flex: 1 0 auto;
+    min-height: calc(100vh - 7.5rem);
+}
+
+.page.page-no-footer .main-content {
+    min-height: calc(100vh - 4rem);
 }
 ::ng-deep{
     @media (min-width: 992px) {

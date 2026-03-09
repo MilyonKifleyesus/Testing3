@@ -135,6 +135,8 @@ export class WarRoomRealtimeService implements OnDestroy {
       description: randomDescription,
       parentGroupId: randomFactory.parentGroupId,
       subsidiaryId: randomFactory.subsidiaryId,
+      // In this data model, manufacturer locations are the canonical site id; legacy factoryId mirrors it.
+      manufacturerLocationId: randomFactory.id,
       factoryId: randomFactory.id,
       location: location.toUpperCase(),
       logo: subsidiary?.logo,

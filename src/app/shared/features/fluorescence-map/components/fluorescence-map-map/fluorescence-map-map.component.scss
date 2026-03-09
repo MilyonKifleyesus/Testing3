@@ -213,6 +213,58 @@
   margin-top: 0;
 }
 
+.map-runtime-warning {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  background: rgba(120, 53, 15, 0.85);
+  color: #fef3c7;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.map-empty-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  pointer-events: none;
+}
+
+.map-empty-content {
+  max-width: 420px;
+  text-align: center;
+  background: rgba(8, 12, 16, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: var(--cm-radius, 12px);
+  padding: 1rem 1.25rem;
+  color: #e2e8f0;
+}
+
+.map-empty-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.map-empty-message {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(226, 232, 240, 0.82);
+}
+
 .map-container {
   position: absolute;
   inset: 0;
@@ -405,10 +457,32 @@
 @media (max-width: 575.98px) {
   .war-room-map-container {
     min-height: min(280px, 45vh);
+    margin: 0 !important;
+    padding: 0 !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .map-container,
+  #war-room-map {
+    margin: 0 !important;
+    padding: 0 !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
   }
 
   #war-room-map {
     border-radius: 0.2rem;
+  }
+
+  #war-room-map .maplibregl-canvas-container,
+  #war-room-map .maplibregl-canvas {
+    width: 100% !important;
+    height: 100% !important;
+    left: 0 !important;
+    top: 0 !important;
   }
 
   .map-controls {
@@ -752,48 +826,6 @@
 }
 
 // Marker styles live in war-room-map-markers.component.scss
-
-.map-context-menu {
-  position: fixed;
-  z-index: 100;
-  min-width: 160px;
-  padding: 0.25rem 0;
-  background: rgba(8, 12, 16, 0.95);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
-}
-
-.map-context-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.5rem 0.85rem;
-  background: none;
-  border: none;
-  color: var(--cm-text, #e2e8f0);
-  font-size: 0.8rem;
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.15s ease;
-
-  &:hover {
-    background: rgba(0, 255, 65, 0.12);
-    color: var(--cm-primary, #00ff41);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--cm-primary, #00ff41);
-    outline-offset: -2px;
-  }
-
-  i {
-    font-size: 1rem;
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .company-logo-tooltip,

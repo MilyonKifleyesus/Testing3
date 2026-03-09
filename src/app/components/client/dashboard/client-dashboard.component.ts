@@ -40,6 +40,7 @@ const DEFAULT_WIDGET_LAYOUT: Array<Pick<DashboardWidget, 'id' | 'width' | 'heigh
   { id: 'widget-8', width: 8, height: 450, order: 8 },
   { id: 'widget-9', width: 4, height: 450, order: 9 },
   { id: 'widget-10', width: 8, height: 450, order: 10 },
+  { id: 'widget-map', width: 12, height: 620, order: 10.05 },
   { id: 'widget-14', width: 4, height: 450, order: 10.1 },
   { id: 'widget-11', width: 12, height: 500, order: 11 },
   { id: 'widget-12', width: 12, height: 450, order: 12 },
@@ -329,6 +330,15 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
         order: 10
       },
       {
+        id: 'widget-map',
+        title: 'Fluorescence Map',
+        subtitle: 'Operational overview and live context',
+        type: 'map',
+        width: 12,
+        height: 620,
+        order: 10.05
+      },
+      {
         id: 'widget-14',
         title: 'Recent Activities',
         subtitle: 'Latest system activities and updates',
@@ -428,6 +438,7 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
           : widget
       );
     }
+    this.ensureMapWidgetPresent();
 
     if (response.recentActivities?.length) {
       this.recentActivities = response.recentActivities;
@@ -435,6 +446,23 @@ export class ClientDashboardComponent implements OnInit, OnDestroy {
 
     this.loadLayoutFromStorage();
     this.filterProjects();
+  }
+
+  private ensureMapWidgetPresent(): void {
+    if (this.widgets.some((widget) => widget.id === 'widget-map')) {
+      return;
+    }
+
+    this.widgets.push({
+      id: 'widget-map',
+      title: 'Fluorescence Map',
+      subtitle: 'Operational overview and live context',
+      type: 'map',
+      width: 12,
+      height: 620,
+      order: 10.05,
+    });
+    this.widgets.sort((a, b) => a.order - b.order);
   }
 
   // ========== Persistence: Synchronization with Local Storage ==========

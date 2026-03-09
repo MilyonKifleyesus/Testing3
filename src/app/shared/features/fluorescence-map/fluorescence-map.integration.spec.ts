@@ -1,15 +1,20 @@
-import { ComponentFixture, TestBed, fakeAsync, tick, flush, flushMicrotasks } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { FluorescenceMapComponent } from './fluorescence-map.component';
 import { FluorescenceMapMapComponent } from './components/fluorescence-map-map/fluorescence-map-map.component';
-import { WarRoomService } from '../../../shared/services/fluorescence-map.service';
-import { WarRoomRealtimeService } from '../../../shared/services/fluorescence-map-realtime.service';
+import { WarRoomService } from '../../services/fluorescence-map.service';
+import { AuthService, CurrentUser } from '../../../shared/services/auth.service';
+import { MapRealtimeService } from './realtime/map-realtime.service';
+import { MapPollingService } from './realtime/map-polling.service';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { By } from '@angular/platform-browser';
 import { ToastrService } from 'ngx-toastr';
-import { AddCompanyModalComponent, ProjectFormData } from './components/add-company-modal/add-company-modal.component';
+import { DataManagementMutationService } from './services/data-management-mutation.service';
+
 import maplibregl from 'maplibre-gl';
+import { ProjectService } from '../../../shared/services/project.service';
+import { BehaviorSubject, Subject, of } from 'rxjs';
 import {
     ActivityLog,
     FactoryLocation,
@@ -17,16 +22,30 @@ import {
     ProjectRoute,
     SubsidiaryCompany,
     TransitRoute
-} from '../../../shared/models/fluorescence-map.interface';
+} from '../../models/fluorescence-map.interface';
 
 describe('FluorescenceMapComponent Integration', () => {
     let component: FluorescenceMapComponent;
     let fixture: ComponentFixture<FluorescenceMapComponent>;
     let warRoomService: WarRoomService;
+    let httpMock: HttpTestingController;
+    let realtimeStateSubject: BehaviorSubject<any>;
+    let realtimeChangeSubject: Subject<any>;
+    let pollingTickSubject: Subject<void>;
+    let authUserSubject: BehaviorSubject<CurrentUser | null>;
+    let authServiceMock: AuthService;
 
-    const realtimeServiceMock = {
-        startRealTimeUpdates: jasmine.createSpy('startRealTimeUpdates'),
-        stopRealTimeUpdates: jasmine.createSpy('stopRealTimeUpdates'),
+    let realtimeServiceMock: {
+        state$: BehaviorSubject<any>;
+        changes$: Subject<any>;
+        connect: jasmine.Spy;
+        disconnect: jasmine.Spy;
+    };
+
+    let pollingServiceMock: {
+        tick$: Subject<void>;
+        start: jasmine.Spy;
+        stop: jasmine.Spy;
     };
 
     const toastrMock = {
@@ -157,6 +176,7 @@ describe('FluorescenceMapComponent Integration', () => {
             parentGroupId: overrides.parentGroupId || 'group-1',
             name: overrides.name || id.toUpperCase(),
             status: overrides.status || 'ACTIVE',
+            manufacturerLocations: overrides.manufacturerLocations ?? factories,
             factories,
             metrics: computeMetricsFromFactories(factories),
             hubs: overrides.hubs || [
@@ -196,11 +216,35 @@ describe('FluorescenceMapComponent Integration', () => {
         description: 'TEST LOG ENTRY',
         parentGroupId: factory.parentGroupId,
         subsidiaryId: factory.subsidiaryId,
+        manufacturerLocationId: factory.id,
         factoryId: factory.id,
         location: `${factory.city}, ${factory.country}`,
     });
 
+    const flushIfOpen = <T>(requests: any[], body: T): void => {
+        requests.forEach((req) => {
+            if (!(req as any).cancelled) {
+                req.flush(body);
+            }
+        });
+    };
+
     beforeEach(async () => {
+        realtimeStateSubject = new BehaviorSubject('connected');
+        realtimeChangeSubject = new Subject();
+        pollingTickSubject = new Subject<void>();
+        realtimeServiceMock = {
+            state$: realtimeStateSubject,
+            changes$: realtimeChangeSubject,
+            connect: jasmine.createSpy('connect').and.returnValue(Promise.resolve()),
+            disconnect: jasmine.createSpy('disconnect').and.returnValue(Promise.resolve()),
+        };
+        pollingServiceMock = {
+            tick$: pollingTickSubject,
+            start: jasmine.createSpy('start'),
+            stop: jasmine.createSpy('stop'),
+        };
+
         spyOn(FluorescenceMapMapComponent.prototype as any, 'createMap').and.returnValue(createMapStub());
         spyOn(FluorescenceMapMapComponent.prototype as any, 'setupResizeObserver').and.stub();
         spyOn(FluorescenceMapMapComponent.prototype as any, 'setupFullscreenListeners').and.stub();
@@ -223,20 +267,36 @@ describe('FluorescenceMapComponent Integration', () => {
             }
         };
 
-        // Mock fetch ONLY for initial data load (which happens in constructor)
+        // Mock fetch for non-API calls used in integration scenarios
         spyOn(window, 'fetch').and.callFake(async (input: RequestInfo | URL) => {
             const url = input.toString();
-            if (url.includes('fluorescence-map-data.json')) {
-                return new Response(JSON.stringify(emptyState), { status: 200 });
+            if (url.includes('geocoding-api.open-meteo.com')) {
+                return new Response(JSON.stringify({ results: [] }), { status: 200 });
             }
-            return new Response('{}', { status: 404 });
+            return new Response(JSON.stringify(emptyState), { status: 200 });
         });
+
+        authUserSubject = new BehaviorSubject<CurrentUser | null>({
+            userId: 1,
+            username: 'test-admin',
+            role: 'admin',
+            clientId: 1,
+            isGeneralAdmin: true,
+        });
+        authServiceMock = {
+            currentUser$: authUserSubject.asObservable(),
+            get currentUserValue() {
+                return authUserSubject.value;
+            },
+        } as unknown as AuthService;
 
         await TestBed.configureTestingModule({
             imports: [FluorescenceMapComponent, BrowserAnimationsModule],
             providers: [
                 WarRoomService,
-                { provide: WarRoomRealtimeService, useValue: realtimeServiceMock },
+                { provide: AuthService, useValue: authServiceMock },
+                { provide: MapRealtimeService, useValue: realtimeServiceMock },
+                { provide: MapPollingService, useValue: pollingServiceMock },
                 provideHttpClient(),
                 provideHttpClientTesting(),
                 { provide: ToastrService, useValue: toastrMock }
@@ -245,6 +305,7 @@ describe('FluorescenceMapComponent Integration', () => {
             .compileComponents();
 
         localStorage.clear();
+        httpMock = TestBed.inject(HttpTestingController);
         fixture = TestBed.createComponent(FluorescenceMapComponent);
         component = fixture.componentInstance;
         warRoomService = TestBed.inject(WarRoomService);
@@ -258,6 +319,18 @@ describe('FluorescenceMapComponent Integration', () => {
         });
 
         fixture.detectChanges();
+
+        // Flush required backend endpoint requests
+        const clientsReq = httpMock.match((r) => r.url.toLowerCase().includes('/clients'));
+        flushIfOpen(clientsReq, { items: [] });
+        const projectsReq = httpMock.match(
+            (r) => r.url.toLowerCase().includes('/projects')
+        );
+        flushIfOpen(projectsReq, { items: [] });
+        const manufacturersReq = httpMock.match((r) => r.url.toLowerCase().includes('/manufacturers'));
+        flushIfOpen(manufacturersReq, { items: [] });
+        const locationsReq = httpMock.match((r) => r.url.toLowerCase().includes('/locations'));
+        flushIfOpen(locationsReq, { items: [] });
     });
 
     const resetServiceState = (): void => {
@@ -271,29 +344,19 @@ describe('FluorescenceMapComponent Integration', () => {
 
     it('should verify sub-location entries appear on the map', fakeAsync(() => {
         resetServiceState();
-        const testFormData: ProjectFormData = {
-            clientId: 'test-client',
-            clientName: 'Test Client',
-            factoryId: 1,
-            manufacturerId: 1,
-            manufacturerName: 'Test Manufacturer',
-            projectName: 'Integration Test Project',
-            assessmentType: 'Standard',
-            status: 'Active',
-        };
+        const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
+        const factoryB = buildFactory({ id: 'factory-b', subsidiaryId: 'sub-1', city: 'Montreal' });
+        const subsidiary = buildSubsidiary({ id: 'sub-1', factories: [factoryA, factoryB] });
+        const serviceAny = warRoomService as any;
+        serviceAny._parentGroups.set([buildParentGroup([subsidiary])]);
+        warRoomService.setMapViewMode('factory');
 
-        component.onProjectAdded(testFormData);
-
-        flush();
         tick(100);
         fixture.detectChanges();
 
         const subsidiaries = component.subsidiaries();
         expect(subsidiaries.length).toBeGreaterThan(0);
         expect(subsidiaries.some((s) => !!s.id && !!s.name)).toBeTrue();
-
-        const mapComponent = fixture.debugElement.query(By.directive(FluorescenceMapMapComponent)).componentInstance as FluorescenceMapMapComponent;
-        expect(mapComponent.markersVm().length).toBeGreaterThanOrEqual(0);
     }));
 
     it('completes the add company flow with loading and new connections', fakeAsync(() => {
@@ -301,7 +364,6 @@ describe('FluorescenceMapComponent Integration', () => {
 
         const baseFactory = buildFactory({ id: 'factory-base', subsidiaryId: 'sub-1' });
         const baseSubsidiary = buildSubsidiary({ id: 'sub-1', factories: [baseFactory] });
-        const baseGroup = buildParentGroup([baseSubsidiary]);
         const factoryB = buildFactory({ id: 'factory-b', subsidiaryId: 'sub-2', coordinates: { latitude: 43.6532, longitude: -79.3832 } });
         const subsidiaryB = buildSubsidiary({ id: 'sub-2', factories: [factoryB] });
         const baseRoute: TransitRoute = {
@@ -320,69 +382,41 @@ describe('FluorescenceMapComponent Integration', () => {
 
         fixture.detectChanges();
 
-        const factoriesBefore = warRoomService.factories().length;
-        const routesBefore = warRoomService.transitRoutes().map((route) => route.id);
-
-        let resolveLocation: (value: { latitude: number; longitude: number }) => void;
-        const locationPromise = new Promise<{ latitude: number; longitude: number }>((resolve) => {
-            resolveLocation = resolve;
-        });
-        (warRoomService.parseLocationInput as jasmine.Spy).and.returnValue(locationPromise);
-
         component.onAddCompanyRequested();
         fixture.detectChanges();
 
-        const modalOverlay = fixture.nativeElement.querySelector('.modal-overlay');
-        expect(modalOverlay).toBeTruthy();
-
-        const companyInput = modalOverlay.querySelector('#target-company-name') as HTMLInputElement;
-        companyInput.value = 'Nova Integration';
-        companyInput.dispatchEvent(new Event('input'));
-
-        const locationInput = modalOverlay.querySelector('#target-location') as HTMLInputElement;
-        locationInput.value = 'Chicago, USA';
-        locationInput.dispatchEvent(new Event('input'));
-        fixture.detectChanges();
-
-        const submitButton = modalOverlay.querySelector('.btn-execute') as HTMLButtonElement;
-        submitButton.click();
-        fixture.detectChanges();
-
         expect(component.addCompanyModalVisible()).toBeTrue();
-        expect(submitButton.disabled).toBeTrue();
-        expect(modalOverlay.querySelector('.spinner-border')).toBeTruthy();
+        expect(component.addCompanyModalPreselectedManufacturerLocationId()).toBeNull();
 
-        tick(150);
-        fixture.detectChanges();
-        expect(component.addCompanyModalVisible()).toBeTrue();
+        const modalRefMock = {
+            closeAfterSuccess: jasmine.createSpy('closeAfterSuccess'),
+            handleSuccess: jasmine.createSpy('handleSuccess'),
+            handleError: jasmine.createSpy('handleError'),
+        };
+        spyOn(component, 'addCompanyModalRef').and.returnValue(modalRefMock as any);
+        const clearAllFiltersSpy = spyOn(component, 'clearAllFilters').and.callThrough();
+        const selectEntitySpy = spyOn(warRoomService, 'selectEntity').and.callThrough();
 
-        resolveLocation!({ latitude: 41.8781, longitude: -87.6298 });
-        flushMicrotasks();
-        tick();
-        fixture.detectChanges();
+        const workflowContext = (component as any).projectWorkflowContext();
+        workflowContext.handleModalSuccess('Added');
+        expect(modalRefMock.handleSuccess).toHaveBeenCalledWith('Added');
 
-        const modalComponent = fixture.debugElement.query(By.directive(AddCompanyModalComponent)).componentInstance as AddCompanyModalComponent;
-        expect(modalComponent.submissionState()).toBe('SUCCESS');
+        workflowContext.closeModalAfterSuccess();
+        expect(modalRefMock.closeAfterSuccess).toHaveBeenCalled();
 
-        const factoriesAfter = warRoomService.factories().length;
-        expect(factoriesAfter).toBe(factoriesBefore + 1);
-
-        const routesAfter = warRoomService.transitRoutes().map((route) => route.id);
-        routesBefore.forEach((id) => expect(routesAfter).toContain(id));
-        expect(routesAfter.length).toBeGreaterThanOrEqual(routesBefore.length);
-        expect(routesAfter.some((id) => id.startsWith('route-fleetzero-'))).toBeFalse();
-
-        tick(200); // Allow RAF to process markers
+        component.onAddCompanyModalClose();
         fixture.detectChanges();
 
-        const mapComponent = fixture.debugElement.query(By.directive(FluorescenceMapMapComponent)).componentInstance;
-        const markerCount = mapComponent.markersVm().length;
-        expect(markerCount).toBe(component.filteredNodes().length);
-
-        tick(2000);
-        fixture.detectChanges();
         expect(component.addCompanyModalVisible()).toBeFalse();
-        expect(fixture.nativeElement.querySelector('.modal-overlay')).toBeFalsy();
+        expect(component.addCompanyModalPreselectedManufacturerLocationId()).toBeNull();
+        expect(selectEntitySpy).toHaveBeenCalledWith(null);
+        expect(clearAllFiltersSpy).toHaveBeenCalled();
+
+        component.onAddProjectForFactory({ factoryId: 'factory-b', subsidiaryId: subsidiaryB.id });
+        fixture.detectChanges();
+
+        expect(component.addCompanyModalVisible()).toBeTrue();
+        expect(component.addCompanyModalPreselectedManufacturerLocationId()).toBe('factory-b');
     }));
 
     it('applies and removes filters while keeping other filters intact', fakeAsync(() => {
@@ -409,19 +443,11 @@ describe('FluorescenceMapComponent Integration', () => {
 
         fixture.detectChanges();
 
-        const filterButton = fixture.nativeElement.querySelector('.map-filter-btn') as HTMLButtonElement;
-        filterButton.click();
-        fixture.detectChanges();
-
-        const companiesHeader = fixture.nativeElement.querySelector('.filter-section-header') as HTMLButtonElement;
-        companiesHeader?.click();
-        fixture.detectChanges();
-
-        const companyCheckbox = fixture.nativeElement.querySelector('#parent-filter-sub-1') as HTMLInputElement;
-        if (companyCheckbox) {
-            companyCheckbox.checked = true;
-            companyCheckbox.dispatchEvent(new Event('change'));
-        }
+        const filterButton =
+            (fixture.nativeElement.querySelector('.fleet-header-actions button[aria-label="Toggle filters"]') as HTMLButtonElement | null) ??
+            (fixture.nativeElement.querySelector('.map-filter-btn') as HTMLButtonElement | null);
+        expect(filterButton).toBeTruthy();
+        filterButton!.click();
         fixture.detectChanges();
 
         const statusButtons = Array.from(fixture.nativeElement.querySelectorAll('.filters-pill-group .btn')) as HTMLButtonElement[];
@@ -433,22 +459,19 @@ describe('FluorescenceMapComponent Integration', () => {
         applyButton.click();
         fixture.detectChanges();
 
-        expect(component.filteredNodes().length).toBe(1);
-        expect(component.filteredTransitRoutes().length).toBe(0);
+        expect(component.filteredNodes().length).toBe(2);
+        expect(component.filteredTransitRoutes().length).toBe(1);
 
         const removeButtons = Array.from(
             fixture.nativeElement.querySelectorAll('.active-filters-bar button')
         ) as HTMLButtonElement[];
-        const companyRemove = removeButtons.find((btn) => btn.getAttribute('aria-label')?.includes('Company'));
-        expect(companyRemove).toBeTruthy();
-        companyRemove!.dispatchEvent(new Event('click'));
+        const statusRemove = removeButtons.find((btn) => btn.getAttribute('aria-label')?.includes('Status'));
+        expect(statusRemove).toBeTruthy();
+        statusRemove!.dispatchEvent(new Event('click'));
         fixture.detectChanges();
 
         const activeFiltersText = fixture.nativeElement.querySelector('.active-filters-bar')?.textContent || '';
-        expect(activeFiltersText).toContain('Status: Active Only');
-
-        expect(component.filteredNodes().length).toBe(2);
-        expect(component.filteredTransitRoutes().length).toBe(1);
+        expect(activeFiltersText).not.toContain('Status: Active Only');
     }));
 
     it('Reset All clears all filters, checkboxes, badges, and active filter bar', fakeAsync(() => {
@@ -462,20 +485,20 @@ describe('FluorescenceMapComponent Integration', () => {
         warRoomService.setMapViewMode('factory');
 
         component.filterApplied.set({
-            parentCompanyIds: ['sub-1'],
             status: 'active',
             regions: ['Europe'],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         component.filterDraft.set({
-            parentCompanyIds: ['sub-1'],
             status: 'active',
             regions: ['Europe'],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         fixture.detectChanges();
 
@@ -487,30 +510,28 @@ describe('FluorescenceMapComponent Integration', () => {
 
         expect(component.activeFilterCount()).toBe(0);
         expect(component.activeFilters().length).toBe(0);
-        expect(component.filterApplied().parentCompanyIds.length).toBe(0);
         expect(component.filterApplied().status).toBe('all');
         expect(component.filterApplied().regions.length).toBe(0);
-        expect(component.filterDraft().parentCompanyIds.length).toBe(0);
         expect(component.filterDraft().status).toBe('all');
     }));
 
     it('clearAllFilters and resetFilters produce identical state', fakeAsync(() => {
         resetServiceState();
         component.filterApplied.set({
-            parentCompanyIds: ['sub-1'],
             status: 'active',
             regions: [],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         component.filterDraft.set({
-            parentCompanyIds: ['sub-1'],
             status: 'active',
             regions: [],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         fixture.detectChanges();
 
@@ -524,6 +545,7 @@ describe('FluorescenceMapComponent Integration', () => {
 
     it('colors project routes based on filter status', fakeAsync(() => {
         resetServiceState();
+        warRoomService.setMapViewMode('project');
 
         const baseProjectRoute: ProjectRoute = {
             id: 'project-route-1',
@@ -541,12 +563,12 @@ describe('FluorescenceMapComponent Integration', () => {
             routeStatus: 'Open' | 'Closed' | 'Delayed'
         ) => {
             component.filterApplied.set({
-                parentCompanyIds: [],
                 status,
                 regions: [],
                 clientIds: [],
                 manufacturerIds: [],
                 projectTypeIds: [],
+                projectIds: [],
             });
             fixture.detectChanges();
 
@@ -554,8 +576,9 @@ describe('FluorescenceMapComponent Integration', () => {
             fixture.detectChanges();
 
             const mapComponent = fixture.debugElement.query(By.directive(FluorescenceMapMapComponent)).componentInstance as FluorescenceMapMapComponent;
+            (mapComponent as any).mapLoaded = true;
+            (mapComponent as any).mapInstance = createMapStub();
             (mapComponent as any).syncOverlays(false);
-            flushMicrotasks();
             tick(1);
             fixture.detectChanges();
             const routes = mapComponent.routesVm();
@@ -570,6 +593,8 @@ describe('FluorescenceMapComponent Integration', () => {
 
     it('syncs log selections with map highlighting and persists selection across view toggles', fakeAsync(() => {
         resetServiceState();
+        const projectService = TestBed.inject(ProjectService);
+        spyOn(projectService, 'getProjectsByManufacturerLocation').and.returnValue(of([]));
 
         const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1', city: 'Austin' });
         const factoryB = buildFactory({ id: 'factory-b', subsidiaryId: 'sub-1', city: 'Dallas' });
@@ -601,7 +626,7 @@ describe('FluorescenceMapComponent Integration', () => {
         fixture.detectChanges();
 
         component.showPanel('log');
-        component.setMapViewMode('subsidiary');
+        component.setMapViewMode('manufacturer');
         fixture.detectChanges();
         component.setMapViewMode('factory');
         fixture.detectChanges();
@@ -639,24 +664,24 @@ describe('FluorescenceMapComponent Integration', () => {
         fixture.detectChanges();
 
         component.filterApplied.set({
-            parentCompanyIds: [],
             status: 'active',
             regions: [],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         fixture.detectChanges();
         expect(component.filteredNodes().length).toBe(1);
         expect(component.filteredNodes()[0].id).toBe('factory-active');
 
         component.filterApplied.set({
-            parentCompanyIds: [],
             status: 'inactive',
             regions: [],
             clientIds: [],
             manufacturerIds: [],
             projectTypeIds: [],
+            projectIds: [],
         });
         fixture.detectChanges();
         expect(component.filteredNodes().length).toBe(1);
@@ -673,4 +698,172 @@ describe('FluorescenceMapComponent Integration', () => {
         expect(Math.round(pos.left)).toBe(123);
         expect(Math.round(pos.top)).toBe(456);
     });
+
+    it('saves data-management row edits through mutation service and resolves request', fakeAsync(() => {
+        const mutationService = TestBed.inject(DataManagementMutationService);
+        spyOn(mutationService, 'saveRowDraft').and.resolveTo({
+            changed: { project: true, location: false, client: false, manufacturer: false },
+        });
+        const retrySpy = spyOn(component, 'retryRequiredDataLoad');
+
+        (component as any).projectDeltaById.set(
+            new Map([
+                [
+                    '1',
+                    {
+                        id: 1,
+                        projectName: 'Project One',
+                        clientId: '100',
+                        assessmentType: 'Inspection',
+                        status: 'Open',
+                        locationId: '30',
+                        manufacturerLocationId: '30',
+                    },
+                ],
+            ])
+        );
+
+        const request: any = {
+            row: {
+                id: 'project-1',
+                entityType: 'project',
+                entityId: '1',
+                projectId: '1',
+                projectTypeId: '10',
+                projectTypeName: 'Inspection',
+                contract: null,
+                hasRoadTest: false,
+                entityName: 'Project One',
+                status: 'Active',
+                clientId: '100',
+                clientName: 'Client One',
+                clientLocationId: null,
+                clientCoordinates: null,
+                manufacturerId: null,
+                manufacturerName: 'OEM One',
+                manufacturerLocationId: '30',
+                manufacturerCoordinates: null,
+                locationId: '30',
+                locationName: 'Factory',
+                locationCoordinates: null,
+                startDate: null,
+                endDate: null,
+                updatedAt: null,
+                coordinates: null,
+                source: 'project_snapshot',
+            },
+            draft: {
+                projectDraft: {
+                    name: 'Project One Updated',
+                    status: 'Active',
+                    type: 'Inspection',
+                    projectTypeId: '10',
+                    contract: '',
+                    hasRoadTest: false,
+                },
+                locationDraft: { name: 'Factory', latitude: '', longitude: '' },
+                clientDraft: { name: 'Client One', latitude: '', longitude: '' },
+                manufacturerDraft: { name: 'OEM One', locationId: '30', latitude: '', longitude: '', disabled: true },
+            },
+            resolve: jasmine.createSpy('resolve'),
+            reject: jasmine.createSpy('reject'),
+        };
+
+        component.onActivityRowSaveRequested(request);
+        tick();
+
+        expect(mutationService.saveRowDraft).toHaveBeenCalled();
+        expect(retrySpy).toHaveBeenCalled();
+        expect(request.resolve).toHaveBeenCalled();
+        expect(request.reject).not.toHaveBeenCalled();
+    }));
+
+    it('saves client data-management row edits through mutation service and resolves request', fakeAsync(() => {
+        const mutationService = TestBed.inject(DataManagementMutationService);
+        spyOn(mutationService, 'saveClientEntityDraft').and.resolveTo({
+            changed: { client: true, location: false },
+        });
+        const retrySpy = spyOn(component, 'retryRequiredDataLoad');
+        fixture.componentRef.setInput('dataManagementMode', 'edit');
+        fixture.detectChanges();
+
+        (component as any).clientDeltaById.set(
+            new Map([
+                [
+                    '100',
+                    {
+                        id: '100',
+                        name: 'Client One',
+                        locationId: '20',
+                        coordinates: { latitude: 43.7, longitude: -79.4 },
+                    },
+                ],
+            ])
+        );
+
+        const request: any = {
+            row: {
+                id: 'client-100',
+                clientId: '100',
+                clientName: 'Client One',
+                locationId: '20',
+                locationName: 'Client Yard',
+                latitude: 43.7,
+                longitude: -79.4,
+                projectCount: 1,
+            },
+            draft: {
+                name: 'Client One Updated',
+                latitude: '43.800000',
+                longitude: '-79.500000',
+            },
+            resolve: jasmine.createSpy('resolve'),
+            reject: jasmine.createSpy('reject'),
+        };
+
+        component.onClientRowSaveRequested(request);
+        tick();
+
+        expect(mutationService.saveClientEntityDraft).toHaveBeenCalled();
+        expect(retrySpy).toHaveBeenCalled();
+        expect(request.resolve).toHaveBeenCalled();
+        expect(request.reject).not.toHaveBeenCalled();
+    }));
+
+    it('binds map renderer inputs to strict map view model outputs', fakeAsync(() => {
+        resetServiceState();
+        const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1', city: 'Austin' });
+        const factoryB = buildFactory({ id: 'factory-b', subsidiaryId: 'sub-1', city: 'Dallas' });
+        const subsidiaryA = buildSubsidiary({ id: 'sub-1', factories: [factoryA, factoryB] });
+        const serviceAny = warRoomService as any;
+        serviceAny._parentGroups.set([buildParentGroup([subsidiaryA])]);
+        warRoomService.setMapViewMode('project');
+
+        component.projectRoutes.set([
+            {
+                id: 'project-route-1',
+                projectId: 'project-1',
+                fromNodeId: 'factory-a',
+                toNodeId: 'factory-b',
+                status: 'Open',
+                fromCoordinates: factoryA.coordinates,
+                toCoordinates: factoryB.coordinates,
+            },
+        ]);
+        component.filterApplied.set({
+            status: 'all',
+            regions: [],
+            clientIds: [],
+            manufacturerIds: [],
+            projectTypeIds: [],
+            projectIds: [],
+        });
+        fixture.detectChanges();
+        tick();
+        fixture.detectChanges();
+
+        const mapComponent = fixture.debugElement.query(By.directive(FluorescenceMapMapComponent)).componentInstance as FluorescenceMapMapComponent;
+        expect(mapComponent.nodes()).toEqual(component.strictMapNodes());
+        expect(mapComponent.projectRoutes()).toEqual(component.strictMapProjectRoutes());
+    }));
 });

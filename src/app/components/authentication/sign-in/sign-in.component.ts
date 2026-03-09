@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   FormBuilder,
   FormGroup,
@@ -62,10 +63,51 @@ export class SignInComponent implements OnInit {
         this.loading = false;
       },
       error: (error: any) => {
-        this.errorMessage = error.message || 'Invalid username or password';
+        this.errorMessage = this.getLoginErrorMessage(error);
         this.loginForm.patchValue({ password: '' });
         this.loading = false;
       }
     });
+  }
+
+  private getLoginErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const apiMessage = this.readApiErrorMessage(error.error);
+      if (apiMessage) {
+        return apiMessage;
+      }
+
+      if (error.status === 0) {
+        return 'Unable to reach the login service. Check that the dev server proxy is running and the API is reachable.';
+      }
+
+      if (error.status >= 500) {
+        return 'Login failed because the API returned an internal server error. The request reached the server, but the backend could not process it.';
+      }
+
+      if (error.status === 401 || error.status === 403) {
+        return 'Invalid username or password.';
+      }
+    }
+
+    return 'Login failed. Please try again.';
+  }
+
+  private readApiErrorMessage(payload: unknown): string {
+    if (!payload) {
+      return '';
+    }
+
+    if (typeof payload === 'string') {
+      return payload.trim();
+    }
+
+    if (typeof payload === 'object') {
+      const candidate = payload as Record<string, unknown>;
+      const message = candidate['message'] ?? candidate['title'] ?? candidate['error'] ?? candidate['detail'];
+      return typeof message === 'string' ? message.trim() : '';
+    }
+
+    return '';
   }
 }

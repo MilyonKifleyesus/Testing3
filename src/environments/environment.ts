@@ -4,6 +4,18 @@
 export const environment = {
   production: false,
   apiBaseUrl: '/api',
+  mapHubUrl: '/api/hubs/map',
+  mapRealtimeEnabled: false,
+  mapPollingIntervalMs: 15000,
+  mapDisconnectGraceMs: 10000,
+  useApiV2: true,
+  apiPagedFetchPageSize: 500,
+  apiPagedFetchMaxPages: 200,
+  logoPayloadMode: 'autoRetryRawBase64' as const,
+  mapMaxLocationsPerProject: 20,
+  mapMaxTotalRoutes: 3000,
+  allowedLogoOrigins: [],
+  useMockClientDashboard: false,
   firebase: {
     apiKey: "***************************************",
     authDomain: "************************",

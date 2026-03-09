@@ -5,7 +5,8 @@ export type DashboardWidgetType =
   | 'treemap'
   | 'heatmap'
   | 'timeline'
-  | 'bar';
+  | 'bar'
+  | 'map';
 
 export interface DashboardWidget {
   id: string;

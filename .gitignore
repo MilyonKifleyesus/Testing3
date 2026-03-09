@@ -40,3 +40,20 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Local workspace artifacts
+.cursor/
+.playwright-cli/
+.tmp/
+.vscode/
+output/
+Location
+
+# Prod environment file is generated during deployment
+src/environments/environment.prod.ts
+
+# TestSprite (generated cloud-test artifacts + local config)
+testsprite_tests/**
+!testsprite_tests/README.md
+!testsprite_tests/standard_prd.json
+!testsprite_tests/testsprite_frontend_test_plan.json

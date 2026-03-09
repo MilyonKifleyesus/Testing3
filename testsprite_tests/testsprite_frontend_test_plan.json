@@ -1,0 +1,86 @@
+[
+  {
+    "id": "TC001",
+    "title": "Open Fluorescence Map module (dev route) and validate core shell renders",
+    "description": "Navigate to the dev-only Fluorescence Map route and confirm the map container and view-mode toolbar are present.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      "Navigate to /_dev/fluorescence-map?testsprite=1",
+      "Wait for the view toolbar to appear (role='toolbar' and aria-label='Map view and filters')",
+      "Verify map container exists and is visible (#war-room-map)",
+      "Verify zoom controls exist and are visible (button[aria-label='Zoom in'] and button[aria-label='Zoom out'])"
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Switch view modes via toolbar",
+    "description": "Toggle Project/Client/Manufacturer view mode buttons and confirm the active selection changes without crashes.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      "On /_dev/fluorescence-map?testsprite=1, locate the three view radios using aria-labels: 'Switch to project view', 'Switch to client view', 'Switch to manufacturer view'",
+      "Click the Project View radio (button[aria-label='Switch to project view']); assert it has aria-checked='true' AND the other two have aria-checked='false'",
+      "Click the Client View radio (button[aria-label='Switch to client view']); assert it has aria-checked='true' AND the other two have aria-checked='false'",
+      "Click the Manufacturer View radio (button[aria-label='Switch to manufacturer view']); assert it has aria-checked='true' AND the other two have aria-checked='false'"
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Zoom interaction shows marker-stability status message",
+    "description": "Use zoom controls and assert the marker-stability status becomes visible (data-testid marker-stability-status).",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      "On /_dev/fluorescence-map?testsprite=1, click button[aria-label='Zoom in'] twice (with a short wait between clicks)",
+      "Wait until an element with data-testid='marker-stability-status' appears and is visible",
+      "Confirm the marker-stability-status text contains the word 'Markers'",
+      "Click button[aria-label='Zoom out'] twice"
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "[Mobile] Resize to mobile viewport and validate shell",
+    "description": "Set viewport to 375x667 (mobile), open Fluorescence Map, and confirm toolbar and map render without horizontal gap.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      "Create browser context with mobile viewport: use Playwright context = await browser.new_context(viewport={'width': 375, 'height': 667}) before creating the page (do not use window resize)",
+      "Navigate to /_dev/fluorescence-map?testsprite=1. If redirected to sign-in, fill username 'superadmin', password 'admin123', click button[type='submit'] or button with text 'Sign In', wait for navigation to URL containing 'fluorescence-map'",
+      "Wait for role='toolbar' with aria-label='Map view and filters'",
+      "Verify #war-room-map is visible and fills width (no grey strip between map and edges)",
+      "Verify map view toggle card is visible (Project/Client/Manufacturer buttons)"
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "[Mobile] Open and close Activity Log (Panels) bottom sheet",
+    "description": "Tap Panels button to open Activity Log bottom sheet; verify it is visible; close it and verify it is hidden.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      "Create browser context with viewport 375x667 (context = await browser.new_context(viewport={'width': 375, 'height': 667}))",
+      "Navigate to /_dev/fluorescence-map?testsprite=1. If sign-in page appears: fill username 'superadmin', password 'admin123', click Sign In button (button[type='submit']), wait for URL to contain 'fluorescence-map'",
+      "Click the Panels button (aria-label contains 'Show panels' or button with title 'Show Activity Log')",
+      "Wait for aside#war-room-overlay-panel to have class 'open' and be visible",
+      "Verify Activity Log content is visible (e.g. text 'ACTIVITY LOG', 'CLIENT', 'MANUFACTURER')",
+      "Click the sidebar close button (aria-label='Close panels' or .sidebar-close-btn) or Panels button again",
+      "Verify aside#war-room-overlay-panel is no longer visible or has transform hiding it off-screen"
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "[Mobile] View toggle and Filter tap targets",
+    "description": "On mobile, tap Project/Client/Manufacturer view buttons and Filter button; confirm they respond.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      "Create browser context with viewport 375x667 (context = await browser.new_context(viewport={'width': 375, 'height': 667}))",
+      "Navigate to /_dev/fluorescence-map?testsprite=1. If sign-in: fill superadmin / admin123, click Sign In (button[type='submit']), wait for navigation to fluorescence-map",
+      "Tap button[aria-label='Switch to client view']; assert it gets aria-checked='true'",
+      "Tap the Filter button (title containing 'Filter' or aria-label containing 'filter')",
+      "Wait briefly; verify filters panel or filter state changes",
+      "Tap Filter again or close to dismiss"
+    ]
+  }
+]

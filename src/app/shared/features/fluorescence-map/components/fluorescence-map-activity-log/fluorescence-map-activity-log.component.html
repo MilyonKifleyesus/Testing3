@@ -63,14 +63,14 @@
             [attr.aria-expanded]="isSubsidiaryExpanded(subsidiary.id)"
             tabindex="0" role="button">
             <span class="manufacturer-chevron" aria-hidden="true">
-              {{ isSubsidiaryExpanded(subsidiary.id) ? '▼' : '▶' }}
+              {{ isSubsidiaryExpanded(subsidiary.id) ? '?' : '?' }}
             </span>
             @if (subsidiary.logo) {
             <img [src]="subsidiary.logo" alt="" class="manufacturer-list-logo" />
             }
             <span class="manufacturer-list-name flex-grow-1 text-start">{{ subsidiary.name }}</span>
             <span class="manufacturer-list-count badge bg-primary-transparent">
-              {{ subsidiary.factories.length }} {{ subsidiary.factories.length === 1 ? 'site' : 'sites' }}
+              {{ (subsidiary.factories ?? []).length }} {{ (subsidiary.factories ?? []).length === 1 ? 'site' : 'sites' }}
             </span>
             <span class="manufacturer-status-pill"
               [class.status-active]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-active'"
@@ -121,16 +121,16 @@
           </div>
           } @else {
           <div class="factory-list">
-            @if (subsidiary.factories.length === 0) {
+            @if ((subsidiary.factories ?? []).length === 0) {
             <div class="factory-empty-state text-muted">No sites for this manufacturer</div>
             } @else if (hasNoProjectsButHasSites(subsidiary)) {
             <div class="factory-empty-state text-muted">No active projects assigned to any sites for this manufacturer.</div>
             <button type="button" class="btn btn-link view-factories-toggle"
               [class.expanded]="isNoProjectSitesExpanded(subsidiary.id)"
               (click)="toggleNoProjectSites(subsidiary.id); $event.stopPropagation()"
-              [attr.aria-label]="isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + subsidiary.factories.length + ' ' + (subsidiary.factories.length === 1 ? 'site' : 'sites')">
+              [attr.aria-label]="isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + (subsidiary.factories ?? []).length + ' ' + ((subsidiary.factories ?? []).length === 1 ? 'site' : 'sites')">
               <i class="fe fe-chevron-down view-factories-chevron" aria-hidden="true"></i>
-              {{ isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + subsidiary.factories.length + ' ' + (subsidiary.factories.length === 1 ? 'site' : 'sites') }}
+              {{ isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + (subsidiary.factories ?? []).length + ' ' + ((subsidiary.factories ?? []).length === 1 ? 'site' : 'sites') }}
             </button>
             @if (isNoProjectSitesExpanded(subsidiary.id)) {
             @for (factory of getVisibleFactories(subsidiary); track factory.id) {

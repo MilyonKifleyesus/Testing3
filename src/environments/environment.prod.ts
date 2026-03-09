@@ -1,6 +1,18 @@
 export const environment = {
   production: true,
   apiBaseUrl: 'https://api.fleetpulse.net/api',
+  mapHubUrl: 'https://api.fleetpulse.net/api/hubs/map',
+  mapRealtimeEnabled: true,
+  mapPollingIntervalMs: 15000,
+  mapDisconnectGraceMs: 10000,
+  useApiV2: true,
+  apiPagedFetchPageSize: 500,
+  apiPagedFetchMaxPages: 200,
+  logoPayloadMode: 'autoRetryRawBase64' as const,
+  mapMaxLocationsPerProject: 20,
+  mapMaxTotalRoutes: 3000,
+  allowedLogoOrigins: [],
+  useMockClientDashboard: false,
   firebase: {
     apiKey: "************************************",
     authDomain: "**********************************************",

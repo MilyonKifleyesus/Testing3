@@ -2,7 +2,7 @@
 
     <!-- customizer -->
     <!-- /customizer -->
-    <div class="page">
+    <div class="page" [class.page-no-footer]="hideFooter">
         <!-- Header -->
         <app-header></app-header>
         <!-- /Header -->
@@ -25,7 +25,9 @@
         <!-- /Main Content -->
 
         <!-- Footer -->
+        @if (!hideFooter) {
         <app-footer></app-footer>
+        }
         <!-- /Footer -->
         <!-- Notification-sidebar -->
         <app-notification-sidebar></app-notification-sidebar>

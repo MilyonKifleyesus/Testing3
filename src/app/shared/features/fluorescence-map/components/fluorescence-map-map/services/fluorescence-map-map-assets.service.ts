@@ -14,6 +14,7 @@ export class WarRoomMapAssetsService {
     '/assets/images/Prevost_Logo.png': '/assets/images/svgs/user.svg',
     '/assets/images/FleetZero.png': '/assets/images/svgs/user.svg',
   };
+  private readonly invalidLogoTokens = new Set(['string', 'null', 'undefined', '[object object]']);
 
   getCompanyDisplayName(node: WarRoomNode): string {
     return node.company || node.name || node.city || 'Company';
@@ -41,7 +42,7 @@ export class WarRoomMapAssetsService {
   getTypeLabel(node: WarRoomNode): string {
     const level = node.level || 'factory';
     if (level === 'parent') return 'Hub / Group HQ';
-    if (level === 'subsidiary') return 'Subsidiary / Regional Hub';
+    if (level === 'manufacturer') return 'Manufacturer / Regional Hub';
     return 'Factory / Production Site';
   }
 
@@ -56,6 +57,7 @@ export class WarRoomMapAssetsService {
   getLogoImagePaths(logoSource: string, baseUrl: string): string[] {
     const trimmed = logoSource.trim();
     if (!trimmed) return [];
+    if (this.invalidLogoTokens.has(trimmed.toLowerCase())) return [];
     const aliased = this.logoAliases[trimmed] ?? this.logoAliases[`/assets/images/${trimmed}`] ?? trimmed;
 
     if (aliased.startsWith('data:') || aliased.startsWith('blob:')) {
@@ -84,18 +86,62 @@ export class WarRoomMapAssetsService {
     return '/assets/images/svgs/user.svg';
   }
 
-  getPreferredLogoPath(logoSource: string, baseUrl: string, failures?: Set<string>): string {
-    const paths = this.getLogoImagePaths(logoSource, baseUrl);
-    const failureSet = failures ?? new Set<string>();
-    return paths.find((path) => !failureSet.has(path)) || this.getLogoFallbackPath();
+  private isAllowedLogoPath(path: string, baseUrl: string, allowedOrigins?: string[]): boolean {
+    if (!path) return false;
+    const normalized = path.trim();
+    if (!normalized) return false;
+
+    if (normalized.startsWith('data:') || normalized.startsWith('blob:')) {
+      return true;
+    }
+    if (
+      normalized.startsWith('/') ||
+      normalized.startsWith('./') ||
+      normalized.startsWith('../') ||
+      normalized.startsWith('assets/')
+    ) {
+      return true;
+    }
+    if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
+      return false;
+    }
+
+    try {
+      const candidate = new URL(normalized, baseUrl);
+      const base = new URL(baseUrl);
+      if (candidate.origin === base.origin) return true;
+      const allowed = new Set((allowedOrigins ?? []).map((origin) => origin.trim()).filter(Boolean));
+      return allowed.has(candidate.origin);
+    } catch {
+      return false;
+    }
   }
 
-  getNextLogoPath(logoSource: string, baseUrl: string, currentIndex: number, failures?: Set<string>): string {
+  getPreferredLogoPath(
+    logoSource: string,
+    baseUrl: string,
+    failures?: Set<string>,
+    allowedOrigins?: string[]
+  ): string {
     const paths = this.getLogoImagePaths(logoSource, baseUrl);
+    const allowedPaths = paths.filter((path) => this.isAllowedLogoPath(path, baseUrl, allowedOrigins));
     const failureSet = failures ?? new Set<string>();
-    for (let i = currentIndex + 1; i < paths.length; i += 1) {
-      if (!failureSet.has(paths[i])) {
-        return paths[i];
+    return allowedPaths.find((path) => !failureSet.has(path)) || this.getLogoFallbackPath();
+  }
+
+  getNextLogoPath(
+    logoSource: string,
+    baseUrl: string,
+    currentIndex: number,
+    failures?: Set<string>,
+    allowedOrigins?: string[]
+  ): string {
+    const paths = this.getLogoImagePaths(logoSource, baseUrl);
+    const allowedPaths = paths.filter((path) => this.isAllowedLogoPath(path, baseUrl, allowedOrigins));
+    const failureSet = failures ?? new Set<string>();
+    for (let i = currentIndex + 1; i < allowedPaths.length; i += 1) {
+      if (!failureSet.has(allowedPaths[i])) {
+        return allowedPaths[i];
       }
     }
     return this.getLogoFallbackPath();

@@ -7,20 +7,35 @@ import { By } from '@angular/platform-browser';
 import { FluorescenceMapComponent } from './fluorescence-map.component';
 import { FluorescenceMapMapComponent } from './components/fluorescence-map-map/fluorescence-map-map.component';
 import { WarRoomService } from '../../../shared/services/fluorescence-map.service';
-import { WarRoomRealtimeService } from '../../../shared/services/fluorescence-map-realtime.service';
+import { AuthService, CurrentUser } from '../../../shared/services/auth.service';
+import { MapRealtimeService } from './realtime/map-realtime.service';
+import { MapPollingService } from './realtime/map-polling.service';
+import { ProjectService } from '../../../shared/services/project.service';
 import { ToastrService } from 'ngx-toastr';
-import { AddCompanyModalComponent } from './components/add-company-modal/add-company-modal.component';
-import { getFirstClient, getFirstFactoryOption } from '../../testing/test-data';
 import { ActivityLog, FactoryLocation, ParentGroup, SubsidiaryCompany } from '../../../shared/models/fluorescence-map.interface';
+import { BehaviorSubject, Subject, of } from 'rxjs';
 
 describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
   let fixture: ComponentFixture<FluorescenceMapComponent>;
   let component: FluorescenceMapComponent;
   let warRoomService: WarRoomService;
+  let realtimeStateSubject: BehaviorSubject<any>;
+  let realtimeChangeSubject: Subject<any>;
+  let pollingTickSubject: Subject<void>;
+  let authUserSubject: BehaviorSubject<CurrentUser | null>;
+  let authServiceMock: AuthService;
 
-  const realtimeServiceMock = {
-    startRealTimeUpdates: jasmine.createSpy('startRealTimeUpdates'),
-    stopRealTimeUpdates: jasmine.createSpy('stopRealTimeUpdates'),
+  let realtimeServiceMock: {
+    state$: BehaviorSubject<any>;
+    changes$: Subject<any>;
+    connect: jasmine.Spy;
+    disconnect: jasmine.Spy;
+  };
+
+  let pollingServiceMock: {
+    tick$: Subject<void>;
+    start: jasmine.Spy;
+    stop: jasmine.Spy;
   };
 
   const toastrMock = {
@@ -130,6 +145,7 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
       parentGroupId: overrides.parentGroupId || 'group-1',
       name: overrides.name || id.toUpperCase(),
       status: overrides.status || 'ACTIVE',
+      manufacturerLocations: overrides.manufacturerLocations ?? factories,
       factories,
       metrics: computeMetricsFromFactories(factories),
       hubs: overrides.hubs || [
@@ -169,9 +185,18 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     description: `LOG ${index}`,
     parentGroupId: factory.parentGroupId,
     subsidiaryId: factory.subsidiaryId,
+    manufacturerLocationId: factory.id,
     factoryId: factory.id,
     location: `${factory.city}, ${factory.country}`,
   });
+
+  const flushIfOpen = <T>(requests: any[], body: T): void => {
+    requests.forEach((req) => {
+      if (!(req as any).cancelled) {
+        req.flush(body);
+      }
+    });
+  };
 
   const setViewport = (width: number, height: number): void => {
     if (typeof window.resizeTo === 'function') {
@@ -184,6 +209,21 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
   };
 
   beforeEach(async () => {
+    realtimeStateSubject = new BehaviorSubject('connected');
+    realtimeChangeSubject = new Subject();
+    pollingTickSubject = new Subject<void>();
+    realtimeServiceMock = {
+      state$: realtimeStateSubject,
+      changes$: realtimeChangeSubject,
+      connect: jasmine.createSpy('connect').and.returnValue(Promise.resolve()),
+      disconnect: jasmine.createSpy('disconnect').and.returnValue(Promise.resolve()),
+    };
+    pollingServiceMock = {
+      tick$: pollingTickSubject,
+      start: jasmine.createSpy('start'),
+      stop: jasmine.createSpy('stop'),
+    };
+
     spyOn(FluorescenceMapMapComponent.prototype as any, 'createMap').and.returnValue(createMapStub());
     spyOn(FluorescenceMapMapComponent.prototype as any, 'setupResizeObserver').and.stub();
     spyOn(FluorescenceMapMapComponent.prototype as any, 'setupFullscreenListeners').and.stub();
@@ -194,11 +234,27 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
       return new Response(JSON.stringify(emptyState), { status: 200 });
     });
 
+    authUserSubject = new BehaviorSubject<CurrentUser | null>({
+      userId: 1,
+      username: 'test-admin',
+      role: 'admin',
+      clientId: 1,
+      isGeneralAdmin: true,
+    });
+    authServiceMock = {
+      currentUser$: authUserSubject.asObservable(),
+      get currentUserValue() {
+        return authUserSubject.value;
+      },
+    } as unknown as AuthService;
+
     await TestBed.configureTestingModule({
       imports: [FluorescenceMapComponent, BrowserAnimationsModule],
       providers: [
         WarRoomService,
-        { provide: WarRoomRealtimeService, useValue: realtimeServiceMock },
+        { provide: AuthService, useValue: authServiceMock },
+        { provide: MapRealtimeService, useValue: realtimeServiceMock },
+        { provide: MapPollingService, useValue: pollingServiceMock },
         { provide: ToastrService, useValue: toastrMock },
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -210,12 +266,133 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     fixture = TestBed.createComponent(FluorescenceMapComponent);
     component = fixture.componentInstance;
     warRoomService = TestBed.inject(WarRoomService);
+    const projectService = TestBed.inject(ProjectService);
+    spyOn(projectService, 'getProjectsForMap').and.returnValue(of([]));
+    spyOn(projectService, 'getProjectTypes').and.returnValue(of([]));
+    spyOn(projectService, 'getManufacturers').and.returnValue(of([]));
+    spyOn(projectService, 'getClientOptionsWithCounts').and.returnValue(of([]));
+    spyOn(projectService, 'getManufacturerOptionsWithCounts').and.returnValue(of([]));
+    spyOn(projectService, 'getProjectTypeOptionsWithCounts').and.returnValue(of([]));
+    spyOn(projectService, 'getProjectOptionsWithCounts').and.returnValue(of([]));
+    spyOn(projectService, 'getManufacturersForHierarchy').and.returnValue(of([]));
     fixture.detectChanges();
-    const clients = httpMock.match((req) => req.url.includes('clients'));
-    clients.forEach((r) => r.flush({ clients: [] }));
-    const projects = httpMock.match((req) => req.url.includes('projects'));
-    projects.forEach((r) => r.flush({ projects: [] }));
-    await fixture.whenStable();
+    const clients = httpMock.match((req) => req.url.toLowerCase().includes('/clients'));
+    flushIfOpen(clients, { items: [] });
+    const projects = httpMock.match((req) => req.url.toLowerCase().includes('/projects'));
+    flushIfOpen(projects, { items: [] });
+    const manufacturers = httpMock.match((req) => req.url.toLowerCase().includes('/manufacturers'));
+    flushIfOpen(manufacturers, { items: [] });
+    const locations = httpMock.match((req) => req.url.toLowerCase().includes('/locations'));
+    flushIfOpen(locations, { items: [] });
+  });
+
+  it('reflects fullscreen pressed state on toolbar button', () => {
+    const fullscreenBtn = fixture.debugElement.query(By.css('.fleet-header-actions button[aria-label="Toggle fullscreen"]'))
+      ?.nativeElement as HTMLButtonElement | null;
+    expect(fullscreenBtn).toBeTruthy();
+    expect(fullscreenBtn?.getAttribute('aria-pressed')).toBe('false');
+
+    component.onMapFullscreenChange(true);
+    fixture.detectChanges();
+    expect(fullscreenBtn?.getAttribute('aria-pressed')).toBe('true');
+
+    component.onMapFullscreenChange(false);
+    fixture.detectChanges();
+    expect(fullscreenBtn?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('opens filter overlay from toolbar and closes on cancel', () => {
+    const filterBtn = fixture.debugElement.query(By.css('.fleet-header-actions button[aria-label="Toggle filters"]'))
+      ?.nativeElement as HTMLButtonElement | null;
+    expect(filterBtn).toBeTruthy();
+    expect(fixture.debugElement.query(By.css('#war-room-filters-panel'))).toBeNull();
+
+    filterBtn?.click();
+    fixture.detectChanges();
+    expect(fixture.debugElement.query(By.css('#war-room-filters-panel'))).toBeTruthy();
+
+    const cancelButton = fixture.debugElement.query(
+      By.css('#war-room-filters-panel .fleet-filter-overlay-footer .btn.btn-outline-primary')
+    )?.nativeElement as HTMLButtonElement | null;
+    expect(cancelButton).toBeTruthy();
+    cancelButton?.click();
+    fixture.detectChanges();
+
+    expect(fixture.debugElement.query(By.css('#war-room-filters-panel'))).toBeNull();
+  });
+
+  it('hides client-only war room controls for restricted roles', fakeAsync(() => {
+    const assertRestricted = (): void => {
+      // Top toolbar: Clients mode tab + add/edit controls hidden
+      const modeTabLabels = Array.from(
+        fixture.nativeElement.querySelectorAll('.fleet-mode-tabs button') as NodeListOf<HTMLButtonElement>
+      ).map((el) => (el.textContent ?? '').trim());
+      expect(modeTabLabels).not.toContain('Clients');
+      expect(fixture.debugElement.query(By.css('.map-add-project-btn'))).toBeNull();
+
+      // Sidebar: Edit Mode hidden
+      expect(fixture.debugElement.query(By.css('.sidebar-edit-toggle'))).toBeNull();
+
+      // Filters: Client filter section hidden
+      component.openFiltersPanel();
+      fixture.detectChanges();
+      const filterLabels = Array.from(
+        fixture.nativeElement.querySelectorAll('#war-room-filters-panel .filter-section-header .form-label') as NodeListOf<HTMLElement>
+      ).map((el) => (el.textContent ?? '').trim());
+      expect(filterLabels).not.toContain('Client');
+    };
+
+    authUserSubject.next({
+      userId: 2,
+      username: 'test-client',
+      role: 'client',
+      clientId: 2,
+      isGeneralAdmin: false,
+    });
+    fixture.detectChanges();
+    tick(0);
+    fixture.detectChanges();
+    assertRestricted();
+
+    authUserSubject.next({
+      userId: 3,
+      username: 'test-user',
+      role: 'user',
+      clientId: 3,
+      isGeneralAdmin: false,
+    });
+    fixture.detectChanges();
+    tick(0);
+    fixture.detectChanges();
+    assertRestricted();
+  }));
+
+  it('forces project view when restoring client mode for restricted users', () => {
+    fixture.destroy();
+    localStorage.clear();
+    // Persisted state with client view mode should be forced to project view for restricted roles.
+    localStorage.setItem('war-room-state-v1', JSON.stringify({ mapViewMode: 'client' }));
+    warRoomService.setMapViewMode('project');
+
+    authUserSubject.next({
+      userId: 4,
+      username: 'restricted',
+      role: 'client',
+      clientId: 4,
+      isGeneralAdmin: false,
+    });
+
+    fixture = TestBed.createComponent(FluorescenceMapComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    const httpMock = TestBed.inject(HttpTestingController);
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/clients')), { items: [] });
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/projects')), { items: [] });
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/manufacturers')), { items: [] });
+    flushIfOpen(httpMock.match((req) => req.url.toLowerCase().includes('/locations')), { items: [] });
+
+    expect(warRoomService.mapViewMode()).toBe('project');
   });
 
   const resetServiceState = (): void => {
@@ -227,7 +404,7 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     serviceAny._selectedEntity.set(null);
   };
 
-  it('keeps the add modal responsive on mobile', fakeAsync(() => {
+  it('opens add-company state on mobile and supports preselection', fakeAsync(() => {
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
     resetServiceState();
     setViewport(360, 640);
@@ -235,38 +412,19 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
 
     component.onAddCompanyRequested();
     fixture.detectChanges();
-    tick(120);
+    expect(component.addCompanyModalVisible()).toBeTrue();
+    expect(component.addCompanyModalPreselectedManufacturerLocationId()).toBeNull();
+
+    component.onAddProjectForFactory({ factoryId: 'factory-mobile', subsidiaryId: 'sub-1' });
     fixture.detectChanges();
+    expect(component.addCompanyModalVisible()).toBeTrue();
+    expect(component.addCompanyModalPreselectedManufacturerLocationId()).toBe('factory-mobile');
 
-    const modalOverlay = fixture.nativeElement.querySelector('.modal-overlay') as HTMLElement;
-    expect(modalOverlay).toBeTruthy();
-
-    const modalComponent = fixture.debugElement.query(By.directive(AddCompanyModalComponent)).componentInstance as AddCompanyModalComponent;
-    modalComponent.clientId.set(getFirstClient().id);
-    modalComponent.selectedFactory.set(getFirstFactoryOption());
-    modalComponent.projectName.set('Test Project');
-    modalComponent.assessmentType.set('New Build');
-    modalComponent.currentStep.set(4);
-    modalComponent.notes.set('Long notes '.repeat(40));
+    component.onAddCompanyModalClose();
+    tick(100);
     fixture.detectChanges();
-
-    const modalContainer = modalOverlay.querySelector('.modal-container') as HTMLElement;
-    const modalBody = modalOverlay.querySelector('.modal-body') as HTMLElement;
-    const modalFooter = modalOverlay.querySelector('.modal-footer') as HTMLElement;
-
-    const containerRect = modalContainer.getBoundingClientRect();
-    expect(containerRect.width).toBeLessThanOrEqual(window.innerWidth + 1);
-    expect(containerRect.height).toBeLessThanOrEqual(window.innerHeight + 1);
-
-    const bodyStyle = getComputedStyle(modalBody);
-    expect(['auto', 'scroll']).toContain(bodyStyle.overflowY);
-    expect(modalBody.scrollHeight).toBeGreaterThan(modalBody.clientHeight);
-
-    const footerRect = modalFooter.getBoundingClientRect();
-    expect(footerRect.bottom).toBeLessThanOrEqual(containerRect.bottom + 1);
-
-    const containerStyle = getComputedStyle(modalContainer);
-    expect(containerStyle.overflow).toBe('hidden');
+    expect(component.addCompanyModalVisible()).toBeFalse();
+    expect(component.addCompanyModalPreselectedManufacturerLocationId()).toBeNull();
   }));
 
   it('handles responsive map panels and filter wrapping', fakeAsync(() => {
@@ -289,19 +447,14 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
 
     component.showPanel('log');
     component.filterApplied.set({
-      parentCompanyIds: ['sub-1', 'sub-2'],
       status: 'active',
       regions: ['North America'],
       clientIds: [],
       manufacturerIds: [],
       projectTypeIds: [],
+      projectIds: [],
     });
     fixture.detectChanges();
-
-    const sidebar = fixture.nativeElement.querySelector('.war-room-sidebar') as HTMLElement;
-    const sidebarStyle = getComputedStyle(sidebar);
-    expect(sidebarStyle.overflowY).toBe('auto');
-    expect(sidebar.scrollHeight).toBeGreaterThanOrEqual(sidebar.clientHeight);
 
     const activeFilters = fixture.nativeElement.querySelector('.active-filters-bar') as HTMLElement;
     expect(getComputedStyle(activeFilters).flexWrap).toBe('wrap');
@@ -310,15 +463,16 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     fixture.detectChanges();
     tick(0);
 
-    const viewToggle = fixture.nativeElement.querySelector('.map-view-toggle') as HTMLElement;
-    const toggleRect = viewToggle.getBoundingClientRect();
+    const modeTabs = fixture.nativeElement.querySelector('.fleet-mode-tabs') as HTMLElement;
+    expect(modeTabs).toBeTruthy();
+    const toggleRect = modeTabs.getBoundingClientRect();
     expect(toggleRect.right).toBeLessThanOrEqual(window.innerWidth + 2);
-    expect(viewToggle.getBoundingClientRect().width).toBeLessThanOrEqual(window.innerWidth + 2);
+    expect(modeTabs.getBoundingClientRect().width).toBeLessThanOrEqual(window.innerWidth + 2);
 
     document.body.style.zoom = '';
   }));
 
-  it('exposes keyboard/screen reader attributes and restores focus on ESC', fakeAsync(() => {
+  it('exposes keyboard/screen reader attributes and restores focus after modal close', fakeAsync(() => {
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
     resetServiceState();
     setViewport(1024, 768);
@@ -333,16 +487,16 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     serviceAny._activityLogs.set([buildLog(factoryA, subsidiary, 0)]);
     warRoomService.setMapViewMode('factory');
 
-    component.showPanel('hub');
+    component.showPanel('log');
     fixture.detectChanges();
 
     const announcer = fixture.nativeElement.querySelector('.visually-hidden[aria-live="polite"]');
     expect(announcer).toBeTruthy();
 
-    const radiogroup = fixture.nativeElement.querySelector('.btn-group[role="radiogroup"]');
+    const radiogroup = fixture.nativeElement.querySelector('.fleet-mode-tabs[role="tablist"]');
     expect(radiogroup).toBeTruthy();
-    const radioButtons = fixture.nativeElement.querySelectorAll('.map-view-btn[role="radio"]');
-    expect(radioButtons.length).toBeGreaterThanOrEqual(2);
+    const tabs = fixture.nativeElement.querySelectorAll('.fleet-mode-tabs button');
+    expect(tabs.length).toBeGreaterThanOrEqual(2);
 
     const mapControls = fixture.nativeElement.querySelectorAll('.map-control-btn');
     mapControls.forEach((btn: HTMLButtonElement) => {
@@ -354,24 +508,18 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
       expect(logEntry.getAttribute('tabindex')).toBe('0');
     }
 
-    const addButton = fixture.nativeElement.querySelector('.global-override-btn') as HTMLButtonElement;
+    const addButton = fixture.nativeElement.querySelector('.fleet-header-actions button[aria-label="Toggle filters"]') as HTMLButtonElement;
     expect(addButton).toBeTruthy();
     addButton.focus();
     component.onAddCompanyRequested();
     fixture.detectChanges();
-    tick(120);
+    expect(component.addCompanyModalVisible()).toBeTrue();
+
+    component.onAddCompanyModalClose();
+    tick(100);
     fixture.detectChanges();
 
-    const modalOverlay = fixture.nativeElement.querySelector('.modal-overlay') as HTMLElement;
-    expect(modalOverlay.getAttribute('role')).toBe('dialog');
-    expect(modalOverlay.getAttribute('aria-modal')).toBe('true');
-    expect(modalOverlay.getAttribute('aria-labelledby')).toBe('modal-title');
-
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    tick();
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.modal-overlay')).toBeFalsy();
+    expect(component.addCompanyModalVisible()).toBeFalse();
     expect(document.activeElement).toBe(addButton);
   }));
 });

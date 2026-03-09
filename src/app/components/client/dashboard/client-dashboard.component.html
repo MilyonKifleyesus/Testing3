@@ -187,6 +187,15 @@
                 [chartOptions]="widget.chartOptions"
               ></spk-apex-charts>
 
+              <app-fluorescence-map
+                *ngIf="widget.id === 'widget-map' && fullscreenWidgetId !== 'widget-map'"
+                [dashboardFullscreenMode]="false"
+                [externalProjectId]="selectedProject"
+                [expandMapTriggersBrowserFullscreen]="true"
+                (dashboardFullscreenToggleRequested)="toggleFullscreen('widget-map')"
+                class="dashboard-map-embed"
+              ></app-fluorescence-map>
+
               <!-- Recent Activities Widget -->
               <div *ngIf="widget.id === 'widget-14'" class="recent-activities-container">
                 <ng-template #activityRow let-activity>
@@ -270,6 +279,14 @@
         
         <!-- Fullscreen Content -->
         <div class="fullscreen-content" *ngIf="fullscreenWidget">
+          <app-fluorescence-map
+            *ngIf="fullscreenWidget.id === 'widget-map'"
+            [dashboardFullscreenMode]="true"
+            [externalProjectId]="selectedProject"
+            (dashboardFullscreenToggleRequested)="toggleFullscreen('widget-map')"
+            class="dashboard-map-embed"
+          ></app-fluorescence-map>
+
           <spk-apex-charts 
             *ngIf="fullscreenWidget.chartOptions" 
             [chartOptions]="fullscreenWidget.chartOptions"
@@ -357,8 +374,6 @@
         </div>
       </div>
     </div>
-
-    <app-fluorescence-map></app-fluorescence-map>
 
   </div>
 </div>

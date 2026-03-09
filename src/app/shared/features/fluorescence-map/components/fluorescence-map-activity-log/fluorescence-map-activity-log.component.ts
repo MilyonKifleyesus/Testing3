@@ -9,10 +9,31 @@ import {
   MapViewMode,
   OperationalStatus,
   NodeStatus,
-} from '../../../../../shared/models/fluorescence-map.interface';
-import { WarRoomService } from '../../../../../shared/services/fluorescence-map.service';
+} from '../../../../models/fluorescence-map.interface';
+import { WarRoomService } from '../../../../services/fluorescence-map.service';
+import { FactoryEditPayload, SubsidiaryEditPayload } from '../../fluorescence-map.types';
 
 export type ProjectStatusDisplay = 'active' | 'inactive' | 'none';
+type CoordinateInput = string;
+
+interface CoordinateDraftFields {
+  latitude: CoordinateInput;
+  longitude: CoordinateInput;
+}
+
+interface FactoryDraft extends CoordinateDraftFields {
+  name: string;
+  location: string;
+  description: string;
+  status: NodeStatus;
+}
+
+interface SubsidiaryDraft extends CoordinateDraftFields {
+  name: string;
+  location: string;
+  description: string;
+  status: OperationalStatus;
+}
 
 @Component({
   selector: 'app-war-room-activity-log',
@@ -31,18 +52,9 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
 
   selectionChange = output<FleetSelection>();
   editModeChange = output<boolean>();
-  factoryDetailsUpdated = output<{
-    factoryId: string;
-    name: string;
-    location: string;
-    description: string;
-    status: NodeStatus;
-  }>();
-  readonly subsidiaryDetailsUpdated = output<{ subsidiaryId: string; name: string; location: string; description: string; status: OperationalStatus }>();
-  readonly batchUpdateRequested = output<{
-    factories: Array<{ factoryId: string; name: string; location: string; description: string; status: NodeStatus }>;
-    subsidiaries: Array<{ subsidiaryId: string; name: string; location: string; description: string; status: OperationalStatus }>;
-  }>();
+  factoryDetailsUpdated = output<FactoryEditPayload>();
+  readonly subsidiaryDetailsUpdated = output<SubsidiaryEditPayload>();
+  readonly batchUpdateRequested = output<{ factories: FactoryEditPayload[]; subsidiaries: SubsidiaryEditPayload[] }>();
   subsidiaryDeleted = output<string>();
   factoryDeleted = output<string>();
   addProjectForFactory = output<{ factoryId: string; subsidiaryId: string }>();
@@ -57,11 +69,13 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   readonly refreshing = signal<boolean>(false);
   readonly factoryListExpanded = signal<Record<string, boolean>>({});
   readonly noProjectSitesExpanded = signal<Record<string, boolean>>({});
+  readonly factoryLogPreviewExpanded = signal<Record<string, boolean>>({});
+  readonly logPreviewCount = 3;
   private readonly factoryCollapseThreshold = 3;
 
   // Multi-item draft storage
-  readonly factoryDrafts = signal<Map<string, { name: string; location: string; description: string; status: NodeStatus }>>(new Map());
-  readonly subsidiaryDrafts = signal<Map<string, { name: string; location: string; description: string; status: OperationalStatus }>>(new Map());
+  readonly factoryDrafts = signal<Map<string, FactoryDraft>>(new Map());
+  readonly subsidiaryDrafts = signal<Map<string, SubsidiaryDraft>>(new Map());
 
   readonly editingFactoryId = signal<string | null>(null);
   readonly editingSubsidiaryId = signal<string | null>(null);
@@ -86,23 +100,63 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
     return filtered.reduce((sum, g) => sum + g.subsidiaries.length, 0);
   });
 
-  readonly latestLogByFactory = computed(() => {
-    const logs = this.activityLogs();
-    const map = new Map<string, ActivityLog>();
-
-    for (const log of logs) {
-      const existing = map.get(log.factoryId);
-      if (!existing) {
-        map.set(log.factoryId, log);
-        continue;
+  readonly subsidiaryIdByFactoryId = computed(() => {
+    const lookup = new Map<string, string>();
+    for (const group of this.parentGroups()) {
+      for (const subsidiary of group.subsidiaries) {
+        for (const factory of subsidiary.factories ?? []) {
+          lookup.set(factory.id, subsidiary.id);
+        }
       }
-      const existingDate = typeof existing.timestamp === 'string' ? new Date(existing.timestamp) : existing.timestamp;
-      const logDate = typeof log.timestamp === 'string' ? new Date(log.timestamp) : log.timestamp;
-      if (logDate.getTime() > existingDate.getTime()) {
-        map.set(log.factoryId, log);
+    }
+    return lookup;
+  });
+
+  readonly logsByFactoryId = computed(() => {
+    const grouped = new Map<string, ActivityLog[]>();
+    for (const log of this.activityLogs()) {
+      const locationId = this.getLogLocationId(log);
+      if (!locationId) continue;
+      const existing = grouped.get(locationId);
+      if (existing) {
+        existing.push(log);
+      } else {
+        grouped.set(locationId, [log]);
       }
     }
 
+    for (const [locationId, logs] of grouped.entries()) {
+      grouped.set(locationId, logs.slice().sort((a, b) => this.compareLogsNewestFirst(a, b)));
+    }
+    return grouped;
+  });
+
+  readonly logsBySubsidiaryId = computed(() => {
+    const grouped = new Map<string, ActivityLog[]>();
+    for (const log of this.activityLogs()) {
+      const subsidiaryId = this.getLogSubsidiaryId(log);
+      if (!subsidiaryId) continue;
+      const existing = grouped.get(subsidiaryId);
+      if (existing) {
+        existing.push(log);
+      } else {
+        grouped.set(subsidiaryId, [log]);
+      }
+    }
+
+    for (const [subsidiaryId, logs] of grouped.entries()) {
+      grouped.set(subsidiaryId, logs.slice().sort((a, b) => this.compareLogsNewestFirst(a, b)));
+    }
+    return grouped;
+  });
+
+  readonly latestLogByFactory = computed(() => {
+    const map = new Map<string, ActivityLog>();
+    for (const [locationId, logs] of this.logsByFactoryId().entries()) {
+      if (logs.length > 0) {
+        map.set(locationId, logs[0]);
+      }
+    }
     return map;
   });
 
@@ -191,7 +245,12 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   }
 
   hasNoProjectsButHasSites(subsidiary: SubsidiaryCompany): boolean {
-    return this.getProjectStatusForSubsidiary(subsidiary) === 'none' && subsidiary.factories.length > 0;
+    return this.getProjectStatusForSubsidiary(subsidiary) === 'none' && (subsidiary.factories ?? []).length > 0;
+  }
+
+  getNoSitesMessage(subsidiary: SubsidiaryCompany): string {
+    const warning = subsidiary.description?.trim();
+    return warning && warning.length > 0 ? warning : 'No sites for this manufacturer';
   }
 
   isNoProjectSitesExpanded(subsidiaryId: string): boolean {
@@ -202,6 +261,17 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
     this.noProjectSitesExpanded.update((current) => ({
       ...current,
       [subsidiaryId]: !current[subsidiaryId],
+    }));
+  }
+
+  isFactoryLogPreviewExpanded(factoryId: string): boolean {
+    return this.factoryLogPreviewExpanded()[factoryId] ?? false;
+  }
+
+  toggleFactoryLogPreview(factoryId: string): void {
+    this.factoryLogPreviewExpanded.update((current) => ({
+      ...current,
+      [factoryId]: !current[factoryId],
     }));
   }
 
@@ -238,12 +308,15 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   }
 
   onSubsidiaryHover(subsidiary: SubsidiaryCompany, isEntering: boolean): void {
+    const manufacturerLocationId = subsidiary.factories?.[0]?.id;
     if (isEntering) {
       this.warRoomService.setHoveredEntity({
-        level: 'subsidiary',
-        id: subsidiary.id,
+        level: 'manufacturer',
+        id: manufacturerLocationId ?? subsidiary.id,
         parentGroupId: subsidiary.parentGroupId,
         subsidiaryId: subsidiary.id,
+        manufacturerLocationId: manufacturerLocationId ?? undefined,
+        factoryId: manufacturerLocationId ?? undefined,
       });
     } else {
       this.warRoomService.setHoveredEntity(null);
@@ -251,18 +324,29 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   }
 
   onSubsidiaryClick(subsidiary: SubsidiaryCompany): void {
-    if (this.mapViewMode() !== 'subsidiary' && this.mapViewMode() !== 'project' && this.mapViewMode() !== 'client') {
+    if (this.mapViewMode() !== 'manufacturer' && this.mapViewMode() !== 'project' && this.mapViewMode() !== 'client') {
       return;
     }
+    const manufacturerLocationId = subsidiary.factories?.[0]?.id;
     this.toggleSubsidiary(subsidiary.id);
     const selection: FleetSelection = {
-      level: 'subsidiary',
-      id: subsidiary.id,
+      level: 'manufacturer',
+      id: manufacturerLocationId ?? subsidiary.id,
       parentGroupId: subsidiary.parentGroupId,
       subsidiaryId: subsidiary.id,
+      manufacturerLocationId: manufacturerLocationId ?? undefined,
+      factoryId: manufacturerLocationId ?? undefined,
     };
     this.selectionChange.emit(selection);
-    this.warRoomService.requestPanToEntity(subsidiary.id);
+    this.warRoomService.requestPanToEntity(manufacturerLocationId ?? subsidiary.id);
+  }
+
+  isManufacturerRowSelected(subsidiary: SubsidiaryCompany): boolean {
+    const selection = this.selectedEntity();
+    if (!selection || selection.level !== 'manufacturer') return false;
+    const locationIds = new Set((subsidiary.factories ?? []).map((factory) => factory.id));
+    const selectedLocationId = selection.manufacturerLocationId ?? selection.factoryId ?? selection.id;
+    return locationIds.has(selectedLocationId);
   }
 
   onFactoryHover(factory: FactoryLocation, isEntering: boolean): void {
@@ -320,7 +404,9 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
         name: factory.name,
         location: [factory.city, factory.country].filter(Boolean).join(', '),
         description: latestLog?.description || factory.description || '',
-        status: factory.status
+        status: factory.status,
+        latitude: this.toCoordinateInput(factory.coordinates?.latitude),
+        longitude: this.toCoordinateInput(factory.coordinates?.longitude),
       });
     }
   }
@@ -333,25 +419,44 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
 
     // Initialize draft if not exists
     if (!this.subsidiaryDrafts().has(subsidiary.id)) {
+      const firstLocationWithCoordinates = (subsidiary.factories ?? []).find((factory) =>
+        Number.isFinite(factory.coordinates?.latitude) && Number.isFinite(factory.coordinates?.longitude)
+      );
       this.updateSubsidiaryDraft(subsidiary.id, {
         name: subsidiary.name,
         location: subsidiary.location || this.getSubsidiaryLocation(subsidiary),
         description: subsidiary.description || '',
-        status: subsidiary.status
+        status: subsidiary.status,
+        latitude: this.toCoordinateInput(firstLocationWithCoordinates?.coordinates?.latitude),
+        longitude: this.toCoordinateInput(firstLocationWithCoordinates?.coordinates?.longitude),
       });
     }
   }
 
-  private updateFactoryDraft(id: string, updates: Partial<{ name: string; location: string; description: string; status: NodeStatus }>): void {
+  private updateFactoryDraft(id: string, updates: Partial<FactoryDraft>): void {
     const drafts = new Map(this.factoryDrafts());
-    const existing = drafts.get(id) || { name: '', location: '', description: '', status: 'ACTIVE' };
+    const existing: FactoryDraft = drafts.get(id) || {
+      name: '',
+      location: '',
+      description: '',
+      status: 'ACTIVE',
+      latitude: '',
+      longitude: '',
+    };
     drafts.set(id, { ...existing, ...updates });
     this.factoryDrafts.set(drafts);
   }
 
-  private updateSubsidiaryDraft(id: string, updates: Partial<{ name: string; location: string; description: string; status: OperationalStatus }>): void {
+  private updateSubsidiaryDraft(id: string, updates: Partial<SubsidiaryDraft>): void {
     const drafts = new Map(this.subsidiaryDrafts());
-    const existing = drafts.get(id) || { name: '', location: '', description: '', status: 'ACTIVE' };
+    const existing: SubsidiaryDraft = drafts.get(id) || {
+      name: '',
+      location: '',
+      description: '',
+      status: 'ACTIVE',
+      latitude: '',
+      longitude: '',
+    };
     drafts.set(id, { ...existing, ...updates });
     this.subsidiaryDrafts.set(drafts);
   }
@@ -367,6 +472,16 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
     this.updateFactoryDraft(factoryId, { location: target?.value ?? '' });
   }
 
+  onFactoryLatitudeInput(event: Event, factoryId: string): void {
+    const target = event.target as HTMLInputElement | null;
+    this.updateFactoryDraft(factoryId, { latitude: target?.value ?? '' });
+  }
+
+  onFactoryLongitudeInput(event: Event, factoryId: string): void {
+    const target = event.target as HTMLInputElement | null;
+    this.updateFactoryDraft(factoryId, { longitude: target?.value ?? '' });
+  }
+
   onSubsidiaryNameInput(event: Event, subsidiaryId: string): void {
     const target = event.target as HTMLInputElement | null;
     this.updateSubsidiaryDraft(subsidiaryId, { name: target?.value ?? '' });
@@ -375,6 +490,16 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   onSubsidiaryLocationInput(event: Event, subsidiaryId: string): void {
     const target = event.target as HTMLInputElement | null;
     this.updateSubsidiaryDraft(subsidiaryId, { location: target?.value ?? '' });
+  }
+
+  onSubsidiaryLatitudeInput(event: Event, subsidiaryId: string): void {
+    const target = event.target as HTMLInputElement | null;
+    this.updateSubsidiaryDraft(subsidiaryId, { latitude: target?.value ?? '' });
+  }
+
+  onSubsidiaryLongitudeInput(event: Event, subsidiaryId: string): void {
+    const target = event.target as HTMLInputElement | null;
+    this.updateSubsidiaryDraft(subsidiaryId, { longitude: target?.value ?? '' });
   }
 
   onSubsidiaryDescriptionInput(event: Event, subsidiaryId: string): void {
@@ -409,14 +534,24 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
       this.setFactoryValidationError(factoryId, 'Factory name is required before saving.');
       return;
     }
+    if (this.hasFactoryCoordinateValidationErrors(factoryId)) {
+      this.setFactoryValidationError(factoryId, 'Enter valid latitude and longitude values.');
+      return;
+    }
     this.clearFactoryValidationError(factoryId);
+    const latitude = this.parseCoordinateInput(draft.latitude);
+    const longitude = this.parseCoordinateInput(draft.longitude);
 
     this.factoryDetailsUpdated.emit({
       factoryId,
       name: draft.name.trim(),
       location: draft.location.trim(),
       description: draft.description.trim(),
-      status: draft.status
+      status: draft.status,
+      coordinates:
+        latitude != null && longitude != null
+          ? { latitude, longitude }
+          : undefined,
     });
 
     this.removeFromDrafts('factory', factoryId);
@@ -428,13 +563,22 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
     if (!draft || !draft.name.trim()) {
       return;
     }
+    if (this.hasSubsidiaryCoordinateValidationErrors(subsidiaryId)) {
+      return;
+    }
 
+    const latitude = this.parseCoordinateInput(draft.latitude);
+    const longitude = this.parseCoordinateInput(draft.longitude);
     this.subsidiaryDetailsUpdated.emit({
       subsidiaryId,
       name: draft.name.trim(),
       location: draft.location.trim(),
       description: draft.description.trim(),
-      status: draft.status
+      status: draft.status,
+      coordinates:
+        latitude != null && longitude != null
+          ? { latitude, longitude }
+          : undefined,
     });
 
     this.removeFromDrafts('subsidiary', subsidiaryId);
@@ -457,12 +601,40 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
 
   saveAllDrafts(): void {
     const factoryUpdates = Array.from(this.factoryDrafts().entries())
-      .filter(([_, draft]) => draft.name.trim().length > 0)
-      .map(([id, draft]) => ({ factoryId: id, ...draft }));
+      .filter(([id, draft]) => draft.name.trim().length > 0 && !this.hasFactoryCoordinateValidationErrors(id))
+      .map(([id, draft]) => {
+        const latitude = this.parseCoordinateInput(draft.latitude);
+        const longitude = this.parseCoordinateInput(draft.longitude);
+        return {
+          factoryId: id,
+          name: draft.name.trim(),
+          location: draft.location.trim(),
+          description: draft.description.trim(),
+          status: draft.status,
+          coordinates:
+            latitude != null && longitude != null
+              ? { latitude, longitude }
+              : undefined,
+        };
+      });
 
     const subsidiaryUpdates = Array.from(this.subsidiaryDrafts().entries())
-      .filter(([_, draft]) => draft.name.trim().length > 0)
-      .map(([id, draft]) => ({ subsidiaryId: id, ...draft }));
+      .filter(([id, draft]) => draft.name.trim().length > 0 && !this.hasSubsidiaryCoordinateValidationErrors(id))
+      .map(([id, draft]) => {
+        const latitude = this.parseCoordinateInput(draft.latitude);
+        const longitude = this.parseCoordinateInput(draft.longitude);
+        return {
+          subsidiaryId: id,
+          name: draft.name.trim(),
+          location: draft.location.trim(),
+          description: draft.description.trim(),
+          status: draft.status,
+          coordinates:
+            latitude != null && longitude != null
+              ? { latitude, longitude }
+              : undefined,
+        };
+      });
 
     if (factoryUpdates.length === 0 && subsidiaryUpdates.length === 0) {
       this.clearAllDrafts();
@@ -515,6 +687,38 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
     return !!this.factoryDrafts().get(factoryId)?.name?.trim();
   }
 
+  hasValidFactoryDraft(factoryId: string): boolean {
+    return this.hasValidFactoryName(factoryId) && !this.hasFactoryCoordinateValidationErrors(factoryId);
+  }
+
+  hasValidSubsidiaryDraft(subsidiaryId: string): boolean {
+    return !!this.subsidiaryDrafts().get(subsidiaryId)?.name?.trim() && !this.hasSubsidiaryCoordinateValidationErrors(subsidiaryId);
+  }
+
+  getFactoryLatitudeError(factoryId: string): string | null {
+    const draft = this.factoryDrafts().get(factoryId);
+    if (!draft) return null;
+    return this.validateCoordinatePair(draft.latitude, draft.longitude).latitudeError;
+  }
+
+  getFactoryLongitudeError(factoryId: string): string | null {
+    const draft = this.factoryDrafts().get(factoryId);
+    if (!draft) return null;
+    return this.validateCoordinatePair(draft.latitude, draft.longitude).longitudeError;
+  }
+
+  getSubsidiaryLatitudeError(subsidiaryId: string): string | null {
+    const draft = this.subsidiaryDrafts().get(subsidiaryId);
+    if (!draft) return null;
+    return this.validateCoordinatePair(draft.latitude, draft.longitude).latitudeError;
+  }
+
+  getSubsidiaryLongitudeError(subsidiaryId: string): string | null {
+    const draft = this.subsidiaryDrafts().get(subsidiaryId);
+    if (!draft) return null;
+    return this.validateCoordinatePair(draft.latitude, draft.longitude).longitudeError;
+  }
+
   requestDeleteSubsidiary(subsidiaryId: string): void {
     this.subsidiaryDeleted.emit(subsidiaryId);
   }
@@ -527,8 +731,44 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
     return this.latestLogByFactory().get(factoryId) || null;
   }
 
+  getLatestSubsidiaryLog(subsidiaryId: string): ActivityLog | null {
+    return this.logsBySubsidiaryId().get(subsidiaryId)?.[0] ?? null;
+  }
+
+  getRecentSubsidiaryLogs(subsidiaryId: string, limit = this.logPreviewCount): ActivityLog[] {
+    return (this.logsBySubsidiaryId().get(subsidiaryId) ?? []).slice(0, limit);
+  }
+
+  getLatestFactoryLog(factoryId: string): ActivityLog | null {
+    return this.getLatestLog(factoryId);
+  }
+
+  getRecentFactoryLogs(factoryId: string, limit = this.logPreviewCount): ActivityLog[] {
+    return (this.logsByFactoryId().get(factoryId) ?? []).slice(0, limit);
+  }
+
+  getFactoryLogElementId(factoryId: string): string {
+    const safeFactoryId = factoryId.replace(/[^a-zA-Z0-9_-]/g, '-');
+    return `factory-log-list-${safeFactoryId}`;
+  }
+
+  getActivityStatusClass(status: ActivityLog['status']): string {
+    if (status === 'ACTIVE') return 'status-active';
+    if (status === 'INFO') return 'status-info';
+    if (status === 'WARNING') return 'status-warning';
+    return 'status-error';
+  }
+
+  toIsoTimestamp(timestamp: Date | string): string | null {
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toISOString();
+  }
+
   getSubsidiaryLocation(subsidiary: SubsidiaryCompany): string {
-    const factory = subsidiary.factories[0];
+    const factory = subsidiary.factories?.[0];
     if (!factory) return '';
     return this.formatLocation(factory.city, factory.country);
   }
@@ -550,26 +790,27 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   }
 
   getFactoryLocationLabel(factory: FactoryLocation, parent: SubsidiaryCompany): string {
-    if (this.shouldShowFactoryLocation(factory, parent)) {
-      return this.formatLocation(factory.city, factory.country);
+    if (!factory.city && !factory.country) {
+      return 'Unavailable';
     }
-    return 'Same location as parent';
+    return this.formatLocation(factory.city, factory.country);
   }
 
   shouldCollapseFactories(subsidiary: SubsidiaryCompany): boolean {
-    return subsidiary.factories.length > this.factoryCollapseThreshold;
+    return (subsidiary.factories ?? []).length > this.factoryCollapseThreshold;
   }
 
   getVisibleFactories(subsidiary: SubsidiaryCompany): FactoryLocation[] {
+    const factories = subsidiary.factories ?? [];
     if (!this.shouldCollapseFactories(subsidiary) || this.isFactoryListExpanded(subsidiary.id)) {
-      return subsidiary.factories;
+      return factories;
     }
-    return subsidiary.factories.slice(0, this.factoryCollapseThreshold);
+    return factories.slice(0, this.factoryCollapseThreshold);
   }
 
   getHiddenFactoryCount(subsidiary: SubsidiaryCompany): number {
     if (!this.shouldCollapseFactories(subsidiary)) return 0;
-    return Math.max(0, subsidiary.factories.length - this.factoryCollapseThreshold);
+    return Math.max(0, (subsidiary.factories ?? []).length - this.factoryCollapseThreshold);
   }
 
   getProjectStatusForFactory(factoryId: string): ProjectStatusDisplay {
@@ -577,7 +818,7 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   }
 
   getProjectStatusForSubsidiary(subsidiary: SubsidiaryCompany): ProjectStatusDisplay {
-    return subsidiary.factories.reduce<ProjectStatusDisplay>((acc, f) => {
+    return (subsidiary.factories ?? []).reduce<ProjectStatusDisplay>((acc, f) => {
       const s = this.getProjectStatusForFactory(f.id);
       if (s === 'active') return 'active';
       if (s === 'inactive' && acc !== 'active') return 'inactive';
@@ -594,11 +835,112 @@ export class WarRoomActivityLogComponent implements AfterViewInit, OnDestroy {
   formatStatusLabel(projectStatus: ProjectStatusDisplay): string {
     if (projectStatus === 'active') return 'ACTIVE';
     if (projectStatus === 'inactive') return 'INACTIVE';
-    return 'NO PROJECT ASSIGNED';
+    return 'UNASSIGNED';
   }
 
   private normalizeLocation(value: string): string {
     return value.trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  private toCoordinateInput(value: number | null | undefined): CoordinateInput {
+    return Number.isFinite(value) ? String(value) : '';
+  }
+
+  private parseCoordinateInput(raw: string): number | null {
+    const value = raw.trim();
+    if (!value) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private hasFactoryCoordinateValidationErrors(factoryId: string): boolean {
+    const draft = this.factoryDrafts().get(factoryId);
+    if (!draft) return false;
+    return this.validateCoordinatePair(draft.latitude, draft.longitude).hasErrors;
+  }
+
+  private hasSubsidiaryCoordinateValidationErrors(subsidiaryId: string): boolean {
+    const draft = this.subsidiaryDrafts().get(subsidiaryId);
+    if (!draft) return false;
+    return this.validateCoordinatePair(draft.latitude, draft.longitude).hasErrors;
+  }
+
+  private validateCoordinatePair(
+    latitudeRaw: string,
+    longitudeRaw: string
+  ): { latitudeError: string | null; longitudeError: string | null; hasErrors: boolean } {
+    const latitudeText = latitudeRaw.trim();
+    const longitudeText = longitudeRaw.trim();
+    const latitudeProvided = latitudeText.length > 0;
+    const longitudeProvided = longitudeText.length > 0;
+
+    if (!latitudeProvided && !longitudeProvided) {
+      return { latitudeError: null, longitudeError: null, hasErrors: false };
+    }
+
+    let latitudeError: string | null = null;
+    let longitudeError: string | null = null;
+
+    if (latitudeProvided && !longitudeProvided) {
+      longitudeError = 'Longitude is required when latitude is set.';
+    }
+    if (!latitudeProvided && longitudeProvided) {
+      latitudeError = 'Latitude is required when longitude is set.';
+    }
+
+    const latitude = this.parseCoordinateInput(latitudeText);
+    const longitude = this.parseCoordinateInput(longitudeText);
+
+    if (latitudeProvided && latitude == null) {
+      latitudeError = 'Latitude must be a valid number.';
+    }
+    if (longitudeProvided && longitude == null) {
+      longitudeError = 'Longitude must be a valid number.';
+    }
+
+    if (latitude != null && (latitude < -90 || latitude > 90)) {
+      latitudeError = 'Latitude must be between -90 and 90.';
+    }
+    if (longitude != null && (longitude < -180 || longitude > 180)) {
+      longitudeError = 'Longitude must be between -180 and 180.';
+    }
+
+    return {
+      latitudeError,
+      longitudeError,
+      hasErrors: !!latitudeError || !!longitudeError,
+    };
+  }
+
+  private getLogLocationId(log: ActivityLog): string | null {
+    const locationId = (log.manufacturerLocationId ?? log.factoryId ?? '').trim();
+    return locationId ? locationId : null;
+  }
+
+  private getLogSubsidiaryId(log: ActivityLog): string | null {
+    const explicitSubsidiaryId = (log.subsidiaryId ?? '').trim();
+    if (explicitSubsidiaryId) {
+      return explicitSubsidiaryId;
+    }
+    const locationId = this.getLogLocationId(log);
+    if (!locationId) {
+      return null;
+    }
+    return this.subsidiaryIdByFactoryId().get(locationId) ?? null;
+  }
+
+  private toEpochMs(timestamp: Date | string): number {
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    const ms = date.getTime();
+    return Number.isNaN(ms) ? Number.NEGATIVE_INFINITY : ms;
+  }
+
+  private compareLogsNewestFirst(a: ActivityLog, b: ActivityLog): number {
+    const diff = this.toEpochMs(b.timestamp) - this.toEpochMs(a.timestamp);
+    if (diff !== 0) {
+      return diff;
+    }
+    return b.id.localeCompare(a.id);
   }
 
   getStatusIcon(projectStatus: ProjectStatusDisplay): string {

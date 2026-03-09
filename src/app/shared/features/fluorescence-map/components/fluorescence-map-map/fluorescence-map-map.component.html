@@ -4,7 +4,7 @@
   }
 
   <!-- Map Container: overlays inside #war-room-map so (0,0) matches MapLibre project() – stops marker/logo drift on zoom -->
-  <div class="map-container" (click)="clearPinned()" (contextmenu)="onMapContextMenu($event)">
+  <div class="map-container" (click)="clearPinned()">
     <div #mapContainer id="war-room-map" class="war-room-map-inner">
       <app-fluorescence-map-map-routes [routes]="routesVm()" [routeStroke]="routeStroke()" [routeFill]="routeFill()"
         (routeSelected)="onRouteSelected($event)">
@@ -16,7 +16,7 @@
     </div>
 
     @if (!screenshotMode()) {
-    <app-fluorescence-map-map-controls [fullscreen]="fullscreenState()" [zoomLevel]="currentZoomLevel()"
+    <app-fluorescence-map-map-controls [fullscreen]="effectiveFullscreen()" [zoomLevel]="currentZoomLevel()"
       (zoomChange)="setZoomTo($event)" (zoomIn)="zoomIn()" (zoomOut)="zoomOut()"
       (toggleFullscreen)="toggleFullscreen()"></app-fluorescence-map-map-controls>
     }
@@ -39,7 +39,7 @@
       <h3 class="map-error-title">Map Could Not Load</h3>
       <p class="map-error-message">{{ mapLoadError() }}</p>
       <p class="map-error-hint">Try enabling hardware acceleration in your browser settings, or refresh the page. If the problem persists, try a different browser.</p>
-      @if (mapLoadErrorDetail()) {
+      @if (isDev && mapLoadErrorDetail()) {
       <details class="map-error-details">
         <summary>Technical details</summary>
         <code>{{ mapLoadErrorDetail() }}</code>
@@ -55,15 +55,11 @@
     </div>
   </div>
   }
-
-  @if (contextMenuVisible()) {
-  <div class="map-context-menu" [style.left.px]="contextMenuPosition().x" [style.top.px]="contextMenuPosition().y"
-    (click)="$event.stopPropagation()" role="menu">
-    <button type="button" class="map-context-menu-item" (click)="onContextMenuAddProject()"
-      aria-label="Add new project">
-      <i class="fe fe-plus-circle" aria-hidden="true"></i>
-      <span>Add Project</span>
-    </button>
+  @if (mapRuntimeWarning() && !mapLoadError() && !screenshotMode()) {
+  <div class="map-runtime-warning" role="status" aria-live="polite">
+    <span>{{ mapRuntimeWarning() }}</span>
+    <button type="button" class="btn btn-sm btn-outline-light" (click)="dismissMapRuntimeWarning()"
+      aria-label="Dismiss map warning">Dismiss</button>
   </div>
   }
 </div>

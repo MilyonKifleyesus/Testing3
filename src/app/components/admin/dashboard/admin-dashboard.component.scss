@@ -4,6 +4,18 @@
   display: block;
 }
 
+.dashboard-map-embed {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+:host ::ng-deep app-fluorescence-map.dashboard-map-embed .war-room-container {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
 .dashboard-wrapper {
   padding: 1.5rem 0;
   background: linear-gradient(135deg, #f0fdf4 0%, #e8f5e9 100%);

@@ -1,504 +1,540 @@
-<div class="war-room-container" [class.route-screenshot-mode]="screenshotMode()" [class.map-expanded]="mapExpanded()">
+<div
+  class="fleet-shell"
+  [id]="shellElementId"
+  [class.route-screenshot-mode]="screenshotMode()"
+  [class.fleet-shell-inline-table]="true">
   <div class="visually-hidden" aria-live="polite" aria-atomic="true">{{ announcementMessage() }}</div>
-  <!-- TestSprite marker stability assertions - visible for automation -->
+
   @if (markerStabilityMessage()) {
   <div class="marker-stability-status" data-testid="marker-stability-status" role="status">
     {{ markerStabilityMessage() }}
   </div>
   }
-  <!-- Main Content -->
-  <main class="war-room-main">
-    <!-- Map Area -->
-    <div class="war-room-map-area" [class.add-project-mode]="addCompanyModalVisible()"
-      [attr.aria-describedby]="addCompanyModalVisible() ? 'add-project-mode-announcement' : null">
-      @if (addCompanyModalVisible()) {
-      <div id="add-project-mode-announcement" class="visually-hidden" aria-live="polite" aria-atomic="true">
-        Add Project mode active.
-      </div>
-      }
-      <!-- Single toolbar: view toggle + active filters in one compact strip (hidden in tactical mode) -->
-      @if (!tacticalMode()) {
-      <div class="war-room-map-toolbar" role="toolbar" aria-label="Map view and filters">
-        @if (showTipsHint()) {
-        <div class="onboarding-tips-hint card custom-card p-2 d-flex align-items-center justify-content-between gap-2"
-          role="status" aria-live="polite">
-          <span class="text-muted fs-12">Tip: Switch views with Project/Client/Factory. Panels for Activity Log. Tactical View for map-only. FAB for quick actions.</span>
-          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="dismissTipsHint()" aria-label="Dismiss tip">Got it</button>
-        </div>
-        }
-        <div class="map-view-toggle card custom-card d-flex align-items-center gap-2 p-2">
-          <div class="btn-group btn-group-sm" role="radiogroup" aria-label="Map view mode selection">
-            <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'project'"
-              [class.btn-outline-primary]="mapViewMode() !== 'project'" (click)="setMapViewMode('project')"
-              role="radio" [attr.aria-checked]="mapViewMode() === 'project'" aria-label="Switch to project view">
-              Project View
-            </button>
-            <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'client'"
-              [class.btn-outline-primary]="mapViewMode() !== 'client'" (click)="setMapViewMode('client')"
-              role="radio" [attr.aria-checked]="mapViewMode() === 'client'" aria-label="Switch to client view">
-              Client View
-            </button>
-            <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'factory'"
-              [class.btn-outline-primary]="mapViewMode() !== 'factory'" (click)="setMapViewMode('factory')" role="radio"
-              [attr.aria-checked]="mapViewMode() === 'factory'" aria-label="Switch to factory view">
-              Factory View
-            </button>
-          </div>
-          <span class="view-mode-legend text-muted fs-11">Project: routes · Client: clients · Factory: hubs</span>
-          @if (projectRoutesLoading() && mapViewMode() === 'project') {
-          <span class="text-muted fs-11 d-flex align-items-center" role="status">
-            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-            Loading routes...
-          </span>
-          }
-          <button type="button" class="btn btn-primary btn-icon-text btn-sm map-add-project-btn"
-            [class.add-project-pulse]="addProjectPulse()"
-            (click)="onAddCompanyRequested()" aria-label="Add new project to map"
-            title="Add a new project to connect a client and factory on the map">
-            <i class="fe fe-plus-circle me-2 fs-14" aria-hidden="true"></i> Add Project
-          </button>
-          <button type="button" class="btn btn-white btn-icon-text btn-sm map-filter-btn" (click)="toggleFiltersPanel()"
-            [class.btn-primary-transparent]="filtersPanelVisible()"
-            [attr.aria-label]="(filtersPanelVisible() ? 'Close' : 'Open') + ' filters' + (activeFilterCount() > 0 ? ' (' + activeFilterCount() + ' active)' : '')"
-            [attr.aria-expanded]="filtersPanelVisible()"
-            title="Filter map by company, client, region, or status. Changes apply immediately.">
-            <i class="fe fe-filter me-2 fs-14" aria-hidden="true"></i> Filter
-            @if (activeFilterCount() > 0) {
-            <span class="badge bg-primary-transparent ms-1" aria-hidden="true">{{ activeFilterCount() }}</span>
-            }
-          </button>
-        </div>
-        @if (activeFilters().length > 0) {
-        <div class="active-filters-bar d-flex flex-wrap align-items-center gap-2" role="group" aria-label="Active filters">
-          @for (filter of activeFilters(); track filter.type + ':' + filter.value) {
-          <span
-            class="badge bg-primary-transparent text-primary d-flex align-items-center gap-2 px-3 py-2 rounded-pill border border-primary-transparent">
-            {{ filter.label }}
-            <button class="btn-unstyled cursor-pointer ms-1 fs-12" (click)="removeFilter(filter)"
-              [attr.aria-label]="'Remove ' + filter.label + ' filter'">
-              <i class="fe fe-x" aria-hidden="true"></i>
-            </button>
-          </span>
-          }
-          <button class="btn btn-link btn-sm text-danger text-uppercase fs-11 fw-bold p-0 ms-2"
-            (click)="clearAllFilters()" aria-label="Clear all active filters">
-            Clear All
-          </button>
-        </div>
-        }
-      </div>
-      }
 
-      <div class="map-action-bar" [class.hidden]="tacticalMode()" role="group"
-        aria-label="Map panels and layout controls">
-        <div class="map-action-group">
-          <button type="button" class="map-action-btn" (click)="togglePanels()" [class.active]="panelVisible()"
-            [attr.aria-label]="panelVisible() ? 'Hide panels' : 'Show panels'" [attr.aria-expanded]="panelVisible()"
-            aria-controls="war-room-overlay-panel"
-            title="Show Activity Log and Hub Status">
-            <i class="fe fe-layers me-2" aria-hidden="true"></i>
-            <i class="fe me-2" [class.fe-chevron-right]="!panelVisible()" [class.fe-chevron-left]="panelVisible()"
-              aria-hidden="true"></i>
-            <span>{{ panelVisible() ? 'Hide Panels' : 'Panels' }}</span>
-          </button>
-          <button type="button" class="map-action-btn" (click)="toggleMapExpanded()" [class.active]="mapExpanded()"
-            [attr.aria-label]="mapExpanded() ? 'Exit expanded map view' : 'Expand map'"
-            [attr.aria-pressed]="mapExpanded()"
-            title="Expand map to full width">
-            <i class="fe" [class.fe-maximize-2]="!mapExpanded()" [class.fe-minimize-2]="mapExpanded()"
-              aria-hidden="true"></i>
-            <span>{{ mapExpanded() ? 'Exit Expand' : 'Expand Map' }}</span>
-          </button>
-          <button type="button" class="map-action-btn" (click)="toggleTacticalMode()" [class.active]="tacticalMode()"
-            [attr.aria-label]="tacticalMode() ? 'Exit tactical view' : 'Enter tactical view'"
-            [attr.aria-pressed]="tacticalMode()"
-            title="Tactical View: Map-only view, hide toolbar">
-            <i class="fe fe-crosshair" aria-hidden="true"></i>
-            <span>Tactical View</span>
-          </button>
-        </div>
-      </div>
-      @if (!tacticalMode()) {
-      <div id="war-room-filters-panel" class="war-room-filters card custom-card" [class.open]="filtersPanelVisible()">
-        <div class="card-header d-flex align-items-center justify-content-between">
-          <h6 class="main-content-label mb-0">Manage Filters</h6>
-          <div class="d-flex align-items-center gap-2">
-            @if (activeFilterCount() > 0) {
-            <button type="button" class="btn btn-link btn-sm p-0 text-danger" (click)="resetFilters()">Clear
-              All</button>
-            }
-            <button type="button" class="btn-close" (click)="toggleFiltersPanel()" aria-label="Close filters"></button>
-          </div>
-        </div>
-        <div class="card-body">
-          <p class="filters-panel-hint text-muted fs-12 mb-3">Select options below to filter the map. Changes apply immediately.</p>
-          <div class="filters-section">
-            <button type="button" class="filter-section-header" (click)="toggleFilterSection('companies')"
-              [attr.aria-expanded]="expandedFilterSection() === 'companies'">
-              <span class="form-label">Companies</span>
-              <span class="filter-summary">{{ filterDraft().parentCompanyIds.length ?
-                filterDraft().parentCompanyIds.length + ' selected' : 'All' }}</span>
-              <i class="fe fe-chevron-down filter-chevron"
-                [class.expanded]="expandedFilterSection() === 'companies'"></i>
-            </button>
-            @if (expandedFilterSection() === 'companies') {
-            <div class="filters-options">
-              @if (parentCompanyOptions().length > 5) {
-              <input type="search" class="form-control form-control-sm mb-2" placeholder="Search companies..."
-                [value]="companyFilterSearch()" (input)="companyFilterSearch.set($any($event.target).value)"
-                aria-label="Search companies" />
-              }
-              @for (option of filteredParentCompanyOptions(); track option.id) {
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input"
-                  [checked]="filterDraft().parentCompanyIds.includes(option.id)"
-                  (change)="toggleParentCompany(option.id)" [id]="'parent-filter-' + option.id" />
-                <label class="form-check-label w-100 d-flex justify-content-between align-items-center"
-                  [for]="'parent-filter-' + option.id">
-                  <span>{{ option.name }}</span>
-                  <span class="badge bg-primary-transparent">{{ option.count }}</span>
-                </label>
-              </div>
-              }
-            </div>
-            }
-          </div>
-          <div class="filters-section">
-            <button type="button" class="filter-section-header" (click)="toggleFilterSection('client')"
-              [attr.aria-expanded]="expandedFilterSection() === 'client'">
-              <span class="form-label">Client</span>
-              <span class="filter-summary">{{ filterDraft().clientIds.length ? filterDraft().clientIds.length + '
-                selected' : 'All Clients' }}</span>
-              <i class="fe fe-chevron-down filter-chevron" [class.expanded]="expandedFilterSection() === 'client'"></i>
-            </button>
-            @if (expandedFilterSection() === 'client') {
-            <div class="filters-options">
-              @if (clientOptionsSignal().length > 5) {
-              <input type="search" class="form-control form-control-sm mb-2" placeholder="Search clients..."
-                [value]="clientFilterSearch()" (input)="clientFilterSearch.set($any($event.target).value)"
-                aria-label="Search clients" />
-              }
-              @for (opt of filteredClientOptions(); track opt.id) {
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" [checked]="filterDraft().clientIds.includes(opt.id)"
-                  (change)="toggleClient(opt.id)" [id]="'client-filter-' + opt.id" />
-                <label class="form-check-label w-100 d-flex justify-content-between align-items-center"
-                  [for]="'client-filter-' + opt.id">
-                  <span>{{ opt.name }}</span>
-                  <span class="badge bg-primary-transparent">{{ opt.count }}</span>
-                </label>
-              </div>
-              }
-            </div>
-            }
-          </div>
-          <div class="filters-section">
-            <button type="button" class="filter-section-header" (click)="toggleFilterSection('manufacturer')"
-              [attr.aria-expanded]="expandedFilterSection() === 'manufacturer'">
-              <span class="form-label">Manufacturer</span>
-              <span class="filter-summary">{{ filterDraft().manufacturerIds.length ?
-                filterDraft().manufacturerIds.length + ' selected' : 'All Manufacturers' }}</span>
-              <i class="fe fe-chevron-down filter-chevron"
-                [class.expanded]="expandedFilterSection() === 'manufacturer'"></i>
-            </button>
-            @if (expandedFilterSection() === 'manufacturer') {
-            <div class="filters-options">
-              @if (manufacturerOptionsSignal().length > 5) {
-              <input type="search" class="form-control form-control-sm mb-2" placeholder="Search manufacturers..."
-                [value]="manufacturerFilterSearch()" (input)="manufacturerFilterSearch.set($any($event.target).value)"
-                aria-label="Search manufacturers" />
-              }
-              @for (opt of filteredManufacturerOptions(); track opt.id) {
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input"
-                  [checked]="filterDraft().manufacturerIds.includes(opt.id)" (change)="toggleManufacturer(opt.id)"
-                  [id]="'manufacturer-filter-' + opt.id" />
-                <label class="form-check-label w-100 d-flex justify-content-between align-items-center"
-                  [for]="'manufacturer-filter-' + opt.id">
-                  <span>{{ opt.name }}</span>
-                  <span class="badge bg-primary-transparent">{{ opt.count }}</span>
-                </label>
-              </div>
-              }
-            </div>
-            }
-          </div>
-          <div class="filters-section">
-            <button type="button" class="filter-section-header" (click)="toggleFilterSection('projectType')"
-              [attr.aria-expanded]="expandedFilterSection() === 'projectType'">
-              <span class="form-label">Project Type</span>
-              <span class="filter-summary">{{ filterDraft().projectTypeIds.length ? filterDraft().projectTypeIds.length
-                + ' selected' : 'All project types' }}</span>
-              <i class="fe fe-chevron-down filter-chevron"
-                [class.expanded]="expandedFilterSection() === 'projectType'"></i>
-            </button>
-            @if (expandedFilterSection() === 'projectType') {
-            <div class="filters-options">
-              @if (projectTypeOptionsSignal().length > 5) {
-              <input type="search" class="form-control form-control-sm mb-2" placeholder="Search project types..."
-                [value]="projectTypeFilterSearch()" (input)="projectTypeFilterSearch.set($any($event.target).value)"
-                aria-label="Search project types" />
-              }
-              @for (opt of filteredProjectTypeOptions(); track opt.id) {
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input"
-                  [checked]="filterDraft().projectTypeIds.includes(opt.id)" (change)="toggleProjectType(opt.id)"
-                  [id]="'project-type-filter-' + opt.id" />
-                <label class="form-check-label w-100 d-flex justify-content-between align-items-center"
-                  [for]="'project-type-filter-' + opt.id">
-                  <span>{{ opt.name }}</span>
-                  <span class="badge bg-primary-transparent">{{ opt.count }}</span>
-                </label>
-              </div>
-              }
-            </div>
-            }
-          </div>
-          <div class="filters-section">
-            <label class="form-label" id="status-filter-label">Status</label>
-            <div class="filters-pill-group" role="radiogroup" aria-labelledby="status-filter-label">
-              <button type="button" class="btn btn-sm" [class.btn-primary]="filterDraft().status === 'all'"
-                [class.btn-outline-light]="filterDraft().status !== 'all'" (click)="setStatusFilter('all')"
-                role="radio" [attr.aria-checked]="filterDraft().status === 'all'">
-                All
-                <span class="badge bg-white text-primary ms-2">{{ statusCounts().total }}</span>
-              </button>
-              <button type="button" class="btn btn-sm" [class.btn-success]="filterDraft().status === 'active'"
-                [class.btn-outline-light]="filterDraft().status !== 'active'" (click)="setStatusFilter('active')"
-                role="radio" [attr.aria-checked]="filterDraft().status === 'active'">
-                Active
-                <span class="badge bg-success-transparent ms-2">{{ statusCounts().active }}</span>
-              </button>
-              <button type="button" class="btn btn-sm" [class.btn-danger]="filterDraft().status === 'inactive'"
-                [class.btn-outline-light]="filterDraft().status !== 'inactive'" (click)="setStatusFilter('inactive')"
-                role="radio" [attr.aria-checked]="filterDraft().status === 'inactive'">
-                Inactive
-                <span class="badge bg-secondary-transparent ms-2">{{ statusCounts().inactive }}</span>
-              </button>
-            </div>
-          </div>
-          <div class="filters-section">
-            <label class="form-label">Regions</label>
-            <div class="filters-options">
-              @for (region of availableRegions(); track region) {
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" [checked]="filterDraft().regions.includes(region)"
-                  (change)="toggleRegion(region)" [id]="'region-filter-' + region" />
-                <label class="form-check-label" [for]="'region-filter-' + region">{{ region }}</label>
-              </div>
-              }
-            </div>
-          </div>
-          <p class="filters-helper-text text-muted fs-12 mb-2">Filters apply instantly as you select. Close Filters only closes the panel.</p>
-          <div class="filters-actions d-flex gap-2">
-            <button type="button" class="btn btn-primary flex-fill" (click)="applyFilters()">Close Filters</button>
-            <button type="button" class="btn btn-outline-primary flex-fill" (click)="resetFilters()">Reset All</button>
-          </div>
-        </div>
-      </div>
-      }
-
-      <!-- Tactical View: top-right Exit button (prominent, easy to find) -->
-      @if (tacticalMode()) {
-      <div class="war-room-exit-tactical-top" role="group" aria-label="Exit tactical view">
-        <button type="button" class="btn btn-sm war-room-exit-tactical-btn" (click)="toggleTacticalMode()"
-          aria-label="Exit tactical view" title="Exit Tactical View (Esc)">
-          <i class="fe fe-crosshair me-2" aria-hidden="true"></i>
-          <span>Exit Tactical View</span>
-        </button>
-      </div>
-      }
-      <!-- Bottom-center view toggle pill (tactical mode only) -->
-      @if (tacticalMode()) {
-      <div class="war-room-view-toggle-bottom" role="toolbar" aria-label="Map view mode">
-        <div class="btn-group btn-group-sm" role="radiogroup" aria-label="Map view mode selection">
-          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'project'"
-            [class.btn-outline-primary]="mapViewMode() !== 'project'" (click)="setMapViewMode('project')"
-            role="radio" [attr.aria-checked]="mapViewMode() === 'project'" aria-label="Project view">Project</button>
-          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'client'"
-            [class.btn-outline-primary]="mapViewMode() !== 'client'" (click)="setMapViewMode('client')"
-            role="radio" [attr.aria-checked]="mapViewMode() === 'client'" aria-label="Client view">Client</button>
-          <button type="button" class="btn map-view-btn" [class.btn-primary]="mapViewMode() === 'factory'"
-            [class.btn-outline-primary]="mapViewMode() !== 'factory'" (click)="setMapViewMode('factory')" role="radio"
-            [attr.aria-checked]="mapViewMode() === 'factory'" aria-label="Factory view">Factory</button>
-        </div>
-        <button type="button" class="btn btn-sm map-view-exit-tactical ms-2" (click)="toggleTacticalMode()"
-          aria-label="Exit tactical view" title="Exit Tactical View (Esc)">
-          <span>Exit</span>
-          <i class="fe fe-x ms-1" aria-hidden="true"></i>
-        </button>
-      </div>
-      }
-
-      @if (!tacticalMode() && projectHudVisible()) {
-      <div class="war-room-project-hud-wrapper">
-        <app-war-room-project-hud [clientIds]="filterApplied().clientIds"
-          [manufacturerIds]="filterApplied().manufacturerIds" [projectTypeIds]="filterApplied().projectTypeIds"
-          [selectedProjectId]="selectedProjectId()" (projectSelected)="onProjectHudSelected($event)"
-          (closeRequested)="projectHudVisible.set(false)" />
-      </div>
-      }
-      @if (selectedProjectId() || selectedEntity()) {
-      <div class="war-room-context-panel-wrapper" [class.sidebar-open]="panelVisible()">
-        <app-war-room-context-panel [selectedEntity]="selectedEntity()" [selectedProjectId]="selectedProjectId()"
-          [routePreviewVersion]="routePreviewVersion()" />
-      </div>
-      }
-
-      @if (!tacticalMode()) {
-      <app-fluorescence-map-command-menu [hasSelectedProject]="!!selectedProjectId()"
-        [hasSelectedClient]="hasSelectedClientWithRoutes()"
-        (actionTriggered)="onCommandAction($event)" />
-      }
-
-      <app-fluorescence-map-map class="war-room-map-fill" [screenshotMode]="screenshotMode()"
-        [nodes]="filteredNodes()" [selectedEntity]="selectedEntity()"
-        [transitRoutes]="filteredTransitRoutes()" [projectRoutes]="projectRoutesForMap()"
-        [filterStatus]="filterApplied().status" (nodeSelected)="onNodeSelected($event)"
-        (routeSelected)="onRouteSelected($event)" (zoomStable)="onMapZoomStable($event)"
-        (addProjectRequested)="onAddCompanyRequested()"
-        (zoomedToEntity)="onMapZoomedToEntity()"
-        (previousViewRestored)="onPreviousViewRestored()"></app-fluorescence-map-map>
-
-      @if (!tacticalMode() && showReturnToPreviousView() && mapComponent()) {
-      <button type="button" class="btn btn-sm war-room-return-previous-btn"
-        (click)="mapComponent()!.restorePreviousView()"
-        aria-label="Return to previous map view"
-        title="Return to previous map view">
-        <i class="fe fe-arrow-left" aria-hidden="true"></i>
-        Return to previous view
-      </button>
-      }
-
-      @if (filteredNodes().length === 0) {
-      <div
-        class="empty-state-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-        style="background: rgba(255,255,255,0.7); backdrop-filter: blur(2px); z-index: 10;">
-        <div class="empty-state-content text-center p-4 card custom-card shadow-lg border-0" style="max-width: 400px;">
-          <div class="mb-3">
-            <div class="avatar avatar-xxl bg-light rounded-circle text-muted">
-              <i class="fe fe-filter fs-40"></i>
-            </div>
-          </div>
-          @if (mapViewMode() === 'project') {
-          <h5 class="fw-bold mb-2">No projects or routes match current filters</h5>
-          } @else if (mapViewMode() === 'client') {
-          <h5 class="fw-bold mb-2">No clients match current filters</h5>
-          } @else if (mapViewMode() === 'factory') {
-          <h5 class="fw-bold mb-2">No factories or hubs match current filters</h5>
-          } @else {
-          <h5 class="fw-bold mb-2">No companies match current filters</h5>
-          }
-          <p class="text-muted mb-4 fs-13">Try adjusting your region or status filters, or clear all filters to see the
-            full map.</p>
-          <button class="btn btn-primary w-100" (click)="clearAllFilters()">
-            <i class="fe fe-x me-2"></i> Clear All Filters
-          </button>
-        </div>
-      </div>
-      }
-      @if (addCompanyModalVisible()) {
-      <app-add-company-modal #addCompanyModalRef [isVisible]="true" [useMapPositioning]="true"
-        [clients]="clientsSignal()"
-        [preselectedFactoryId]="addCompanyModalPreselectedFactoryId()"
-        (projectAdded)="onProjectAdded($event)" (close)="onAddCompanyModalClose()" />
-      }
+  @if (!dataManagementOnly()) {
+  <header class="fleet-shell-header" role="banner">
+    <div class="fleet-header-left">
+      <div class="fleet-brand">FP</div>
+      <div class="fleet-brand-name">FleetPulse</div>
+      <span class="fleet-connection-pill" [attr.data-state]="realtimeUiState()">
+        {{ realtimeUiState() === 'connected' ? 'Connected' : realtimeStatusLabel() }}
+      </span>
     </div>
 
-    <!-- Sidebar -->
-    @if (!tacticalMode() && !screenshotMode()) {
-    <aside id="war-room-overlay-panel" class="war-room-sidebar" [class.open]="panelVisible()"
-      [attr.aria-hidden]="!panelVisible()">
-      <div class="sidebar-tabs" role="tablist" aria-label="War room panels">
-        <button type="button" class="sidebar-tab-btn" role="tab" id="war-room-tab-log"
-          [class.active]="activePanel() === 'log'" [attr.aria-selected]="activePanel() === 'log'"
-          [attr.aria-controls]="'war-room-panel-log'" (click)="showPanel('log')">
-          Activity Log
-        </button>
-        <button type="button" class="sidebar-tab-btn" role="tab" id="war-room-tab-hub"
-          [class.active]="activePanel() === 'hub'" [attr.aria-selected]="activePanel() === 'hub'"
-          [attr.aria-controls]="'war-room-panel-hub'" (click)="showPanel('hub')">
-          Hub Status
-        </button>
-        <button type="button" class="sidebar-close-btn" (click)="togglePanels()" aria-label="Close panels">
-          <i class="fe fe-x" aria-hidden="true"></i>
-        </button>
-      </div>
-
-      @if (activePanel() === 'log') {
-      <div class="sidebar-view-level" role="radiogroup" aria-label="Activity log view">
-        <button type="button" class="sidebar-level-btn" [class.active]="logPanelMode() === 'client'"
-          (click)="setLogPanelMode('client')" role="radio" [attr.aria-checked]="logPanelMode() === 'client'"
-          aria-label="View clients with projects"
-          title="View clients with their projects">
-          <i class="fe fe-users" aria-hidden="true"></i>
-          Client
-        </button>
-        <button type="button" class="sidebar-level-btn" [class.active]="logPanelMode() === 'manufacturer'"
-          (click)="setLogPanelMode('manufacturer')" role="radio" [attr.aria-checked]="logPanelMode() === 'manufacturer'"
-          aria-label="View manufacturer hierarchy"
-          title="View manufacturers: parent companies and their factory sites">
-          <i class="fe fe-briefcase" aria-hidden="true"></i>
-          Manufacturer
-        </button>
-      </div>
+    <div class="fleet-mode-tabs" role="tablist" aria-label="Map mode">
+      <button type="button" [class.active]="mapViewMode() === 'project'" (click)="setMapViewMode('project')">
+        Projects
+      </button>
+      @if (canSeeClientView()) {
+      <button type="button" [class.active]="mapViewMode() === 'client'" (click)="setMapViewMode('client')">
+        Clients
+      </button>
       }
+      <button type="button" [class.active]="mapViewMode() === 'manufacturer'" (click)="setMapViewMode('manufacturer')">
+        Manufacturers
+      </button>
+    </div>
 
-      <div class="sidebar-panel-body">
-        <section id="war-room-panel-log" role="tabpanel" [attr.aria-labelledby]="'war-room-tab-log'"
-          [attr.hidden]="activePanel() !== 'log' ? '' : null">
-          <div class="sidebar-edit-actions d-flex flex-column gap-2 mb-3">
-            @if (!activityLogEditMode()) {
-            <button type="button" class="sidebar-edit-toggle" (click)="activityLogEditMode.set(true)"
-              aria-label="Enable editing of manufacturer assignments and site configurations"
-              title="Enable editing of manufacturer assignments and site configurations">
-              EDIT MODE
+    <div class="fleet-header-actions" role="group" aria-label="Toolbar actions">
+      <button
+        type="button"
+        class="map-filter-btn"
+        aria-label="Toggle filters"
+        title="Toggle filters"
+        (click)="toggleFiltersPanel()"
+        [class.active]="filtersPanelVisible()">
+        <i class="fe fe-filter" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        aria-label="Toggle table"
+        title="Toggle table"
+        (click)="togglePanels()"
+        [class.active]="panelVisible()">
+        <i class="fe fe-grid" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        aria-label="Toggle fullscreen"
+        [attr.aria-pressed]="mapBrowserFullscreenActive()"
+        [title]="mapBrowserFullscreenActive() ? 'Exit fullscreen' : 'Enter fullscreen'"
+        (click)="toggleMapFullscreen()"
+        [class.active]="mapBrowserFullscreenActive()">
+        <i class="fe" [class.fe-maximize]="!mapBrowserFullscreenActive()" [class.fe-minimize]="mapBrowserFullscreenActive()"
+          aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        aria-label="Toggle theme"
+        title="Toggle theme"
+        (click)="toggleTheme()"
+        [class.active]="isDarkTheme()">
+        <i class="fe" [class.fe-moon]="!isDarkTheme()" [class.fe-sun]="isDarkTheme()" aria-hidden="true"></i>
+      </button>
+    </div>
+  </header>
+
+  <section class="fleet-shell-stats" aria-label="Fleet summary metrics">
+    <article class="stats-card">
+      <div class="stats-label">Total Projects</div>
+      <div class="stats-value">{{ totalProjectsCount() }}</div>
+    </article>
+    <article class="stats-card">
+      <div class="stats-label">Total Shipped</div>
+      <div class="stats-value">{{ totalShippedCount() }}</div>
+    </article>
+    <article class="stats-card">
+      <div class="stats-label">Under Inspection</div>
+      <div class="stats-value">{{ underInspectionCount() }}</div>
+    </article>
+  </section>
+
+  <section class="fleet-quick-filters" aria-label="Quick filters and actions">
+    <div class="fleet-quick-filters-left">
+      <button
+        type="button"
+        class="fleet-quick-btn fleet-quick-btn-primary"
+        (click)="toggleFiltersPanel()"
+        [attr.aria-expanded]="filtersPanelVisible()"
+        aria-controls="war-room-filters-panel">
+        <i class="fe fe-sliders" aria-hidden="true"></i>
+        Filters
+      </button>
+      <button
+        type="button"
+        class="fleet-quick-btn"
+        (click)="togglePanels()"
+        [class.active]="panelVisible()"
+        [attr.aria-pressed]="panelVisible()">
+        <i class="fe fe-grid" aria-hidden="true"></i>
+        Table
+      </button>
+      <button
+        type="button"
+        class="fleet-quick-btn"
+        (click)="clearAllFilters()"
+        [disabled]="activeFilters().length === 0">
+        <i class="fe fe-refresh-cw" aria-hidden="true"></i>
+        Clear
+      </button>
+    </div>
+
+    <div class="fleet-quick-filter-pills" role="status" aria-live="polite">
+      @if (!isClientOrUser()) {
+      <span class="quick-filter-pill">
+        Clients: {{ filterApplied().clientIds.length || 'All' }}
+      </span>
+      }
+      <span class="quick-filter-pill">
+        Projects: {{ filterApplied().projectIds.length || 'All' }}
+      </span>
+      <span class="quick-filter-pill">
+        Manufacturers: {{ filterApplied().manufacturerIds.length || 'All' }}
+      </span>
+      <span class="quick-filter-pill">
+        Regions: {{ filterApplied().regions.length || 'All' }}
+      </span>
+      <span class="quick-filter-pill quick-filter-pill-status">
+        Status:
+        {{
+          filterApplied().status === 'all'
+            ? 'All'
+            : (filterApplied().status === 'active' ? 'Active' : 'Inactive')
+        }}
+      </span>
+    </div>
+  </section>
+
+  @if (activeFilters().length > 0) {
+  <section class="active-filters-bar" role="region" aria-label="Active filters">
+    @for (item of activeFilters(); track item.type + ':' + (item.value ?? item.label)) {
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-light active-filter-chip"
+      (click)="removeFilter(item)"
+      [attr.aria-label]="'Remove filter ' + item.label">
+      <span>{{ item.label }}</span>
+      <i class="fe fe-x" aria-hidden="true"></i>
+    </button>
+    }
+  </section>
+  }
+
+  @if (selectionOutsideFiltersNotice()) {
+  <section class="active-filters-bar" role="status" aria-live="polite">
+    <span>{{ selectionOutsideFiltersNotice() }}</span>
+  </section>
+  }
+
+  @if (filtersPanelVisible()) {
+  <section id="war-room-filters-panel" class="fleet-filter-overlay" role="dialog" aria-modal="true" aria-label="Advanced filters">
+    <div class="fleet-filter-overlay-header">
+      <div class="fleet-filter-header-copy">
+        <span class="fleet-filter-icon-wrap">
+          <i class="fe fe-filter" aria-hidden="true"></i>
+        </span>
+        <div>
+          <h2 class="fleet-filter-title">Advanced Filters</h2>
+          <p class="fleet-filter-subtitle">Narrow down your fleet data with precision</p>
+        </div>
+      </div>
+      <div class="fleet-filter-header-actions">
+        <button type="button" class="btn btn-link btn-sm" (click)="resetDraftFilters()">Reset All</button>
+        <button type="button" class="btn-close" (click)="cancelFiltersPanel()" aria-label="Close filters"></button>
+      </div>
+    </div>
+
+    <div class="fleet-filter-overlay-body">
+      <div class="fleet-filter-grid">
+        @if (!isClientOrUser()) {
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label">Client</span>
+            <span class="filter-summary">{{ filterDraft().clientIds.length ? filterDraft().clientIds.length + ' selected' : 'All Clients' }}</span>
+          </div>
+          <div class="filters-options options-list">
+            @if (clientOptionsSignal().length > 5) {
+            <input
+              type="search"
+              class="form-control form-control-sm"
+              placeholder="Search clients..."
+              [value]="clientFilterSearch()"
+              (input)="clientFilterSearch.set($any($event.target).value)"
+              aria-label="Search clients" />
+            }
+            @for (opt of filteredClientOptions(); track opt.id) {
+            @let selected = isClientSelectedInDraft(opt.id);
+            <button
+              type="button"
+              class="filter-option-row"
+              [class.active]="selected"
+              [attr.aria-pressed]="selected"
+              (click)="toggleClient(opt.id)">
+              <span class="option-main">
+                <span class="option-check" [attr.aria-hidden]="true">{{ selected ? '✓' : '' }}</span>
+                <span class="option-label">{{ opt.name }}</span>
+              </span>
+              <span class="option-count">{{ opt.count }}</span>
             </button>
-            } @else {
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-success btn-sm flex-fill" (click)="onSaveChanges()"
-                [attr.aria-label]="'Save all changes'">
-                SAVE CHANGES
-              </button>
-              <button type="button" class="btn btn-light btn-sm flex-fill" (click)="onCancelEdit()"
-                [attr.aria-label]="'Cancel editing'">
-                CANCEL
-              </button>
-            </div>
+            }
+            @if (filteredClientOptions().length === 0) {
+            <p class="filter-empty">No matching clients.</p>
             }
           </div>
-
-          <div class="panel-log-content" [attr.data-mode]="logPanelMode()">
-          @if (logPanelMode() === 'manufacturer') {
-          <app-war-room-activity-log [parentGroups]="filteredParentGroups()" [activityLogs]="filteredActivityLogs()"
-            [projectStatusByFactoryId]="projectStatusByFactoryId()" [selectedEntity]="selectedEntity()"
-            [editMode]="activityLogEditMode()" [mapViewMode]="mapViewMode()" [isBusy]="activityLogBusy()"
-            (selectionChange)="onEntitySelected($event)"
-            (editModeChange)="activityLogEditMode.set($event)" (factoryDetailsUpdated)="onFactoryDetailsUpdated($event)"
-            (subsidiaryDetailsUpdated)="onSubsidiaryDetailsUpdated($event)"
-            (batchUpdateRequested)="onBatchUpdateRequested($event)" (subsidiaryDeleted)="onSubsidiaryDeleted($event)"
-            (factoryDeleted)="onFactoryDeleted($event)"
-            (addProjectForFactory)="onAddProjectForFactory($event)"></app-war-room-activity-log>
-          } @else {
-          <app-fluorescence-map-clients-panel [clientsWithProjects]="clientsWithProjects()" [editMode]="activityLogEditMode()"
-            [selectedEntity]="selectedEntity()" [projectsRefreshTrigger]="projectRoutesRefreshTrigger()"
-            [routePreviewVersion]="routePreviewVersion()"
-            (clientSelected)="onClientSelected($event)"
-            (projectSelected)="onProjectHudSelected($event)"
-            (saveComplete)="onClientPanelSaveComplete()"
-            (routePreviewRequested)="onRoutePreviewRequested($event)"
-            (clientCaptureRequested)="onClientCaptureRequested($event)"></app-fluorescence-map-clients-panel>
+          @if (hiddenClientOptionsCount() > 0) {
+          <button
+            type="button"
+            class="btn btn-link btn-sm unavailable-toggle"
+            [attr.aria-pressed]="showUnavailableClients()"
+            (click)="showUnavailableClients.set(!showUnavailableClients())">
+            {{ showUnavailableClients() ? 'Hide unavailable' : 'Show unavailable (' + hiddenClientOptionsCount() + ')' }}
+          </button>
           }
-          </div>
-        </section>
+        </div>
+        }
 
-        <section id="war-room-panel-hub" role="tabpanel" [attr.aria-labelledby]="'war-room-tab-hub'"
-          [attr.hidden]="activePanel() !== 'hub' ? '' : null">
-          <app-fluorescence-map-hub-status [selectedSubsidiary]="selectedSubsidiary()"
-            (addCompanyRequested)="onAddCompanyRequested()"></app-fluorescence-map-hub-status>
-        </section>
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label">Manufacturer</span>
+            <span class="filter-summary">{{ filterDraft().manufacturerIds.length ? filterDraft().manufacturerIds.length + ' selected' : 'All Manufacturers' }}</span>
+          </div>
+          <div class="filters-options options-list">
+            @if (manufacturerOptionsSignal().length > 5) {
+            <input
+              type="search"
+              class="form-control form-control-sm"
+              placeholder="Search manufacturers..."
+              [value]="manufacturerFilterSearch()"
+              (input)="manufacturerFilterSearch.set($any($event.target).value)"
+              aria-label="Search manufacturers" />
+            }
+            @for (opt of filteredManufacturerOptions(); track opt.id) {
+            <button
+              type="button"
+              class="filter-option-row"
+              [class.active]="filterDraft().manufacturerIds.includes(opt.id)"
+              [attr.aria-pressed]="filterDraft().manufacturerIds.includes(opt.id)"
+              (click)="toggleManufacturer(opt.id)">
+              <span class="option-main">
+                <span class="option-check" [attr.aria-hidden]="true">
+                  {{ filterDraft().manufacturerIds.includes(opt.id) ? '✓' : '' }}
+                </span>
+                <span class="option-label">{{ opt.name }}</span>
+              </span>
+              <span class="option-count">{{ opt.count }}</span>
+            </button>
+            }
+            @if (filteredManufacturerOptions().length === 0) {
+            <p class="filter-empty">No matching manufacturers.</p>
+            }
+          </div>
+          @if (hiddenManufacturerOptionsCount() > 0) {
+          <button
+            type="button"
+            class="btn btn-link btn-sm unavailable-toggle"
+            [attr.aria-pressed]="showUnavailableManufacturers()"
+            (click)="showUnavailableManufacturers.set(!showUnavailableManufacturers())">
+            {{ showUnavailableManufacturers() ? 'Hide unavailable' : 'Show unavailable (' + hiddenManufacturerOptionsCount() + ')' }}
+          </button>
+          }
+        </div>
+
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label">Project Type</span>
+            <span class="filter-summary">{{ filterDraft().projectTypeIds.length ? filterDraft().projectTypeIds.length + ' selected' : 'All Project Types' }}</span>
+          </div>
+          <div class="filters-options options-list">
+            @if (projectTypeOptionsSignal().length > 5) {
+            <input
+              type="search"
+              class="form-control form-control-sm"
+              placeholder="Search project types..."
+              [value]="projectTypeFilterSearch()"
+              (input)="projectTypeFilterSearch.set($any($event.target).value)"
+              aria-label="Search project types" />
+            }
+            @for (opt of filteredProjectTypeOptions(); track opt.id) {
+            <button
+              type="button"
+              class="filter-option-row"
+              [class.active]="filterDraft().projectTypeIds.includes(opt.id)"
+              [attr.aria-pressed]="filterDraft().projectTypeIds.includes(opt.id)"
+              (click)="toggleProjectType(opt.id)">
+              <span class="option-main">
+                <span class="option-check" [attr.aria-hidden]="true">
+                  {{ filterDraft().projectTypeIds.includes(opt.id) ? '✓' : '' }}
+                </span>
+                <span class="option-label">{{ opt.name }}</span>
+              </span>
+              <span class="option-count">{{ opt.count }}</span>
+            </button>
+            }
+            @if (filteredProjectTypeOptions().length === 0) {
+            <p class="filter-empty">No matching project types.</p>
+            }
+          </div>
+          @if (hiddenProjectTypeOptionsCount() > 0) {
+          <button
+            type="button"
+            class="btn btn-link btn-sm unavailable-toggle"
+            [attr.aria-pressed]="showUnavailableProjectTypes()"
+            (click)="showUnavailableProjectTypes.set(!showUnavailableProjectTypes())">
+            {{ showUnavailableProjectTypes() ? 'Hide unavailable' : 'Show unavailable (' + hiddenProjectTypeOptionsCount() + ')' }}
+          </button>
+          }
+        </div>
+
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label">Project</span>
+            <span class="filter-summary">{{ filterDraft().projectIds.length ? filterDraft().projectIds.length + ' selected' : 'All Projects' }}</span>
+          </div>
+          <div class="filters-options options-list">
+            @if (projectOptionsSignal().length > 5) {
+            <input
+              type="search"
+              class="form-control form-control-sm"
+              placeholder="Search projects..."
+              [value]="projectFilterSearch()"
+              (input)="projectFilterSearch.set($any($event.target).value)"
+              aria-label="Search projects" />
+            }
+            @for (opt of filteredProjectOptions(); track opt.id) {
+            <button
+              type="button"
+              class="filter-option-row"
+              [class.active]="filterDraft().projectIds.includes(opt.id)"
+              [attr.aria-pressed]="filterDraft().projectIds.includes(opt.id)"
+              (click)="toggleProject(opt.id)">
+              <span class="option-main">
+                <span class="option-check" [attr.aria-hidden]="true">
+                  {{ filterDraft().projectIds.includes(opt.id) ? '✓' : '' }}
+                </span>
+                <span class="option-label">{{ opt.name }}</span>
+              </span>
+              <span class="option-count">{{ opt.count }}</span>
+            </button>
+            }
+            @if (filteredProjectOptions().length === 0) {
+            <p class="filter-empty">No matching projects.</p>
+            }
+          </div>
+          @if (hiddenProjectOptionsCount() > 0) {
+          <button
+            type="button"
+            class="btn btn-link btn-sm unavailable-toggle"
+            [attr.aria-pressed]="showUnavailableProjects()"
+            (click)="showUnavailableProjects.set(!showUnavailableProjects())">
+            {{ showUnavailableProjects() ? 'Hide unavailable' : 'Show unavailable (' + hiddenProjectOptionsCount() + ')' }}
+          </button>
+          }
+        </div>
+
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label" id="status-filter-label">Project Status</span>
+            <span class="filter-summary">
+              {{ filterDraft().status === 'all' ? 'All' : (filterDraft().status === 'active' ? 'Active' : 'Inactive') }}
+            </span>
+          </div>
+          <div class="filters-pill-group" role="radiogroup" aria-labelledby="status-filter-label">
+            <button
+              type="button"
+              class="btn filter-option-row filter-status-option"
+              [class.active]="filterDraft().status === 'all'"
+              [attr.aria-pressed]="filterDraft().status === 'all'"
+              (click)="setStatusFilter('all')">
+              All
+            </button>
+            <button
+              type="button"
+              class="btn filter-option-row filter-status-option"
+              [class.active]="filterDraft().status === 'active'"
+              [attr.aria-pressed]="filterDraft().status === 'active'"
+              (click)="setStatusFilter('active')">
+              Active
+            </button>
+            <button
+              type="button"
+              class="btn filter-option-row filter-status-option"
+              [class.active]="filterDraft().status === 'inactive'"
+              [attr.aria-pressed]="filterDraft().status === 'inactive'"
+              (click)="setStatusFilter('inactive')">
+              Inactive
+            </button>
+          </div>
+        </div>
+
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label">Regions</span>
+            <span class="filter-summary">{{ filterDraft().regions.length ? filterDraft().regions.length + ' selected' : 'All Regions' }}</span>
+          </div>
+          <div class="filters-options options-list">
+            @for (region of availableRegions(); track region) {
+            <button
+              type="button"
+              class="filter-option-row"
+              [class.active]="filterDraft().regions.includes(region)"
+              [attr.aria-pressed]="filterDraft().regions.includes(region)"
+              (click)="toggleRegion(region)">
+              <span class="option-main">
+                <span class="option-check" [attr.aria-hidden]="true">
+                  {{ filterDraft().regions.includes(region) ? '✓' : '' }}
+                </span>
+                <span class="option-label">{{ region }}</span>
+              </span>
+            </button>
+            }
+            @if (availableRegions().length === 0) {
+            <p class="filter-empty">No regions available.</p>
+            }
+          </div>
+        </div>
       </div>
-    </aside>
+    </div>
+
+    <div class="fleet-filter-overlay-footer filters-actions">
+      <button type="button" class="btn btn-outline-primary" (click)="cancelFiltersPanel()">Cancel</button>
+      <button type="button" class="btn btn-primary" [disabled]="!draftHasChanges()" (click)="applyFilters()">
+        Apply ({{ draftResultCount() }})
+      </button>
+    </div>
+  </section>
+  }
+
+  <main class="fleet-shell-map-stage">
+    @if (showBlockingRequiredDataLoading()) {
+    <div class="map-data-state-banner loading" role="status" aria-live="polite">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+      Loading backend data from Clients, Projects, Manufacturers, and Locations...
+    </div>
+    }
+
+    @if (hasRequiredEndpointError()) {
+    <div class="map-data-state-banner error" role="alert">
+      <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 w-100">
+        <div>
+          <strong>Failed to load required backend data.</strong>
+          @if (endpointErrorSummary()) {
+          <div class="fs-12 mt-1">{{ endpointErrorSummary() }}</div>
+          }
+        </div>
+        <button type="button" class="btn btn-sm btn-primary" (click)="retryRequiredDataLoad()">Retry</button>
+      </div>
+    </div>
+    }
+
+    <app-fluorescence-map-map class="fleet-shell-map-fill" [screenshotMode]="screenshotMode()"
+      [dashboardFullscreenMode]="dashboardFullscreenMode()"
+      [dashboardFullscreen]="dashboardFullscreen()"
+      [fullscreenContainerSelector]="shellFullscreenSelector"
+      [nodes]="shouldPassMapData() ? strictMapNodes() : []"
+      [selectedEntity]="selectedEntity()"
+      [transitRoutes]="[]"
+      [projectRoutes]="shouldPassMapData() ? strictMapProjectRoutes() : []"
+      [filterStatus]="effectiveStatusFilter()"
+      (nodeSelected)="onNodeSelected($event)"
+      (routeSelected)="onRouteSelected($event)"
+      (zoomStable)="onMapZoomStable($event)"
+      (userInteracted)="onMapUserInteracted()"
+      (dashboardFullscreenToggleRequested)="dashboardFullscreenToggleRequested.emit()"
+      (fullscreenChange)="onMapFullscreenChange($event)"
+      (zoomedToEntity)="onMapZoomedToEntity()"
+      (previousViewRestored)="onPreviousViewRestored()"></app-fluorescence-map-map>
+
+    @if (showReturnToPreviousView() && mapComponent()) {
+    <button type="button" class="btn btn-sm war-room-return-previous-btn" (click)="mapComponent()!.restorePreviousView()"
+      aria-label="Return to previous map view" title="Return to previous map view">
+      <i class="fe fe-arrow-left" aria-hidden="true"></i>
+      Return to previous view
+    </button>
+    }
+
+    @if (showEmptyStateOverlay()) {
+    <div class="empty-state-overlay">
+      <div class="empty-state-content card custom-card shadow-lg border-0">
+        <h5 class="fw-bold mb-2">{{ mapViewModelStrict().emptyState.message ?? 'No map entities match current filters' }}</h5>
+        <p class="text-muted mb-4 fs-13">Try adjusting your filters, or clear all filters to see the full map.</p>
+        <button class="btn btn-primary w-100" (click)="clearAllFilters()">
+          <i class="fe fe-x me-2"></i> Clear All Filters
+        </button>
+      </div>
+    </div>
     }
   </main>
+
+  }
+
+  <section class="fleet-shell-table-zone" [class.data-management-only]="dataManagementOnly()">
+    <app-fleet-activity-table
+      [rows]="activityTableRows()"
+      [clientRows]="clientTableRows()"
+      [manufacturerRows]="manufacturerTableRows()"
+      [locationRows]="locationTableRows()"
+      [canEdit]="canEditWarRoom()"
+      [open]="dataManagementOnly() ? true : panelVisible()"
+      [layoutMode]="'inline'"
+      [selectedProjectId]="selectedProjectId()"
+      [showClearFilters]="activeFilters().length > 0"
+      (openChange)="onTableOpenChange($event)"
+      (rowView)="onActivityRowView($event)"
+      (clientView)="onClientRowView($event)"
+      (manufacturerView)="onManufacturerRowView($event)"
+      (locationView)="onLocationRowView($event)"
+      (rowDelete)="onActivityRowDelete($event)"
+      (rowSelected)="onActivityRowSelected($event)"
+      (rowHovered)="onActivityRowHovered($event)"
+      (rowSaveRequested)="onActivityRowSaveRequested($event)"
+      (rowCreateRequested)="onActivityRowCreateRequested($event)"
+      (clientSaveRequested)="onClientRowSaveRequested($event)"
+      (clientCreateRequested)="onClientRowCreateRequested($event)"
+      (manufacturerSaveRequested)="onManufacturerRowSaveRequested($event)"
+      (manufacturerCreateRequested)="onManufacturerRowCreateRequested($event)"
+      (locationSaveRequested)="onLocationRowSaveRequested($event)"
+      (locationCreateRequested)="onLocationRowCreateRequested($event)"
+      (clearFiltersRequested)="clearAllFilters()">
+    </app-fleet-activity-table>
+  </section>
 </div>

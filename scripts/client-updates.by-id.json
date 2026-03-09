@@ -1,0 +1,74 @@
+[
+  {
+    "id": 10,
+    "customerName": "DRT",
+    "latitude": 43.8509,
+    "longitude": -79.0369
+  },
+  {
+    "id": 21,
+    "customerName": "Electromin",
+    "latitude": 21.5433,
+    "longitude": 39.1925
+  },
+  {
+    "id": 15,
+    "customerName": "Halifax Transit",
+    "latitude": 44.6708,
+    "longitude": -63.5752
+  },
+  {
+    "id": 24,
+    "customerName": "Kingston Transit",
+    "latitude": 44.2298,
+    "longitude": -76.481
+  },
+  {
+    "id": 8,
+    "customerName": "Metrolinx",
+    "latitude": 43.6532,
+    "longitude": -79.3832
+  },
+  {
+    "id": 20,
+    "customerName": "OC Transpo",
+    "latitude": 45.4215,
+    "longitude": -75.6972
+  },
+  {
+    "id": 23,
+    "customerName": "Ontario Northland",
+    "latitude": 46.3091,
+    "longitude": -79.4608
+  },
+  {
+    "id": 18,
+    "customerName": "SP+",
+    "latitude": 41.8781,
+    "longitude": -87.6298
+  },
+  {
+    "id": 17,
+    "customerName": "Saskatoon Transit",
+    "latitude": 52.1332,
+    "longitude": -106.67
+  },
+  {
+    "id": 3,
+    "customerName": "TTC",
+    "latitude": 43.6532,
+    "longitude": -79.3832
+  },
+  {
+    "id": 11,
+    "customerName": "Translink",
+    "latitude": 49.2248,
+    "longitude": -122.9108
+  },
+  {
+    "id": 9,
+    "customerName": "YRT",
+    "latitude": 43.8828,
+    "longitude": -79.4403
+  }
+]

@@ -1,4 +1,4 @@
-import { Component, input, output, AfterViewInit, OnDestroy, inject, effect, signal, computed, ViewChild, ElementRef } from '@angular/core';
+import { Component, input, output, AfterViewInit, OnDestroy, inject, effect, signal, computed, ViewChild, ElementRef, isDevMode } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
 import { Node as WarRoomNode, FleetSelection, TransitRoute, ProjectRoute } from '../../../../models/fluorescence-map.interface';
@@ -9,6 +9,10 @@ import { FluorescenceMapMapControlsComponent } from './controls/fluorescence-map
 import { FluorescenceMapMapTooltipComponent, TooltipVm } from './tooltip/fluorescence-map-map-tooltip.component';
 import { FluorescenceMapMathService } from './services/fluorescence-map-map-math.service';
 import { WarRoomMapAssetsService } from './services/fluorescence-map-map-assets.service';
+import {
+  FluorescenceMapMapOverlayService,
+  MapFactoryRef,
+} from './services/fluorescence-map-map-overlay.service';
 import { MarkerVm, MarkerNodeType } from './fluorescence-map-map.vm';
 import { FluorescenceMapMapRoutesComponent, RouteVm } from './routes/fluorescence-map-map-routes.component';
 import { FluorescenceMapMapMarkersComponent } from './markers/fluorescence-map-map-markers.component';
@@ -21,31 +25,6 @@ type MapEnvironmentConfig = typeof environment & {
   mapStyles?: { light?: string; dark?: string };
   geocodeApiUrl?: string;
 };
-
-interface RouteFeatureProperties {
-  strokeWidth: number;
-  dashArray?: string;
-  highlighted: boolean;
-  routeId: string;
-  strokeColor?: string;
-  projectId?: string;
-  fromNodeId?: string;
-  toNodeId?: string;
-}
-
-interface RouteFeature {
-  type: 'Feature';
-  geometry: {
-    type: 'LineString';
-    coordinates: [number, number][];
-  };
-  properties: RouteFeatureProperties;
-}
-
-interface RouteFeatureCollection {
-  type: 'FeatureCollection';
-  features: RouteFeature[];
-}
 
 @Component({
   selector: 'app-fluorescence-map-map',
@@ -63,6 +42,9 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   private readonly envConfig = environment as MapEnvironmentConfig;
   // Inputs
   screenshotMode = input<boolean>(false);
+  dashboardFullscreenMode = input<boolean>(false);
+  dashboardFullscreen = input<boolean>(false);
+  fullscreenContainerSelector = input<string | null>(null);
   nodes = input<WarRoomNode[]>([]);
   selectedEntity = input<FleetSelection | null>(null);
   transitRoutes = input<TransitRoute[]>([]);
@@ -73,7 +55,9 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   nodeSelected = output<WarRoomNode | undefined>();
   routeSelected = output<{ routeId: string; projectId?: string }>();
   zoomStable = output<number>();
-  addProjectRequested = output<void>();
+  userInteracted = output<void>();
+  dashboardFullscreenToggleRequested = output<void>();
+  fullscreenChange = output<boolean>();
   zoomedToEntity = output<void>();
   previousViewRestored = output<void>();
 
@@ -85,12 +69,15 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   private destroyed = false;
   private pendingZoomEntityId: string | null = null;
   private readonly geocodedCoordinatesByNodeId = new Map<string, { latitude: number; longitude: number }>();
-  private isFullscreen = false;
   private fullscreenHandler: (() => void) | null = null;
   private overlayUpdateRaf: number | null = null;
   private overlayEnsureCoords = false;
-  private selectionZoomTimeoutId: any = null;
+  private overlaySyncInFlight = false;
+  private overlaySyncQueued = false;
+  private initMapStartTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private selectionZoomTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private zoomStableTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private resizeTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private previousViewState: { center: [number, number]; zoom: number } | null = null;
   private initMapRetryCount = 0;
   private static readonly INIT_MAP_MAX_RETRIES = 10;
@@ -139,6 +126,9 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
 
   // Signals
   readonly fullscreenState = signal<boolean>(false);
+  readonly effectiveFullscreen = computed(() =>
+    this.dashboardFullscreenMode() ? this.dashboardFullscreen() : this.fullscreenState()
+  );
   private readonly hoveredNode = signal<WarRoomNode | null>(null);
   private readonly pinnedNodeId = signal<string | null>(null);
   readonly containerRect = signal<DOMRect | null>(null);
@@ -151,22 +141,24 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   readonly mapLoadError = signal<string | null>(null);
   readonly mapLoadErrorDetail = signal<string | null>(null);
   readonly mapLoading = signal<boolean>(true);
+  readonly mapRuntimeWarning = signal<string | null>(null);
   /** When true, user dismissed the error overlay; non-map UI remains usable. */
   readonly mapErrorDismissed = signal<boolean>(false);
   /** When true, retry will not help (e.g. WebGL unsupported); Retry is disabled. */
   readonly mapErrorUnrecoverable = signal<boolean>(false);
   private mapErrorToastShown = false;
-  readonly contextMenuVisible = signal<boolean>(false);
-  readonly contextMenuPosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
+  private mapWarningToastShown = false;
 
   // Services
   private warRoomService = inject(WarRoomService);
   private appStateService = inject(AppStateService);
   private mathService = inject(FluorescenceMapMathService);
   private assetsService = inject(WarRoomMapAssetsService);
+  private overlayService = inject(FluorescenceMapMapOverlayService);
   private toastr = inject(ToastrService);
 
   currentTheme = signal<'light' | 'dark'>('dark');
+  readonly isDev = isDevMode();
 
   private appState = toSignal(this.appStateService.state$, {
     initialValue: {
@@ -194,6 +186,13 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     });
 
     effect(() => {
+      const inDashboardMode = this.dashboardFullscreenMode();
+      const dashboardIsFullscreen = this.dashboardFullscreen();
+      if (!inDashboardMode) return;
+      this.setFullscreenState(dashboardIsFullscreen, true);
+    });
+
+    effect(() => {
       const selected = this.selectedEntity();
       const container = document.querySelector('.war-room-map-container') as HTMLElement | null;
       if (container) {
@@ -218,12 +217,10 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       const selected = this.selectedEntity();
       const hovered = this.warRoomService.hoveredEntity();
-      const routes = this.transitRoutes();
       const projectRoutes = this.projectRoutes();
       const status = this.filterStatus();
       void selected;
       void hovered;
-      void routes;
       void projectRoutes;
       void status;
       if (this.mapInstance && this.mapLoaded && !this.destroyed) {
@@ -294,15 +291,22 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    setTimeout(() => this.initMap(), 0);
+    this.initMapStartTimeoutId = setTimeout(() => {
+      this.initMapStartTimeoutId = null;
+      this.initMap();
+    }, 0);
     this.setupResizeObserver();
     this.setupFullscreenListeners();
   }
 
   retryMapLoad(): void {
     if (this.mapErrorUnrecoverable()) return;
+    this.disposeMapInstance();
+    this.mapErrorToastShown = false;
+    this.mapWarningToastShown = false;
     this.mapLoadError.set(null);
     this.mapLoadErrorDetail.set(null);
+    this.mapRuntimeWarning.set(null);
     this.mapErrorDismissed.set(false);
     this.mapErrorUnrecoverable.set(false);
     this.mapLoading.set(true);
@@ -314,8 +318,17 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     this.mapErrorDismissed.set(true);
   }
 
+  dismissMapRuntimeWarning(): void {
+    this.mapRuntimeWarning.set(null);
+  }
+
   ngOnDestroy(): void {
     this.destroyed = true;
+
+    if (this.initMapStartTimeoutId) {
+      clearTimeout(this.initMapStartTimeoutId);
+      this.initMapStartTimeoutId = null;
+    }
 
     if (this.selectionZoomTimeoutId) {
       clearTimeout(this.selectionZoomTimeoutId);
@@ -324,6 +337,10 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     if (this.zoomStableTimeoutId) {
       clearTimeout(this.zoomStableTimeoutId);
       this.zoomStableTimeoutId = null;
+    }
+    if (this.resizeTimeoutId) {
+      clearTimeout(this.resizeTimeoutId);
+      this.resizeTimeoutId = null;
     }
 
     if (this.fullscreenHandler) {
@@ -341,10 +358,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       this.overlayUpdateRaf = null;
     }
 
-    if (this.mapInstance) {
-      this.mapInstance.remove();
-      this.mapInstance = null;
-    }
+    this.disposeMapInstance();
   }
 
   private getCompanyLogoSource(node: WarRoomNode): string | null {
@@ -407,10 +421,6 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     const country = (node.country || '').trim();
     if (city && country) return `${city}, ${country}`;
     return city || country || '';
-  }
-
-  private getNodesWithValidCoordinates(nodes: WarRoomNode[]): WarRoomNode[] {
-    return nodes.filter((node) => isValidCoordinates(this.getNodeCoordinates(node)));
   }
 
   private getNodeCoordinates(node: WarRoomNode): { latitude: number; longitude: number } | null {
@@ -502,19 +512,6 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
 
   clearPinned(): void {
     this.pinnedNodeId.set(null);
-    this.contextMenuVisible.set(false);
-  }
-
-  onMapContextMenu(event: MouseEvent): void {
-    if (this.screenshotMode()) return;
-    event.preventDefault();
-    this.contextMenuPosition.set({ x: event.clientX, y: event.clientY });
-    this.contextMenuVisible.set(true);
-  }
-
-  onContextMenuAddProject(): void {
-    this.contextMenuVisible.set(false);
-    this.addProjectRequested.emit();
   }
 
   onRouteSelected(payload: { routeId: string; projectId?: string }): void {
@@ -550,14 +547,42 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
 
     this.overlayUpdateRaf = requestAnimationFrame(() => {
       this.overlayUpdateRaf = null;
-      const shouldEnsure = this.overlayEnsureCoords;
-      this.overlayEnsureCoords = false;
-      void this.syncOverlays(shouldEnsure);
+      if (this.overlaySyncInFlight) {
+        this.overlaySyncQueued = true;
+        return;
+      }
+      this.runOverlaySync();
     });
+  }
+
+  private runOverlaySync(): void {
+    if (this.overlaySyncInFlight || this.destroyed) return;
+    const shouldEnsure = this.overlayEnsureCoords;
+    this.overlayEnsureCoords = false;
+    this.overlaySyncInFlight = true;
+    void this.syncOverlays(shouldEnsure)
+      .catch((err) => {
+        console.warn('Map overlay sync failed:', err);
+      })
+      .finally(() => {
+        this.overlaySyncInFlight = false;
+        if (this.destroyed) return;
+        if (this.overlaySyncQueued || this.overlayEnsureCoords) {
+          this.overlaySyncQueued = false;
+          this.scheduleOverlayUpdate(false);
+        }
+      });
   }
 
   private getMapContainer(): HTMLElement | null {
     return this.mapContainerRef?.nativeElement ?? document.getElementById('war-room-map');
+  }
+
+  private disposeMapInstance(): void {
+    if (!this.mapInstance) return;
+    this.mapInstance.remove();
+    this.mapInstance = null;
+    this.mapLoaded = false;
   }
 
   /**
@@ -579,11 +604,37 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     this.mapLoadError.set(msg);
     this.mapLoadErrorDetail.set(detail);
     this.mapLoading.set(false);
+    this.mapRuntimeWarning.set(null);
     this.mapErrorUnrecoverable.set(unrecoverable);
+    if (this.isDev && detail) {
+      console.error('Map fatal error detail:', detail);
+    }
     if (showToast && !this.mapErrorToastShown) {
       this.mapErrorToastShown = true;
       this.toastr.error(msg, 'Map failed to load');
     }
+  }
+
+  private setRecoverableMapWarning(msg: string): void {
+    this.mapRuntimeWarning.set(msg);
+    this.mapLoading.set(false);
+    this.mapErrorUnrecoverable.set(false);
+    this.mapErrorDismissed.set(false);
+    if (!this.mapWarningToastShown) {
+      this.mapWarningToastShown = true;
+      this.toastr.warning(msg, 'Map warning');
+    }
+  }
+
+  private getFactoriesSafe(): MapFactoryRef[] {
+    const factoriesSource =
+      (this.warRoomService as unknown as {
+        factories?: () => MapFactoryRef[];
+      }).factories;
+    if (typeof factoriesSource !== 'function') {
+      return [];
+    }
+    return factoriesSource.call(this.warRoomService) ?? [];
   }
 
   /** Detect errors that indicate WebGL is disabled or unsupported; retry will not help. */
@@ -599,6 +650,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   }
 
   private initMap(): void {
+    if (this.destroyed) return;
     const container = this.getMapContainer();
     if (!container) {
       this.setMapError(
@@ -656,6 +708,11 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       const errorObj = e.error as Error | undefined;
       const detail = errorObj?.stack ?? errorObj?.message ?? null;
       const unrecoverable = this.isUnrecoverableMapError(msg, String(detail ?? ''));
+      const isRecoverableRuntime = this.mapLoaded && !unrecoverable;
+      if (isRecoverableRuntime) {
+        this.setRecoverableMapWarning(msg);
+        return;
+      }
       this.setMapError(msg, detail, unrecoverable, true);
     });
 
@@ -664,8 +721,11 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       this.mapLoading.set(false);
       this.mapLoadError.set(null);
       this.mapLoadErrorDetail.set(null);
+      this.mapRuntimeWarning.set(null);
       this.mapErrorDismissed.set(false);
       this.mapErrorUnrecoverable.set(false);
+      this.mapErrorToastShown = false;
+      this.mapWarningToastShown = false;
       this.mapLoaded = true;
       this.updateContainerRect();
       this.scheduleOverlayUpdate(true);
@@ -680,6 +740,11 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     this.mapInstance.on('move', () => {
       if (!this.mapLoaded) return;
       this.scheduleOverlayUpdate(false);
+    });
+
+    this.mapInstance.on('movestart', (event: { originalEvent?: Event }) => {
+      if (!event?.originalEvent) return;
+      this.userInteracted.emit();
     });
 
     this.mapInstance.on('zoom', () => {
@@ -743,12 +808,16 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       if (this.destroyed || !this.mapInstance) return;
       // Resize map first, then update overlays
       this.mapInstance.resize();
-      // Use setTimeout to ensure map has finished resizing
-      setTimeout(() => {
+      if (this.resizeTimeoutId) {
+        clearTimeout(this.resizeTimeoutId);
+      }
+      // Use a small debounce to avoid overlay churn while resizing continuously.
+      this.resizeTimeoutId = setTimeout(() => {
         if (!this.destroyed) {
           this.updateContainerRect();
           this.scheduleOverlayUpdate(false);
         }
+        this.resizeTimeoutId = null;
       }, 50);
     });
 
@@ -757,15 +826,42 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
 
   private setupFullscreenListeners(): void {
     const handler = () => {
-      const isFull = !!document.fullscreenElement;
-      this.isFullscreen = isFull;
-      this.fullscreenState.set(isFull);
-      if (this.mapInstance) {
-        setTimeout(() => this.mapInstance?.resize(), 50);
-      }
+      const fullscreenEl = document.fullscreenElement;
+      const container = this.getFullscreenContainer();
+      const active = !!fullscreenEl && !!container && fullscreenEl === container;
+      this.setFullscreenState(active, true);
     };
     this.fullscreenHandler = handler;
     document.addEventListener('fullscreenchange', handler);
+  }
+
+  private setFullscreenState(active: boolean, emit = false): void {
+    this.fullscreenState.set(active);
+    if (emit) {
+      this.fullscreenChange.emit(active);
+    }
+    if (this.mapInstance) {
+      setTimeout(() => this.mapInstance?.resize(), 50);
+    }
+  }
+
+  private getFullscreenContainer(): HTMLElement | null {
+    const selector = this.fullscreenContainerSelector()?.trim();
+    if (selector) {
+      const selected = document.querySelector(selector);
+      if (selected instanceof HTMLElement) {
+        return selected;
+      }
+    }
+
+    const localContainer =
+      this.mapContainerRef?.nativeElement?.closest('.war-room-map-container') ?? null;
+    if (localContainer instanceof HTMLElement) {
+      return localContainer;
+    }
+
+    const fallback = document.querySelector('.war-room-map-container');
+    return fallback instanceof HTMLElement ? fallback : null;
   }
 
   private updateContainerRect(): void {
@@ -781,113 +877,44 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     // Defensive check for initialization state (rare but possible in some test/mock scenarios)
     if (!this.routesVm || !this.markersVm) return;
 
-    const allNodes = this.nodes();
-    const zoom = this.mapInstance.getZoom();
-
+    const nodes = this.nodes();
     if (ensureCoords) {
-      await this.ensureNodeCoordinates(allNodes);
+      await this.ensureNodeCoordinates(nodes);
     }
 
-    const nodes = this.getNodesWithValidCoordinates(allNodes);
-
-    const selected = this.selectedEntity();
-    const hovered = this.warRoomService.hoveredEntity();
-    const baseUrl = window.location.origin;
-
-    const markerPixels = new Map<string, { x: number; y: number }>();
-    const projectStatusByNodeId = this.buildProjectStatusByNodeId(this.projectRoutes());
-    const markers: MarkerVm[] = [];
-
-    nodes.forEach((node) => {
-      const displayCoords = this.getEffectiveCoordinates(node, nodes);
-      if (!isValidCoordinates(displayCoords)) return;
-      const safeDisplayCoords = displayCoords as { longitude: number; latitude: number };
-      const point = this.mapInstance!.project([safeDisplayCoords.longitude, safeDisplayCoords.latitude]);
-      markerPixels.set(node.id, { x: point.x, y: point.y });
-      const projectStatusColor = this.getProjectStatusColor(node, projectStatusByNodeId);
-      const vm = this.buildMarkerVm(node, zoom, selected, hovered, baseUrl, safeDisplayCoords, projectStatusColor);
-      markers.push(vm);
+    const overlays = this.overlayService.buildOverlayModels({
+      nodes,
+      selected: this.selectedEntity(),
+      hovered: this.warRoomService.hoveredEntity(),
+      projectRoutes: this.projectRoutes(),
+      transitRoutes: [],
+      filterStatus: this.filterStatus(),
+      routeColor: this.getRouteColor(),
+      map: this.mapInstance,
+      factories: this.getFactoriesSafe(),
+      parallelRouteOffsetPixels: this.PARALLEL_ROUTE_OFFSET_PIXELS,
+      getNodeCoordinates: (node) => this.getNodeCoordinates(node),
+      buildMarkerVm: (
+        node,
+        zoom,
+        selected,
+        hovered,
+        displayCoordinates,
+        projectStatusColor
+      ) =>
+        this.buildMarkerVm(
+          node,
+          zoom,
+          selected,
+          hovered,
+          displayCoordinates,
+          projectStatusColor
+        ),
     });
 
-    const featureCollection = this.buildRouteFeatures(nodes);
-    const routes: RouteVm[] = [];
-
-    const projectRouteGroups = new Map<string, number[]>();
-    featureCollection.features.forEach((f, idx) => {
-      const fid = f.properties.fromNodeId;
-      const tid = f.properties.toNodeId;
-      if (fid && tid) {
-        const key = `${fid}|${tid}`;
-        const arr = projectRouteGroups.get(key) ?? [];
-        arr.push(idx);
-        projectRouteGroups.set(key, arr);
-      }
-    });
-
-    featureCollection.features.forEach((feature, index) => {
-      const coords = feature.geometry.coordinates;
-      if (coords.length < 2) return;
-      const fid = feature.properties.fromNodeId;
-      const tid = feature.properties.toNodeId;
-      // Resolve pixel from markerPixels; fallback to matching node when endpoint id differs (e.g. subsidiary vs factory)
-      let startPixel = fid ? markerPixels.get(fid) : undefined;
-      if (!startPixel && fid) {
-        const fromNode = nodes.find((n) => this.nodeMatchesProjectRouteEndpoint(n, fid, true));
-        if (fromNode) startPixel = markerPixels.get(fromNode.id);
-      }
-      let endPixel = tid ? markerPixels.get(tid) : undefined;
-      if (!endPixel && tid) {
-        const toNode = nodes.find((n) => this.nodeMatchesProjectRouteEndpoint(n, tid, false));
-        if (toNode) endPixel = markerPixels.get(toNode.id);
-      }
-      let startPoint = startPixel
-        ? { x: startPixel.x, y: startPixel.y }
-        : this.mapInstance!.project(coords[0]);
-      let endPoint = endPixel
-        ? { x: endPixel.x, y: endPixel.y }
-        : this.mapInstance!.project(coords[1]);
-      let groupIndex = -1;
-      let groupSize = 1;
-      if (fid && tid) {
-        const key = `${fid}|${tid}`;
-        const indices = projectRouteGroups.get(key);
-        if (indices && indices.length > 1) {
-          groupIndex = indices.indexOf(index);
-          groupSize = indices.length;
-        }
-        // Always align marker with route line endpoint (for both single and parallel routes)
-        this.updateMarkerPixelsForRouteEndpoints(
-          markerPixels,
-          nodes,
-          fid,
-          tid,
-          startPoint,
-          endPoint,
-          indices,
-          index
-        );
-      }
-      const path = this.createRoutePath(startPoint, endPoint, groupIndex, groupSize);
-      if (!path) return;
-      const routeId = feature.properties.routeId || `route-${index}`;
-      routes.push({
-        id: routeId,
-        path,
-        start: { x: startPoint.x, y: startPoint.y },
-        end: { x: endPoint.x, y: endPoint.y },
-        index,
-        beginOffset: this.getRouteBeginOffset(routeId, index),
-        highlighted: feature.properties.highlighted,
-        strokeWidth: feature.properties.strokeWidth || 1.5,
-        dashArray: feature.properties.dashArray,
-        strokeColor: feature.properties.strokeColor,
-        projectId: feature.properties.projectId,
-      });
-    });
-
-    this.markerPixelCoordinates.set(markerPixels);
-    this.markersVm.set(markers);
-    this.routesVm.set(routes);
+    this.markerPixelCoordinates.set(overlays.markerPixels);
+    this.markersVm.set(overlays.markers);
+    this.routesVm.set(overlays.routes);
   }
 
   private buildMarkerVm(
@@ -895,7 +922,6 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     zoom: number,
     selected: FleetSelection | null,
     hovered: FleetSelection | null,
-    baseUrl: string,
     displayCoordinates: { longitude: number; latitude: number } | undefined,
     projectStatusColor: string
   ): MarkerVm {
@@ -915,6 +941,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
 
     const logoSource = this.getCompanyLogoSource(node);
     const failures = logoSource ? this.logoFailureCache.get(logoSource) : undefined;
+    const baseUrl = window.location.origin;
     const logoPath = logoSource
       ? this.assetsService.getPreferredLogoPath(logoSource, baseUrl, failures)
       : '';
@@ -953,9 +980,11 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       node.level === 'client' || node.clientId
         ? 'client'
         : (node.level ?? 'factory') as MarkerNodeType;
+    const renderKey = `${node.level ?? nodeType}:${node.id}`;
 
     return {
       id: node.id,
+      renderKey,
       node,
       nodeType,
       isCluster,
@@ -1056,15 +1085,22 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   }
 
   toggleFullscreen(): void {
-    const container = document.querySelector('.war-room-map-container') as HTMLElement | null;
+    if (this.dashboardFullscreenMode()) {
+      this.dashboardFullscreenToggleRequested.emit();
+      return;
+    }
+
+    const container = this.getFullscreenContainer();
     if (!container) return;
 
-    if (!this.isFullscreen) {
+    const fullscreenEl = document.fullscreenElement;
+
+    if (!fullscreenEl) {
       if (container.requestFullscreen) {
         void container.requestFullscreen();
       }
     } else {
-      if (document.exitFullscreen) {
+      if (fullscreenEl === container && document.exitFullscreen) {
         void document.exitFullscreen();
       }
     }
@@ -1167,6 +1203,22 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
     this.mapInstance.fitBounds(bounds, { padding: 80, duration: 800, maxZoom: 10 });
   }
 
+  /** Fit map view to include all given nodes (e.g. after applying filters so the result is visible). */
+  fitBoundsToNodes(nodes: WarRoomNode[]): void {
+    if (!this.mapInstance || !this.mapLoaded || !nodes?.length) return;
+    const bounds = new maplibregl.LngLatBounds();
+    let hasBounds = false;
+    for (const node of nodes) {
+      const coords = this.getNodeCoordinates(node);
+      if (coords && isValidCoordinates(coords)) {
+        bounds.extend([coords.longitude, coords.latitude]);
+        hasBounds = true;
+      }
+    }
+    if (!hasBounds) return;
+    this.mapInstance.fitBounds(bounds, { padding: 80, duration: 800, maxZoom: 10 });
+  }
+
   async captureRouteScreenshot(route: ProjectRoute): Promise<Blob> {
     return this.captureRoutesScreenshot([route]);
   }
@@ -1242,8 +1294,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       });
 
       return await this.canvasToBlob(canvas);
-    } catch (error) {
-      console.warn('Falling back to canvas-only map capture:', error);
+    } catch {
       return this.captureCanvasAsBlob();
     }
   }
@@ -1294,8 +1345,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       }
       ctx.drawImage(overlayCanvas, 0, 0, composite.width, composite.height);
       return await this.canvasToBlob(composite);
-    } catch (error) {
-      console.warn('Falling back to container capture after composite failure:', error);
+    } catch {
       return this.captureMapContainerAsBlob();
     }
   }
@@ -1413,351 +1463,11 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   private isHub(node: WarRoomNode): boolean {
     return node.type === 'Hub' || node.isHub === true;
   }
-
-  /** Returns true if the node is the route endpoint identified by endpointId (route.from or route.to). */
-  private nodeMatchesEndpointId(node: WarRoomNode, endpointId: string, nodes: WarRoomNode[]): boolean {
-    const nid = endpointId.toLowerCase();
-    if (node.id === endpointId || node.factoryId === endpointId || node.subsidiaryId === endpointId || node.parentGroupId === endpointId) {
-      return true;
-    }
-    const factory = this.warRoomService.factories().find(f => f.id === endpointId);
-    if (factory && (node.id === factory.subsidiaryId || node.id === factory.parentGroupId)) {
-      return true;
-    }
-    if ((nid.includes('fleetzero') || nid.includes('fleet-zero')) && (node.id === 'fleetzero' || (node.name && node.name.toLowerCase().includes('fleetzero')))) {
-      return true;
-    }
-    if (endpointId.startsWith('source-')) {
-      const baseId = endpointId.replace('source-', '');
-      if (node.id === baseId || node.factoryId === baseId || node.subsidiaryId === baseId) {
-        return true;
-      }
-      const baseFactory = this.warRoomService.factories().find(f => f.id === baseId);
-      if (baseFactory && (node.id === baseFactory.subsidiaryId || node.id === baseFactory.parentGroupId)) {
-        return true;
-      }
-    }
-    return (!!node.name && node.name.toLowerCase() === nid) || (!!node.company && node.company.toLowerCase().includes(nid));
-  }
-
-  /** Update marker pixel positions so they align exactly with route line endpoints. */
-  private updateMarkerPixelsForRouteEndpoints(
-    markerPixels: Map<string, { x: number; y: number }>,
-    nodes: WarRoomNode[],
-    fid: string,
-    tid: string,
-    startPoint: { x: number; y: number },
-    endPoint: { x: number; y: number },
-    indices: number[] | undefined,
-    index: number
-  ): void {
-    const shouldUpdate =
-      !indices || indices.length <= 1 || index === indices[Math.floor(indices.length / 2)];
-    if (!shouldUpdate) return;
-    markerPixels.set(fid, { x: startPoint.x, y: startPoint.y });
-    markerPixels.set(tid, { x: endPoint.x, y: endPoint.y });
-    nodes.forEach((n) => {
-      if (this.nodeMatchesProjectRouteEndpoint(n, fid, true)) {
-        markerPixels.set(n.id, { x: startPoint.x, y: startPoint.y });
-      }
-      if (this.nodeMatchesProjectRouteEndpoint(n, tid, false)) {
-        markerPixels.set(n.id, { x: endPoint.x, y: endPoint.y });
-      }
-    });
-  }
-
-  /** True if node represents a project route endpoint (factory or client). */
-  private nodeMatchesProjectRouteEndpoint(
-    node: WarRoomNode,
-    endpointId: string,
-    isToNode: boolean
-  ): boolean {
-    if (node.id === endpointId) return true;
-    if (node.factoryId === endpointId || node.subsidiaryId === endpointId) return true;
-    const factory = this.warRoomService.factories().find((f) => f.id === endpointId);
-    if (factory && (node.id === factory.subsidiaryId || node.id === factory.parentGroupId)) return true;
-    if (node.clientId === endpointId) return true;
-    return false;
-  }
-
-  /** Coordinates to use for marker position; prefer route endpoint coords when node is a route endpoint so marker aligns with the line. */
-  private getEffectiveCoordinates(node: WarRoomNode, nodes: WarRoomNode[]): { longitude: number; latitude: number } | null {
-    const projectRoutes = this.projectRoutes();
-    if (projectRoutes?.length) {
-      for (const route of projectRoutes) {
-        if (this.nodeMatchesProjectRouteEndpoint(node, route.toNodeId, true) && isValidCoordinates(route.toCoordinates)) {
-          return { longitude: route.toCoordinates.longitude, latitude: route.toCoordinates.latitude };
-        }
-        if (this.nodeMatchesProjectRouteEndpoint(node, route.fromNodeId, false) && isValidCoordinates(route.fromCoordinates)) {
-          return { longitude: route.fromCoordinates.longitude, latitude: route.fromCoordinates.latitude };
-        }
-      }
-    }
-
-    const routes = this.transitRoutes();
-    if (!routes?.length) {
-      return this.getNodeCoordinates(node);
-    }
-    for (const route of routes) {
-      if (this.nodeMatchesEndpointId(node, route.from, nodes) && isValidCoordinates(route.fromCoordinates)) {
-        return { longitude: route.fromCoordinates.longitude, latitude: route.fromCoordinates.latitude };
-      }
-      if (this.nodeMatchesEndpointId(node, route.to, nodes) && isValidCoordinates(route.toCoordinates)) {
-        return { longitude: route.toCoordinates.longitude, latitude: route.toCoordinates.latitude };
-      }
-    }
-    return this.getNodeCoordinates(node);
-  }
-
-  /**
-   * Build route path while preserving exact endpoint alignment to marker center.
-   * Parallel routes are separated by offsetting only the curve control point.
-   */
-  private createRoutePath(
-    start: { x: number; y: number },
-    end: { x: number; y: number },
-    indexInGroup: number,
-    groupSize: number
-  ): string {
-    if (groupSize <= 1 || indexInGroup < 0) {
-      return this.mathService.createCurvedPath(start, end);
-    }
-
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len < 1e-6) {
-      return this.mathService.createCurvedPath(start, end);
-    }
-
-    const midX = (start.x + end.x) / 2;
-    const midY = Math.min(start.y, end.y) - 50;
-    const perpX = -dy / len;
-    const perpY = dx / len;
-    const offsetAmount =
-      (indexInGroup - (groupSize - 1) / 2) * this.PARALLEL_ROUTE_OFFSET_PIXELS;
-
-    const sx = Number(start.x.toFixed(4));
-    const sy = Number(start.y.toFixed(4));
-    const ex = Number(end.x.toFixed(4));
-    const ey = Number(end.y.toFixed(4));
-    const cx = Number((midX + offsetAmount * perpX).toFixed(4));
-    const cy = Number((midY + offsetAmount * perpY).toFixed(4));
-    return `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`;
-  }
-
-  private buildRouteFeatures(nodes: WarRoomNode[]): RouteFeatureCollection {
-    const transitRoutes = this.transitRoutes();
-    const rawProjectRoutes = this.projectRoutes();
-    const selected = this.selectedEntity();
-    const features: RouteFeature[] = [];
-
-    const filterStatus = this.filterStatus();
-    const projectRoutes =
-      filterStatus === 'active'
-        ? (rawProjectRoutes ?? []).filter((r) => r.status === 'Open')
-        : filterStatus === 'inactive'
-          ? (rawProjectRoutes ?? []).filter((r) => r.status === 'Closed' || r.status === 'Delayed')
-          : rawProjectRoutes ?? [];
-
-    const addProjectRouteFeatures = (): void => {
-      if (!projectRoutes.length) return;
-      for (const route of projectRoutes) {
-        if (!isValidCoordinates(route.fromCoordinates) || !isValidCoordinates(route.toCoordinates)) continue;
-        const highlighted = !!selected && (
-          route.fromNodeId === selected.id ||
-          route.toNodeId === selected.id ||
-          route.fromNodeId === selected.factoryId ||
-          route.toNodeId === selected.factoryId
-        );
-        const strokeColor =
-          filterStatus === 'all'
-            ? route.status === 'Open'
-              ? '#00C853'
-              : '#D50000'
-            : this.getRouteColor();
-        // Render project routes from manufacturer -> client (directional animation).
-        const startCoords = route.toCoordinates;
-        const endCoords = route.fromCoordinates;
-        features.push({
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: [
-              [startCoords.longitude, startCoords.latitude],
-              [endCoords.longitude, endCoords.latitude]
-            ]
-          },
-          properties: {
-            strokeWidth: 2,
-            highlighted,
-            routeId: route.id,
-            projectId: route.projectId,
-            strokeColor,
-            fromNodeId: route.toNodeId,
-            toNodeId: route.fromNodeId,
-          }
-        });
-      }
-    };
-
-    addProjectRouteFeatures();
-
-    if (!transitRoutes || transitRoutes.length === 0) {
-      return { type: 'FeatureCollection', features };
-    }
-
-    const routes = transitRoutes;
-
-    const findMatches = (id: string): WarRoomNode[] => {
-      const nid = id.toLowerCase();
-
-      const direct = nodes.filter((n: WarRoomNode) =>
-        n.id === id || n.factoryId === id || n.subsidiaryId === id || n.parentGroupId === id
-      );
-      if (direct.length > 0) return direct;
-
-      const factory = this.warRoomService.factories().find(f => f.id === id);
-      if (factory) {
-        const resolved = nodes.filter(n => n.id === factory.subsidiaryId || n.id === factory.parentGroupId);
-        if (resolved.length > 0) return resolved;
-      }
-
-      if (nid.includes('fleetzero') || nid.includes('fleet-zero')) {
-        return nodes.filter(n => n.id === 'fleetzero' || (n.name && n.name.toLowerCase().includes('fleetzero')));
-      }
-
-      if (id.startsWith('source-')) {
-        const baseId = id.replace('source-', '');
-        const resolved = nodes.filter(n => n.id === baseId || n.factoryId === baseId || n.subsidiaryId === baseId);
-        if (resolved.length > 0) return resolved;
-
-        const baseFactory = this.warRoomService.factories().find(f => f.id === baseId);
-        if (baseFactory) {
-          return nodes.filter(n => n.id === baseFactory.subsidiaryId || n.id === baseFactory.parentGroupId);
-        }
-      }
-
-      return nodes.filter((n: WarRoomNode) =>
-        (!!n.name && n.name.toLowerCase() === nid) ||
-        (!!n.company && n.company.toLowerCase().includes(nid))
-      );
-    };
-
-    routes.forEach((route) => {
-      const fromMatches = findMatches(route.from);
-      const toMatches = findMatches(route.to);
-
-      const fromNode = fromMatches.find((n: WarRoomNode) =>
-        n.id === selected?.id || n.subsidiaryId === selected?.id || n.factoryId === selected?.id
-      ) || fromMatches[0];
-
-      const toNode = toMatches.find((n: WarRoomNode) =>
-        n.id === selected?.id || n.subsidiaryId === selected?.id || n.factoryId === selected?.id
-      ) || toMatches[0];
-
-      let fromCoords = fromNode?.coordinates;
-      let toCoords = toNode?.coordinates;
-
-      if (!isValidCoordinates(fromCoords) && isValidCoordinates(route.fromCoordinates)) {
-        fromCoords = route.fromCoordinates;
-      }
-
-      if (!isValidCoordinates(toCoords) && isValidCoordinates(route.toCoordinates)) {
-        toCoords = route.toCoordinates;
-      }
-
-      if (!fromCoords || !toCoords) return;
-
-      const highlighted = !!selected && (
-        route.from === selected.id ||
-        route.to === selected.id ||
-        route.from === selected.subsidiaryId ||
-        route.to === selected.subsidiaryId ||
-        route.from === selected.factoryId ||
-        route.to === selected.factoryId
-      );
-
-      const transitStrokeColor =
-        filterStatus === 'inactive' ? '#ef4444' :
-          filterStatus === 'active' ? '#5ad85a' :
-            route.strokeColor;
-
-      features.push({
-        type: 'Feature',
-        geometry: {
-          type: 'LineString',
-          coordinates: [
-            [fromCoords.longitude, fromCoords.latitude],
-            [toCoords.longitude, toCoords.latitude]
-          ]
-        },
-        properties: {
-          strokeWidth: route.strokeWidth || 1.5,
-          dashArray: route.dashArray,
-          highlighted,
-          routeId: route.id,
-          strokeColor: transitStrokeColor,
-          fromNodeId: fromNode?.id,
-          toNodeId: toNode?.id,
-        }
-      });
-    });
-
-    return { type: 'FeatureCollection', features };
-  }
-
-  private getRouteBeginOffset(routeId: string, index: number): string {
-    const seed = `${routeId || 'route'}-${index}`;
-    let hash = 0;
-    for (let i = 0; i < seed.length; i += 1) {
-      hash = (hash * 31 + seed.charCodeAt(i)) % 6000;
-    }
-    const seconds = (hash % 6000) / 1000;
-    return `${seconds.toFixed(2)}s`;
-  }
-
   private getRouteColor(): string {
     const status = this.filterStatus();
     if (status === 'active') return '#00C853';
     if (status === 'inactive') return '#D50000';
     return '#00C853';
-  }
-
-  private buildProjectStatusByNodeId(routes: ProjectRoute[]): Map<string, 'active' | 'inactive'> {
-    const result = new Map<string, 'active' | 'inactive'>();
-    const applyStatus = (id: string | undefined, status: 'active' | 'inactive' | null): void => {
-      if (!id || !status) return;
-      const current = result.get(id);
-      if (status === 'active' || current == null) {
-        result.set(id, status);
-        return;
-      }
-      if (current !== 'active') {
-        result.set(id, status);
-      }
-    };
-
-    routes.forEach((route) => {
-      let status: 'active' | 'inactive' | null = null;
-      if (route.status === 'Open') status = 'active';
-      if (route.status === 'Closed' || route.status === 'Delayed') status = 'inactive';
-      applyStatus(route.toNodeId, status);
-      applyStatus(route.fromNodeId, status);
-    });
-
-    return result;
-  }
-
-  private getProjectStatusColor(
-    node: WarRoomNode,
-    statusByNodeId: Map<string, 'active' | 'inactive'>
-  ): string {
-    const nodeId = node.clientId ?? node.factoryId ?? node.id;
-    const status = statusByNodeId.get(nodeId);
-    if (status === 'active') return '#00C853';
-    if (status === 'inactive') return '#D50000';
-    return '#0ea5e9';
   }
 
   private getProjectStatusGlow(color: string): string {

@@ -1,0 +1,35 @@
+// New Time Log page styles (project design)
+
+.row-number-col {
+  width: 56px;
+  min-width: 56px;
+}
+
+:host ::ng-deep .new-time-log-select.ng-select .ng-select-container {
+  min-height: 35px;
+  height: 35px;
+  border-color: var(--default-border, #d8dce6);
+  font-size: 0.8125rem;
+}
+
+:host ::ng-deep .new-time-log-select.ng-select .ng-value-container {
+  padding-left: 0.75rem;
+}
+
+:host ::ng-deep .new-time-log-select.ng-select .ng-arrow-wrapper {
+  padding-right: 0.5rem;
+}
+
+:host ::ng-deep .new-time-log-select.ng-select.ng-select-focused:not(.ng-select-opened) > .ng-select-container {
+  box-shadow: none;
+}
+
+:host ::ng-deep .new-time-log-select .ng-dropdown-header {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--default-border, #d8dce6);
+}
+
+:host ::ng-deep .new-time-log-search-input {
+  height: 30px;
+  font-size: 0.75rem;
+}
