@@ -503,6 +503,47 @@ describe('FluorescenceMapComponent (unit)', () => {
     expect(component.selectedProjectId()).toBeNull();
   });
 
+  it('applies a single-project filter when viewing a project row', () => {
+    component.filterApplied.set({
+      status: 'inactive',
+      regions: ['Europe'],
+      clientIds: ['client-9'],
+      manufacturerIds: ['manufacturer-3'],
+      projectTypeIds: ['inspection'],
+      projectIds: ['other-project'],
+    });
+    component.filterDraft.set({
+      status: 'inactive',
+      regions: ['Europe'],
+      clientIds: ['client-9'],
+      manufacturerIds: ['manufacturer-3'],
+      projectTypeIds: ['inspection'],
+      projectIds: ['other-project'],
+    });
+
+    const project = {
+      id: 'project-1',
+      projectName: 'Project One',
+      manufacturerLocationId: 'factory-a',
+    } as any;
+
+    spyOn(component as any, 'effectiveProjects').and.returnValue([project]);
+    const onProjectHudSelectedSpy = spyOn(component, 'onProjectHudSelected');
+
+    component.onActivityRowView({ projectId: 'project-1' } as any);
+
+    expect(component.filterApplied()).toEqual({
+      status: 'all',
+      regions: [],
+      clientIds: [],
+      manufacturerIds: [],
+      projectTypeIds: [],
+      projectIds: ['project-1'],
+    });
+    expect(component.filterDraft()).toEqual(component.filterApplied());
+    expect(onProjectHudSelectedSpy).toHaveBeenCalledOnceWith(project);
+  });
+
   it('does not change map view when switching log panel mode to manufacturer', () => {
     warRoomService.setMapViewMode('factory');
     fixture.detectChanges();
@@ -1732,6 +1773,37 @@ describe('FluorescenceMapComponent (unit)', () => {
     expect(warRoomService.selectedEntity()).toBeNull();
     expect(component.selectedRouteId()).toBeNull();
     expect(component.selectionOutsideFiltersNotice()).toBeNull();
+  });
+
+  it('syncs row and marker selection through the canonical selected project id', () => {
+    const factoryA = buildFactory({ id: 'factory-a', subsidiaryId: 'sub-1' });
+    const subsidiary = buildSubsidiary({ id: 'sub-1', factories: [factoryA] });
+    setServiceState([buildParentGroup([subsidiary])], []);
+    warRoomService.setMapViewMode('project');
+
+    component.projectRoutes.set([
+      {
+        id: 'project-route-1',
+        projectId: 'project-1',
+        fromNodeId: 'client-1',
+        toNodeId: 'factory-a',
+        status: 'Open',
+        fromCoordinates: { latitude: 43.7, longitude: -79.4 },
+        toCoordinates: { latitude: 45.4, longitude: -75.7 },
+      },
+    ]);
+    fixture.detectChanges();
+
+    component.onActivityRowSelected('project-1');
+    fixture.detectChanges();
+    expect(component.selectedProjectId()).toBe('project-1');
+    expect(component.strictMapProjectRoutes().map((route) => route.projectId)).toEqual(['project-1']);
+
+    component.onRouteSelected({ routeId: 'project-route-1', projectId: 'project-1' });
+    fixture.detectChanges();
+
+    expect(component.selectedProjectId()).toBe('project-1');
+    expect(component.selectedRouteId()).toBe('project-route-1');
   });
 
 });

@@ -3,7 +3,8 @@ import { ActivityLogRow, ClientVm, LocationVm, ManufacturerVm, ProjectVm } from 
 import {
   normalizeManufacturerCandidates,
   normalizeProjectTypeFilterKey,
-} from '../state/fluorescence-map.selectors';
+} from '../state/fluorescence-map-normalization';
+import { mapProjectStatusToRowStatus } from '../state/fluorescence-map-lifecycle';
 
 export interface ActivityLogProjectionFilters {
   status?: 'all' | 'active' | 'inactive';
@@ -19,8 +20,7 @@ export class ActivityLogTableService {
     projects: ProjectVm[],
     clients: ClientVm[],
     manufacturers: ManufacturerVm[],
-    locations: LocationVm[],
-    filters: ActivityLogProjectionFilters
+    locations: LocationVm[]
   ): ActivityLogRow[] {
     const clientById = new Map(clients.map((client) => [String(client.id), client]));
     const locationById = new Map(locations.map((location) => [String(location.id), location]));
@@ -43,16 +43,37 @@ export class ActivityLogTableService {
       }
     }
 
-    const filteredProjects = this.filterProjects(
-      projects,
-      filters,
-      manufacturerById,
-      manufacturerByLocationId
-    );
-    const rows = filteredProjects.map((project) =>
+    const rows = projects.map((project) =>
       this.mapProjectToRow(project, clientById, locationById, manufacturerById, manufacturerByLocationId)
     );
     return this.sortRows(rows);
+  }
+
+  filterProjects(
+    projects: ProjectVm[],
+    filters: ActivityLogProjectionFilters,
+    manufacturers: ManufacturerVm[],
+  ): ProjectVm[] {
+    const manufacturerById = new Map(manufacturers.map((manufacturer) => [String(manufacturer.id), manufacturer]));
+    const manufacturerByLocationId = new Map<string, ManufacturerVm[]>();
+    for (const manufacturer of manufacturers) {
+      const dedupedLocationKeys = new Set<string>();
+      const candidateLocationValues = [
+        manufacturer.locationId,
+        ...(manufacturer.locationIds ?? []),
+      ];
+      for (const locationValue of candidateLocationValues) {
+        const candidateKeys = this.buildIdCandidates(locationValue == null ? '' : String(locationValue));
+        for (const key of candidateKeys) {
+          if (!key || dedupedLocationKeys.has(key)) continue;
+          dedupedLocationKeys.add(key);
+          const list = manufacturerByLocationId.get(key) ?? [];
+          manufacturerByLocationId.set(key, [...list, manufacturer]);
+        }
+      }
+    }
+
+    return this.filterProjectsInternal(projects, filters, manufacturerById, manufacturerByLocationId);
   }
 
   filterAndSearchRows(rows: ActivityLogRow[], searchTerm: string): ActivityLogRow[] {
@@ -114,7 +135,7 @@ export class ActivityLogTableService {
     });
   }
 
-  private filterProjects(
+  private filterProjectsInternal(
     projects: ProjectVm[],
     filters: ActivityLogProjectionFilters,
     manufacturerById: Map<string, ManufacturerVm>,
@@ -123,7 +144,7 @@ export class ActivityLogTableService {
     return projects.filter((project) => {
       const projectId = String(project.id);
       const clientId = String(project.clientId);
-      const status = this.toRowStatus(project.status);
+      const status = mapProjectStatusToRowStatus(project.status, project.closed);
       const resolvedManufacturers = this.resolveManufacturersForProject(
         project,
         manufacturerById,
@@ -198,7 +219,7 @@ export class ActivityLogTableService {
       contract: project.contract ?? null,
       hasRoadTest: Boolean(project.hasRoadTest),
       entityName: project.projectName || String(project.id),
-      status: this.toRowStatus(project.status),
+      status: mapProjectStatusToRowStatus(project.status, project.closed),
       clientId: project.clientId || null,
       clientName: project.clientName || client?.name || 'Unknown',
       clientLocationId: client?.locationId ?? null,
@@ -277,12 +298,6 @@ export class ActivityLogTableService {
     }
 
     return Array.from(matchedById.values());
-  }
-
-  private toRowStatus(status: ProjectVm['status']): ActivityLogRow['status'] {
-    if (status === 'Closed') return 'Closed';
-    if (status === 'Delayed') return 'Under Inspection';
-    return 'Active';
   }
 
   private toIsoOrNull(value: string | null): string | null {

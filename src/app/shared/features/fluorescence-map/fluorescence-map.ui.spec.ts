@@ -336,6 +336,26 @@ describe('FluorescenceMapComponent UI (responsive + a11y)', () => {
     expect(fixture.debugElement.query(By.css('#war-room-filters-panel'))).toBeNull();
   });
 
+  it('reclaims map height when the inline table collapses', async () => {
+    jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
+    setViewport(1280, 900);
+    component.panelVisible.set(true);
+    fixture.detectChanges();
+    await wait(50);
+
+    const shell = fixture.nativeElement.querySelector('.fleet-shell') as HTMLElement;
+    const openRows = getComputedStyle(shell).gridTemplateRows;
+
+    component.panelVisible.set(false);
+    fixture.detectChanges();
+    await wait(50);
+
+    const collapsedRows = getComputedStyle(shell).gridTemplateRows;
+
+    expect(shell.classList.contains('table-collapsed')).toBeTrue();
+    expect(collapsedRows).not.toBe(openRows);
+  });
+
   const resetServiceState = (): void => {
     const serviceAny = warRoomService as any;
     serviceAny._parentGroups.set([]);

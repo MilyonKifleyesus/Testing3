@@ -29,7 +29,7 @@ import {
 import { ClientService } from './client.service';
 import { LocationService, ApiLocation } from '../services/location.service';
 import { normalizeNumericLikeId } from '../utils/id-normalizer.util';
-import { normalizeProjectTypeFilterKey } from '../features/fluorescence-map/state/fluorescence-map.selectors';
+import { normalizeProjectTypeFilterKey } from '../features/fluorescence-map/state/fluorescence-map-normalization';
 import { environment } from '../../../environments/environment';
 import { fetchAllPages } from './adapters/pagination-fetch.util';
 import { parsePagedResponse } from './adapters/paged-response.adapter';

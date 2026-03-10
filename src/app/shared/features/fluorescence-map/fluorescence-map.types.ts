@@ -1,6 +1,16 @@
 import { FleetSelection, MapViewMode, NodeStatus, TransitRoute } from '../../../shared/models/fluorescence-map.interface';
 import { OperationalStatus } from '../../../shared/models/fluorescence-map.interface';
 import { Node, ProjectRoute } from '../../../shared/models/fluorescence-map.interface';
+import {
+  ActivityLogRow,
+  ClientManagementRow,
+  ClientVm,
+  LocationManagementRow,
+  LocationVm,
+  ManufacturerManagementRow,
+  ManufacturerVm,
+  ProjectVm,
+} from './models/fleet-vm.models';
 
 export type FilterStatus = 'all' | 'active' | 'inactive';
 export type EndpointStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -109,20 +119,55 @@ export interface MapViewModelStrict {
   emptyState: MapEmptyStateVm;
 }
 
+export interface FluorescenceMapManufacturerRecord {
+  id: number;
+  name: string;
+  logo?: string;
+  locationId?: number | null;
+  locationIds?: number[];
+  locations?: Array<{ id: number; latitude: number; longitude: number }>;
+}
+
 export interface FluorescenceMapBootstrapData {
+  projects: ProjectVm[];
+  clients: ClientVm[];
+  manufacturers: ManufacturerVm[];
+  locations: LocationVm[];
+  regionValues: string[];
   nodes: Node[];
   projectRoutes: ProjectRoute[];
   transitRoutes: TransitRoute[];
+  projectIds: string[];
+  projectClientIdByProjectId: Map<string, string | null>;
+  projectTypeIdByProjectId: Map<string, string | null>;
+  manufacturerIdsByProjectId: Map<string, string[]>;
+  manufacturerIdsByNodeId: Map<string, string[]>;
+  projectRegionByProjectId: Map<string, string | null>;
 }
 
 export interface FluorescenceMapFilteredState {
   filtersActive: boolean;
+  filteredProjectIds: Set<string>;
+  filteredProjects: ProjectVm[];
+  activityTableRows: ActivityLogRow[];
+  clientTableRows: ClientManagementRow[];
+  manufacturerTableRows: ManufacturerManagementRow[];
+  locationTableRows: LocationManagementRow[];
+  availableRegions: string[];
+  statusCounts: { total: number; active: number; inactive: number };
+  activeFilterCount: number;
+  activeFilters: ActiveFilterItem[];
   filteredProjectRoutes: ProjectRoute[];
   filteredNodes: Node[];
+  derivedNodeIds: DerivedNodeIds;
   strictMapNodes: Node[];
   strictMapProjectRoutes: ProjectRoute[];
   filteredTransitRoutes: TransitRoute[];
   mapViewModel: MapViewModelStrict;
+  mapState: {
+    showEmptyState: boolean;
+    emptyMessage: string | null;
+  };
 }
 
 export interface FluorescenceMapSelectionState {
@@ -130,6 +175,7 @@ export interface FluorescenceMapSelectionState {
   selectedRouteVisible: boolean;
   selectionInvalidated: boolean;
   noticeMessage: string | null;
+  selectedProjectIdFromSelection: string | null;
 }
 
 export interface MapOverlaySnapshot {
@@ -139,4 +185,5 @@ export interface MapOverlaySnapshot {
   selected: FleetSelection | null;
   hovered: FleetSelection | null;
   filterStatus: FilterStatus;
+  emptyMessage?: string | null;
 }

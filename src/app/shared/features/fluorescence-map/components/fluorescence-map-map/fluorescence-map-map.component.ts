@@ -98,7 +98,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
   private readonly LOD_LOGO_ONLY_THRESHOLD = 1.2;
   private readonly LOD_FULL_DETAIL_THRESHOLD = 2.5;
   /** Pin label shows when zoomFactor >= this. Lower = label appears earlier when zooming in; higher = only when more zoomed in. */
-  private readonly LOD_PIN_LABEL_THRESHOLD = 1.35;
+  private readonly LOD_PIN_LABEL_THRESHOLD = 1.1;
 
   /** Map style URLs by theme (from environment). */
   private readonly MAP_STYLE = this.envConfig.mapStyles;
@@ -949,6 +949,7 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       map: this.mapInstance,
       factories: this.getFactoriesSafe(),
       parallelRouteOffsetPixels: this.PARALLEL_ROUTE_OFFSET_PIXELS,
+      reducedMotion: this.prefersReducedMotion(),
       getNodeCoordinates: (node) => this.getNodeCoordinates(node),
       buildMarkerVm: (
         node,
@@ -975,9 +976,45 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
 
   private buildOverlayEnsureKey(snapshot: MapOverlaySnapshot): string {
     return [
-      snapshot.nodes.map((node) => `${node.id}:${node.status ?? ''}`).join('|'),
-      snapshot.projectRoutes.map((route) => `${route.id}:${route.status ?? ''}`).join('|'),
-      snapshot.transitRoutes.map((route) => route.id).join('|'),
+      snapshot.nodes
+        .map((node) => {
+          const coords = node.coordinates;
+          return [
+            node.id,
+            node.status ?? '',
+            coords?.latitude ?? '',
+            coords?.longitude ?? '',
+            node.level ?? '',
+          ].join(':');
+        })
+        .join('|'),
+      snapshot.projectRoutes
+        .map((route) =>
+          [
+            route.id,
+            route.status ?? '',
+            route.fromNodeId ?? '',
+            route.toNodeId ?? '',
+            route.fromCoordinates?.latitude ?? '',
+            route.fromCoordinates?.longitude ?? '',
+            route.toCoordinates?.latitude ?? '',
+            route.toCoordinates?.longitude ?? '',
+          ].join(':')
+        )
+        .join('|'),
+      snapshot.transitRoutes
+        .map((route) =>
+          [
+            route.id,
+            route.from ?? '',
+            route.to ?? '',
+            route.fromCoordinates?.latitude ?? '',
+            route.fromCoordinates?.longitude ?? '',
+            route.toCoordinates?.latitude ?? '',
+            route.toCoordinates?.longitude ?? '',
+          ].join(':')
+        )
+        .join('|'),
     ].join('::');
   }
 
@@ -989,6 +1026,12 @@ export class FluorescenceMapMapComponent implements AfterViewInit, OnDestroy {
       `${selected?.level ?? ''}:${selected?.id ?? ''}:${selected?.factoryId ?? ''}:${selected?.manufacturerLocationId ?? ''}`,
       `${hovered?.level ?? ''}:${hovered?.id ?? ''}:${hovered?.factoryId ?? ''}:${hovered?.manufacturerLocationId ?? ''}`,
     ].join('::');
+  }
+
+  private prefersReducedMotion(): boolean {
+    return typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
   private buildMarkerVm(

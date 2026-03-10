@@ -216,4 +216,41 @@ describe('FleetActivityTableComponent', () => {
 
     expect(component.drawerOpen()).toBeFalse();
   }));
+
+  it('keeps inline collapsed mode to a compact shell so the map can reclaim height', () => {
+    fixture.componentRef.setInput('layoutMode', 'inline');
+    fixture.componentRef.setInput('open', false);
+    fixture.detectChanges();
+
+    const table = fixture.debugElement.query(By.css('.fleet-activity-table'))?.nativeElement as HTMLElement;
+    const styles = getComputedStyle(table);
+
+    expect(table.classList.contains('collapsed')).toBeTrue();
+    expect(table.classList.contains('inline-layout')).toBeTrue();
+    expect(styles.maxHeight).toBe('74px');
+    expect(styles.overflow).toBe('hidden');
+  });
+
+  it('keeps the table body scrollable in inline layout', () => {
+    fixture.componentRef.setInput('layoutMode', 'inline');
+    fixture.detectChanges();
+
+    const scrollBody = fixture.debugElement.query(By.css('.fleet-table-scroll'))?.nativeElement as HTMLElement;
+    const styles = getComputedStyle(scrollBody);
+
+    expect(styles.overflowY).toBe('auto');
+    expect(styles.minHeight).toBe('0px');
+  });
+
+  it('keeps the drawer body independently scrollable', () => {
+    component.openProjectEdit(sampleRow);
+    fixture.detectChanges();
+
+    const drawerBody = fixture.debugElement.query(By.css('.drawer-body'))?.nativeElement as HTMLElement;
+    const styles = getComputedStyle(drawerBody);
+
+    expect(drawerBody).toBeTruthy();
+    expect(styles.overflowY).toBe('auto');
+    expect(styles.minHeight).toBe('0px');
+  });
 });

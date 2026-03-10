@@ -60,7 +60,6 @@ describe('ActivityLogTableService', () => {
       clients,
       manufacturers,
       locations,
-      { status: 'all' }
     );
 
     expect(rows.length).toBe(1);
@@ -74,7 +73,6 @@ describe('ActivityLogTableService', () => {
       clients,
       manufacturers,
       locations,
-      { status: 'all' }
     );
 
     expect(rows.length).toBe(1);
@@ -118,7 +116,6 @@ describe('ActivityLogTableService', () => {
           longitude: -80.1,
         },
       ],
-      { status: 'all' }
     );
 
     expect(rows.length).toBe(1);
@@ -127,12 +124,16 @@ describe('ActivityLogTableService', () => {
   });
 
   it('filters manufacturers using normalized names and linked ids consistently', () => {
-    const rows = service.buildRows(
+    const filteredProjects = service.filterProjects(
       [baseProject({ manufacturerName: 'OEM One, Inc.', manufacturerLocationId: '30' })],
+      { status: 'all', manufacturerIds: ['8'] },
+      manufacturers,
+    );
+    const rows = service.buildRows(
+      filteredProjects,
       clients,
       manufacturers,
       locations,
-      { status: 'all', manufacturerIds: ['8'] }
     );
 
     expect(rows.length).toBe(1);
@@ -141,19 +142,27 @@ describe('ActivityLogTableService', () => {
   });
 
   it('filters project types by canonical projectTypeId before assessmentType fallback', () => {
-    const matchingRows = service.buildRows(
+    const matchingProjects = service.filterProjects(
       [baseProject({ projectTypeId: '42', assessmentType: 'Condition Assessment' })],
+      { status: 'all', projectTypeIds: ['42'] },
+      manufacturers,
+    );
+    const matchingRows = service.buildRows(
+      matchingProjects,
       clients,
       manufacturers,
       locations,
-      { status: 'all', projectTypeIds: ['42'] }
+    );
+    const fallbackProjects = service.filterProjects(
+      [baseProject({ projectTypeId: null, assessmentType: 'Condition Assessment' })],
+      { status: 'all', projectTypeIds: ['Condition Assessment'] },
+      manufacturers,
     );
     const fallbackRows = service.buildRows(
-      [baseProject({ projectTypeId: null, assessmentType: 'Condition Assessment' })],
+      fallbackProjects,
       clients,
       manufacturers,
       locations,
-      { status: 'all', projectTypeIds: ['Condition Assessment'] }
     );
 
     expect(matchingRows.length).toBe(1);

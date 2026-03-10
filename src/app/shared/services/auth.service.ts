@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, finalize, Observable, tap } from 'rxjs';
+import { BehaviorSubject, finalize, map, Observable, tap } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { LoginRequest, LoginResponse } from '../models/auth.models';
@@ -38,23 +38,12 @@ export class AuthService {
     this.showLoader = true;
 
     return this.http
-      .post<LoginResponse>(`${environment.apiBaseUrl}/auth/login`, req)
+      .post(`${environment.apiBaseUrl}/auth/login`, req, {
+        responseType: 'text',
+      })
       .pipe(
-        tap((res) => {
-          localStorage.setItem(LS_TOKEN, res.accessToken);
-          const user: CurrentUser = {
-            userId: res.userId,
-            username: res.username,
-            email: res.email,
-            role: res.role,
-            clientId: res.clientId,
-            isGeneralAdmin: res.isGeneralAdmin,
-          };
-          const serializedUser = JSON.stringify(this.normalizeUser(user));
-          localStorage.setItem(LS_USER, serializedUser);
-          localStorage.removeItem(LS_USER_LEGACY);
-          this.currentUserSubject.next(this.normalizeUser(user));
-        }),
+        map((raw) => this.parseLoginResponse(raw)),
+        tap((res) => this.persistSession(res)),
         finalize(() => {
           this.showLoader = false;
         }),
@@ -63,7 +52,15 @@ export class AuthService {
 
   loginWithRole(username: string, password: string): Observable<CurrentUser> {
     const req: LoginRequest = { usernameOrEmail: username, password };
-    return this.login(req);
+    return this.login(req).pipe(
+      map(() => {
+        const user = this.currentUserValue;
+        if (!user) {
+          throw new Error('Login response did not yield a current user.');
+        }
+        return user;
+      }),
+    );
   }
 
   loginWithEmail(email: string, password: string): Promise<CurrentUser | null> {
@@ -173,6 +170,110 @@ export class AuthService {
       clientId: Number(value?.clientId ?? 0),
       isGeneralAdmin: Boolean(value?.isGeneralAdmin),
     };
+  }
+
+  private persistSession(res: LoginResponse): void {
+    localStorage.setItem(LS_TOKEN, res.accessToken);
+    const user: CurrentUser = {
+      userId: res.userId,
+      username: res.username,
+      email: res.email,
+      role: res.role,
+      clientId: res.clientId,
+      isGeneralAdmin: res.isGeneralAdmin,
+    };
+    const serializedUser = JSON.stringify(this.normalizeUser(user));
+    localStorage.setItem(LS_USER, serializedUser);
+    localStorage.removeItem(LS_USER_LEGACY);
+    this.currentUserSubject.next(this.normalizeUser(user));
+  }
+
+  private parseLoginResponse(raw: string): LoginResponse {
+    const parsed = this.parseResponseBody(raw);
+    const payload = this.unwrapPayload(parsed);
+
+    const accessToken = this.readString(payload, ['accessToken', 'AccessToken', 'token', 'Token']);
+    if (!accessToken) {
+      throw new Error('Login response did not include an access token.');
+    }
+
+    return {
+      accessToken,
+      expiresInSeconds: this.readNumber(payload, ['expiresInSeconds', 'ExpiresInSeconds'], 0),
+      role: this.readString(payload, ['role', 'Role']),
+      type: this.readNumber(payload, ['type', 'Type'], 0),
+      userId: this.readNumber(payload, ['userId', 'UserId', 'id', 'Id'], 0),
+      username: this.readString(payload, ['username', 'Username']),
+      email: this.readOptionalString(payload, ['email', 'Email']),
+      clientId: this.readNumber(payload, ['clientId', 'ClientId'], 0),
+      isGeneralAdmin: this.readBoolean(payload, ['isGeneralAdmin', 'IsGeneralAdmin'], false),
+    };
+  }
+
+  private parseResponseBody(raw: string): Record<string, unknown> {
+    const trimmed = (raw ?? '').trim();
+    if (!trimmed) {
+      throw new Error('Login response was empty.');
+    }
+
+    const withoutBom = trimmed.charCodeAt(0) === 0xfeff ? trimmed.slice(1) : trimmed;
+    const parsed = JSON.parse(withoutBom);
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error('Login response was not a JSON object.');
+    }
+
+    return parsed as Record<string, unknown>;
+  }
+
+  private unwrapPayload(value: Record<string, unknown>): Record<string, unknown> {
+    const nested = value['data'];
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+      return nested as Record<string, unknown>;
+    }
+    return value;
+  }
+
+  private readString(value: Record<string, unknown>, keys: string[]): string {
+    for (const key of keys) {
+      const candidate = value[key];
+      if (typeof candidate === 'string') {
+        return candidate.trim();
+      }
+    }
+    return '';
+  }
+
+  private readOptionalString(value: Record<string, unknown>, keys: string[]): string | undefined {
+    const result = this.readString(value, keys);
+    return result || undefined;
+  }
+
+  private readNumber(value: Record<string, unknown>, keys: string[], fallback: number): number {
+    for (const key of keys) {
+      const candidate = value[key];
+      if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+        return candidate;
+      }
+      if (typeof candidate === 'string' && candidate.trim() && Number.isFinite(Number(candidate))) {
+        return Number(candidate);
+      }
+    }
+    return fallback;
+  }
+
+  private readBoolean(value: Record<string, unknown>, keys: string[], fallback: boolean): boolean {
+    for (const key of keys) {
+      const candidate = value[key];
+      if (typeof candidate === 'boolean') {
+        return candidate;
+      }
+      if (typeof candidate === 'string') {
+        const normalized = candidate.trim().toLowerCase();
+        if (normalized === 'true') return true;
+        if (normalized === 'false') return false;
+      }
+    }
+    return fallback;
   }
 
   private pruneExpiredSession(): void {

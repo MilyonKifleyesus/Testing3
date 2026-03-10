@@ -1556,8 +1556,8 @@ $toolbar-font-size: 0.75rem;
 :host {
   display: block;
   width: 100%;
-  height: auto;
-  min-height: 500px;
+  height: 100%;
+  min-height: 0;
 }
 
 // Material Icons
@@ -1736,9 +1736,17 @@ $toolbar-font-size: 0.75rem;
   --fleet-primary-soft: var(--primary01, rgba(45, 122, 79, 0.1));
   --fleet-primary-border: var(--primary03, rgba(45, 122, 79, 0.3));
   --fleet-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --fleet-shell-map-row-min: 320px;
+  --fleet-shell-table-open-row: minmax(210px, 34vh);
+  --fleet-shell-table-collapsed-row: minmax(64px, auto);
   position: relative;
   display: grid;
-  grid-template-rows: auto auto auto minmax(320px, 1fr) minmax(210px, 34vh);
+  grid-template-rows:
+    auto
+    auto
+    auto
+    minmax(var(--fleet-shell-map-row-min), 1fr)
+    var(--fleet-shell-table-open-row);
   gap: 0.5rem;
   width: 100%;
   height: min(980px, calc(100dvh - 136px));
@@ -1753,18 +1761,25 @@ $toolbar-font-size: 0.75rem;
   overflow: hidden;
 }
 
+.fleet-shell > * {
+  min-width: 0;
+  min-height: 0;
+}
+
 .fleet-shell.fleet-shell-admin-layout {
-  grid-template-rows: auto auto auto minmax(420px, 1fr) minmax(220px, 30vh);
+  --fleet-shell-map-row-min: 420px;
+  --fleet-shell-table-open-row: minmax(220px, 30vh);
   height: min(1080px, calc(100dvh - 94px));
   min-height: 680px;
 }
 
 .fleet-shell.table-collapsed {
-  grid-template-rows: auto auto auto minmax(320px, 1fr) minmax(64px, auto);
-}
-
-.fleet-shell.fleet-shell-admin-layout.table-collapsed {
-  grid-template-rows: auto auto auto minmax(480px, 1fr) minmax(64px, auto);
+  grid-template-rows:
+    auto
+    auto
+    auto
+    minmax(var(--fleet-shell-map-row-min), 1fr)
+    var(--fleet-shell-table-collapsed-row);
 }
 
 .fleet-shell:fullscreen,
@@ -2056,11 +2071,12 @@ $toolbar-font-size: 0.75rem;
 
 .fleet-shell-map-stage {
   position: relative;
+  height: 100%;
   border-radius: 10px;
   border: 1px solid var(--fleet-border);
   background: var(--fleet-surface);
   overflow: hidden;
-  min-height: 320px;
+  min-height: 0;
   box-shadow: inset 0 -18px 22px rgba(15, 23, 42, 0.06);
 }
 
@@ -2087,6 +2103,7 @@ $toolbar-font-size: 0.75rem;
   bottom: auto;
   height: 100%;
   min-height: 0;
+  align-self: stretch;
   z-index: 1;
   pointer-events: auto;
   overflow: hidden;
@@ -2423,7 +2440,8 @@ $toolbar-font-size: 0.75rem;
 
 @media (max-width: 1100px) {
   .fleet-shell {
-    grid-template-rows: auto auto auto minmax(260px, 1fr) minmax(200px, 38vh);
+    --fleet-shell-map-row-min: 260px;
+    --fleet-shell-table-open-row: minmax(200px, 38vh);
     height: min(900px, calc(100dvh - 130px));
     min-height: 420px;
   }
@@ -2450,26 +2468,18 @@ $toolbar-font-size: 0.75rem;
     width: min(420px, 100%);
   }
 
-  .fleet-shell.table-collapsed {
-    grid-template-rows: auto auto auto minmax(260px, 1fr) minmax(64px, auto);
-  }
-
   .fleet-shell.fleet-shell-admin-layout {
-    grid-template-rows: auto auto auto minmax(320px, 1fr) minmax(220px, 34vh);
+    --fleet-shell-map-row-min: 320px;
+    --fleet-shell-table-open-row: minmax(220px, 34vh);
     min-height: 580px;
-  }
-
-  .fleet-shell.fleet-shell-admin-layout.table-collapsed {
-    grid-template-rows: auto auto auto minmax(360px, 1fr) minmax(64px, auto);
-  }
-
-  .fleet-shell-map-stage {
-    min-height: 260px;
   }
 }
 
 @media (max-width: 640px) {
   .fleet-shell {
+    --fleet-shell-map-row-min: 220px;
+    --fleet-shell-table-open-row: minmax(220px, 38vh);
+    --fleet-shell-table-collapsed-row: minmax(56px, auto);
     min-height: 400px;
     padding: 0.45rem;
     gap: 0.45rem;
@@ -2533,20 +2543,25 @@ $toolbar-font-size: 0.75rem;
     padding: 0.75rem;
   }
 
-  .fleet-shell.table-collapsed {
-    grid-template-rows: auto auto auto minmax(220px, 1fr) minmax(56px, auto);
-  }
-
   .fleet-shell.fleet-shell-admin-layout {
-    grid-template-rows: auto auto auto minmax(250px, 1fr) minmax(220px, 38vh);
+    --fleet-shell-map-row-min: 250px;
+    --fleet-shell-table-open-row: minmax(220px, 38vh);
     min-height: 520px;
   }
 
-  .fleet-shell.fleet-shell-admin-layout.table-collapsed {
-    grid-template-rows: auto auto auto minmax(280px, 1fr) minmax(56px, auto);
+  .fleet-shell-table-zone {
+    position: absolute;
+    inset: 0.45rem;
+    z-index: 60;
+    pointer-events: none;
   }
 
-  .fleet-shell-map-stage {
-    min-height: 220px;
+  .fleet-shell-table-zone > * {
+    pointer-events: auto;
+  }
+
+  .fleet-shell.table-collapsed .fleet-shell-table-zone {
+    inset: auto 0.45rem 0.45rem;
+    height: 56px;
   }
 }

@@ -53,6 +53,7 @@ export interface OverlayBuildParams {
   map: MapLibreMap;
   factories: MapFactoryRef[];
   parallelRouteOffsetPixels: number;
+  reducedMotion: boolean;
   getNodeCoordinates: (node: WarRoomNode) => { latitude: number; longitude: number } | null;
   buildMarkerVm: (
     node: WarRoomNode,
@@ -86,6 +87,7 @@ export class FluorescenceMapMapOverlayService {
       map,
       factories,
       parallelRouteOffsetPixels,
+      reducedMotion,
       getNodeCoordinates,
       buildMarkerVm,
     } = params;
@@ -192,7 +194,7 @@ export class FluorescenceMapMapOverlayService {
         index,
         beginOffset: this.getRouteBeginOffset(routeId, index),
         highlighted: feature.properties.highlighted,
-        animated: feature.properties.highlighted || routeFeatureCount <= 12 || index < 8,
+        animated: !reducedMotion && (feature.properties.highlighted || routeFeatureCount <= 12 || index < 8),
         strokeWidth: feature.properties.strokeWidth || 1.5,
         dashArray: feature.properties.dashArray,
         strokeColor: feature.properties.strokeColor,

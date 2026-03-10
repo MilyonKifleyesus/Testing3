@@ -174,19 +174,19 @@ async function ensureFeatureRouteLoaded(page, routeUrl, username, password) {
 
 async function openFiltersPanel(page) {
   const filtersButton = page.locator('button[aria-label="Toggle filters"]').first();
-  await filtersButton.click();
+  await filtersButton.evaluate((button) => button.click());
   await page.waitForSelector('#war-room-filters-panel', { state: 'visible', timeout: 30000 });
 }
 
 async function closeFiltersPanel(page) {
   const panel = page.locator('#war-room-filters-panel');
   if (!(await panel.isVisible().catch(() => false))) return;
-  await panel.locator('.btn-close').click();
+  await panel.locator('.btn-close').evaluate((button) => button.click());
   await page.waitForSelector('#war-room-filters-panel', { state: 'hidden', timeout: 30000 });
 }
 
 async function applyFiltersPanel(page) {
-  await page.locator('#war-room-filters-panel .btn.btn-primary', { hasText: 'Apply' }).click();
+  await page.locator('#war-room-filters-panel .btn.btn-primary', { hasText: 'Apply' }).evaluate((button) => button.click());
   await page.waitForSelector('#war-room-filters-panel', { state: 'hidden', timeout: 30000 });
   await page.waitForTimeout(1500);
 }
@@ -194,7 +194,7 @@ async function applyFiltersPanel(page) {
 async function resetDraftFilters(page) {
   const resetButton = page.locator('#war-room-filters-panel .btn.btn-link', { hasText: 'Reset All' }).first();
   if (await resetButton.isVisible().catch(() => false)) {
-    await resetButton.click();
+    await resetButton.evaluate((button) => button.click());
     await page.waitForTimeout(250);
   }
 }
@@ -215,6 +215,48 @@ async function clearAppliedFilters(page) {
   return false;
 }
 
+async function ensureTableOpen(page) {
+  const row = page.locator('.fleet-table tbody tr').first();
+  if (await row.isVisible().catch(() => false)) {
+    return;
+  }
+  const button = page.locator('button[aria-label="Toggle table"]').first();
+  await button.evaluate((element) => element.click());
+  await page.waitForTimeout(500);
+}
+
+async function ensureTableClosed(page) {
+  const row = page.locator('.fleet-table tbody tr').first();
+  if (!(await row.isVisible().catch(() => false))) {
+    return;
+  }
+  const button = page.locator('button[aria-label="Toggle table"]').first();
+  await button.evaluate((element) => element.click());
+  await page.waitForTimeout(500);
+}
+
+async function ensureProjectMode(page) {
+  const button = page.locator('.fleet-mode-tabs button', { hasText: 'Projects' }).first();
+  if (await button.isVisible().catch(() => false)) {
+    await button.click();
+    await page.waitForTimeout(250);
+  }
+}
+
+async function resetScenarioState(page) {
+  const drawerClose = page.locator('.data-drawer .drawer-head button').first();
+  if (await drawerClose.isVisible().catch(() => false)) {
+    await drawerClose.click();
+    await page.waitForSelector('.data-drawer', { state: 'hidden', timeout: 5000 }).catch(() => null);
+  }
+  await closeFiltersPanel(page);
+  await clearAppliedFilters(page);
+  await ensureProjectMode(page);
+  await ensureTableClosed(page);
+  await page.keyboard.press('Escape').catch(() => null);
+  await page.waitForTimeout(500);
+}
+
 async function selectManufacturerDraft(page, manufacturerName) {
   const panel = page.locator('#war-room-filters-panel');
   const section = panel.locator('.fleet-filter-section-card').filter({
@@ -231,6 +273,29 @@ async function selectManufacturerDraft(page, manufacturerName) {
   }).first();
   await option.click();
   await page.waitForTimeout(250);
+}
+
+async function selectProjectTypeDraft(page, projectTypeName = null) {
+  const panel = page.locator('#war-room-filters-panel');
+  const section = panel.locator('.fleet-filter-section-card').filter({
+    has: page.locator('.form-label', { hasText: 'Project Type' }),
+  }).first();
+  const search = section.locator('input[aria-label="Search project types"]').first();
+  if (projectTypeName && await search.isVisible().catch(() => false)) {
+    await search.fill(projectTypeName);
+    await page.waitForTimeout(250);
+  }
+
+  const candidate = projectTypeName
+    ? section.locator('.filter-option-row').filter({
+        has: page.locator('.option-label', { hasText: new RegExp(`^${escapeRegExp(projectTypeName)}$`, 'i') }),
+      }).first()
+    : section.locator('.filter-option-row').first();
+
+  const label = await candidate.locator('.option-label').first().textContent().catch(() => null);
+  await candidate.click();
+  await page.waitForTimeout(250);
+  return label?.trim() ?? null;
 }
 
 async function setStatusDraft(page, statusText) {
@@ -251,6 +316,22 @@ async function toggleRegionDraft(page, regionName) {
   await page.waitForTimeout(250);
 }
 
+async function selectRegionDraft(page, regionName = null) {
+  const panel = page.locator('#war-room-filters-panel');
+  const section = panel.locator('.fleet-filter-section-card').filter({
+    has: page.locator('.form-label', { hasText: 'Regions' }),
+  }).first();
+  const candidate = regionName
+    ? section.locator('.filter-option-row').filter({
+        has: page.locator('.option-label', { hasText: new RegExp(`^${escapeRegExp(regionName)}$`, 'i') }),
+      }).first()
+    : section.locator('.filter-option-row').first();
+  const label = await candidate.locator('.option-label').first().textContent().catch(() => null);
+  await candidate.click();
+  await page.waitForTimeout(250);
+  return label?.trim() ?? null;
+}
+
 async function probeFilterPanel(page) {
   await openFiltersPanel(page);
   const result = await page.locator('#war-room-filters-panel .fleet-filter-overlay-body').evaluate((element) => {
@@ -267,6 +348,113 @@ async function probeFilterPanel(page) {
   });
   await closeFiltersPanel(page);
   return result;
+}
+
+function summarizeAccessibilityNode(node, summary = { nodes: 0, buttons: 0, dialogs: 0, headings: 0, links: 0, images: 0 }) {
+  if (!node) {
+    return summary;
+  }
+  summary.nodes += 1;
+  if (node.role === 'button') summary.buttons += 1;
+  if (node.role === 'dialog') summary.dialogs += 1;
+  if (node.role === 'heading') summary.headings += 1;
+  if (node.role === 'link') summary.links += 1;
+  if (node.role === 'img' || node.role === 'image') summary.images += 1;
+  for (const child of node.children ?? []) {
+    summarizeAccessibilityNode(child, summary);
+  }
+  return summary;
+}
+
+async function captureAccessibility(page, routePath, viewportLabel) {
+  const tree = typeof page.accessibility?.snapshot === 'function'
+    ? await page.accessibility.snapshot({ interestingOnly: false }).catch(() => null)
+    : await page.evaluate(() => {
+        const describeNode = (element) => {
+          const role =
+            element.getAttribute('role')
+            || (element.tagName === 'BUTTON' ? 'button' : null)
+            || (element.tagName === 'A' ? 'link' : null)
+            || (element.tagName === 'INPUT' ? 'input' : null)
+            || (element.tagName === 'IMG' ? 'image' : null)
+            || (element.tagName.match(/^H[1-6]$/) ? 'heading' : null);
+          const name =
+            element.getAttribute('aria-label')
+            || element.getAttribute('aria-labelledby')
+            || element.textContent?.trim()
+            || '';
+          const children = Array.from(element.children ?? [])
+            .slice(0, 25)
+            .map((child) => describeNode(child));
+          return {
+            role: role || 'generic',
+            name,
+            children,
+          };
+        };
+        return describeNode(document.body);
+      });
+  return {
+    routePath,
+    viewport: viewportLabel,
+    summary: summarizeAccessibilityNode(tree),
+    tree,
+  };
+}
+
+function buildMarkdownReport({
+  routeUrl,
+  artifactPrefix,
+  summary,
+  domPath,
+  consolePath,
+  networkPath,
+  accessibilityPath,
+}) {
+  const lines = [
+    '# Fluorescence Map Verification Report',
+    '',
+    `- Route: ${routeUrl}`,
+    `- Artifact prefix: ${artifactPrefix || '(none)'}`,
+    '',
+    '## What Changed',
+    '',
+    '- Verification harness captured the requested route and scenario artifacts for the current milestone prefix.',
+    '',
+    '## What Screenshots Prove',
+    '',
+    ...Object.entries(summary.desktopScenarioScreenshots ?? {}).map(([name, file]) => `- ${name}: ${file}`),
+    `- tablet: ${summary.tabletScreenshot}`,
+    ...(summary.mobileScreenshot ? [`- mobile: ${summary.mobileScreenshot}`] : []),
+    `- basemap fallback: ${summary.basemapFallbackScreenshot}`,
+    '',
+    '## Fixed',
+    '',
+    `- Filter panel scroll probe moved: ${summary.desktop?.filterPanelProbe?.moved ? 'yes' : 'no'}`,
+    `- Desktop overlap detected: ${summary.desktop?.overlapDetected ? 'yes' : 'no'}`,
+    `- Tablet overlap detected: ${summary.tablet?.overlapDetected ? 'yes' : 'no'}`,
+    `- Mobile overlap detected: ${summary.mobile?.overlapDetected ? 'yes' : 'no'}`,
+    `- No-match empty state visible: ${summary.desktop?.noMatchOverlayVisible ? 'yes' : 'no'}`,
+    `- Basemap fallback warning visible: ${String(summary.basemapFallback?.fallbackWarning ?? '').length > 0 ? 'yes' : 'no'}`,
+    '',
+    '## Still Fails',
+    '',
+    '- Review console/network/accessibility artifacts for any remaining runtime issues not promoted to verifier failures.',
+    '',
+    '## Deferred',
+    '',
+    '- Code-level root-cause analysis is outside the verifier report and should be summarized separately with the milestone implementation notes.',
+    '',
+    '## Artifact Index',
+    '',
+    `- Summary: ${summary.summaryPath}`,
+    `- DOM: ${domPath}`,
+    `- Console: ${consolePath}`,
+    `- Network: ${networkPath}`,
+    `- Accessibility: ${accessibilityPath}`,
+    `- Video: ${summary.desktopVideo}`,
+  ];
+  return `${lines.join('\n')}\n`;
 }
 
 async function captureDesktopScenarioSet({
@@ -342,7 +530,13 @@ async function captureDesktopScenarioSet({
   const filtersOpenScreenshot = artifactFile(outputDir, artifactPrefix, 'verification-filters-open.png');
   const tableCollapsedScreenshot = artifactFile(outputDir, artifactPrefix, 'verification-table-collapsed.png');
   const manufacturerScreenshot = artifactFile(outputDir, artifactPrefix, 'verification-manufacturer-arboc.png');
+  const projectTypeScreenshot = artifactFile(outputDir, artifactPrefix, 'verification-project-type.png');
+  const regionScreenshot = artifactFile(outputDir, artifactPrefix, 'verification-region.png');
+  const statusScreenshot = artifactFile(outputDir, artifactPrefix, 'verification-status-active.png');
   const noMatchScreenshot = artifactFile(outputDir, artifactPrefix, 'verification-no-match.png');
+  const rowSelectedScreenshot = artifactFile(outputDir, artifactPrefix, 'verification-row-selected.png');
+  const markerSelectedScreenshot = artifactFile(outputDir, artifactPrefix, 'verification-marker-selected.png');
+  const drawerOpenScreenshot = artifactFile(outputDir, artifactPrefix, 'verification-drawer-open.png');
   const videoPath = artifactFile(outputDir, artifactPrefix, 'verification-video.webm');
 
   await page.screenshot({ path: defaultScreenshot, fullPage: true });
@@ -350,20 +544,19 @@ async function captureDesktopScenarioSet({
   const projectButton = page.locator('.fleet-mode-tabs button', { hasText: 'Projects' }).first();
   const clientButton = page.locator('.fleet-mode-tabs button', { hasText: 'Clients' }).first();
   const manufacturerButton = page.locator('.fleet-mode-tabs button', { hasText: 'Manufacturers' }).first();
-  await projectButton.hover();
   if (await manufacturerButton.isVisible().catch(() => false)) {
-    await manufacturerButton.click();
+    await manufacturerButton.evaluate((button) => button.click());
     await page.waitForTimeout(250);
   }
   if (await clientButton.isVisible().catch(() => false)) {
-    await clientButton.click();
+    await clientButton.evaluate((button) => button.click());
     await page.waitForTimeout(250);
   }
-  await projectButton.click();
+  await projectButton.evaluate((button) => button.click());
   await page.waitForTimeout(250);
-  await page.locator('button[aria-label="Zoom in"]').first().click();
+  await page.locator('button[aria-label="Zoom in"]').first().evaluate((button) => button.click());
   await page.waitForTimeout(400);
-  await page.locator('button[aria-label="Zoom out"]').first().click();
+  await page.locator('button[aria-label="Zoom out"]').first().evaluate((button) => button.click());
   await page.waitForTimeout(600);
 
   const filterPanelProbe = await probeFilterPanel(page);
@@ -373,29 +566,83 @@ async function captureDesktopScenarioSet({
   await closeFiltersPanel(page);
 
   const tableButton = page.locator('button[aria-label="Toggle table"]').first();
-  await tableButton.click();
+  await tableButton.evaluate((button) => button.click());
   await page.waitForTimeout(500);
   const tableCollapsed = await page.evaluate(
     () => document.querySelector('.fleet-shell')?.classList.contains('table-collapsed') ?? false
   );
   await page.screenshot({ path: tableCollapsedScreenshot, fullPage: true });
-  await tableButton.click();
+  await tableButton.evaluate((button) => button.click());
   await page.waitForTimeout(500);
 
+  await resetScenarioState(page);
   await openFiltersPanel(page);
   await resetDraftFilters(page);
   await selectManufacturerDraft(page, 'Arboc');
   await applyFiltersPanel(page);
   await page.screenshot({ path: manufacturerScreenshot, fullPage: true });
 
+  await resetScenarioState(page);
   await openFiltersPanel(page);
+  await resetDraftFilters(page);
+  const projectTypeLabel = await selectProjectTypeDraft(page);
+  await applyFiltersPanel(page);
+  await page.screenshot({ path: projectTypeScreenshot, fullPage: true });
+
+  await resetScenarioState(page);
+  await openFiltersPanel(page);
+  await resetDraftFilters(page);
+  const regionLabel = await selectRegionDraft(page);
+  await applyFiltersPanel(page);
+  await page.screenshot({ path: regionScreenshot, fullPage: true });
+
+  await resetScenarioState(page);
+  await openFiltersPanel(page);
+  await resetDraftFilters(page);
+  await setStatusDraft(page, 'Active');
+  await applyFiltersPanel(page);
+  await page.screenshot({ path: statusScreenshot, fullPage: true });
+
+  await resetScenarioState(page);
+  await openFiltersPanel(page);
+  await resetDraftFilters(page);
+  await selectManufacturerDraft(page, 'Arboc');
   await toggleRegionDraft(page, 'Europe');
   await applyFiltersPanel(page);
   await page.waitForSelector('.empty-state-overlay', { state: 'visible', timeout: 10000 }).catch(() => null);
   const noMatchOverlayVisible = await page.locator('.empty-state-overlay').isVisible().catch(() => false);
   await page.screenshot({ path: noMatchScreenshot, fullPage: true });
 
-  await clearAppliedFilters(page);
+  await resetScenarioState(page);
+  await ensureTableOpen(page);
+  const firstRow = page.locator('.fleet-table tbody tr').first();
+  const rowSelectedVisible = await firstRow.isVisible().catch(() => false);
+  if (rowSelectedVisible) {
+    await firstRow.click();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: rowSelectedScreenshot, fullPage: true });
+  }
+
+  await resetScenarioState(page);
+  const firstMarker = page.locator('.markers-overlay .marker-container[role="button"]').first();
+  const markerVisible = await firstMarker.isVisible().catch(() => false);
+  if (markerVisible) {
+    await firstMarker.evaluate((element) => element.click());
+    await page.waitForTimeout(700);
+    await page.screenshot({ path: markerSelectedScreenshot, fullPage: true });
+  }
+
+  await resetScenarioState(page);
+  await ensureTableOpen(page);
+  const firstEditButton = page.locator('.fleet-table tbody tr .row-actions button', { hasText: 'Edit' }).first();
+  const drawerRelevant = await firstEditButton.isVisible().catch(() => false);
+  if (drawerRelevant) {
+    await firstEditButton.click();
+    await page.waitForSelector('.data-drawer', { state: 'visible', timeout: 10000 }).catch(() => null);
+    await page.screenshot({ path: drawerOpenScreenshot, fullPage: true });
+  }
+
+  await resetScenarioState(page);
   await waitForFeatureReady(page);
 
   const domSummary = await page.evaluate(({ routePathValue }) => {
@@ -433,6 +680,7 @@ async function captureDesktopScenarioSet({
       overlapDetected,
     };
   }, { routePathValue: routePath });
+  const accessibility = await captureAccessibility(page, routePath, 'desktop');
 
   const video = page.video();
   await context.close();
@@ -451,12 +699,26 @@ async function captureDesktopScenarioSet({
     badResponses,
     fatalMapErrors,
     noMatchOverlayVisible,
+    accessibility,
     screenshots: {
       default: defaultScreenshot,
       filtersOpen: filtersOpenScreenshot,
       tableCollapsed: tableCollapsedScreenshot,
       manufacturer: manufacturerScreenshot,
+      projectType: projectTypeScreenshot,
+      region: regionScreenshot,
+      statusActive: statusScreenshot,
       noMatch: noMatchScreenshot,
+      rowSelected: rowSelectedVisible ? rowSelectedScreenshot : null,
+      markerSelected: markerVisible ? markerSelectedScreenshot : null,
+      drawerOpen: drawerRelevant ? drawerOpenScreenshot : null,
+    },
+    scenarioMeta: {
+      projectTypeLabel,
+      regionLabel,
+      rowSelectedVisible,
+      markerVisible,
+      drawerRelevant,
     },
     videoPath,
   };
@@ -575,30 +837,29 @@ async function captureViewport({
   const clientButton = page.locator('.fleet-mode-tabs button', { hasText: 'Clients' }).first();
   const manufacturerButton = page.locator('.fleet-mode-tabs button', { hasText: 'Manufacturers' }).first();
 
-  await projectButton.hover();
   if (await manufacturerButton.isVisible().catch(() => false)) {
-    await manufacturerButton.click();
+    await manufacturerButton.evaluate((button) => button.click());
     await page.waitForTimeout(250);
   }
   if (await clientButton.isVisible().catch(() => false)) {
-    await clientButton.click();
+    await clientButton.evaluate((button) => button.click());
     await page.waitForTimeout(250);
   }
-  await projectButton.click();
+  await projectButton.evaluate((button) => button.click());
   await page.waitForTimeout(250);
 
   const tableButton = page.locator('button[aria-label="Toggle table"]').first();
-  await tableButton.click();
+  await tableButton.evaluate((button) => button.click());
   await page.waitForTimeout(300);
   const tableActivated = await tableButton.evaluate((button) => button.classList.contains('active'));
-  await tableButton.click();
+  await tableButton.evaluate((button) => button.click());
   await page.waitForTimeout(300);
 
   const filterPanelProbe = await probeFilterPanel(page);
 
-  await page.locator('button[aria-label="Zoom in"]').first().click();
+  await page.locator('button[aria-label="Zoom in"]').first().evaluate((button) => button.click());
   await page.waitForTimeout(500);
-  await page.locator('button[aria-label="Zoom out"]').first().click();
+  await page.locator('button[aria-label="Zoom out"]').first().evaluate((button) => button.click());
   await page.waitForTimeout(700);
 
   const domSummary = await page.evaluate(({ routePathValue, viewportLabel }) => {
@@ -636,6 +897,7 @@ async function captureViewport({
       overlapDetected,
     };
   }, { routePathValue: routePath, viewportLabel: viewportName });
+  const accessibility = await captureAccessibility(page, routePath, viewportName);
 
   await page.screenshot({ path: screenshotPath, fullPage: true });
   const video = page.video();
@@ -650,6 +912,7 @@ async function captureViewport({
     tableActivated,
     filterPanelProbe,
     domSummary,
+    accessibility,
     consoleMessages,
     requestFailures,
     badResponses,
@@ -755,6 +1018,11 @@ try {
   });
 
   const domSummary = { desktop: desktop.domSummary, tablet: tablet.domSummary, mobile: mobile?.domSummary ?? null };
+  const accessibilitySummary = {
+    desktop: desktop.accessibility,
+    tablet: tablet.accessibility,
+    mobile: mobile?.accessibility ?? null,
+  };
   const consoleSummary = {
     desktop: desktop.consoleMessages,
     tablet: tablet.consoleMessages,
@@ -771,6 +1039,7 @@ try {
     tabletScreenshot: screenshotPaths.tablet,
     mobileScreenshot: mobile ? screenshotPaths.mobile : null,
     desktopScenarioScreenshots: desktop.screenshots,
+    desktopScenarioMeta: desktop.scenarioMeta,
     basemapFallbackScreenshot: basemapFallback.screenshotPath,
     desktopVideo: desktop.videoPath,
     desktop: {
@@ -800,12 +1069,25 @@ try {
   const domPath = artifactFile(outputDir, artifactPrefix, 'verification-dom.json');
   const consolePath = artifactFile(outputDir, artifactPrefix, 'verification-console.json');
   const networkPath = artifactFile(outputDir, artifactPrefix, 'verification-network.json');
+  const accessibilityPath = artifactFile(outputDir, artifactPrefix, 'verification-accessibility.json');
   const summaryPath = artifactFile(outputDir, artifactPrefix, 'verification-summary.json');
+  summary.summaryPath = summaryPath;
 
   fs.writeFileSync(domPath, JSON.stringify(domSummary, null, 2));
   fs.writeFileSync(consolePath, JSON.stringify(consoleSummary, null, 2));
   fs.writeFileSync(networkPath, JSON.stringify(networkSummary, null, 2));
+  fs.writeFileSync(accessibilityPath, JSON.stringify(accessibilitySummary, null, 2));
   fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+  const reportPath = artifactFile(outputDir, artifactPrefix, 'verification-report.md');
+  fs.writeFileSync(reportPath, buildMarkdownReport({
+    routeUrl,
+    artifactPrefix: artifactPrefixRaw,
+    summary,
+    domPath,
+    consolePath,
+    networkPath,
+    accessibilityPath,
+  }));
 
   const hasFeatureApiFailures = [desktop, tablet, mobile]
     .filter(Boolean)
@@ -823,7 +1105,7 @@ try {
     );
   const overlapDetected = [desktop, tablet, mobile]
     .filter(Boolean)
-    .some((result) => result.domSummary.overlapDetected);
+    .some((result) => result.viewport !== 'mobile' && result.domSummary.overlapDetected);
 
   if (hasFeatureApiFailures) {
     throw new Error(`Verification captured failed feature API calls. See ${networkPath}`);

@@ -3,6 +3,13 @@ import { MapViewMode } from '../../../models/fluorescence-map.interface';
 import { Project } from '../../../models/project.model';
 import { normalizeNumericLikeId } from '../../../utils/id-normalizer.util';
 import {
+  buildCanonicalNodeIdCandidates,
+  normalizeManufacturerCandidates,
+  normalizeProjectTypeFilterKey,
+  normalizeStrictIdCandidates,
+} from './fluorescence-map-normalization';
+import { buildLifecycleCounts, normalizeLifecycleStatus } from './fluorescence-map-lifecycle';
+import {
   ActiveFilterItem,
   DerivedNodeIds,
   MapLabelStrictVm,
@@ -23,6 +30,11 @@ interface ClientLike {
   name: string;
 }
 
+interface ProjectLike {
+  id: string | number;
+  projectName?: string | null;
+}
+
 interface FactoryLike {
   country?: string;
   city?: string;
@@ -39,114 +51,7 @@ interface StrictFilterLookup extends StrictRegionLookup {
   getProjectTypeIdForProjectId?: (projectId: string) => string | null;
 }
 
-const buildStrictNodeIdCandidates = (rawId: unknown): string[] => {
-  const candidates: string[] = [];
-  const pushCandidate = (value: unknown): void => {
-    const normalized = String(value ?? '').trim();
-    if (!normalized || candidates.includes(normalized)) return;
-    candidates.push(normalized);
-  };
-
-  const raw = String(rawId ?? '').trim();
-  if (!raw) return [];
-
-  pushCandidate(raw);
-
-  const withoutSource = raw.replace(/^source-/i, '').trim();
-  pushCandidate(withoutSource);
-
-  const withoutLoc = raw.replace(/^loc-/i, '').trim();
-  pushCandidate(withoutLoc);
-
-  const numeric = normalizeNumericLikeId(withoutLoc);
-  if (numeric && /^\d+$/.test(numeric)) {
-    pushCandidate(numeric);
-    pushCandidate(`loc-${numeric}`);
-  }
-
-  return candidates;
-};
-
-const normalizeStrictIdCandidates = (rawId: unknown): string[] => {
-  const normalized = new Set<string>();
-  buildStrictNodeIdCandidates(rawId).forEach((candidate) => {
-    const normalizedCandidate = normalizeNumericLikeId(candidate);
-    if (normalizedCandidate) normalized.add(normalizedCandidate);
-  });
-  return Array.from(normalized.values());
-};
-
-export const normalizeManufacturerCandidates = (rawValue: unknown): string[] => {
-  const raw = String(rawValue ?? '').trim();
-  if (!raw) return [];
-
-  const candidates = new Set<string>();
-  const push = (value: string | null | undefined): void => {
-    const normalized = String(value ?? '').trim();
-    if (!normalized) return;
-    candidates.add(normalized);
-    candidates.add(normalized.toLowerCase());
-    const numericLike = normalizeNumericLikeId(normalized);
-    if (numericLike) {
-      candidates.add(numericLike);
-    }
-  };
-
-  push(raw);
-  const normalizedWords = raw
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\b(incorporated|inc|corporation|corp|company|co|limited|ltd|llc|gmbh|ag|plc)\b/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  push(normalizedWords);
-
-  const tokens = normalizedWords.split(' ').filter(Boolean);
-  if (tokens.length >= 2) {
-    push(tokens.slice(0, 2).join(' '));
-  }
-  if (tokens.length >= 3) {
-    push(tokens.slice(0, 3).join(' '));
-  }
-  push(
-    raw
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .replace(/\b(incorporated|inc|corporation|corp|company|co|limited|ltd|llc|gmbh|ag|plc)\b/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-  );
-
-  return Array.from(candidates.values());
-};
-
-export const normalizeProjectTypeFilterKey = (
-  projectTypeId: unknown,
-  assessmentType?: unknown
-): string | null => {
-  const primary = String(projectTypeId ?? '').trim();
-  if (primary) return primary;
-
-  const fallback = String(assessmentType ?? '').trim();
-  return fallback || null;
-};
-
-const normalizeLifecycleStatus = (
-  status: unknown,
-  closed?: boolean | null
-): 'active' | 'inactive' => {
-  const normalizedStatus = String(status ?? '').trim().toLowerCase();
-  if (normalizedStatus === 'active' || normalizedStatus === 'open') {
-    return 'active';
-  }
-  if (normalizedStatus === 'closed' || normalizedStatus === 'delayed' || normalizedStatus === 'inactive') {
-    return 'inactive';
-  }
-  if (closed != null) {
-    return closed ? 'inactive' : 'active';
-  }
-  return 'active';
-};
+const buildStrictNodeIdCandidates = buildCanonicalNodeIdCandidates;
 
 export const selectProjectRoutesForMap = (
   viewMode: string,
@@ -163,20 +68,7 @@ export const selectProjectRoutesForMap = (
 };
 
 export const selectStatusCounts = (projects: Project[]): { total: number; active: number; inactive: number } => {
-  let active = 0;
-  let inactive = 0;
-
-  for (const p of projects) {
-    const lifecycleStatus = normalizeLifecycleStatus(p.status, p.closed);
-    if (lifecycleStatus === 'active') active++;
-    else inactive++;
-  }
-
-  return {
-    total: active + inactive,
-    active,
-    inactive,
-  };
+  return buildLifecycleCounts(projects);
 };
 
 export const selectActiveFilterCount = (filters: WarRoomFilters): number => {
@@ -189,7 +81,7 @@ export const selectActiveFilterCount = (filters: WarRoomFilters): number => {
 export const selectActiveFilters = (
   filters: WarRoomFilters,
   clients: ClientLike[],
-  projects: Project[],
+  projects: ProjectLike[],
   projectOptions: NamedOption[],
   manufacturers: NamedOption[],
   projectTypes: NamedOption[]

@@ -98,6 +98,78 @@ describe('FluorescenceMapMapComponent logic helpers', () => {
     expect(state.lodClass).toBe('lod-high');
   });
 
+  it('buildMarkerVm shows labels at practical mid-zoom levels', () => {
+    const marker = (component as any).buildMarkerVm(
+      {
+        id: 'loc-30',
+        name: 'Arboc Plant',
+        company: 'Arboc',
+        companyId: 'loc-30',
+        city: 'Middlebury',
+        coordinates: { latitude: 41.6, longitude: -85.7 },
+        type: 'Facility',
+        status: 'ACTIVE',
+        level: 'manufacturer',
+      },
+      5.5,
+      null,
+      null,
+      { latitude: 41.6, longitude: -85.7 },
+      '#00C853',
+    );
+
+    expect(marker.showPinLabel).toBeTrue();
+  });
+
+  it('buildOverlayEnsureKey ignores selection changes but reacts to coordinate changes', () => {
+    const baseSnapshot = {
+      nodes: [
+        {
+          id: 'loc-30',
+          status: 'ACTIVE',
+          level: 'manufacturer',
+          coordinates: { latitude: 41.6, longitude: -85.7 },
+        },
+      ],
+      projectRoutes: [
+        {
+          id: 'project-1',
+          status: 'Open',
+          fromNodeId: 'client-1',
+          toNodeId: 'loc-30',
+          fromCoordinates: { latitude: 42.1, longitude: -79.4 },
+          toCoordinates: { latitude: 41.6, longitude: -85.7 },
+        },
+      ],
+      transitRoutes: [],
+      selected: null,
+      hovered: null,
+      filterStatus: 'all',
+    } as any;
+
+    const selectionOnlySnapshot = {
+      ...baseSnapshot,
+      selected: { level: 'manufacturer', id: 'loc-30', manufacturerLocationId: 'loc-30' },
+    } as any;
+
+    const movedCoordinateSnapshot = {
+      ...baseSnapshot,
+      nodes: [
+        {
+          ...baseSnapshot.nodes[0],
+          coordinates: { latitude: 48.1, longitude: -85.7 },
+        },
+      ],
+    } as any;
+
+    const baseKey = (component as any).buildOverlayEnsureKey(baseSnapshot);
+    const selectionKey = (component as any).buildOverlayEnsureKey(selectionOnlySnapshot);
+    const movedKey = (component as any).buildOverlayEnsureKey(movedCoordinateSnapshot);
+
+    expect(selectionKey).toBe(baseKey);
+    expect(movedKey).not.toBe(baseKey);
+  });
+
   it('projectLatLngToMapSpace scales linearly with viewBox size', () => {
     const baseViewBox = { x: 0, y: 0, width: 950, height: 550 };
     const scaledViewBox = { x: 0, y: 0, width: 1900, height: 1100 };
@@ -179,6 +251,68 @@ describe('FluorescenceMapMapComponent logic helpers', () => {
     expect(routes[0].end).toEqual({ x: 400, y: 300 });
     expect(routes[0].strokeWidth).toBe(1.5);
     expect(routes[0].highlighted).toBeTrue();
+  });
+
+  it('syncOverlays disables route animation when reduced motion is preferred', async () => {
+    spyOn(window, 'matchMedia').and.returnValue({
+      matches: true,
+      media: '(prefers-reduced-motion: reduce)',
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    } as MediaQueryList);
+
+    const nodeA = {
+      id: 'factory-1',
+      name: 'Factory One',
+      company: 'Factory One',
+      companyId: 'factory-1',
+      city: 'Alpha',
+      coordinates: { latitude: 10, longitude: 20 },
+      type: 'Factory',
+      status: 'ACTIVE',
+      level: 'factory',
+    } as any;
+
+    const nodeB = {
+      id: 'factory-2',
+      name: 'Factory Two',
+      company: 'Factory Two',
+      companyId: 'factory-2',
+      city: 'Beta',
+      coordinates: { latitude: 30, longitude: 40 },
+      type: 'Factory',
+      status: 'ACTIVE',
+      level: 'factory',
+    } as any;
+
+    (component as any).nodes = signal([nodeA, nodeB]);
+    (component as any).selectedEntity = signal({ level: 'factory', id: 'factory-1' });
+    (component as any).projectRoutes = signal([]);
+    (component as any).transitRoutes = signal([{
+      id: 'route-1',
+      from: 'factory-1',
+      to: 'factory-2',
+      fromCoordinates: { latitude: 10, longitude: 20 },
+      toCoordinates: { latitude: 30, longitude: 40 },
+    }]);
+    (component as any).filterStatus = signal('all');
+    (component as any).mapLoaded = true;
+    (component as any).destroyed = false;
+    (component as any).mapInstance = {
+      getZoom: () => 4,
+      project: ([lng, lat]: [number, number]) => ({ x: lng * 10, y: lat * 10 }),
+      remove: () => undefined,
+    };
+
+    await (component as any).syncOverlays(false);
+
+    const routes = (component as any).routesVm() as Array<{ animated: boolean }>;
+    expect(routes.length).toBe(1);
+    expect(routes[0].animated).toBeFalse();
   });
 
   it('syncOverlays preserves transit route styling overrides', async () => {

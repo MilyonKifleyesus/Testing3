@@ -17,7 +17,7 @@ import { FleetActivityTableComponent } from './components/fleet-activity-table/f
 import { ToastrService } from 'ngx-toastr';
 import { RoutePreviewStorageService } from '../../../shared/services/route-preview-storage.service';
 import { coerceCoordinateValue, coerceCoordinates, isValidCoordinates } from '../../../shared/utils/coordinate.utils';
-import { normalizeNumericLikeId, normalizeNumericLikeIdList } from '../../../shared/utils/id-normalizer.util';
+import { normalizeNumericLikeId } from '../../../shared/utils/id-normalizer.util';
 import {
   ActivityLogRow,
   ClientManagementCreateRequest,
@@ -71,21 +71,24 @@ import {
   WarRoomFilters,
   WarRoomPersistedState,
   createDefaultFilters,
+  FluorescenceMapManufacturerRecord,
 } from './fluorescence-map.types';
 import {
-  selectActiveFilterCount,
-  selectActiveFilters,
   selectAvailableRegions,
   selectAvailableRegionsFromValues,
-  selectDerivedNodeIdsFromRoutes,
-  selectFilteredNodesStrict,
-  selectFilteredProjectRoutesStrict,
-  selectMapViewModelStrict,
-  normalizeProjectTypeFilterKey,
   selectNodesWithClients,
   selectProjectRoutesForMap,
-  selectStatusCounts,
 } from './state/fluorescence-map.selectors';
+import {
+  manufacturerKeysEquivalent,
+  normalizeCanonicalId,
+  normalizeCanonicalIdList,
+  normalizeManufacturerKey,
+  normalizeProjectTypeFilterKey,
+} from './state/fluorescence-map-normalization';
+import {
+  mapProjectStatusToRowStatus,
+} from './state/fluorescence-map-lifecycle';
 import { ProjectWorkflowContext, ProjectWorkflowService } from './workflows/project-workflow.service';
 import { CaptureWorkflowContext, CaptureWorkflowService } from './workflows/capture-workflow.service';
 import { PanelActionsContext, PanelActionsWorkflowService } from './workflows/panel-actions-workflow.service';
@@ -98,15 +101,9 @@ import { adaptApiClient } from '../../services/adapters/client.adapter';
 import { adaptApiManufacturer } from '../../services/adapters/manufacturer.adapter';
 import { adaptApiProject } from '../../services/adapters/project.adapter';
 import { adaptApiLocation } from '../../services/adapters/location.adapter';
-
-interface ManufacturerRuntimeRecord {
-  id: number;
-  name: string;
-  logo?: string;
-  locationId?: number | null;
-  locationIds?: number[];
-  locations?: Array<{ id: number; latitude: number; longitude: number }>;
-}
+import { FluorescenceMapPageFacade } from './facades/fluorescence-map-page.facade';
+import { FluorescenceMapFilterFacade } from './facades/fluorescence-map-filter.facade';
+import { FluorescenceMapSelectionFacade } from './facades/fluorescence-map-selection.facade';
 
 interface ProjectFormData {
   projectName: string;
@@ -225,6 +222,9 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   private mapRealtimeService = inject(MapRealtimeService);
   private mapPollingService = inject(MapPollingService);
   private dataManagementMutation = inject(DataManagementMutationService);
+  private pageFacade = inject(FluorescenceMapPageFacade);
+  private filterFacade = inject(FluorescenceMapFilterFacade);
+  private selectionFacade = inject(FluorescenceMapSelectionFacade);
   private readonly envConfig = environment as RealtimeEnvironmentConfig;
   private readonly mapPollingIntervalMs = this.envConfig.mapPollingIntervalMs ?? 15000;
   private readonly mapDisconnectGraceMs = this.envConfig.mapDisconnectGraceMs ?? 10000;
@@ -250,7 +250,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   private readonly clientDeletedIds = signal<Set<string>>(new Set());
   private readonly locationDeltaById = signal<Map<string, Partial<ApiLocation>>>(new Map());
   private readonly locationDeletedIds = signal<Set<string>>(new Set());
-  private readonly manufacturerDeltaById = signal<Map<string, Partial<ManufacturerRuntimeRecord>>>(new Map());
+  private readonly manufacturerDeltaById = signal<Map<string, Partial<FluorescenceMapManufacturerRecord>>>(new Map());
   private readonly manufacturerDeletedIds = signal<Set<string>>(new Set());
   readonly clientsStatus = signal<EndpointStatus>('idle');
   readonly projectsStatus = signal<EndpointStatus>('idle');
@@ -432,18 +432,18 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
                 locationId: manufacturer.primaryLocationId ?? manufacturer.locationId ?? null,
                 locationIds: manufacturer.locationIds ?? [],
                 locations: manufacturer.locations ?? [],
-              })) as ManufacturerRuntimeRecord[]
+              })) as FluorescenceMapManufacturerRecord[]
             )
           ),
           tap(() => this.setEndpointReady('manufacturers')),
           catchError((err) => {
             this.setEndpointError('manufacturers', err);
-            return EMPTY as Observable<ManufacturerRuntimeRecord[]>;
+            return EMPTY as Observable<FluorescenceMapManufacturerRecord[]>;
           })
         )
       )
     ),
-    { initialValue: [] as ManufacturerRuntimeRecord[] }
+    { initialValue: [] as FluorescenceMapManufacturerRecord[] }
   );
   readonly effectiveProjects = computed(() => {
     const merged = this.mergeEntitiesWithDelta<Project>(
@@ -486,7 +486,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     });
   });
   readonly effectiveManufacturers = computed(() =>
-    this.mergeEntitiesWithDelta<ManufacturerRuntimeRecord>(
+    this.mergeEntitiesWithDelta<FluorescenceMapManufacturerRecord>(
       this.apiManufacturersSignal(),
       this.manufacturerDeltaById(),
       this.manufacturerDeletedIds()
@@ -631,63 +631,21 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   });
 
   readonly filtersActiveStrict = computed(() => {
-    const filters = this.filterApplied();
-    return filters.projectIds.length > 0
-      || filters.clientIds.length > 0
-      || filters.manufacturerIds.length > 0
-      || filters.projectTypeIds.length > 0
-      || filters.regions.length > 0
-      || filters.status !== 'all';
+    return this.canonicalFilteredState().filtersActive;
   });
 
-  readonly filteredProjectRoutesStrict = computed(() =>
-    selectFilteredProjectRoutesStrict(this.projectRoutes(), this.filterApplied(), {
-      getRegionForNodeId: (nodeId: string) => this.getRegionForNodeIdStrict(nodeId),
-      getClientIdForProjectId: (projectId: string) => this.projectClientIdByProjectId().get(projectId) ?? null,
-      getManufacturerIdsForNodeId: (nodeId: string) => {
-        const manufacturerIds = new Set<string>();
-        this.buildEndpointIdVariants(nodeId).forEach((candidate) => {
-          const matches = this.manufacturerIdsByNodeId().get(candidate);
-          if (!matches) return;
-          matches.forEach((manufacturerId) => manufacturerIds.add(manufacturerId));
-        });
-        return Array.from(manufacturerIds.values());
-      },
-      getManufacturerIdsForProjectId: (projectId: string) => this.manufacturerIdsByProjectId().get(projectId) ?? [],
-      getProjectTypeIdForProjectId: (projectId: string) => this.projectTypeIdByProjectId().get(projectId) ?? null,
-    })
-  );
+  readonly filteredProjectRoutesStrict = computed(() => this.canonicalFilteredState().filteredProjectRoutes);
 
-  readonly derivedNodeIdsStrict = computed(() =>
-    selectDerivedNodeIdsFromRoutes(this.filteredProjectRoutesStrict())
-  );
+  readonly derivedNodeIdsStrict = computed(() => this.canonicalFilteredState().derivedNodeIds);
 
-  readonly filteredNodesStrict = computed(() =>
-    selectFilteredNodesStrict(this.nodesWithClients(), this.derivedNodeIdsStrict().allNodeIds)
-  );
+  readonly filteredNodesStrict = computed(() => this.canonicalFilteredState().filteredNodes);
 
-  readonly mapViewModelStrict = computed<MapViewModelStrict>(() =>
-    selectMapViewModelStrict({
-      mode: this.mapViewMode(),
-      filteredRoutes: this.filteredProjectRoutesStrict(),
-      filteredNodes: this.filteredNodesStrict(),
-      derivedNodeIds: this.derivedNodeIdsStrict(),
-      filtersActive: this.filtersActiveStrict(),
-    })
-  );
+  readonly mapViewModelStrict = computed<MapViewModelStrict>(() => this.canonicalFilteredState().mapViewModel);
 
-  readonly filteredState = computed<FluorescenceMapFilteredState>(() => ({
-    filtersActive: this.filtersActiveStrict(),
-    filteredProjectRoutes: this.filteredProjectRoutesStrict(),
-    filteredNodes: this.filteredNodesStrict(),
-    strictMapNodes: this.mapViewModelStrict().markers.map((marker) => marker.node),
-    strictMapProjectRoutes: this.mapViewModelStrict().routes.map((route) => route.route),
-    filteredTransitRoutes: this.filteredTransitRoutes(),
-    mapViewModel: this.mapViewModelStrict(),
-  }));
+  readonly filteredState = computed<FluorescenceMapFilteredState>(() => this.canonicalFilteredState());
 
-  readonly strictMapNodes = computed(() => this.mapViewModelStrict().markers.map((marker) => marker.node));
-  readonly strictMapProjectRoutes = computed(() => this.mapViewModelStrict().routes.map((route) => route.route));
+  readonly strictMapNodes = computed(() => this.canonicalFilteredState().strictMapNodes);
+  readonly strictMapProjectRoutes = computed(() => this.canonicalFilteredState().strictMapProjectRoutes);
 
   /** True when a client is selected and has at least one route to capture. */
   readonly hasSelectedClientWithRoutes = computed(() => {
@@ -835,10 +793,48 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
 
     return { projectVms, clientVms, manufacturerVms, locationVms };
   });
+  readonly bootstrapData = this.pageFacade.createBootstrapData({
+    projects: () => this.tableProjectionData().projectVms,
+    clients: () => this.tableProjectionData().clientVms,
+    manufacturers: () => this.tableProjectionData().manufacturerVms,
+    locations: () => this.tableProjectionData().locationVms,
+    regionValues: () => this.availableRegions(),
+    nodes: () => this.nodesWithClients(),
+    projectRoutes: () => this.projectRoutes(),
+    transitRoutes: () => this.transitRoutes(),
+    projectClientIdByProjectId: () => this.projectClientIdByProjectId(),
+    projectTypeIdByProjectId: () => this.projectTypeIdByProjectId(),
+    manufacturerIdsByProjectId: () => this.manufacturerIdsByProjectId(),
+    manufacturerIdsByNodeId: () => {
+      const mapped = new Map<string, string[]>();
+      this.manufacturerIdsByNodeId().forEach((values, key) => mapped.set(key, Array.from(values.values())));
+      return mapped;
+    },
+    projectRegionByProjectId: () => {
+      const mapped = new Map<string, string | null>();
+      this.effectiveProjects().forEach((project) => mapped.set(String(project.id), this.resolveProjectRegion(project)));
+      return mapped;
+    },
+  });
+  readonly canonicalFilteredState = this.filterFacade.createFilteredState({
+    bootstrapData: () => this.bootstrapData(),
+    filters: () => this.filterApplied(),
+    mapViewMode: () => this.mapViewMode(),
+    clientOptions: () => this.clientOptionsSignal(),
+    manufacturerOptions: () => this.manufacturerOptionsSignal(),
+    projectTypeOptions: () => this.projectTypeOptionsSignal(),
+    projectOptions: () => this.projectOptionsSignal(),
+    isPinnedClientMode: () => this.isPinnedClientMode(),
+  });
+  readonly canonicalSelectionState = this.selectionFacade.createSelectionState({
+    selectedEntity: () => this.selectedEntity(),
+    selectedRouteId: () => this.selectedRouteId(),
+    filteredState: () => this.canonicalFilteredState(),
+  });
   readonly draftHasChanges = computed(() => !this.filtersEqual(this.filterDraft(), this.filterApplied()));
   readonly draftResultCount = computed(() => this.buildActivityProjectionRows(this.filterDraft()).length);
   readonly activityTableRows = computed<ActivityLogRow[]>(() => {
-    const baseRows = this.buildActivityProjectionRows(this.filterApplied());
+    const baseRows = this.canonicalFilteredState().activityTableRows;
     const overrides = this.activityRowOverrides();
     if (overrides.size === 0) {
       return baseRows;
@@ -848,125 +844,9 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       return patch ? { ...row, ...patch } : row;
     });
   });
-  readonly clientTableRows = computed<ClientManagementRow[]>(() => {
-    const projectCountByClient = new Map<string, number>();
-    for (const project of this.effectiveProjects()) {
-      const clientId = this.normalizeClientId(project.clientId) ?? '';
-      if (!clientId) continue;
-      projectCountByClient.set(clientId, (projectCountByClient.get(clientId) ?? 0) + 1);
-    }
-    const locationById = this.locationsById();
-
-    return this.effectiveClients()
-      .map((client) => {
-        const clientId = this.normalizeClientId(client.id) ?? String(client.id);
-        const locationId = this.normalizeEntityId(client.locationId);
-        const locationIds = this.parseLocationIds([
-          ...(client.locationIds ?? []),
-          client.locationId ?? null,
-        ]);
-        const location = locationId ? locationById.get(locationId) : null;
-        const linkedLocations = locationIds
-          .map((id) => {
-            const linked = locationById.get(String(id));
-            if (!linked) return null;
-            return { id, name: linked.name };
-          })
-          .filter((value): value is { id: number; name: string } => !!value);
-        return {
-          id: `client-${clientId}`,
-          clientId,
-          clientName: client.name ?? clientId,
-          locationIds,
-          linkedLocations,
-          locationId,
-          locationName: location?.name ?? '',
-          latitude: client.coordinates?.latitude ?? location?.latitude ?? null,
-          longitude: client.coordinates?.longitude ?? location?.longitude ?? null,
-          projectCount: projectCountByClient.get(clientId) ?? 0,
-        } satisfies ClientManagementRow;
-      })
-      .sort((a, b) => a.clientName.localeCompare(b.clientName));
-  });
-  readonly manufacturerTableRows = computed<ManufacturerManagementRow[]>(() => {
-    const pinnedClientId = this.pinnedClientId();
-    const allowedLocationIds = new Set<string>();
-    const allowedManufacturerNames = new Set<string>();
-    if (pinnedClientId) {
-      for (const project of this.effectiveProjects()) {
-        const locationId = this.normalizeEntityId(project.manufacturerLocationId ?? project.locationId);
-        if (locationId) allowedLocationIds.add(locationId);
-        const manufacturerName = (project.manufacturer ?? '').trim();
-        if (manufacturerName) {
-          allowedManufacturerNames.add(this.normalizeManufacturerFilterName(manufacturerName));
-        }
-      }
-    }
-    const locationById = this.locationsById();
-
-    return this.effectiveManufacturers()
-      .map((manufacturer) => {
-        const manufacturerId = String(manufacturer.id);
-        const locationId = this.normalizeEntityId(manufacturer.locationId);
-        const locationIds = this.parseLocationIds([
-          ...(manufacturer.locationIds ?? []),
-          manufacturer.locationId ?? null,
-        ]);
-        const location = locationId ? locationById.get(locationId) : null;
-        const linkedLocations = locationIds
-          .map((id) => {
-            const linked = locationById.get(String(id));
-            if (!linked) return null;
-            return { id, name: linked.name };
-          })
-          .filter((value): value is { id: number; name: string } => !!value);
-        return {
-          id: `manufacturer-${manufacturerId}`,
-          manufacturerId,
-          manufacturerName: manufacturer.name ?? manufacturerId,
-          locationIds,
-          linkedLocations,
-          locationId,
-          locationName: location?.name ?? '',
-          latitude: location?.latitude ?? null,
-          longitude: location?.longitude ?? null,
-        } satisfies ManufacturerManagementRow;
-      })
-      .filter((row) => {
-        if (!pinnedClientId) return true;
-        if (row.locationId && allowedLocationIds.has(row.locationId)) return true;
-        return allowedManufacturerNames.has(this.normalizeManufacturerFilterName(row.manufacturerName));
-      })
-      .sort((a, b) => a.manufacturerName.localeCompare(b.manufacturerName));
-  });
-  readonly locationTableRows = computed<LocationManagementRow[]>(() => {
-    const pinnedClientId = this.pinnedClientId();
-    const allowedLocationIds = new Set<string>();
-    if (pinnedClientId) {
-      for (const project of this.effectiveProjects()) {
-        const locationId = this.normalizeEntityId(project.locationId ?? project.manufacturerLocationId);
-        if (locationId) allowedLocationIds.add(locationId);
-      }
-      for (const client of this.effectiveClients()) {
-        const clientLocationId = this.normalizeEntityId(client.locationId);
-        if (clientLocationId) allowedLocationIds.add(clientLocationId);
-      }
-    }
-
-    return this.effectiveLocations()
-      .map((location) => {
-        const locationId = String(location.id);
-        return {
-          id: `location-${locationId}`,
-          locationId,
-          locationName: location.name ?? locationId,
-          latitude: location.latitude ?? null,
-          longitude: location.longitude ?? null,
-        } satisfies LocationManagementRow;
-      })
-      .filter((row) => !pinnedClientId || allowedLocationIds.has(this.normalizeEntityId(row.locationId) ?? row.locationId))
-      .sort((a, b) => a.locationName.localeCompare(b.locationName));
-  });
+  readonly clientTableRows = computed<ClientManagementRow[]>(() => this.canonicalFilteredState().clientTableRows);
+  readonly manufacturerTableRows = computed<ManufacturerManagementRow[]>(() => this.canonicalFilteredState().manufacturerTableRows);
+  readonly locationTableRows = computed<LocationManagementRow[]>(() => this.canonicalFilteredState().locationTableRows);
   readonly expandedFilterSection = signal<'client' | 'manufacturer' | 'projectType' | 'project' | null>(null);
   readonly clientFilterSearch = signal('');
   readonly manufacturerFilterSearch = signal('');
@@ -1226,34 +1106,11 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     return nodeMap;
   });
 
-  readonly activeFilterCount = computed(() => {
-    const filters = this.filterApplied();
-    if (!this.isPinnedClientMode()) {
-      return selectActiveFilterCount(filters);
-    }
-    return selectActiveFilterCount({ ...filters, clientIds: [] });
-  });
+  readonly activeFilterCount = computed(() => this.canonicalFilteredState().activeFilterCount);
 
-  readonly activeFilters = computed<ActiveFilterItem[]>(() => {
-    const items = selectActiveFilters(
-      this.filterApplied(),
-      this.effectiveClients(),
-      this.effectiveProjects(),
-      this.projectOptionsSignal(),
-      this.manufacturerOptionsSignal(),
-      this.projectTypeOptionsSignal()
-    );
+  readonly activeFilters = computed<ActiveFilterItem[]>(() => this.canonicalFilteredState().activeFilters);
 
-    if (!this.isPinnedClientMode()) {
-      return items;
-    }
-
-    return items.filter((item) => item.type !== 'client');
-  });
-
-  readonly statusCounts = computed(() => {
-    return selectStatusCounts(this.effectiveProjects());
-  });
+  readonly statusCounts = computed(() => this.canonicalFilteredState().statusCounts);
   readonly effectiveStatusFilter = computed<FilterStatus>(() => {
     return this.mapViewMode() === 'manufacturer' ? 'all' : this.filterApplied().status;
   });
@@ -1420,35 +1277,11 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   }
 
   private normalizeManufacturerFilterName(name: string): string {
-    return (name ?? '')
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .replace(
-        /\b(incorporated|inc|corporation|corp|company|co|limited|ltd|llc|gmbh|ag|plc)\b/g,
-        ' '
-      )
-      .replace(/\s+/g, ' ');
+    return normalizeManufacturerKey(name) ?? '';
   }
 
   private manufacturerNamesEquivalent(a: string, b: string): boolean {
-    const normalizedA = this.normalizeManufacturerFilterName(a);
-    const normalizedB = this.normalizeManufacturerFilterName(b);
-    if (!normalizedA || !normalizedB) return false;
-    if (normalizedA === normalizedB) return true;
-    if (normalizedA.includes(normalizedB) || normalizedB.includes(normalizedA)) return true;
-
-    const tokensA = new Set(normalizedA.split(' ').filter((token) => !!token));
-    const tokensB = new Set(normalizedB.split(' ').filter((token) => !!token));
-    if (tokensA.size === 0 || tokensB.size === 0) return false;
-
-    let overlap = 0;
-    tokensA.forEach((token) => {
-      if (tokensB.has(token)) overlap += 1;
-    });
-
-    const minimumOverlap = tokensA.size === 1 || tokensB.size === 1 ? 1 : 2;
-    return overlap >= minimumOverlap;
+    return manufacturerKeysEquivalent(a, b);
   }
 
   private resolveManufacturerFilterOption(project: Project): { id: string; name: string } | null {
@@ -1785,72 +1618,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     });
   });
 
-  readonly filteredTransitRoutes = computed(() => {
-    if (this.mapViewMode() === 'client') {
-      return [];
-    }
-    const routes = this.transitRoutes();
-    const strictNodes = this.strictMapNodes();
-    const nodes = strictNodes.length > 0 ? strictNodes : this.filteredNodes();
-    const filteredNodeIds = new Set<string>();
-    nodes.forEach((node) => {
-      this.buildEndpointIdVariants(node.id).forEach((candidate) => filteredNodeIds.add(candidate));
-    });
-
-    const lookup = this.nodeLookup();
-    const findNode = (id: string): Node | undefined => {
-      const nid = (id ?? '').toLowerCase();
-      const match = lookup.get(id) ?? lookup.get(nid);
-      if (match) return match;
-
-      const factory = this.factories().find(f => f.id === id || (f.id && f.id.toLowerCase() === nid));
-      if (factory) {
-        return lookup.get(factory.subsidiaryId) ?? lookup.get(factory.parentGroupId);
-      }
-
-      if (nid.includes('fleetzero') || nid.includes('fleet-zero')) {
-        return this.nodes().find(n =>
-          n.id === 'fleetzero' ||
-          n.subsidiaryId === 'fleetzero' ||
-          (n.name != null && n.name.toLowerCase().includes('fleetzero'))
-        );
-      }
-
-      if (id.startsWith('source-')) {
-        return lookup.get(id.replace('source-', ''));
-      }
-
-      return undefined;
-    };
-
-    return routes.reduce<TransitRoute[]>((acc, route) => {
-      const fromNode = findNode(route.from);
-      const toNode = findNode(route.to);
-
-      const fromCoordinates = fromNode?.coordinates ?? route.fromCoordinates;
-      const toCoordinates = toNode?.coordinates ?? route.toCoordinates;
-
-      if (!isValidCoordinates(fromCoordinates) || !isValidCoordinates(toCoordinates)) {
-        return acc;
-      }
-
-      const isEndpointVisible = (node: Node | undefined) =>
-        node != null &&
-        this.buildEndpointIdVariants(node.id).some((candidate) => filteredNodeIds.has(candidate));
-
-      const bothEndpointsVisible = isEndpointVisible(fromNode) && isEndpointVisible(toNode);
-
-      if (!bothEndpointsVisible) return acc;
-
-      acc.push({
-        ...route,
-        fromCoordinates: fromCoordinates!,
-        toCoordinates: toCoordinates!,
-      });
-
-      return acc;
-    }, []);
-  });
+  readonly filteredTransitRoutes = computed(() => this.canonicalFilteredState().filteredTransitRoutes);
 
   /**
    * True when the map should show the "No map entities match" overlay instead of a blank/dark map.
@@ -1858,43 +1626,10 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
    */
   readonly showEmptyStateOverlay = computed(() => {
     if (this.requiredDataLoading()) return false;
-    return this.mapViewModelStrict().emptyState.show;
+    return this.canonicalFilteredState().mapState.showEmptyState;
   });
 
-  readonly selectionState = computed<FluorescenceMapSelectionState>(() => {
-    const selected = this.selectedEntity();
-    const selectedRouteId = this.selectedRouteId();
-    const visibleNodeIds = new Set<string>();
-    for (const marker of this.mapViewModelStrict().markers) {
-      this.buildEndpointIdVariants(marker.nodeId).forEach((candidate) => visibleNodeIds.add(candidate));
-    }
-
-    const selectedEntityVisible =
-      !selected ||
-      [
-        selected.id,
-        selected.factoryId,
-        selected.manufacturerLocationId,
-      ]
-        .flatMap((candidate) => this.buildEndpointIdVariants(candidate ?? null))
-        .some((candidate) => visibleNodeIds.has(candidate));
-
-    const visibleRouteIds = new Set(this.mapViewModelStrict().routes.map((route) => route.id));
-    const selectedRouteVisible = !selectedRouteId || visibleRouteIds.has(selectedRouteId);
-    const selectionInvalidated =
-      this.filtersActiveStrict() &&
-      ((!selectedEntityVisible && !!selected) || (!selectedRouteVisible && !!selectedRouteId));
-
-    return {
-      selectedEntityVisible,
-      selectedRouteVisible,
-      selectionInvalidated,
-      noticeMessage:
-        selectionInvalidated && !this.showEmptyStateOverlay()
-          ? 'Current selection is outside applied filters'
-          : null,
-    };
-  });
+  readonly selectionState = computed<FluorescenceMapSelectionState>(() => this.canonicalSelectionState());
 
   readonly selectionOutsideFiltersNotice = computed(() => this.selectionState().noticeMessage);
 
@@ -1911,6 +1646,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
       selected: this.selectedEntity(),
       hovered: this.warRoomService.hoveredEntity(),
       filterStatus: this.effectiveStatusFilter(),
+      emptyMessage: filteredState.mapState.emptyMessage,
     };
   });
 
@@ -2247,7 +1983,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
     if (!event.payload || typeof event.payload !== 'object') return false;
     const normalizedManufacturer = adaptApiManufacturer(event.payload as Record<string, unknown>);
     if (!normalizedManufacturer) return false;
-    const payload: Partial<ManufacturerRuntimeRecord> = {
+    const payload: Partial<FluorescenceMapManufacturerRecord> = {
       id: normalizedManufacturer.id,
       name: normalizedManufacturer.manufacturerName,
       logo: this.sanitizeLogo(normalizedManufacturer.manufacturerLogo),
@@ -2835,7 +2571,21 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   }
 
   onActivityRowView(row: ActivityLogRow): void {
-    const project = this.effectiveProjects().find((candidate) => String(candidate.id) === row.projectId);
+    const projectId = String(row.projectId ?? '').trim();
+    if (!projectId) return;
+
+    const defaults = createDefaultFilters();
+    const pinnedClientId = this.pinnedClientId();
+    const nextFilters: WarRoomFilters = {
+      ...defaults,
+      clientIds: pinnedClientId ? [pinnedClientId] : defaults.clientIds,
+      projectIds: [projectId],
+    };
+
+    this.filterApplied.set(nextFilters);
+    this.filterDraft.set(this.cloneFilters(nextFilters));
+
+    const project = this.effectiveProjects().find((candidate) => String(candidate.id) === projectId);
     if (!project) return;
     this.onProjectHudSelected(project);
   }
@@ -2907,21 +2657,15 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   }
 
   private normalizeEntityId(value: string | number | null | undefined): string | null {
-    if (value == null) return null;
-    const raw = String(value).trim();
-    if (!raw) return null;
-    const normalized = raw.replace(/^source-/i, '').replace(/^loc-/i, '').trim();
-    const canonical = normalizeNumericLikeId(normalized);
-    return canonical || null;
+    return normalizeCanonicalId(value);
   }
 
   private normalizeClientId(value: unknown): string | null {
-    const normalized = normalizeNumericLikeId(value);
-    return normalized || null;
+    return normalizeCanonicalId(value);
   }
 
   private normalizeClientIdList(values: unknown[]): string[] {
-    return normalizeNumericLikeIdList(values);
+    return normalizeCanonicalIdList(values);
   }
 
   private tryGetMapComponent(): FluorescenceMapMapComponent | null {
@@ -3809,12 +3553,16 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   private buildActivityProjectionRows(filters: WarRoomFilters): ActivityLogRow[] {
     const data = this.tableProjectionData();
     const projectionFilters = this.toActivityProjectionFilters(filters);
-    return this.activityLogTableService.buildRows(
+    const filteredProjects = this.activityLogTableService.filterProjects(
       data.projectVms,
+      projectionFilters,
+      data.manufacturerVms,
+    );
+    return this.activityLogTableService.buildRows(
+      filteredProjects,
       data.clientVms,
       data.manufacturerVms,
       data.locationVms,
-      projectionFilters
     );
   }
 
@@ -4027,40 +3775,7 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
   }
 
   private deriveSelectedProjectIdFromNode(node: Node): string | null {
-    const manufacturerLocationId = this.normalizeEntityId(node.manufacturerLocationId ?? node.factoryId);
-    if (manufacturerLocationId) {
-      const matchingRow = this.activityTableRows().find(
-        (row) => this.normalizeEntityId(row.manufacturerLocationId ?? row.locationId) === manufacturerLocationId
-      );
-      if (matchingRow) {
-        return matchingRow.projectId;
-      }
-
-      const matchingProject = this.effectiveProjects().find(
-        (project) =>
-          this.normalizeEntityId(project.manufacturerLocationId ?? project.locationId) === manufacturerLocationId
-      );
-      if (matchingProject) {
-        return String(matchingProject.id);
-      }
-    }
-
-    const clientId = this.normalizeClientId(node.companyId ?? node.clientId ?? node.id);
-    if (!clientId) {
-      return null;
-    }
-
-    const matchingRow = this.activityTableRows().find(
-      (row) => this.normalizeClientId(row.clientId) === clientId
-    );
-    if (matchingRow) {
-      return matchingRow.projectId;
-    }
-
-    const matchingProject = this.effectiveProjects().find(
-      (project) => this.normalizeClientId(project.clientId) === clientId
-    );
-    return matchingProject ? String(matchingProject.id) : null;
+    return this.selectionFacade.deriveSelectedProjectIdFromNode(node, this.activityTableRows());
   }
 
   async onFactoryDetailsUpdated(payload: FactoryEditPayload): Promise<void> {
@@ -4114,11 +3829,11 @@ export class FluorescenceMapComponent implements OnInit, OnDestroy {
 
   private normalizeProjectStatus(project: Project): 'Open' | 'Closed' | 'Delayed' {
     const closed = (project as { closed?: boolean | null }).closed;
-    if (closed === true) return 'Closed';
-    if (closed === false) return 'Open';
-
     const status = (project as { status?: 'Open' | 'Closed' | 'Delayed' | null }).status;
-    return status ?? 'Open';
+    const rowStatus = mapProjectStatusToRowStatus(status, closed);
+    if (rowStatus === 'Under Inspection') return 'Delayed';
+    if (rowStatus === 'Closed') return 'Closed';
+    return 'Open';
   }
 
   private readProjectContract(project: Project | null | undefined): string | null {

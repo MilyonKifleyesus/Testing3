@@ -8,11 +8,9 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { HttpErrorResponse } from '@angular/common/http';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { ToastrModule, ToastrService } from 'ngx-toastr';
 import { AuthService } from '../../shared/services/auth.service';
-import { LoginResponse } from '../../shared/models/auth.models';
 
 @Component({
   selector: 'app-login',
@@ -75,11 +73,16 @@ export class LoginComponent {
   }
 
   login() {
-    // this.disabled = "btn-loading"
     this.errorMessage = '';
-    if (this.validateForm(this.email, this.password)) {
+    const username = String(this.loginForm.controls['username']?.value ?? '').trim();
+    const password = String(this.loginForm.controls['password']?.value ?? '');
+
+    this.email = username;
+    this.password = password;
+
+    if (this.validateForm(username, password)) {
       this.authservice
-        .loginWithEmail(this.email, this.password)
+        .loginWithEmail(username, password)
         .then((user: any) => {
           const redirectUrl = this.authservice.getRedirectUrlByRole(user?.role);
           this.router.navigate([redirectUrl]);
@@ -94,11 +97,8 @@ export class LoginComponent {
           this._error = _error;
           this.password = '';
           this.loginForm.patchValue({ password: '' });
-          this.router.navigate(['/']);
         });
-     
-    }
-    else {
+    } else {
       this.toastr.error('Invalid details','spruha', {
         timeOut: 3000,
         positionClass: 'toast-top-right',
