@@ -2,6 +2,46 @@
   display: block;
 }
 
+// Widget loading blur overlay
+.widget-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(255 255 255 / 55%);
+  backdrop-filter: blur(4px);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+:host-context(html[data-theme-mode='dark']) .widget-loading-overlay {
+  background: rgb(30 40 30 / 55%);
+}
+
+.widget-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.widget-loading-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: #2e7d32;
+  letter-spacing: 0.3px;
+}
+
+.widget-content-blur {
+  filter: blur(3px);
+  transition: filter 0.25s ease;
+  pointer-events: none;
+  user-select: none;
+}
+
+
 :host-context(html[data-theme-mode='light']) {
   --dashboard-wrapper-bg: linear-gradient(135deg, #f0fdf4 0%, #e8f5e9 100%);
 }

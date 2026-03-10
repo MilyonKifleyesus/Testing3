@@ -16,7 +16,7 @@ const SINGLE_GREEN_DARK = ['#2e7d32'];
 const SINGLE_GREEN_LIGHT = ['#66bb6a'];
 const SINGLE_GREEN_MEDIUM = ['#388e3c'];
 const TICKETS_STATUS_GREEN_COLORS = ['#609764', '#95c097', '#cfead0', '#e0ece2', '#66bb6a', '#81c784', '#d1f2d6'];
-const TICKETS_STATUS_BAR_COLOR = ['#609764'];
+const TICKETS_STATUS_BAR_COLOR = PRIMARY_GREEN_COLORS_6;
 const PROJECTS_BY_STATION_HEATMAP_RANGES = [
   { from: 1, to: 2, color: '#cfead0', name: 'Low' },
   { from: 2, to: 3, color: '#609764', name: 'Medium' },
@@ -208,6 +208,19 @@ export const repeatedDefectsGauge = {
       }
     }
   },
+  fill: {
+    type: 'gradient',
+    gradient: {
+      shade: 'light',
+      type: 'horizontal',
+      shadeIntensity: 0.45,
+      gradientToColors: ['#1b5e20'],
+      inverseColors: false,
+      opacityFrom: 1,
+      opacityTo: 1,
+      stops: [0, 100],
+    },
+  },
   colors: SINGLE_GREEN_LIGHT,
   labels: ['Repeated %']
 };
@@ -234,6 +247,19 @@ export const safetyCriticalDefectsGauge = {
         value: { show: true, color: '#212529', fontSize: '28px', fontWeight: 'bold', offsetY: -20, fontFamily: 'Poppins, sans-serif' }
       }
     }
+  },
+  fill: {
+    type: 'gradient',
+    gradient: {
+      shade: 'light',
+      type: 'horizontal',
+      shadeIntensity: 0.45,
+      gradientToColors: ['#1b5e20'],
+      inverseColors: false,
+      opacityFrom: 1,
+      opacityTo: 1,
+      stops: [0, 100],
+    },
   },
   colors: SINGLE_GREEN_MEDIUM,
   labels: ['Critical %']
@@ -619,6 +645,7 @@ export const buildTicketsByStatusBar = (data?: TicketsByStatusData) => {
     plotOptions: {
       bar: {
         horizontal: true,
+        distributed: true,
         barHeight: '65%',
         borderRadius: 3,
         dataLabels: { position: 'right' }

@@ -29,7 +29,7 @@
               <select 
                 class="form-select" 
                 [(ngModel)]="selectedClient"
-                (ngModelChange)="filterUsers()">
+                (ngModelChange)="onClientChange($event)">
                 <option value="0">All Clients</option>
                 <option *ngFor="let client of clients" [value]="client.id">{{client.name}}</option>
               </select>

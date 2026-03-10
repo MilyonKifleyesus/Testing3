@@ -34,6 +34,7 @@ import {
   sortWidgetsByOrder,
 } from './dashboard-layout.utils';
 import {
+  ADMIN_DEFAULT_WIDGET_LAYOUT,
   CLIENT_COMPACT_HIDDEN_WIDGET_IDS,
   DASHBOARD_LAYOUT_STORAGE_KEY,
   DEFAULT_RECENT_ACTIVITIES,
@@ -59,6 +60,7 @@ import {
   getResizeCursor,
 } from './dashboard-interactions.utils';
 import { Inject } from '@angular/core';
+import { ToastService } from '../../../components/elements/toast/toast.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -109,7 +111,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   allClientVehicles: any[] = [];
   allClientTickets: any[] = [];
 
-  private readonly STORAGE_KEY = DASHBOARD_LAYOUT_STORAGE_KEY;
   private resizeSession: DashboardResizeSession | null = null;
   private projectsRequestVersion = 0;
   private vehiclesRequestVersion = 0;
@@ -131,14 +132,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private dashboardProjectsService: DashboardProjectsService,
     private clientService: ClientService,
     @Inject(ClientDashboardService) private clientDashboardService: ClientDashboardService,
+    private toastService: ToastService,
   ) {}
 
   ngOnInit(): void {
-    this.applyRole(this.authService.userRole);
-    this.fetchAllClientVehiclesAndTickets();
+    try {
+      this.applyRole(this.authService.userRole);
+      this.fetchAllClientVehiclesAndTickets();
+    } catch (err) {
+      this.toastService.show('Client dashboard initialization failed: ' + (typeof err === 'object' && err && 'message' in err ? (err as any).message : String(err)), { classname: 'bg-danger text-light', autohide: true });
+    }
 
     this.userSubscription = this.authService.currentUser$.subscribe((user) => {
-      this.applyRole(user?.role ?? null);
+      try {
+        this.applyRole(user?.role ?? null);
+      } catch (err) {
+        this.toastService.show('Client dashboard role error: ' + (typeof err === 'object' && err && 'message' in err ? (err as any).message : String(err)), { classname: 'bg-danger text-light', autohide: true });
+      }
     });
 
     document.addEventListener('mousemove', this.mouseMoveHandler);
@@ -225,6 +235,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   onVehicleChange(vehicleId: string): void {
     this.selectedVehicle = vehicleId;
+    if (this.isAdminRole) {
+      this.setAdminStatCards();
+      return;
+    }
+
     if (!this.isAdminRole) {
       this.fetchAllClientVehiclesAndTickets();
       this.refreshClientView();
@@ -275,7 +290,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   restoreAllWidgets(): void {
-    localStorage.removeItem(this.STORAGE_KEY);
+    localStorage.removeItem(this.getLayoutStorageKey());
     this.initializeWidgets();
   }
 
@@ -303,7 +318,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   resetDashboardLayout(): void {
-    localStorage.removeItem(this.STORAGE_KEY);
+    localStorage.removeItem(this.getLayoutStorageKey());
     this.initializeWidgets();
     this.widgets = this.buildWidgets();
     this.saveLayoutToStorage();
@@ -322,21 +337,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  private getLayoutStorageKey(): string {
+    return `${DASHBOARD_LAYOUT_STORAGE_KEY}_${this.isAdminRole ? 'admin' : 'client'}`;
+  }
+
   private applyRole(roleValue: string | null): void {
-    const normalizedRole = String(roleValue ?? '').trim().toLowerCase();
-    const user = this.authService.currentUserValue;
+    const user = this.authService.currentUserValue || { role: 'client', type: 0, username: 'User', email: '', clientId: 0, userId: 0, isGeneralAdmin: false };
+    const normalizedRole = String(roleValue ?? user.role ?? '').trim().toLowerCase();
     const userType = Number(user?.type ?? 0);
     const isClientByRoleType = normalizedRole === 'client' || (normalizedRole === 'user' && userType === 3);
-    this.role = normalizedRole === 'admin' || normalizedRole === 'superadmin'
-      ? 'admin'
-      : (isClientByRoleType ? 'client' : 'client');
+    this.role = (normalizedRole === 'admin' || normalizedRole === 'superadmin') ? 'admin' : (isClientByRoleType ? 'client' : 'client');
     this.showFilters = !this.isAdminRole;
     this.includeClosedProjects = false;
     if (!this.isAdminRole) {
       this.fetchAllClientVehiclesAndTickets();
     }
 
-    this.welcomeUserName = String(user?.username ?? user?.email ?? 'User').split('@')[0] || 'User';
+    // Defensive: always fallback to username/email/User
+    let welcomeName = 'User';
+    if (user?.username && typeof user.username === 'string') {
+      welcomeName = user.username.split('@')[0] || 'User';
+    } else if (user?.email && typeof user.email === 'string') {
+      welcomeName = user.email.split('@')[0] || 'User';
+    }
+    this.welcomeUserName = welcomeName;
     this.title = this.isAdminRole ? 'BusPulse Fleet Dashboard' : 'BusPulse Client Dashboard';
     this.loadClientBranding(user);
 
@@ -387,6 +411,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
 
         this.updateProjectStatusChart(this.projects);
+        this.updateProjectScopedComparisonWidgets();
         this.refreshVehiclesByMakeModelChart();
         this.refreshVehiclesByPropulsionTypesChart();
 
@@ -395,19 +420,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.refreshClientView();
         }
       },
-      error: () => {
+      error: (err) => {
         if (requestVersion !== this.projectsRequestVersion) return;
-
         this.projects = [{ id: 'all', name: 'All Projects' }];
         this.selectedProject = 'all';
         this.selectedVehicle = 'all';
         this.updateProjectStatusChart(this.projects);
+        this.updateProjectScopedComparisonWidgets();
         this.refreshVehiclesByMakeModelChart();
         this.refreshVehiclesByPropulsionTypesChart();
         this.loadVehicles(this.selectedProject);
         if (!this.isAdminRole) {
           this.refreshClientView();
         }
+        this.toastService.show('Failed to load projects: ' + (err?.message || 'Unknown error'), { classname: 'bg-danger text-light', autohide: true });
       },
     });
   }
@@ -483,12 +509,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.refreshClientView();
         }
       },
-      error: () => {
+      error: (err) => {
         if (requestVersion !== this.vehiclesRequestVersion) return;
-
         this.vehicles = [{ id: 'all', name: 'All Vehicles' }];
         this.selectedVehicle = 'all';
         this.totalVehiclesCount = null;
+        this.toastService.show('Failed to load vehicles: ' + (err?.message || 'Unknown error'), { classname: 'bg-danger text-light', autohide: true });
       },
     });
   }
@@ -511,9 +537,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.selectedClient = 'all';
         }
       },
-      error: () => {
+      error: (err) => {
         this.clients = [{ id: 'all', name: 'All Clients' }];
         this.selectedClient = 'all';
+        this.toastService.show('Failed to load clients: ' + (err?.message || 'Unknown error'), { classname: 'bg-danger text-light', autohide: true });
       },
     });
   }
@@ -574,29 +601,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private setAdminStatCards(): void {
-    const source = busPulseData.dashboardStats;
-    const totalProjects = this.projects.filter((project) => project.id !== 'all').length || source.totalProjects;
-
+    const totalProjects = this.projects.filter((project) => project.id !== 'all').length || 0;
     this.updateProjectStatusChart(this.projects);
-    this.statCards = buildAdminStatCards(source, totalProjects, this.totalVehiclesCount);
-    // Update Tickets by Status widget for admin view as well.
-    // If a project is selected, request project-scoped totals, otherwise request overall dashboard.
-    if (this.selectedProject && this.selectedProject !== 'all') {
-      this.dashboardProjectsService.getTicketsDashboard({ projectId: this.selectedProject }).subscribe({
-        next: (res) => this.updateTicketsByStatusWidgetFromApi(res),
-        error: () => { this.updateTicketsByStatusWidgetFromApi([]); },
-      });
-    } else if (this.selectedVehicle && this.selectedVehicle !== 'all') {
-      this.dashboardProjectsService.getTicketsDashboard({ vehicleId: this.selectedVehicle }).subscribe({
-        next: (res) => this.updateTicketsByStatusWidgetFromApi(res),
-        error: () => { this.updateTicketsByStatusWidgetFromApi([]); },
-      });
-    } else {
-      this.dashboardProjectsService.getTicketsDashboard().subscribe({
-        next: (res) => this.updateTicketsByStatusWidgetFromApi(res),
-        error: () => { this.updateTicketsByStatusWidgetFromApi([]); },
-      });
-    }
+    // Always fetch tickets dashboard and update admin stats from API result
+    this.dashboardProjectsService.getTicketsDashboard({
+      projectId: this.selectedProject !== 'all' ? this.selectedProject : undefined,
+      vehicleId: this.selectedVehicle !== 'all' ? this.selectedVehicle : undefined,
+      includeClosed: this.includeClosedProjects,
+    }).subscribe({
+      next: (res) => {
+        // Reuse repeatedTickets and safetyCriticalTickets from API result
+        const statsSource = {
+          ...busPulseData.dashboardStats,
+          repeatedDefects: res?.repeatedTickets ?? busPulseData.dashboardStats.repeatedDefects,
+          criticalDefects: res?.safetyCriticalTickets ?? busPulseData.dashboardStats.criticalDefects,
+        };
+        this.statCards = buildAdminStatCards(statsSource, totalProjects, this.totalVehiclesCount);
+        this.updateTicketsByStatusWidgetFromApi(res);
+      },
+      error: () => {
+        this.statCards = buildAdminStatCards(busPulseData.dashboardStats, totalProjects, this.totalVehiclesCount);
+        this.updateTicketsByStatusWidgetFromApi([]);
+      },
+    });
   }
 
   private refreshClientView(): void {
@@ -786,62 +813,42 @@ export class DashboardComponent implements OnInit, OnDestroy {
           },
         });
       } else {
-        const visibleProjectIds = this.projects
-          .map((project) => String(project.id ?? ''))
-          .filter((id) => id && id.toLowerCase() !== 'all');
-
-        if (visibleProjectIds.length) {
-          const requests = visibleProjectIds.map((pid) =>
-            this.dashboardProjectsService.getTicketsDashboard({ projectId: pid }),
-          );
-
-          forkJoin(requests).subscribe({
-            next: (results) => {
-              let aggregate = 0;
-              for (const res of results) {
-                const r: any = res ?? {};
-                const candidates = [r.totalTickets, r.total, r.count, r.totalItems, r.totalRecords];
-                let value = 0;
-                for (const c of candidates) {
-                  const n = Number(c);
-                  if (Number.isFinite(n) && n >= 0) {
-                    value = n;
-                    break;
-                  }
-                }
-                aggregate += value;
+        // Use one aggregated request for client scope to avoid spawning
+        // one network call per project (can freeze/crash on large fleets).
+        this.dashboardProjectsService.getTicketsDashboard().subscribe({
+          next: (res) => {
+            const r: any = res ?? {};
+            const candidates = [r.totalTickets, r.total, r.count, r.totalItems, r.totalRecords];
+            let total = Number(this.currentProjectStats.totalTickets ?? 0);
+            for (const c of candidates) {
+              const n = Number(c);
+              if (Number.isFinite(n) && n >= 0) {
+                total = n;
+                break;
               }
+            }
 
-              this.currentProjectStats = {
-                ...this.currentProjectStats,
-                totalTickets: aggregate,
-              };
+            this.currentProjectStats = {
+              ...this.currentProjectStats,
+              totalTickets: total,
+            };
 
-              this.statCards = buildClientStatCards(
-                this.currentProjectStats,
-                this.showFilters,
-                this.selectedProject,
-              );
-              // Update Tickets by Status widget by aggregating per-project responses
-              this.updateTicketsByStatusWidgetFromApi(results);
-            },
-            error: () => {
-              // On error, show canonical zeros and keep demo/stat cards
-              this.updateTicketsByStatusWidgetFromApi([]);
-              this.statCards = buildClientStatCards(
-                this.currentProjectStats,
-                this.showFilters,
-                this.selectedProject,
-              );
-            },
-          });
-        } else {
-          this.statCards = buildClientStatCards(
-            this.currentProjectStats,
-            this.showFilters,
-            this.selectedProject,
-          );
-        }
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+            this.updateTicketsByStatusWidgetFromApi(r);
+          },
+          error: () => {
+            this.updateTicketsByStatusWidgetFromApi([]);
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+          },
+        });
       }
     } else {
       this.statCards = buildClientStatCards(
@@ -877,9 +884,104 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.widgets = this.widgets.map((widget) => (
       widget.id === 'widget-1'
-        ? { ...widget, chartOptions }
+        ? { ...widget, chartOptions, loading: false }
         : widget
     ));
+  }
+
+  private updateProjectScopedComparisonWidgets(): void {
+    if (!this.widgets.length) return;
+
+    const projectNames = this.projects
+      .filter((project) => String(project.id ?? '').toLowerCase() !== 'all')
+      .map((project) => String(project.name ?? '').trim())
+      .filter((name) => !!name);
+
+    if (!projectNames.length) {
+      return;
+    }
+
+    const fitSeriesData = (template: any[], length: number): number[] => {
+      if (!Array.isArray(template) || !template.length) {
+        return Array.from({ length }, () => 0);
+      }
+
+      return Array.from({ length }, (_, index) => {
+        const raw = Number(template[index % template.length] ?? 0);
+        return Number.isFinite(raw) ? raw : 0;
+      });
+    };
+
+    const widget10ProjectNames = projectNames.slice(0, 12);
+    const widget12ProjectNames = projectNames.slice(0, 12);
+    const widget13ProjectNames = projectNames.slice(0, 10);
+
+    const templateWidget10 = busPulseData.projectsByAreaStackedChart as any;
+    const widget10Options = {
+      ...templateWidget10,
+      xaxis: {
+        ...(templateWidget10?.xaxis ?? {}),
+        categories: widget10ProjectNames,
+      },
+      series: Array.isArray(templateWidget10?.series)
+        ? templateWidget10.series.map((seriesItem: any) => ({
+            ...seriesItem,
+            data: fitSeriesData(seriesItem?.data, widget10ProjectNames.length),
+          }))
+        : [],
+    };
+
+    const templateWidget11 = busPulseData.projectsByStationHeatmap as any;
+    const templateHeatmapSeries = Array.isArray(templateWidget11?.series) ? templateWidget11.series : [];
+    const widget11Options = {
+      ...templateWidget11,
+      series: widget10ProjectNames.map((projectName, index) => ({
+        ...(templateHeatmapSeries[index % Math.max(templateHeatmapSeries.length, 1)] ?? {}),
+        name: projectName,
+      })),
+    };
+
+    const templateWidget12 = busPulseData.stationTimeComparisonChart as any;
+    const widget12Options = {
+      ...templateWidget12,
+      yaxis: {
+        ...(templateWidget12?.yaxis ?? {}),
+        categories: widget12ProjectNames,
+      },
+      series: Array.isArray(templateWidget12?.series)
+        ? templateWidget12.series.map((seriesItem: any) => ({
+            ...seriesItem,
+            data: fitSeriesData(seriesItem?.data, widget12ProjectNames.length),
+          }))
+        : [],
+    };
+
+    const templateWidget13 = busPulseData.projectTimelineChart as any;
+    const templateTimelineData = Array.isArray(templateWidget13?.series?.[0]?.data)
+      ? templateWidget13.series[0].data
+      : [];
+    const timelineData = widget13ProjectNames.map((projectName, index) => {
+      const templateItem = templateTimelineData[index % Math.max(templateTimelineData.length, 1)] ?? {};
+      return {
+        ...templateItem,
+        x: projectName,
+      };
+    });
+    const widget13Options = {
+      ...templateWidget13,
+      series: [{
+        ...(templateWidget13?.series?.[0] ?? {}),
+        data: timelineData,
+      }],
+    };
+
+    this.widgets = this.widgets.map((widget) => {
+      if (widget.id === 'widget-10') return { ...widget, chartOptions: widget10Options, loading: false };
+      if (widget.id === 'widget-11') return { ...widget, chartOptions: widget11Options, loading: false };
+      if (widget.id === 'widget-12') return { ...widget, chartOptions: widget12Options, loading: false };
+      if (widget.id === 'widget-13') return { ...widget, chartOptions: widget13Options, loading: false };
+      return widget;
+    });
   }
 
   private refreshVehiclesByMakeModelChart(): void {
@@ -952,13 +1054,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.widgets = this.widgets.map((widget) => (
       widget.id === widgetId
-        ? { ...widget, chartOptions }
+        ? { ...widget, chartOptions, loading: false }
         : widget
     ));
   }
 
   private updateTicketsByStatusWidgetFromApi(payload: any | any[]): void {
     if (!this.widgets.length) return;
+
+    this.updateSafetyCriticalGaugeWidgetFromApi(payload);
+    this.updateRepeatedDefectsGaugeWidgetFromApi(payload);
+    this.updateOverallDefectsByAreaWidgetFromApi(payload);
+    this.updateRepeatedDefectsByAreaWidgetFromApi(payload);
+    this.updateDefectsByStationWidgetFromApi(payload);
 
     // Temporary debug logging to help capture API payloads that cause the
     // Tickets-by-Status widget to fall back to demo/demo values. Reproduce
@@ -990,8 +1098,793 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const chartOptions = busPulseData.buildTicketsByStatusBar({ ticketsByStatus: combined });
 
     this.widgets = this.widgets.map((widget) => (
-      widget.id === 'widget-9' ? { ...widget, chartOptions } : widget
+      widget.id === 'widget-9' ? { ...widget, chartOptions, loading: false } : widget
     ));
+  }
+
+  private updateOverallDefectsByAreaWidgetFromApi(payload: any | any[]): void {
+    if (!this.widgets.length) return;
+
+    const totalsByArea = new Map<string, number>();
+
+    const mergeEntries = (entries: Array<{ area: string; count: number }>) => {
+      for (const entry of entries) {
+        const area = String(entry.area ?? '').trim();
+        const count = Number(entry.count ?? 0);
+        if (!area || !Number.isFinite(count) || count < 0) {
+          continue;
+        }
+
+        totalsByArea.set(area, (totalsByArea.get(area) ?? 0) + count);
+      }
+    };
+
+    if (Array.isArray(payload)) {
+      for (const item of payload) {
+        mergeEntries(this.extractOverallByAreaEntries(item));
+      }
+    } else {
+      mergeEntries(this.extractOverallByAreaEntries(payload));
+    }
+
+    const merged = Array.from(totalsByArea.entries())
+      .map(([area, count]) => ({ area, count }))
+      .sort((left, right) => right.count - left.count);
+
+    const readableEntries = this.makeTreemapEntriesReadable(merged);
+    const visualSeriesData = this.buildReadableTreemapSeries(readableEntries);
+
+    const fallbackSeries = (busPulseData.defectsByAreaTreemap as any)?.series ?? [];
+    const chartOptions = {
+      ...(busPulseData.defectsByAreaTreemap as any),
+      dataLabels: {
+        ...((busPulseData.defectsByAreaTreemap as any)?.dataLabels ?? {}),
+        formatter: (text: string, opts: any) => {
+          const seriesIndex = Number(opts?.seriesIndex ?? 0);
+          const dataPointIndex = Number(opts?.dataPointIndex ?? 0);
+          const point = opts?.w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex];
+          const rawValue = Number(point?.rawValue ?? point?.y ?? opts?.value ?? 0);
+          const safeValue = Number.isFinite(rawValue) ? rawValue : 0;
+          return [text, safeValue.toLocaleString()];
+        },
+      },
+      tooltip: {
+        ...((busPulseData.defectsByAreaTreemap as any)?.tooltip ?? {}),
+        y: {
+          ...((busPulseData.defectsByAreaTreemap as any)?.tooltip?.y ?? {}),
+          formatter: (_value: number, opts: any) => {
+            const seriesIndex = Number(opts?.seriesIndex ?? 0);
+            const dataPointIndex = Number(opts?.dataPointIndex ?? 0);
+            const point = opts?.w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex];
+            const rawValue = Number(point?.rawValue ?? point?.y ?? 0);
+            return Number.isFinite(rawValue) ? rawValue.toLocaleString() : '0';
+          },
+        },
+      },
+      series: visualSeriesData.length > 0
+        ? [
+            {
+              data: visualSeriesData,
+            },
+          ]
+        : fallbackSeries,
+    };
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-4' ? { ...widget, chartOptions, loading: false } : widget
+    ));
+  }
+
+  private updateRepeatedDefectsGaugeWidgetFromApi(payload: any | any[]): void {
+    if (!this.widgets.length) return;
+
+    const resolvedPercent = this.resolveRepeatedPercent(payload);
+    const boundedPercent = Number.isFinite(resolvedPercent)
+      ? Math.max(0, Math.min(100, Number(resolvedPercent)))
+      : 0;
+
+    const fallbackGauge = busPulseData.repeatedDefectsGauge as any;
+    const chartOptions = {
+      ...fallbackGauge,
+      series: [Number(boundedPercent.toFixed(2))],
+    };
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-5' ? { ...widget, chartOptions, loading: false } : widget
+    ));
+  }
+
+  private updateSafetyCriticalGaugeWidgetFromApi(payload: any | any[]): void {
+    if (!this.widgets.length) return;
+
+    const resolvedPercent = this.resolveSafetyCriticalPercent(payload);
+    const boundedPercent = Number.isFinite(resolvedPercent)
+      ? Math.max(0, Math.min(100, Number(resolvedPercent)))
+      : 0;
+
+    const fallbackGauge = busPulseData.safetyCriticalDefectsGauge as any;
+    const chartOptions = {
+      ...fallbackGauge,
+      series: [Number(boundedPercent.toFixed(2))],
+    };
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-7' ? { ...widget, chartOptions, loading: false } : widget
+    ));
+  }
+
+  private resolveSafetyCriticalPercent(payload: any | any[]): number {
+    const readPercent = (source: any): number | null => {
+      const candidates = [
+        source?.safetyCriticalPercent,
+        source?.SafetyCriticalPercent,
+        source?.criticalPercent,
+        source?.CriticalPercent,
+        source?.data?.safetyCriticalPercent,
+        source?.data?.SafetyCriticalPercent,
+        source?.result?.safetyCriticalPercent,
+        source?.result?.SafetyCriticalPercent,
+      ];
+
+      for (const candidate of candidates) {
+        const parsed = Number(candidate);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          return parsed;
+        }
+      }
+
+      return null;
+    };
+
+    const readSafetyCriticalTickets = (source: any): number | null => {
+      const candidates = [
+        source?.safetyCriticalTickets,
+        source?.SafetyCriticalTickets,
+        source?.criticalTickets,
+        source?.CriticalTickets,
+        source?.data?.safetyCriticalTickets,
+        source?.result?.safetyCriticalTickets,
+      ];
+
+      for (const candidate of candidates) {
+        const parsed = Number(candidate);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          return parsed;
+        }
+      }
+
+      return null;
+    };
+
+    const readTotalTickets = (source: any): number | null => {
+      const candidates = [
+        source?.totalTickets,
+        source?.TotalTickets,
+        source?.total,
+        source?.count,
+        source?.data?.totalTickets,
+        source?.result?.totalTickets,
+      ];
+
+      for (const candidate of candidates) {
+        const parsed = Number(candidate);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          return parsed;
+        }
+      }
+
+      return null;
+    };
+
+    const computePercent = (source: any): number | null => {
+      const explicitPercent = readPercent(source);
+      if (explicitPercent !== null) {
+        return explicitPercent;
+      }
+
+      const criticalTickets = readSafetyCriticalTickets(source);
+      const totalTickets = readTotalTickets(source);
+      if (criticalTickets !== null && totalTickets !== null && totalTickets > 0) {
+        return (criticalTickets / totalTickets) * 100;
+      }
+
+      return null;
+    };
+
+    if (!Array.isArray(payload)) {
+      return computePercent(payload) ?? 0;
+    }
+
+    let weightedPercentSum = 0;
+    let weightedTotal = 0;
+    const fallbackPercents: number[] = [];
+
+    for (const item of payload) {
+      const totalTickets = readTotalTickets(item);
+      const percent = computePercent(item);
+      if (percent === null) {
+        continue;
+      }
+
+      if (totalTickets !== null && totalTickets > 0) {
+        weightedPercentSum += percent * totalTickets;
+        weightedTotal += totalTickets;
+      } else {
+        fallbackPercents.push(percent);
+      }
+    }
+
+    if (weightedTotal > 0) {
+      return weightedPercentSum / weightedTotal;
+    }
+
+    if (fallbackPercents.length > 0) {
+      const sum = fallbackPercents.reduce((acc, value) => acc + value, 0);
+      return sum / fallbackPercents.length;
+    }
+
+    return 0;
+  }
+
+  private resolveRepeatedPercent(payload: any | any[]): number {
+    const readPercent = (source: any): number | null => {
+      const candidates = [
+        source?.repeatedPercent,
+        source?.RepeatedPercent,
+        source?.data?.repeatedPercent,
+        source?.data?.RepeatedPercent,
+        source?.result?.repeatedPercent,
+        source?.result?.RepeatedPercent,
+      ];
+
+      for (const candidate of candidates) {
+        const parsed = Number(candidate);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          return parsed;
+        }
+      }
+
+      return null;
+    };
+
+    const readTotalTickets = (source: any): number | null => {
+      const candidates = [
+        source?.totalTickets,
+        source?.TotalTickets,
+        source?.total,
+        source?.count,
+        source?.data?.totalTickets,
+        source?.result?.totalTickets,
+      ];
+
+      for (const candidate of candidates) {
+        const parsed = Number(candidate);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          return parsed;
+        }
+      }
+
+      return null;
+    };
+
+    if (!Array.isArray(payload)) {
+      return readPercent(payload) ?? 0;
+    }
+
+    let weightedPercentSum = 0;
+    let weightedTotal = 0;
+    const fallbackPercents: number[] = [];
+
+    for (const item of payload) {
+      const percent = readPercent(item);
+      if (percent === null) {
+        continue;
+      }
+
+      const totalTickets = readTotalTickets(item);
+      if (totalTickets !== null && totalTickets > 0) {
+        weightedPercentSum += percent * totalTickets;
+        weightedTotal += totalTickets;
+      } else {
+        fallbackPercents.push(percent);
+      }
+    }
+
+    if (weightedTotal > 0) {
+      return weightedPercentSum / weightedTotal;
+    }
+
+    if (fallbackPercents.length > 0) {
+      const sum = fallbackPercents.reduce((acc, value) => acc + value, 0);
+      return sum / fallbackPercents.length;
+    }
+
+    return 0;
+  }
+
+  private makeTreemapEntriesReadable(entries: Array<{ area: string; count: number }>): Array<{ area: string; count: number }> {
+    if (!entries.length) {
+      return [];
+    }
+
+    const maxEntries = 12;
+    if (entries.length <= maxEntries) {
+      return entries;
+    }
+
+    const head = entries.slice(0, maxEntries - 1);
+    const tailTotal = entries.slice(maxEntries - 1).reduce((sum, item) => sum + item.count, 0);
+    if (tailTotal > 0) {
+      head.push({ area: 'Other', count: tailTotal });
+    }
+    return head;
+  }
+
+  private buildReadableTreemapSeries(entries: Array<{ area: string; count: number }>): Array<{ x: string; y: number; rawValue: number }> {
+    if (!entries.length) {
+      return [];
+    }
+
+    const highest = Math.max(...entries.map((entry) => entry.count));
+    const highestRoot = Math.sqrt(Math.max(highest, 0));
+    const minVisibleRatio = 0.18;
+
+    return entries.map((entry) => {
+      const rootScaled = Math.sqrt(Math.max(entry.count, 0));
+      const minVisible = highestRoot * minVisibleRatio;
+      const visualValue = entry.count > 0
+        ? Math.max(rootScaled, minVisible)
+        : 0;
+
+      return {
+        x: entry.area,
+        y: Number(visualValue.toFixed(4)),
+        rawValue: entry.count,
+      };
+    });
+  }
+
+  private extractOverallByAreaEntries(payload: any): Array<{ area: string; count: number }> {
+    const container = payload?.overallByArea ?? payload?.data?.overallByArea ?? payload?.result?.overallByArea;
+    if (!container) {
+      return [];
+    }
+
+    const toEntriesFromArray = (items: any[]): Array<{ area: string; count: number }> => {
+      return items
+        .map((item) => {
+          const area = String(item?.area ?? item?.name ?? item?.label ?? item?.x ?? '').trim();
+          const count = Number(item?.count ?? item?.value ?? item?.y ?? 0);
+          return { area, count };
+        })
+        .filter((entry) => entry.area.length > 0 && Number.isFinite(entry.count) && entry.count >= 0);
+    };
+
+    if (Array.isArray(container)) {
+      return toEntriesFromArray(container);
+    }
+
+    if (Array.isArray(container?.items)) {
+      return toEntriesFromArray(container.items);
+    }
+
+    if (Array.isArray(container?.$values)) {
+      return toEntriesFromArray(container.$values);
+    }
+
+    if (typeof container === 'object') {
+      return Object.entries(container)
+        .map(([key, value]) => ({ area: String(key).trim(), count: Number(value ?? 0) }))
+        .filter((entry) => entry.area.length > 0 && Number.isFinite(entry.count) && entry.count >= 0);
+    }
+
+    return [];
+  }
+
+  private updateRepeatedDefectsByAreaWidgetFromApi(payload: any | any[]): void {
+    if (!this.widgets.length) return;
+
+    const totalsByArea = new Map<string, number>();
+
+    const mergeEntries = (entries: Array<{ area: string; count: number }>) => {
+      for (const entry of entries) {
+        const area = String(entry.area ?? '').trim();
+        const count = Number(entry.count ?? 0);
+        if (!area || !Number.isFinite(count) || count < 0) {
+          continue;
+        }
+
+        totalsByArea.set(area, (totalsByArea.get(area) ?? 0) + count);
+      }
+    };
+
+    if (Array.isArray(payload)) {
+      for (const item of payload) {
+        mergeEntries(this.extractRepeatedByAreaEntries(item));
+      }
+    } else {
+      mergeEntries(this.extractRepeatedByAreaEntries(payload));
+    }
+
+    const merged = Array.from(totalsByArea.entries())
+      .map(([area, count]) => ({ area, count }))
+      .sort((left, right) => right.count - left.count);
+
+    const readableEntries = this.makeTreemapEntriesReadable(merged);
+    const visualSeriesData = this.buildReadableTreemapSeries(readableEntries);
+    const fallbackSeries = (busPulseData.repeatedDefectsByAreaTreemap as any)?.series ?? [];
+
+    const chartOptions = {
+      ...(busPulseData.repeatedDefectsByAreaTreemap as any),
+      dataLabels: {
+        ...((busPulseData.repeatedDefectsByAreaTreemap as any)?.dataLabels ?? {}),
+        formatter: (text: string, opts: any) => {
+          const seriesIndex = Number(opts?.seriesIndex ?? 0);
+          const dataPointIndex = Number(opts?.dataPointIndex ?? 0);
+          const point = opts?.w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex];
+          const rawValue = Number(point?.rawValue ?? point?.y ?? opts?.value ?? 0);
+          const safeValue = Number.isFinite(rawValue) ? rawValue : 0;
+          return [text, safeValue.toLocaleString()];
+        },
+      },
+      tooltip: {
+        ...((busPulseData.repeatedDefectsByAreaTreemap as any)?.tooltip ?? {}),
+        y: {
+          ...((busPulseData.repeatedDefectsByAreaTreemap as any)?.tooltip?.y ?? {}),
+          formatter: (_value: number, opts: any) => {
+            const seriesIndex = Number(opts?.seriesIndex ?? 0);
+            const dataPointIndex = Number(opts?.dataPointIndex ?? 0);
+            const point = opts?.w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex];
+            const rawValue = Number(point?.rawValue ?? point?.y ?? 0);
+            return Number.isFinite(rawValue) ? rawValue.toLocaleString() : '0';
+          },
+        },
+      },
+      series: visualSeriesData.length > 0
+        ? [
+            {
+              data: visualSeriesData,
+            },
+          ]
+        : fallbackSeries,
+    };
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-8' ? { ...widget, chartOptions, loading: false } : widget
+    ));
+  }
+
+  private updateDefectsByStationWidgetFromApi(payload: any | any[]): void {
+    if (!this.widgets.length) return;
+
+    const totalsByStation = new Map<string, number>();
+
+    const mergeEntries = (entries: Array<{ station: string; value: number }>) => {
+      for (const entry of entries) {
+        const station = String(entry.station ?? '').trim();
+        const value = Number(entry.value ?? 0);
+        if (!station || !Number.isFinite(value) || value < 0) {
+          continue;
+        }
+
+        totalsByStation.set(station, (totalsByStation.get(station) ?? 0) + value);
+      }
+    };
+
+    if (Array.isArray(payload)) {
+      for (const item of payload) {
+        mergeEntries(this.extractDefectsByStationEntries(item));
+      }
+    } else {
+      mergeEntries(this.extractDefectsByStationEntries(payload));
+    }
+
+    const groupedByLegend = new Map<
+      string,
+      { label: string; value: number; orderNumber: number | null; fullNames: Set<string> }
+    >();
+
+    for (const [station, value] of totalsByStation.entries()) {
+      const label = this.getStationLegendLabel(station);
+      const orderNumber = this.extractStationPrefixNumber(station);
+      const existing = groupedByLegend.get(label);
+
+      if (existing) {
+        existing.value += value;
+        existing.fullNames.add(station);
+        continue;
+      }
+
+      groupedByLegend.set(label, {
+        label,
+        value,
+        orderNumber,
+        fullNames: new Set<string>([station]),
+      });
+    }
+
+    const stationEntries = Array.from(groupedByLegend.values())
+      .map((entry) => ({
+        label: entry.label,
+        value: entry.value,
+        orderNumber: entry.orderNumber,
+        fullNames: Array.from(entry.fullNames.values()),
+      }))
+      .sort((left, right) => {
+        if (left.orderNumber !== null && right.orderNumber !== null) {
+          if (left.orderNumber !== right.orderNumber) {
+            return left.orderNumber - right.orderNumber;
+          }
+          return left.label.localeCompare(right.label);
+        }
+
+        if (left.orderNumber !== null) return -1;
+        if (right.orderNumber !== null) return 1;
+        return left.label.localeCompare(right.label);
+      });
+
+    const fullStationNames = stationEntries.map((entry) => entry.fullNames.join(', '));
+    const rawValues = stationEntries.map((entry) => Number(entry.value.toFixed(2)));
+    const barColors = stationEntries.map((_, index) => {
+      const ratio = stationEntries.length > 1 ? index / (stationEntries.length - 1) : 0;
+      const lightness = 28 + ratio * 38;
+      return `hsl(132, 56%, ${lightness.toFixed(1)}%)`;
+    });
+
+    const maxRaw = Math.max(...rawValues, 0);
+    const maxLog = Math.log10(Math.max(maxRaw, 0) + 1);
+    const minVisibleRatio = 0.28;
+    const scaledValues = rawValues.map((value) => {
+      if (value <= 0) {
+        return 0;
+      }
+      const scaled = Math.log10(value + 1);
+      return Number(Math.max(scaled, maxLog * minVisibleRatio).toFixed(4));
+    });
+
+    const fallbackChart = busPulseData.defectsByStationChart as any;
+    const categories = stationEntries.map((entry) => entry.label);
+
+    const chartOptions = {
+      ...fallbackChart,
+      chart: {
+        ...(fallbackChart?.chart ?? {}),
+      },
+      xaxis: {
+        ...(fallbackChart?.xaxis ?? {}),
+        categories: categories.length > 0 ? categories : (fallbackChart?.xaxis?.categories ?? []),
+        labels: {
+          ...((fallbackChart?.xaxis as any)?.labels ?? {}),
+          show: true,
+          rotate: -90,
+          rotateAlways: true,
+          trim: false,
+          hideOverlappingLabels: false,
+          showDuplicates: true,
+          formatter: (value: string) => this.wrapLongLegendText(value),
+          style: {
+            ...((fallbackChart?.xaxis as any)?.labels?.style ?? {}),
+            fontSize: '10px',
+          },
+        },
+      },
+      yaxis: {
+        ...(fallbackChart?.yaxis ?? {}),
+        show: true,
+        tickAmount: 6,
+        labels: {
+          ...((fallbackChart?.yaxis as any)?.labels ?? {}),
+          formatter: (value: number) => {
+            if (!Number.isFinite(value)) {
+              return '0';
+            }
+            const rawApprox = Math.pow(10, value) - 1;
+            return Number.isFinite(rawApprox) ? Math.max(0, Math.round(rawApprox)).toLocaleString() : '0';
+          },
+        },
+      },
+      plotOptions: {
+        ...(fallbackChart?.plotOptions ?? {}),
+        bar: {
+          ...((fallbackChart?.plotOptions as any)?.bar ?? {}),
+          horizontal: false,
+          distributed: true,
+          columnWidth: '55%',
+          borderRadius: 5,
+        },
+      },
+      colors: barColors,
+      legend: {
+        ...(fallbackChart?.legend ?? {}),
+        show: false,
+        showForSingleSeries: false,
+        position: 'bottom',
+      },
+      dataLabels: {
+        ...(fallbackChart?.dataLabels ?? {}),
+        enabled: true,
+        formatter: (_val: number, opts: any) => {
+          const dataPointIndex = Number(opts?.dataPointIndex ?? -1);
+          const raw = dataPointIndex >= 0 ? rawValues[dataPointIndex] : 0;
+          return Number.isFinite(raw) ? raw.toLocaleString() : '0';
+        },
+        style: {
+          ...((fallbackChart?.dataLabels as any)?.style ?? {}),
+          colors: ['#212529'],
+        },
+      },
+      series: scaledValues.length > 0
+        ? [{
+            name: 'Avg Defects',
+            data: scaledValues,
+          }]
+        : (fallbackChart?.series ?? []),
+      tooltip: {
+        ...(fallbackChart?.tooltip ?? {}),
+        x: {
+          ...((fallbackChart?.tooltip?.x as any) ?? {}),
+          formatter: (_value: string, opts: any) => {
+            const dataPointIndex = Number(opts?.dataPointIndex ?? -1);
+            const fullName = dataPointIndex >= 0 ? fullStationNames[dataPointIndex] : '';
+            return fullName || 'Station';
+          },
+        },
+        y: {
+          ...(fallbackChart?.tooltip?.y ?? {}),
+          formatter: (_val: number, opts: any) => {
+            const dataPointIndex = Number(opts?.dataPointIndex ?? -1);
+            const raw = dataPointIndex >= 0 ? rawValues[dataPointIndex] : 0;
+            return Number.isFinite(raw) ? raw.toLocaleString() : '0';
+          },
+        },
+      },
+    };
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-6' ? { ...widget, width: 12, chartOptions, loading: false } : widget
+    ));
+  }
+
+  private extractStationPrefixNumber(stationName: string): number | null {
+    const normalized = String(stationName ?? '').trim();
+    const match = normalized.match(/^(\d{1,3})(?=\s|\.|-|$)/);
+    if (!match?.[1]) {
+      return null;
+    }
+
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private getStationLegendLabel(stationName: string): string {
+    const numericPrefix = this.extractStationPrefixNumber(stationName);
+    if (numericPrefix !== null) {
+      return String(numericPrefix);
+    }
+
+    const normalized = String(stationName ?? '').trim();
+    return normalized || 'Unknown';
+  }
+
+  private wrapLongLegendText(value: string, maxCharsPerLine = 12): string {
+    const text = String(value ?? '').trim();
+    if (!text) {
+      return '';
+    }
+
+    // Keep compact numeric station labels on one line.
+    if (/^\d+$/.test(text)) {
+      return text;
+    }
+
+    if (text.length <= maxCharsPerLine) {
+      return text;
+    }
+
+    const words = text.split(/\s+/);
+    if (words.length === 1) {
+      const parts: string[] = [];
+      for (let i = 0; i < text.length; i += maxCharsPerLine) {
+        parts.push(text.slice(i, i + maxCharsPerLine));
+      }
+      return parts.join('\n');
+    }
+
+    const lines: string[] = [];
+    let current = '';
+    for (const word of words) {
+      const next = current ? `${current} ${word}` : word;
+      if (next.length <= maxCharsPerLine) {
+        current = next;
+      } else {
+        if (current) {
+          lines.push(current);
+        }
+        current = word;
+      }
+    }
+
+    if (current) {
+      lines.push(current);
+    }
+
+    return lines.join('\n');
+  }
+
+  private extractDefectsByStationEntries(payload: any): Array<{ station: string; value: number }> {
+    const container = payload?.defectsByStation ?? payload?.data?.defectsByStation ?? payload?.result?.defectsByStation;
+    if (!container) {
+      return [];
+    }
+
+    const toEntriesFromArray = (items: any[]): Array<{ station: string; value: number }> => {
+      return items
+        .map((item) => {
+          const station = String(
+            item?.station ?? item?.stationName ?? item?.name ?? item?.label ?? item?.x ?? '',
+          ).trim();
+          const value = Number(item?.value ?? item?.count ?? item?.avg ?? item?.y ?? 0);
+          return { station, value };
+        })
+        .filter((entry) => entry.station.length > 0 && Number.isFinite(entry.value) && entry.value >= 0);
+    };
+
+    if (Array.isArray(container)) {
+      return toEntriesFromArray(container);
+    }
+
+    if (Array.isArray(container?.items)) {
+      return toEntriesFromArray(container.items);
+    }
+
+    if (Array.isArray(container?.$values)) {
+      return toEntriesFromArray(container.$values);
+    }
+
+    if (typeof container === 'object') {
+      return Object.entries(container)
+        .map(([key, value]) => ({ station: String(key).trim(), value: Number(value ?? 0) }))
+        .filter((entry) => entry.station.length > 0 && Number.isFinite(entry.value) && entry.value >= 0);
+    }
+
+    return [];
+  }
+
+  private extractRepeatedByAreaEntries(payload: any): Array<{ area: string; count: number }> {
+    const container = payload?.repeatedByArea ?? payload?.data?.repeatedByArea ?? payload?.result?.repeatedByArea;
+    if (!container) {
+      return [];
+    }
+
+    const toEntriesFromArray = (items: any[]): Array<{ area: string; count: number }> => {
+      return items
+        .map((item) => {
+          const area = String(item?.area ?? item?.name ?? item?.label ?? item?.x ?? '').trim();
+          const count = Number(item?.count ?? item?.value ?? item?.y ?? 0);
+          return { area, count };
+        })
+        .filter((entry) => entry.area.length > 0 && Number.isFinite(entry.count) && entry.count >= 0);
+    };
+
+    if (Array.isArray(container)) {
+      return toEntriesFromArray(container);
+    }
+
+    if (Array.isArray(container?.items)) {
+      return toEntriesFromArray(container.items);
+    }
+
+    if (Array.isArray(container?.$values)) {
+      return toEntriesFromArray(container.$values);
+    }
+
+    if (typeof container === 'object') {
+      return Object.entries(container)
+        .map(([key, value]) => ({ area: String(key).trim(), count: Number(value ?? 0) }))
+        .filter((entry) => entry.area.length > 0 && Number.isFinite(entry.count) && entry.count >= 0);
+    }
+
+    return [];
   }
 
   private getSelectedOrAllVisibleProjectIds(): string[] {
@@ -1048,8 +1941,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private loadLayoutFromStorage(): void {
     try {
-      const parsedLayout = readWidgetLayout(this.STORAGE_KEY);
-      if (!parsedLayout) return;
+      const parsedLayout = readWidgetLayout(this.getLayoutStorageKey());
+      if (!parsedLayout) {
+        this.applyDefaultWidgetLayout();
+        return;
+      }
 
       this.widgets = sortWidgetsByOrder(applyWidgetLayout(this.widgets, parsedLayout));
     } catch {
@@ -1059,14 +1955,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private saveLayoutToStorage(): void {
     try {
-      saveWidgetLayout(this.STORAGE_KEY, this.widgets);
+      saveWidgetLayout(this.getLayoutStorageKey(), this.widgets);
     } catch {
       // ignore storage write failures
     }
   }
 
   private applyDefaultWidgetLayout(): void {
-    this.widgets = sortWidgetsByOrder(applyDefaultWidgetLayout(this.widgets, DEFAULT_WIDGET_LAYOUT));
+    const defaults = this.isAdminRole ? ADMIN_DEFAULT_WIDGET_LAYOUT : DEFAULT_WIDGET_LAYOUT;
+    this.widgets = sortWidgetsByOrder(applyDefaultWidgetLayout(this.widgets, defaults));
     this.saveLayoutToStorage();
   }
 

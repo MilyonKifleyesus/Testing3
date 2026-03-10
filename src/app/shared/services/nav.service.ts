@@ -63,12 +63,42 @@ export class NavService implements OnDestroy {
       try {
         const user = JSON.parse(storedUser);
         if (user && user.role) {
-          this.loadMenuByRole(user.role);
+          this.loadMenuByRole(user.role, Number(user.type ?? 0));
         }
       } catch (e) {
         console.error('Error parsing stored user', e);
       }
     }
+  }
+
+  private normalizeRoleForMenu(role: string, userType?: number): string {
+    const normalizedRole = String(role ?? '').toLowerCase().trim();
+
+    if (normalizedRole === 'superadmin' || normalizedRole === 'super admin') {
+      return 'superadmin';
+    }
+
+    if (normalizedRole === 'admin' || normalizedRole === 'generaladmin' || normalizedRole === 'general admin') {
+      return 'admin';
+    }
+
+    if (normalizedRole === 'inspector') {
+      return 'inspector';
+    }
+
+    if (normalizedRole.includes('client') || normalizedRole === 'clientuser' || normalizedRole === 'client user') {
+      return 'client';
+    }
+
+    if (normalizedRole === 'user' && Number(userType ?? 0) === 3) {
+      return 'client';
+    }
+
+    if (normalizedRole === 'user') {
+      return 'user';
+    }
+
+    return normalizedRole || 'user';
   }
 
   private setScreenWidth(width: number): void {
@@ -976,8 +1006,8 @@ export class NavService implements OnDestroy {
   public items: BehaviorSubject<Menu[]> = new BehaviorSubject<Menu[]>(this.MENUITEMS);
 
   // Get menu items based on user role
-  getMenuByRole(role: string): Menu[] {
-    const normalizedRole = (role ?? '').toLowerCase().trim();
+  getMenuByRole(role: string, userType?: number): Menu[] {
+    const normalizedRole = this.normalizeRoleForMenu(role, userType);
     let baseMenu: Menu[];
 
     switch(normalizedRole) {
@@ -1006,8 +1036,8 @@ export class NavService implements OnDestroy {
   }
 
   // Update menu items based on role
-  public loadMenuByRole(role: string): void {
-    const menuItems = this.getMenuByRole(role);
+  public loadMenuByRole(role: string, userType?: number): void {
+    const menuItems = this.getMenuByRole(role, userType);
     this.items.next(menuItems);
   }
 

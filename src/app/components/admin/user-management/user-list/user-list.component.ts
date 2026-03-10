@@ -112,6 +112,15 @@ export class UserListComponent implements OnInit {
     this.loadUsersFromApi();
   }
 
+  onClientChange(clientId: string): void {
+    this.selectedClient = String(clientId ?? '0').trim() || '0';
+    // Manufacturer options are dependent on the selected client context.
+    // Reset to "All" to avoid sending stale cross-client combinations.
+    this.selectedManufacturer = '0';
+    this.currentPage = 1;
+    this.loadUsersFromApi();
+  }
+
   onRoleChange(role: string) {
     this.selectedRole = String(role ?? 'all').trim() || 'all';
     this.selectedRoleApiValue = this.resolveApiRoleValue(this.selectedRole);

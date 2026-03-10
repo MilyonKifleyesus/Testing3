@@ -337,12 +337,22 @@ export class UserManagementService {
     }
 
     const clientId = String(query.clientId ?? '').trim();
-    if (clientId.length > 0) {
+    const normalizedClientId = Number(clientId);
+    const shouldSendClientId =
+      clientId.length > 0 &&
+      clientId.toLowerCase() !== 'all' &&
+      !(Number.isFinite(normalizedClientId) && normalizedClientId <= 0);
+    if (shouldSendClientId) {
       params = params.set('clientId', clientId);
     }
 
     const manufacturerId = String(query.manufacturerId ?? '').trim();
-    if (manufacturerId.length > 0) {
+    const normalizedManufacturerId = Number(manufacturerId);
+    const shouldSendManufacturerId =
+      manufacturerId.length > 0 &&
+      manufacturerId.toLowerCase() !== 'all' &&
+      !(Number.isFinite(normalizedManufacturerId) && normalizedManufacturerId <= 0);
+    if (shouldSendManufacturerId) {
       params = params.set('manufacturerId', manufacturerId);
     }
 

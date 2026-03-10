@@ -97,6 +97,7 @@
               <th *ngIf="isColumnVisible('repeater')" (click)="sortTickets('repeater')" style="cursor:pointer">Repeater <span *ngIf="sortColumn === 'repeater'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
               <th *ngIf="isColumnVisible('createdDate')" (click)="sortTickets('createdDate')" style="cursor:pointer">Created Date <span *ngIf="sortColumn === 'createdDate'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
               <th *ngIf="isColumnVisible('defectType')" (click)="sortTickets('defectType')" style="cursor:pointer">Defect Type <span *ngIf="sortColumn === 'defectType'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('defectLocation')" (click)="sortTickets('defectLocation')" style="cursor:pointer">Defect Location <span *ngIf="sortColumn === 'defectLocation'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
               <th *ngIf="isColumnVisible('description')" (click)="sortTickets('description')" style="cursor:pointer">Description <span *ngIf="sortColumn === 'description'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
               <th *ngIf="isColumnVisible('hasImages')" (click)="sortTickets('hasImages')" style="cursor:pointer">Images <span *ngIf="sortColumn === 'hasImages'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
               <th *ngIf="isColumnVisible('assignedBy')" (click)="sortTickets('assignedBy')" style="cursor:pointer">Assign By <span *ngIf="sortColumn === 'assignedBy'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
@@ -130,6 +131,7 @@
               </td>
               <td *ngIf="isColumnVisible('createdDate')" class="text-muted fs-13">{{ ticket.createdDate ? (ticket.createdDate | date:'short') : '-' }}</td>
               <td *ngIf="isColumnVisible('defectType')">{{ displayValue(ticket.defectType) }}</td>
+              <td *ngIf="isColumnVisible('defectLocation')" class="text-muted fs-13">{{ displayValue(ticket.defectLocation) }}</td>
               <td *ngIf="isColumnVisible('description')" class="text-truncate" style="max-width: 200px;" [title]="displayValue(ticket.description)">{{ displayValue(ticket.description) }}</td>
               <td *ngIf="isColumnVisible('hasImages')">
                 <i class="ti" [ngClass]="ticket.hasImages ? 'ti-photo text-warning' : 'ti-photo-off text-muted'" style="cursor: pointer;"></i>

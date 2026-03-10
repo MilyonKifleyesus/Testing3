@@ -71,9 +71,10 @@ export class AuthService {
     const req: LoginRequest = { usernameOrEmail: email, password };
     return new Promise((resolve, reject) => {
       this.login(req).subscribe({
-        next: (res) => {
-          // Security: user data is stored as before
-          resolve(res);
+        next: (_res) => {
+          // Always resolve with normalized user object
+          const user = this.normalizeUser(_res);
+          resolve(user);
         },
         error: (err) => {
           reject(err);
@@ -127,6 +128,11 @@ export class AuthService {
       return true;
     }
 
+    // Handle client role aliases (e.g. 'AdminClient', 'ClientUser', 'client user')
+    if (userRole.includes('client') && expected.includes('client')) {
+      return true;
+    }
+
     return false;
   }
 
@@ -137,7 +143,12 @@ export class AuthService {
       return '/admin/dashboard';
     }
 
-    if (normalizedRole === 'client' || normalizedRole === 'user') {
+    if (
+      normalizedRole === 'client' ||
+      normalizedRole === 'user' ||
+      normalizedRole.includes('client') ||
+      normalizedRole === 'client user'
+    ) {
       return '/client/dashboard';
     }
 
@@ -161,11 +172,20 @@ export class AuthService {
   }
 
   private normalizeUser(value: any): CurrentUser {
+    // Defensive normalization for all fields
+    let role = value?.role;
+    if (typeof role !== 'string') {
+      role = (role && typeof role === 'object' && 'name' in role) ? String(role.name) : '';
+    }
+    let username = value?.username;
+    if (typeof username !== 'string') {
+      username = (username && typeof username === 'object' && 'name' in username) ? String(username.name) : '';
+    }
     return {
       userId: Number(value?.userId ?? 0),
-      username: String(value?.username ?? '').trim(),
+      username: String(username ?? '').trim() || 'User',
       email: value?.email ? String(value.email).trim() : undefined,
-      role: String(value?.role ?? '').trim(),
+      role: String(role ?? '').trim() || 'client',
       type: Number(value?.type ?? 0),
       clientId: Number(value?.clientId ?? 0),
       isGeneralAdmin: Boolean(value?.isGeneralAdmin),

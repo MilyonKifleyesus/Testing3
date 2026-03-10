@@ -193,12 +193,15 @@ export class VehicleListComponent implements OnInit {
         }
 
         const source = item as Record<string, unknown>;
-        if (
-          source['projectId'] !== undefined ||
-          source['ProjectId'] !== undefined ||
-          source['projectID'] !== undefined ||
-          source['project_id'] !== undefined
-        ) {
+        const existingRaw =
+          source['projectId'] ??
+          source['ProjectId'] ??
+          source['projectID'] ??
+          source['project_id'];
+
+        // Only keep existing projectId if it is a valid positive number/string
+        const existingNum = Number(existingRaw);
+        if (Number.isFinite(existingNum) && existingNum > 0) {
           return item;
         }
 
@@ -409,24 +412,12 @@ export class VehicleListComponent implements OnInit {
               return null;
             }
 
-            const clientId = String(
-              getFirstDefinedValue(item, ['clientId', 'ClientId', 'clientID', 'client_id']) ?? '',
-            ).trim();
-            const rawProjectId = String(
-              getFirstDefinedValue(item, ['projectId', 'ProjectId', 'projectID', 'project_id']) ?? '',
-            ).trim();
-
+            const clientId = String(getFirstDefinedValue(item, ['clientId', 'ClientId', 'clientID', 'client_id']) ?? '').trim();
+            const rawProjectId = String(getFirstDefinedValue(item, ['projectId', 'ProjectId', 'projectID', 'project_id']) ?? '').trim();
             const projectId = rawProjectId || (typeof forcedProjectId === 'number' ? String(forcedProjectId) : '');
 
-            const fallbackClientName = toText(
-              getFirstDefinedValue(item, ['clientName', 'ClientName', 'client']),
-              '-',
-            );
-
-            const resolvedProjectName =
-              projectNameById.get(projectId) ??
-              toOptionalText(getFirstDefinedValue(item, ['projectName', 'ProjectName', 'project'])) ??
-              '-';
+            const fallbackClientName = toText(getFirstDefinedValue(item, ['clientName', 'ClientName', 'client']), '-');
+            const resolvedProjectName = projectNameById.get(projectId) ?? toOptionalText(getFirstDefinedValue(item, ['projectName', 'ProjectName', 'project'])) ?? '-';
 
             const statusRaw = String(getFirstDefinedValue(item, ['status', 'inspectionStatus']) ?? '').trim().toLowerCase();
             const status: Vehicle['status'] =
@@ -436,31 +427,28 @@ export class VehicleListComponent implements OnInit {
                 ? 'in-progress'
                 : 'pending';
 
+            // Helper to ensure dash for empty/invalid values
+            const dashIfEmpty = (val: any) => {
+              const str = String(val ?? '').trim();
+              return str && str !== 'undefined' && str !== 'null' ? str : '-';
+            };
+
             return {
               id,
               clientId: clientId || undefined,
-              client: this.clientService.resolveClientName(clientId, fallbackClientName),
+              client: dashIfEmpty(this.clientService.resolveClientName(clientId, fallbackClientName)),
               projectId: projectId || undefined,
-              project: resolvedProjectName,
-              fleetNumber: toText(
-                getFirstDefinedValue(item, ['fleetNumber', 'FleetNumber', 'fleetNo', 'vehicleNumber', 'assetNumber']),
-                '-',
-              ),
-              make: toText(getFirstDefinedValue(item, ['make', 'Make', 'manufacturer']), '-'),
-              model: toText(getFirstDefinedValue(item, ['model', 'Model']), '-'),
-              vin: toText(getFirstDefinedValue(item, ['vin', 'VIN', 'vehicleVin']), '-'),
-              mileageType: toText(getFirstDefinedValue(item, ['mileageType', 'MileageType', 'odometerType']), '-'),
-              propulsion: toText(
-                getFirstDefinedValue(item, ['propulsionTypeName', 'PropulsionTypeName', 'propulsion', 'Propulsion', 'fuelType', 'FuelType']),
-                '-',
-              ),
+              project: dashIfEmpty(resolvedProjectName),
+              fleetNumber: dashIfEmpty(getFirstDefinedValue(item, ['fleetNumber', 'FleetNumber', 'fleetNo', 'vehicleNumber', 'assetNumber'])),
+              make: dashIfEmpty(getFirstDefinedValue(item, ['make', 'Make', 'manufacturer'])),
+              model: dashIfEmpty(getFirstDefinedValue(item, ['model', 'Model'])),
+              vin: dashIfEmpty(getFirstDefinedValue(item, ['vin', 'VIN', 'vehicleVin'])),
+              mileageType: dashIfEmpty(getFirstDefinedValue(item, ['mileageType', 'MileageType', 'odometerType'])),
+              propulsion: dashIfEmpty(getFirstDefinedValue(item, ['propulsionTypeName', 'PropulsionTypeName', 'propulsion', 'Propulsion', 'fuelType', 'FuelType'])),
               status,
-              imageUrl: toText(
-                getFirstDefinedValue(item, ['imageUrl', 'vehicleImage', 'thumbnailUrl', 'photoUrl']),
-                'assets/images/faces/1.jpg',
-              ),
-              inspectionDate: toOptionalText(getFirstDefinedValue(item, ['inspectionDate', 'updatedAt', 'createdAt'])) ?? undefined,
-              inspector: toOptionalText(getFirstDefinedValue(item, ['inspectorName', 'inspector', 'assignedTo'])) ?? undefined,
+              imageUrl: dashIfEmpty(getFirstDefinedValue(item, ['imageUrl', 'vehicleImage', 'thumbnailUrl', 'photoUrl'])) === '-' ? 'assets/images/faces/1.jpg' : dashIfEmpty(getFirstDefinedValue(item, ['imageUrl', 'vehicleImage', 'thumbnailUrl', 'photoUrl'])),
+              inspectionDate: dashIfEmpty(getFirstDefinedValue(item, ['inspectionDate', 'updatedAt', 'createdAt'])),
+              inspector: dashIfEmpty(getFirstDefinedValue(item, ['inspectorName', 'inspector', 'assignedTo'])),
             };
           })
           .filter((vehicle): vehicle is Vehicle => vehicle !== null);
@@ -808,85 +796,6 @@ export class VehicleListComponent implements OnInit {
 
     this.portalPrefix = context.portalPrefix;
     this.scopedClientId = context.scopedClientId;
-  }
-
-  /**
-   * Initialize with sample/demo data
-   */
-  private initializeSampleData(): void {
-    this.vehicles = [
-      {
-        id: 1,
-        client: 'BusPulse Fleet',
-        fleetNumber: 'BUS-001',
-        make: 'Volvo',
-        model: 'B8R',
-        vin: 'VLV1234567890123',
-        mileageType: 'Kilometres',
-        propulsion: 'Diesel',
-        status: 'completed',
-        imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspector: 'John Doe'
-      },
-      {
-        id: 2,
-        client: 'BusPulse Fleet',
-        fleetNumber: 'BUS-002',
-        make: 'Mercedes',
-        model: 'Citaro',
-        vin: 'MER2345678901234',
-        mileageType: 'Kilometres',
-        propulsion: 'Diesel',
-        status: 'in-progress',
-        imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspector: 'Jane Smith'
-      },
-      {
-        id: 3,
-        client: 'BusPulse Fleet',
-        fleetNumber: 'BUS-003',
-        make: 'Scania',
-        model: 'K360',
-        vin: 'SCA3456789012345',
-        mileageType: 'Kilometres',
-        propulsion: 'CNG',
-        status: 'pending',
-        imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspector: 'Mike Johnson'
-      },
-      {
-        id: 4,
-        client: 'BusPulse Fleet',
-        fleetNumber: 'BUS-004',
-        make: 'Tata',
-        model: 'LPO 1623',
-        vin: 'TAT4567890123456',
-        mileageType: 'Kilometres',
-        propulsion: 'Diesel',
-        status: 'completed',
-        imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspector: 'Sarah Brown'
-      },
-      {
-        id: 5,
-        client: 'BusPulse Fleet',
-        fleetNumber: 'BUS-005',
-        make: 'Ashok Leyland',
-        model: 'Viking',
-        vin: 'ASH5678901234567',
-        mileageType: 'Kilometres',
-        propulsion: 'Hybrid',
-        status: 'completed',
-        imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=400',
-        inspectionDate: new Date().toISOString().split('T')[0],
-        inspector: 'Tom Wilson'
-      }
-    ];
-    this.filteredVehicles = [...this.vehicles];
   }
 
   /**

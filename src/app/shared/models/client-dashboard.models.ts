@@ -16,6 +16,7 @@ export interface DashboardWidget {
   width: number;
   height: number;
   order: number;
+  loading?: boolean;
 }
 
 export interface ClientProfile {

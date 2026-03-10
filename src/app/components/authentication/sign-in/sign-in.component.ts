@@ -54,7 +54,7 @@ export class SignInComponent implements OnInit {
       next: (user: CurrentUser) => {
         const role = (user.role || 'admin').toLowerCase().trim();
         // Load menu based on user role
-        this.navService.loadMenuByRole(role);
+        this.navService.loadMenuByRole(role, Number(user.type ?? 0));
 
         const redirectUrl = this.authService.getRedirectUrlByRole(role);
         this.router.navigate([redirectUrl]);

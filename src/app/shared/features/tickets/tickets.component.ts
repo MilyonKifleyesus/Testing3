@@ -47,6 +47,7 @@ interface TicketRow {
   station?: string;
   status?: string;
   client?: string;
+  defectLocation?: string;
   selected?: boolean;
 }
 
@@ -92,6 +93,7 @@ export class TicketsComponent implements OnInit {
     { key: 'repeater', label: 'Repeater', visible: true },
     { key: 'createdDate', label: 'Created Date', visible: true },
     { key: 'defectType', label: 'Defect Type', visible: true },
+    { key: 'defectLocation', label: 'Defect Location', visible: true },
     { key: 'description', label: 'Description', visible: true },
     { key: 'hasImages', label: 'Images', visible: true },
     { key: 'assignedBy', label: 'Assign By', visible: true },
@@ -429,6 +431,9 @@ export class TicketsComponent implements OnInit {
       station:
         stationName ??
         this.getFirstNonBlankValue(item, ['stationname', 'station']) ??
+        '-',
+      defectLocation:
+        this.getFirstNonBlankValue(item, ['defectLocationName', 'defect_location_name', 'defectlocationname', 'defectLocation']) ??
         '-',
       status: normalizedStatus || 'open',
       client: this.resolveClientDisplay(mappedClient || '-'),

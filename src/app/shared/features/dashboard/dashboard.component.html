@@ -120,10 +120,17 @@
                 <p class="card-subtitle">{{ widget.subtitle }}</p>
               </div>
 
-              <div class="card-body">
-                <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions"></spk-apex-charts>
+              <div class="card-body" style="position: relative;">
+                <div *ngIf="widget.loading" class="widget-loading-overlay">
+                  <div class="widget-spinner">
+                    <span class="spinner-border spinner-border-sm text-success" role="status"></span>
+                    <span class="widget-loading-text">Loading...</span>
+                  </div>
+                </div>
 
-                <div *ngIf="widget.id === 'widget-14'" class="recent-activities-container">
+                <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions" [class.widget-content-blur]="widget.loading"></spk-apex-charts>
+
+                <div *ngIf="widget.id === 'widget-14'" class="recent-activities-container" [class.widget-content-blur]="widget.loading">
                   <div class="table-responsive">
                     <table class="table table-bordered table-hover align-middle">
                       <thead class="table-light">
