@@ -109,16 +109,14 @@ export const vehiclesByPropulsionChart = {
  */
 export const defectsByAreaTreemap = {
   series: [
-    {
-      data: [
-        { x: 'Chassis & Frame', y: 145 },
-        { x: 'Engine & Transmission', y: 128 },
-        { x: 'Brakes & Suspension', y: 112 },
-        { x: 'Interior & Comfort', y: 98 },
-        { x: 'Lighting & Electrical', y: 87 },
-        { x: 'Body & Exterior', y: 76 }
-      ]
-    }
+    { data: [
+      { x: 'Chassis & Frame', y: 145 },
+      { x: 'Engine & Transmission', y: 128 },
+      { x: 'Brakes & Suspension', y: 112 },
+      { x: 'Interior & Comfort', y: 98 },
+      { x: 'Lighting & Electrical', y: 87 },
+      { x: 'Body & Exterior', y: 76 }
+    ] }
   ],
   chart: {
     height: 350,
@@ -128,7 +126,19 @@ export const defectsByAreaTreemap = {
   },
   dataLabels: {
     enabled: true,
-    formatter: function (text: string, opts: { value?: number }) {
+    formatter: function (text: string, opts: any) {
+      // Prefer an explicit per-point meta.displayValue when present (used
+      // for placeholders). Otherwise fall back to the numeric value.
+      try {
+        const sIdx = opts?.seriesIndex ?? 0;
+        const pIdx = opts?.dataPointIndex ?? 0;
+        const meta = opts?.w?.config?.series?.[sIdx]?.data?.[pIdx]?.meta;
+        if (meta && meta.displayValue !== undefined) {
+          return [text, String(meta.displayValue)];
+        }
+      } catch (e) {
+        // ignore
+      }
       const defectCount = opts?.value;
       return defectCount !== undefined ? [text, defectCount.toString()] : text;
     },
@@ -144,6 +154,61 @@ export const defectsByAreaTreemap = {
     }
   },
   colors: PRIMARY_GREEN_COLORS_6
+};
+
+/**
+ * Build an Overall Defects by Area treemap from API-provided items.
+ * Accepts an array of { name, value } objects and maps them into the
+ * treemap series format. Falls back to the demo `defectsByAreaTreemap`
+ * when no data is provided.
+ */
+export const buildDefectsByAreaTreemap = (items?: Array<{ name: string; value: number }>) => {
+  const hasApiData = Array.isArray(items) && items.length > 0;
+  if (!hasApiData) {
+    return {
+      ...defectsByAreaTreemap,
+      series: [ { data: defectsByAreaTreemap.series[0].data } ],
+    } as any;
+  }
+
+  // Aggregate items by normalized name to avoid duplicate rectangles for the
+  // same inspection area (e.g., multiple "Interior" entries). Case-insensitive
+  // and trimmed keys are used for robust matching.
+  const agg = new Map<string, { name: string; value: number }>();
+  for (const it of items ?? []) {
+    const rawName = String(it?.name ?? '').trim();
+    if (!rawName) continue;
+    const key = rawName.toLowerCase();
+    const value = Number(it?.value ?? 0) || 0;
+    if (agg.has(key)) {
+      agg.get(key)!.value += value;
+    } else {
+      agg.set(key, { name: rawName, value });
+    }
+  }
+
+  const data = Array.from(agg.values())
+    .sort((a, b) => b.value - a.value)
+    .map((v) => ({ x: v.name, y: v.value }));
+
+  // If Production is missing from the API results, insert a visible
+  // placeholder sized to represent 10% of the displayed total. To make
+  // production visually occupy 10% of the treemap, compute productionY so
+  // that productionY / (productionY + sum(categories)) == 0.10.
+  const hasProduction = data.some((d) => String(d.x || '').trim().toLowerCase() === 'production');
+  if (!hasProduction) {
+    const sum = data.reduce((s, item) => s + (Number(item.y) || 0), 0);
+    // avoid division by zero; if sum is zero, use a small visible value
+    const productionY = sum > 0 ? (sum * (0.1 / 0.9)) : 1;
+    const prodPoint: any = { x: 'Production', y: productionY, meta: { displayValue: Math.round(productionY), placeholder: true } };
+    // place Production first so it appears as a main block visually
+    data.unshift(prodPoint);
+  }
+
+  return {
+    ...defectsByAreaTreemap,
+    series: [{ data }],
+  } as any;
 };
 
 /**

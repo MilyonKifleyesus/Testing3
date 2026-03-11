@@ -1100,6 +1100,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.widgets = this.widgets.map((widget) => (
       widget.id === 'widget-9' ? { ...widget, chartOptions, loading: false } : widget
     ));
+    // Also update Overall Defects by Area (widget-4) when API provides
+    // `overallByArea` data. Accept both single payload and array of payloads.
+    try {
+      let areaCombined: Array<{ name: string; value: number }> = [];
+      if (Array.isArray(payload)) {
+        for (const p of payload) {
+          const items = this.normalizeTicketsByStatusShape(p?.overallByArea ?? p?.data?.overallByArea ?? p?.overallByArea?.items ?? null);
+          areaCombined = areaCombined.concat(items.map((it: any) => ({ name: String(it?.name ?? ''), value: Number(it?.value ?? 0) || 0 })));
+        }
+      } else {
+        const items = this.normalizeTicketsByStatusShape(payload?.overallByArea ?? payload?.data?.overallByArea ?? payload?.overallByArea?.items ?? null);
+        areaCombined = items.map((it: any) => ({ name: String(it?.name ?? ''), value: Number(it?.value ?? 0) || 0 }));
+      }
+
+      const areaChartOptions = busPulseData.buildDefectsByAreaTreemap(areaCombined);
+      this.widgets = this.widgets.map((widget) => (
+        widget.id === 'widget-4' ? { ...widget, chartOptions: areaChartOptions } : widget
+      ));
+    } catch (e) {
+      // never break the dashboard on optional area updates
+    }
   }
 
   private updateOverallDefectsByAreaWidgetFromApi(payload: any | any[]): void {
