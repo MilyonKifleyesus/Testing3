@@ -12,7 +12,8 @@ import {
   DashboardVehicleOptionsResult,
 } from '../../services/dashboard-projects.service';
 import { buildPaginationItems, PAGINATION_ELLIPSIS } from '../../utils/pagination.utils';
-import { map, Observable } from 'rxjs';
+import { map, Observable, take } from 'rxjs';
+import { UserManagementService } from '../../services/user-management.service';
 
 interface TicketRow {
   id: string | number;
@@ -76,6 +77,7 @@ export class TicketsComponent implements OnInit {
   private vehicleClientIdMap = new Map<string, string>();
   private hasClientNameMap = false;
   isLoadingTickets = false;
+  private userNameMap = new Map<number, string>();
   currentPage = 1;
   readonly pageSize = 10;
 
@@ -116,12 +118,14 @@ export class TicketsComponent implements OnInit {
     private authService: AuthService,
     private clientService: ClientService,
     private clientDashboardService: ClientDashboardService,
+    private userManagementService: UserManagementService,
   ) {}
 
   ngOnInit(): void {
     this.initialProjectIdFromRoute = this.normalizeRouteProjectId(
       this.route.snapshot.queryParamMap.get('projectId'),
     );
+    this.loadUsers();
     this.loadClientNames();
     this.loadClientFilterOptions();
   }
@@ -208,6 +212,44 @@ export class TicketsComponent implements OnInit {
 
     const clientId = this.getCurrentUserClientId();
     this.filters.client = clientId ? String(clientId) : 'all';
+  }
+
+  private loadUsers(): void {
+    this.userManagementService.getUsers({ page: 1, pageSize: 500, role: '', clientId: '0', manufacturerId: '0' })
+      .pipe(take(1))
+      .subscribe({
+        next: (result) => {
+          result.items.forEach((user) => {
+            const display = user.username !== 'N/A' ? user.username : user.name;
+            this.userNameMap.set(user.id, display);
+          });
+          this.resolveUserNamesOnTickets();
+        },
+        error: () => {},
+      });
+  }
+
+  private resolveUserNamesOnTickets(): void {
+    if (!this.tickets.length || this.userNameMap.size === 0) return;
+
+    this.tickets = this.tickets.map((ticket) => {
+      const assignedByResolved = this.resolveUserDisplay(ticket.ticketAssignedBy, ticket.assignedBy);
+      const assignedToResolved = this.resolveUserDisplay(ticket.userId, ticket.assignedTo);
+      return { ...ticket, assignedBy: assignedByResolved, assignedTo: assignedToResolved };
+    });
+
+    this.applyFilters();
+  }
+
+  private resolveUserDisplay(numericId: number | undefined, fallback: string | undefined): string {
+    if (numericId && this.userNameMap.has(numericId)) {
+      return this.userNameMap.get(numericId)!;
+    }
+    const parsed = Number(fallback);
+    if (fallback && Number.isFinite(parsed) && parsed > 0 && this.userNameMap.has(parsed)) {
+      return this.userNameMap.get(parsed)!;
+    }
+    return fallback ?? '-';
   }
 
   private loadClientNames(): void {
@@ -517,6 +559,7 @@ export class TicketsComponent implements OnInit {
           this.tickets = items.map((item) => this.mapApiTicketToRow(item));
           this.applyVehicleClientIdsToTickets();
           this.applyClientNamesToTickets();
+          this.resolveUserNamesOnTickets();
           this.applyFilters();
           this.isLoadingTickets = false;
         },

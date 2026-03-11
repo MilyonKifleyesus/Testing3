@@ -1,27 +1,49 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { UserManagementService, UserListItem, InspectorStatistics } from '../../../../shared/services/user-management.service';
+import { buildPaginationItems, PAGINATION_ELLIPSIS } from '../../../../shared/utils/pagination.utils';
 
 interface InspectorCard {
-  id: string;
-  name: string;
+  id: number;
   fullName: string;
-  location: string;
+  username: string;
+  email: string;
+  client: string;
+  role: string;
+  isActive: boolean;
+  avatarBg: string;
+  statsLoading: boolean;
   busesInspected: number;
   busesAssigned: number;
-  tests: {
-    road: number;
-    water: number;
-  };
-  snags: {
-    total: number;
-    byArea: string;
-    safetyCritical: number;
-  };
+  tests: { road: number; water: number };
+  snags: { total: number; byArea: string; safetyCritical: number };
   rating: number;
-  avatarBg: string;
 }
+
+const AVATAR_BG = '#e9ecef';
+
+function mapUserToCard(user: UserListItem): InspectorCard {
+  return {
+    id: user.id,
+    fullName: user.name || user.username || 'Inspector',
+    username: user.username || '',
+    email: user.email || '',
+    client: user.client || '',
+    role: user.role || 'Inspector',
+    isActive: user.isActive !== false,
+    avatarBg: AVATAR_BG,
+    statsLoading: true,
+    busesInspected: 0,
+    busesAssigned: 0,
+    tests: { road: 0, water: 0 },
+    snags: { total: 0, byArea: '', safetyCritical: 0 },
+    rating: 0,
+  };
+}
+
+type SortColumn = 'id' | 'fullName' | 'username' | 'email' | 'client' | 'busesInspected' | 'rating' | 'status';
 
 @Component({
   selector: 'app-inspector-list',
@@ -30,177 +52,227 @@ interface InspectorCard {
   templateUrl: './inspector-list.component.html',
   styleUrl: './inspector-list.component.scss'
 })
-export class InspectorListComponent {
-  inspectors: InspectorCard[] = [
-    {
-      id: 'inspector-001',
-      name: 'J. Carter',
-      fullName: 'Jordan Carter',
-      location: 'Seattle, WA',
-      busesInspected: 142,
-      busesAssigned: 8,
-      tests: { road: 118, water: 24 },
-      snags: { total: 63, byArea: 'Engine, Suspension, Interior', safetyCritical: 7 },
-      rating: 5,
-      avatarBg: 'linear-gradient(135deg, #5b8def 0%, #0049b7 100%)'
-    },
-    {
-      id: 'inspector-002',
-      name: 'A. Singh',
-      fullName: 'Anika Singh',
-      location: 'Austin, TX',
-      busesInspected: 128,
-      busesAssigned: 6,
-      tests: { road: 102, water: 26 },
-      snags: { total: 54, byArea: 'Body, Electrical, Doors', safetyCritical: 5 },
-      rating: 4,
-      avatarBg: 'linear-gradient(135deg, #f97794 0%, #623aa2 100%)'
-    },
-    {
-      id: 'inspector-003',
-      name: 'M. Chen',
-      fullName: 'Mei Chen',
-      location: 'San Diego, CA',
-      busesInspected: 116,
-      busesAssigned: 7,
-      tests: { road: 94, water: 22 },
-      snags: { total: 48, byArea: 'HVAC, Brakes, Interior', safetyCritical: 4 },
-      rating: 4,
-      avatarBg: 'linear-gradient(135deg, #2af598 0%, #009efd 100%)'
-    },
-    {
-      id: 'inspector-004',
-      name: 'D. Alvarez',
-      fullName: 'Diego Alvarez',
-      location: 'Miami, FL',
-      busesInspected: 101,
-      busesAssigned: 5,
-      tests: { road: 81, water: 20 },
-      snags: { total: 39, byArea: 'Cooling, Exterior, Seats', safetyCritical: 3 },
-      rating: 4,
-      avatarBg: 'linear-gradient(135deg, #ff9966 0%, #ff5e62 100%)'
-    },
-    {
-      id: 'inspector-005',
-      name: 'L. Okafor',
-      fullName: 'Lena Okafor',
-      location: 'Chicago, IL',
-      busesInspected: 95,
-      busesAssigned: 4,
-      tests: { road: 76, water: 19 },
-      snags: { total: 35, byArea: 'Doors, Lighting, Interior', safetyCritical: 2 },
-      rating: 5,
-      avatarBg: 'linear-gradient(135deg, #f8cdda 0%, #1d2b64 100%)'
-    },
-    {
-      id: 'inspector-006',
-      name: 'S. Patel',
-      fullName: 'Sanjay Patel',
-      location: 'Newark, NJ',
-      busesInspected: 88,
-      busesAssigned: 5,
-      tests: { road: 69, water: 19 },
-      snags: { total: 31, byArea: 'Chassis, HVAC, Roof', safetyCritical: 2 },
-      rating: 3,
-      avatarBg: 'linear-gradient(135deg, #fad961 0%, #f76b1c 100%)'
-    }
-  ];
+export class InspectorListComponent implements OnInit {
+  readonly paginationEllipsis = PAGINATION_ELLIPSIS;
+  readonly pageSize = 10;
 
-  getInitials(name: string): string {
-    return name
-      .split(' ')
-      .map(part => part.trim()[0])
-      .filter(Boolean)
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-  }
+  inspectors: InspectorCard[] = [];
+  isLoading = false;
+  loadError = false;
 
-  getStars(rating: number): boolean[] {
-    return Array.from({ length: 5 }, (_, i) => i < rating);
-  }
-
-  // View Mode Toggle
   viewMode: 'card' | 'table' = 'card';
+  searchQuery = '';
 
-  toggleViewMode(mode: 'card' | 'table') {
-    this.viewMode = mode;
-    // Reset flip cards when switching to table view
-    if (mode === 'table') {
-      this.flippedCards.clear();
-    }
-  }
+  // Sorting
+  sortColumn: SortColumn | '' = '';
+  sortDirection: 'asc' | 'desc' = 'asc';
 
-  // Search functionality
-  searchQuery: string = '';
-  filteredInspectors: InspectorCard[] = [];
+  // Pagination
+  currentPage = 1;
+
+  // Flip cards (card view)
+  flippedCards = new Set<number>();
+
+  // Message modal
+  isMessageModalOpen = false;
+  selectedInspector: InspectorCard | null = null;
+  messageData = { subject: '', body: '', priority: 'normal', sendCopy: false };
+
+  constructor(private userManagementService: UserManagementService) {}
 
   ngOnInit() {
-    this.filteredInspectors = this.inspectors;
+    this.loadInspectors();
   }
 
-  filterInspectors() {
-    if (!this.searchQuery.trim()) {
-      this.filteredInspectors = this.inspectors;
-      return;
-    }
+  // ── Computed: sorted + filtered + paginated ───────────────────────────────
 
-    const query = this.searchQuery.toLowerCase();
-    this.filteredInspectors = this.inspectors.filter(inspector => 
-      inspector.id.toLowerCase().includes(query) ||
-      inspector.fullName.toLowerCase().includes(query) ||
-      inspector.name.toLowerCase().includes(query)
+  get sortedInspectors(): InspectorCard[] {
+    if (!this.sortColumn) return this.inspectors;
+    const col = this.sortColumn;
+    const dir = this.sortDirection === 'asc' ? 1 : -1;
+    return [...this.inspectors].sort((a, b) => {
+      const av = this.sortValue(a, col);
+      const bv = this.sortValue(b, col);
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+      return String(av).localeCompare(String(bv)) * dir;
+    });
+  }
+
+  get filteredInspectors(): InspectorCard[] {
+    const query = this.searchQuery.toLowerCase().trim();
+    if (!query) return this.sortedInspectors;
+    return this.sortedInspectors.filter(i =>
+      String(i.id).includes(query) ||
+      i.fullName.toLowerCase().includes(query) ||
+      i.username.toLowerCase().includes(query) ||
+      i.email.toLowerCase().includes(query) ||
+      i.client.toLowerCase().includes(query),
     );
   }
 
-  clearSearch() {
+  get paginatedInspectors(): InspectorCard[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.filteredInspectors.slice(start, start + this.pageSize);
+  }
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredInspectors.length / this.pageSize));
+  }
+
+  get visiblePages(): number[] {
+    return buildPaginationItems(this.totalPages, this.currentPage, 5);
+  }
+
+  get pageStartItem(): number {
+    return this.filteredInspectors.length ? (this.currentPage - 1) * this.pageSize + 1 : 0;
+  }
+
+  get pageEndItem(): number {
+    return Math.min(this.currentPage * this.pageSize, this.filteredInspectors.length);
+  }
+
+  // ── Data Loading ──────────────────────────────────────────────────────────
+
+  private loadInspectors() {
+    this.isLoading = true;
+    this.loadError = false;
+
+    this.userManagementService.getUsers({
+      page: 1, pageSize: 200, role: 'Inspector', clientId: '0', manufacturerId: '0',
+    }).subscribe({
+      next: (result) => {
+        const cards = result.items
+          .filter(u => u.role.toLowerCase() === 'inspector')
+          .map((user) => mapUserToCard(user));
+
+        this.inspectors = cards;
+        this.isLoading = false;
+        this.loadStatsForAll(cards);
+      },
+      error: () => {
+        this.isLoading = false;
+        this.loadError = true;
+      },
+    });
+  }
+
+  private loadStatsForAll(cards: InspectorCard[]) {
+    cards.forEach(card => {
+      this.userManagementService.getInspectorStatistics(card.id).subscribe({
+        next: (stats: InspectorStatistics | null) => {
+          if (stats) {
+            card.busesInspected = stats.busesInspected;
+            card.busesAssigned = stats.busesAssigned;
+            card.tests = { road: stats.roadTests, water: stats.waterTests };
+            card.snags = {
+              total: stats.totalSnags,
+              byArea: stats.snagsByArea,
+              safetyCritical: stats.safetyCriticalSnags,
+            };
+            card.rating = stats.rating;
+          }
+          card.statsLoading = false;
+        },
+        error: () => { card.statsLoading = false; },
+      });
+    });
+  }
+
+  // ── Sorting ───────────────────────────────────────────────────────────────
+
+  private sortValue(i: InspectorCard, col: SortColumn): string | number {
+    switch (col) {
+      case 'id':            return i.id;
+      case 'fullName':      return i.fullName.toLowerCase();
+      case 'username':      return i.username.toLowerCase();
+      case 'email':         return i.email.toLowerCase();
+      case 'client':        return i.client.toLowerCase();
+      case 'busesInspected':return i.busesInspected;
+      case 'rating':        return i.rating;
+      case 'status':        return i.isActive ? 0 : 1;
+      default:              return '';
+    }
+  }
+
+  sortTable(column: SortColumn): void {
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortColumn = column;
+      this.sortDirection = 'asc';
+    }
+    this.currentPage = 1;
+  }
+
+  sortIcon(column: SortColumn): string {
+    if (this.sortColumn !== column) return '';
+    return this.sortDirection === 'asc' ? '▲' : '▼';
+  }
+
+  // ── Search ────────────────────────────────────────────────────────────────
+
+  onSearchChange(): void {
+    this.currentPage = 1;
+  }
+
+  clearSearch(): void {
     this.searchQuery = '';
-    this.filteredInspectors = this.inspectors;
+    this.currentPage = 1;
   }
 
-  // Flip card state management
-  flippedCards: Set<string> = new Set();
+  // ── Pagination ────────────────────────────────────────────────────────────
 
-  flipCard(inspectorId: string) {
-    this.flippedCards.add(inspectorId);
+  changePage(page: number): void {
+    if (page < 1 || page > this.totalPages) return;
+    this.currentPage = page;
   }
 
-  unflipCard(inspectorId: string) {
-    this.flippedCards.delete(inspectorId);
+  previousPage(): void { this.changePage(this.currentPage - 1); }
+  nextPage(): void     { this.changePage(this.currentPage + 1); }
+
+  // ── View Mode ─────────────────────────────────────────────────────────────
+
+  toggleViewMode(mode: 'card' | 'table') {
+    this.viewMode = mode;
+    this.currentPage = 1;
+    if (mode === 'table') this.flippedCards.clear();
   }
 
-  isCardFlipped(inspectorId: string): boolean {
-    return this.flippedCards.has(inspectorId);
+  // ── Flip Cards ────────────────────────────────────────────────────────────
+
+  flipCard(id: number)   { this.flippedCards.add(id); }
+  unflipCard(id: number) { this.flippedCards.delete(id); }
+  isCardFlipped(id: number): boolean { return this.flippedCards.has(id); }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  getInitials(name: string): string {
+    return name.split(' ').map(p => p.trim()[0]).filter(Boolean).join('').slice(0, 2).toUpperCase();
   }
 
-  // Message Modal
-  isMessageModalOpen = false;
-  selectedInspector: InspectorCard | null = null;
-  messageData = {
-    subject: '',
-    body: '',
-    priority: 'normal',
-    sendCopy: false
-  };
+  getStars(rating: number): boolean[] {
+    return Array.from({ length: 5 }, (_, i) => i < Math.round(rating));
+  }
+
+  getRatingLabel(rating: number): string {
+    if (rating >= 4.5) return 'Excellent';
+    if (rating >= 3.5) return 'Good';
+    if (rating >= 2.5) return 'Average';
+    return 'Needs Improvement';
+  }
+
+  // ── Message Modal ─────────────────────────────────────────────────────────
 
   showMessageModal(inspector: InspectorCard) {
     this.selectedInspector = inspector;
     this.isMessageModalOpen = true;
-    // Reset form
-    this.messageData = {
-      subject: '',
-      body: '',
-      priority: 'normal',
-      sendCopy: false
-    };
-    // Prevent body scroll
+    this.messageData = { subject: '', body: '', priority: 'normal', sendCopy: false };
     document.body.classList.add('modal-open');
   }
 
   closeMessageModal() {
     this.isMessageModalOpen = false;
     this.selectedInspector = null;
-    // Re-enable body scroll
     document.body.classList.remove('modal-open');
   }
 
@@ -209,11 +281,7 @@ export class InspectorListComponent {
       alert('Please enter both subject and message.');
       return;
     }
-
-    // In a real app, call service to send message
-    console.log('Sending message to:', this.selectedInspector?.fullName);
-    console.log('Message data:', this.messageData);
-    
+    console.log('Sending message to:', this.selectedInspector?.fullName, this.messageData);
     alert(`Message sent successfully to ${this.selectedInspector?.fullName}!`);
     this.closeMessageModal();
   }

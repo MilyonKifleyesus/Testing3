@@ -320,8 +320,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   resetDashboardLayout(): void {
     localStorage.removeItem(this.getLayoutStorageKey());
     this.initializeWidgets();
-    this.widgets = this.buildWidgets();
     this.saveLayoutToStorage();
+    this.loadProjects();
+    if (this.isAdminRole) {
+      this.setAdminStatCards();
+    } else {
+      this.refreshClientView();
+    }
     window.dispatchEvent(new Event('resize'));
   }
 
@@ -1166,7 +1171,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
           const point = opts?.w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex];
           const rawValue = Number(point?.rawValue ?? point?.y ?? opts?.value ?? 0);
           const safeValue = Number.isFinite(rawValue) ? rawValue : 0;
-          return [text, safeValue.toLocaleString()];
+          const maxLen = 16;
+          const label = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
+          return [label, safeValue.toLocaleString()];
         },
       },
       tooltip: {
@@ -1466,7 +1473,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private extractOverallByAreaEntries(payload: any): Array<{ area: string; count: number }> {
-    const container = payload?.overallByArea ?? payload?.data?.overallByArea ?? payload?.result?.overallByArea;
+    const container = payload?.overallByDefectType ?? payload?.data?.overallByDefectType ?? payload?.result?.overallByDefectType;
     if (!container) {
       return [];
     }

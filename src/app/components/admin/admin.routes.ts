@@ -179,7 +179,7 @@ export const adminRoutingModule: Routes = [
     path: 'snags',
     canActivate: [roleGuard],
     data: { roles: ['superadmin'] },
-    loadComponent: () => import('./snags/snags.component').then(m => m.SnagsComponent)
+    loadComponent: () => import('../../shared/features/snags/snags.component').then(m => m.SnagsComponent)
   },
   {
     path: 'tickets',

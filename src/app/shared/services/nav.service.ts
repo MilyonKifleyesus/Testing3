@@ -27,8 +27,8 @@ export class NavService implements OnDestroy {
   private readonly roleMenuAccess: Record<string, string[]> = {
     superadmin: ['/admin'],
     admin: ['/admin'],
-    client: ['/client/dashboard', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets'],
-    user: ['/client/dashboard', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets'],
+    client: ['/client/dashboard', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets', '/client/snags'],
+    user: ['/client/dashboard', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets', '/client/snags'],
     inspector: ['/dashboard'],
   };
 
@@ -415,6 +415,13 @@ export class NavService implements OnDestroy {
           type: 'link',
         }
       ]
+    },
+    {
+      path: '/client/snags',
+      title: 'Snags',
+      icon: 'ti-flag',
+      type: 'link',
+      active: false,
     },
     {
       title: 'REPORTS',
