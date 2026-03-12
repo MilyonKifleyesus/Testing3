@@ -1,5 +1,6 @@
 export type DashboardWidgetType =
   | 'chart'
+  | 'map'
   | 'stat'
   | 'gauge'
   | 'treemap'

@@ -6,6 +6,13 @@
     display: flex;
     flex-direction: column;
 }
+
+/* Contain active menu highlight so it doesn't bleed or render jagged */
+:host ::ng-deep .main-menu .slide .side-menu__item {
+    position: relative;
+    overflow: hidden;
+    border-radius: 6px;
+}
 ::ng-deep{
     .tooltip .tooltip-arrow{
         display: none !important;

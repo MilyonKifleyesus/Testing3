@@ -1,0 +1,42 @@
+<header class="fleet-header">
+  <div class="fleet-header__brand">
+    <div class="fleet-header__logo">BP</div>
+    <span class="fleet-header__title">
+      BusPulse <span>Fleet Map</span>
+    </span>
+    <div class="fleet-header__status" [class]="statusConfig[status()].pillClass">
+      <span class="fleet-header__status-dot" [class]="statusConfig[status()].dotClass"></span>
+      <span>{{ statusConfig[status()].label }}</span>
+    </div>
+  </div>
+
+  <nav class="fleet-header__tabs" aria-label="Fleet map modes">
+    @for (tab of tabs; track tab.id) {
+      <button
+        type="button"
+        class="fleet-header__tab"
+        [class.fleet-header__tab--active]="mode() === tab.id"
+        [attr.aria-pressed]="mode() === tab.id"
+        (click)="modeChange.emit(tab.id)"
+      >
+        <i [class]="tab.iconClass"></i>
+        <span>{{ tab.label }}</span>
+      </button>
+    }
+  </nav>
+
+  <div class="fleet-header__actions" aria-label="Fleet map actions">
+    <button type="button" class="fleet-header__icon-button" (click)="refresh.emit()" aria-label="Refresh data">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+    <button
+      type="button"
+      class="fleet-header__icon-button"
+      [attr.aria-pressed]="isDark()"
+      (click)="toggleTheme.emit()"
+      aria-label="Toggle theme"
+    >
+      <i class="fleet-header__theme-icon" [ngClass]="isDark() ? 'fe fe-sun' : 'fe fe-moon'"></i>
+    </button>
+  </div>
+</header>

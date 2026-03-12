@@ -4,6 +4,7 @@ import { BehaviorSubject, finalize, Observable, tap } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { LoginRequest, LoginResponse } from '../models/auth.models';
+import { resolveFleetMapPathByRole } from '../routes/fleet-map-route';
 
 export interface CurrentUser {
   userId: number;
@@ -40,7 +41,6 @@ export class AuthService {
       .post<LoginResponse>(`${environment.apiBaseUrl}/auth/login`, req)
       .pipe(
         tap((res) => {
-          console.log('[AuthService] /api/auth/login response:', res);
           localStorage.setItem(LS_TOKEN, res.accessToken);
           const user: CurrentUser = {
             userId: res.userId,
@@ -153,6 +153,10 @@ export class AuthService {
     }
 
     return '/dashboard';
+  }
+
+  getFleetMapUrlByRole(role?: string | null): string {
+    return resolveFleetMapPathByRole(role ?? this.userRole ?? '');
   }
 
   private readUser(): CurrentUser | null {

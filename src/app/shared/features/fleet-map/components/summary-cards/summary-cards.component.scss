@@ -1,0 +1,83 @@
+.fleet-summary-cards {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.fleet-summary-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 1rem;
+  pointer-events: auto;
+  animation: fleetFadeInUp 0.25s ease-out both;
+}
+
+.fleet-summary-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 0.8rem;
+  border: 1px solid transparent;
+  font-size: 0.82rem;
+}
+
+.fleet-summary-card__icon--primary {
+  color: var(--fleet-primary);
+  background: rgba(13, 148, 136, 0.12);
+  border-color: rgba(13, 148, 136, 0.2);
+}
+
+.fleet-summary-card__icon--success {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.fleet-summary-card__icon--danger {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.fleet-summary-card__icon--info {
+  color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.12);
+  border-color: rgba(14, 165, 233, 0.2);
+}
+
+.fleet-summary-card__body {
+  min-width: 0;
+}
+
+.fleet-summary-card__body p {
+  margin: 0 0 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--fleet-muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  line-height: 1;
+}
+
+.fleet-summary-card__body strong {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+@media (max-width: 768px) {
+  .fleet-summary-cards {
+    display: none;
+  }
+}

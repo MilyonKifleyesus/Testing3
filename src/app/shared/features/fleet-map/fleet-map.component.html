@@ -1,0 +1,163 @@
+@if (state.isLoading()) {
+  <div class="fleet-map-loading">
+    <div class="fleet-map-loading__header">
+      <div class="fleet-map-loading__logo"></div>
+      <div class="fleet-map-loading__title"></div>
+    </div>
+    <div class="fleet-map-loading__body"></div>
+    <div class="fleet-map-loading__footer"></div>
+  </div>
+} @else {
+  <main class="fleet-map-shell" aria-labelledby="fleet-map-page-title">
+    <a class="fleet-map-shell__skip-link" href="#fleet-map-data-panel">Skip to operational data</a>
+    <section class="visually-hidden" aria-label="Fleet map overview">
+      <h1 id="fleet-map-page-title">BusPulse Fleet Map</h1>
+      <p id="fleet-map-page-description">
+        Interactive map of BusPulse projects, clients, manufacturers, and linked sites. Use the filter controls,
+        marker buttons, and operational data panel to inspect fleet coverage and project status.
+      </p>
+    </section>
+
+    <app-fleet-header
+      [mode]="state.mode()"
+      [status]="headerStatus()"
+      [isDark]="state.isDark()"
+      (modeChange)="setMode($event)"
+      (toggleTheme)="state.toggleTheme()"
+      (refresh)="state.refresh()"
+    />
+
+    <div class="fleet-map-shell__body">
+      <app-summary-cards [stats]="state.stats()" />
+
+      <div class="fleet-map-shell__toolbar" role="toolbar" aria-label="Fleet map controls">
+        <button
+          type="button"
+          class="fleet-map-filter-button fleet-glass-panel"
+          [class.fleet-map-filter-button--active]="state.showFilters() || state.activeFilterCount() > 0"
+          [attr.aria-controls]="'fleet-map-filters-panel'"
+          [attr.aria-expanded]="state.showFilters()"
+          (click)="state.showFilters() ? state.closeFilters() : state.openFilters()"
+        >
+          <i class="bi bi-funnel"></i>
+          <span>Filters</span>
+          @if (state.activeFilterCount() > 0) {
+            <span class="fleet-map-filter-button__count">{{ state.activeFilterCount() }}</span>
+          }
+        </button>
+
+        @if (isProjectsMode()) {
+          <div class="fleet-map-shell__mapped fleet-glass-panel">
+            Mapped on map:
+            <strong>{{ state.mappedProjectCount() }}/{{ state.filteredProjects().length }}</strong>
+          </div>
+        }
+
+        @if (state.mapFocusEntity(); as focusEntity) {
+          <button
+            type="button"
+            class="fleet-map-chip fleet-glass-panel"
+            (click)="clearMapFocus()"
+          >
+            <span>Map focus: {{ focusEntity.data.name }}</span>
+            <i class="bi bi-x"></i>
+          </button>
+        }
+
+        @for (chip of state.activeFilterChips(); track chip.key) {
+          <button
+            type="button"
+            class="fleet-map-chip fleet-map-chip--destructive fleet-glass-panel"
+            (click)="state.removeChip(chip)"
+          >
+            <span>{{ chip.label }}</span>
+            <i class="bi bi-x"></i>
+          </button>
+        }
+      </div>
+
+      @if (state.showFilters()) {
+        <aside
+          id="fleet-map-filters-panel"
+          class="fleet-map-filters fleet-glass-panel"
+          aria-labelledby="fleet-map-filters-title"
+        >
+          <div class="fleet-map-filters__header">
+            <h2 id="fleet-map-filters-title">API Filters</h2>
+            <button
+              type="button"
+              class="fleet-map-icon-button"
+              (click)="state.closeFilters()"
+              aria-label="Close filters"
+            >
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+
+          <div class="fleet-map-filters__content">
+            @for (section of filterSections(); track section.kind) {
+              <section class="fleet-map-filter-section">
+                <p class="fleet-map-filter-section__title">{{ section.title }}</p>
+                <div class="fleet-map-filter-section__options">
+                  @if (section.options.length > 0) {
+                    @for (option of section.options; track option.id) {
+                      <button
+                        type="button"
+                        class="fleet-map-filter-option"
+                        [class.fleet-map-filter-option--active]="isDraftSelected(section.kind, option.id)"
+                        (click)="toggleDraftValue(section.kind, option.id)"
+                      >
+                        {{ option.label }}
+                      </button>
+                    }
+                  } @else {
+                    <div class="fleet-map-filter-section__empty">
+                      No {{ section.title.toLowerCase() }} returned by the API.
+                    </div>
+                  }
+                </div>
+              </section>
+            }
+          </div>
+
+          <div class="fleet-map-filters__actions">
+            <button type="button" class="fleet-map-secondary-button" (click)="state.resetFilters()">
+              Reset All
+            </button>
+            <button type="button" class="fleet-map-primary-button" (click)="state.applyFilters()">
+              Apply Filters
+            </button>
+          </div>
+        </aside>
+      }
+
+      <app-map-stage
+        [mode]="state.mode()"
+        [projects]="state.mapProjects()"
+        [clients]="state.mapClients()"
+        [manufacturers]="state.mapManufacturers()"
+        [locations]="state.mapLocations()"
+        [isDark]="state.isDark()"
+        [viewedProject]="state.viewedProject()"
+        [selectedEntity]="state.selectedEntity()"
+        [focusedEntity]="state.mapFocusEntity()"
+        (selectEntity)="state.setSelectedEntity($event)"
+        aria-describedby="fleet-map-page-description"
+      />
+    </div>
+
+    <app-data-panel
+      id="fleet-map-data-panel"
+      [activeTab]="state.activeTableTab()"
+      [search]="state.tableSearch()"
+      [projects]="projects()"
+      [clients]="clients()"
+      [manufacturers]="manufacturers()"
+      [locations]="locations()"
+      [selectedEntity]="state.selectedEntity()"
+      (activeTabChange)="setTab($event)"
+      (searchChange)="setSearch($event)"
+      (viewEntity)="handleEntityView($event)"
+    />
+  </main>
+}

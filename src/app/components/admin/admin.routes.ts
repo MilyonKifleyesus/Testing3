@@ -15,6 +15,12 @@ export const adminRoutingModule: Routes = [
     loadComponent: () => import('../../shared/features/dashboard/dashboard.component').then(m => m.DashboardComponent)
   },
   {
+    path: 'fleet-map',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
+    loadChildren: () => import('../../shared/features/fleet-map/fleet-map.routes').then((m) => m.fleetMapRoutes)
+  },
+  {
     path: 'projects',
     canActivate: [roleGuard],
     data: { roles: ['superadmin', 'admin'] },
@@ -106,7 +112,40 @@ export const adminRoutingModule: Routes = [
     path: 'timesheet',
     canActivate: [roleGuard],
     data: { roles: ['superadmin'] },
-    loadComponent: () => import('./timesheet/timesheet.component').then(m => m.TimesheetComponent)
+    loadComponent: () =>
+      import('./time-log/timesheet-layout/timesheet-layout.component').then((m) => m.TimesheetLayoutComponent),
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./time-log/timesheet/timesheet.component').then((m) => m.TimesheetComponent)
+      },
+      {
+        path: 'new',
+        loadComponent: () =>
+          import('./time-log/new-time-log/new-time-log.component').then((m) => m.NewTimeLogComponent)
+      },
+      {
+        path: 'view/:id',
+        loadComponent: () =>
+          import('./time-log/time-log-view/time-log-view.component').then((m) => m.TimeLogViewComponent)
+      },
+      {
+        path: 'edit/:id',
+        loadComponent: () =>
+          import('./time-log/time-log-edit/time-log-edit.component').then((m) => m.TimeLogEditComponent)
+      }
+    ]
+  },
+  {
+    path: 'timelog',
+    redirectTo: 'timesheet',
+    pathMatch: 'full'
+  },
+  {
+    path: 'create-timesheet',
+    redirectTo: '/admin/timesheet/new',
+    pathMatch: 'full'
   },
   {
     path: 'logs',
@@ -179,7 +218,7 @@ export const adminRoutingModule: Routes = [
     path: 'snags',
     canActivate: [roleGuard],
     data: { roles: ['superadmin'] },
-    loadComponent: () => import('../../shared/features/snags/snags.component').then(m => m.SnagsComponent)
+    loadComponent: () => import('./snags/snags.component').then(m => m.SnagsComponent)
   },
   {
     path: 'tickets',

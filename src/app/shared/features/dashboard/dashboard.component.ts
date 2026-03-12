@@ -7,7 +7,6 @@ import { NgSelectModule } from '@ng-select/ng-select';
 import { NgApexchartsModule } from 'ng-apexcharts';
 import { forkJoin, map, Observable, Subscription } from 'rxjs';
 import { SpkApexChartsComponent } from '../../../@spk/reusable-charts/spk-apex-charts/spk-apex-charts.component';
-import { FluorescenceMapComponent } from '../fluorescence-map/fluorescence-map.component';
 import { SharedModule } from '../../shared.module';
 import * as busPulseData from '../../data/bus-pulse-dashboard';
 import { defaultClientProfile } from '../../data/client-profiles-dashboard';
@@ -61,6 +60,33 @@ import {
 } from './dashboard-interactions.utils';
 import { Inject } from '@angular/core';
 import { ToastService } from '../../../components/elements/toast/toast.service';
+import { MapStageComponent } from '../fleet-map/components/map-stage/map-stage.component';
+import type {
+  ApiClient,
+  ApiLocation,
+  ApiManufacturer,
+  ApiProject,
+  FleetMode,
+  FleetSelectedEntity,
+} from '../fleet-map/models/fleet-map.models';
+import { FleetMapApiService } from '../fleet-map/services/fleet-map-api.service';
+import { getProjectStatusDisplayLabel } from '../fleet-map/utils/fleet-map-status';
+import { AppStateService } from '../../services/app-state.service';
+
+type DashboardMapStatusFilter = 'all' | ApiProject['status'];
+
+interface DashboardMapFilterOption {
+  id: string;
+  label: string;
+}
+
+type DashboardMapStatusOption = { id: DashboardMapStatusFilter; label: string };
+
+const DASHBOARD_MAP_STATUS_OPTIONS: DashboardMapStatusOption[] = [
+  { id: 'all', label: 'All Statuses' },
+  { id: 'active', label: getProjectStatusDisplayLabel('active') },
+  { id: 'inactive', label: getProjectStatusDisplayLabel('inactive') },
+];
 
 @Component({
   selector: 'app-dashboard',
@@ -74,7 +100,7 @@ import { ToastService } from '../../../components/elements/toast/toast.service';
     NgApexchartsModule,
     SpkApexChartsComponent,
     DragDropModule,
-    FluorescenceMapComponent,
+    MapStageComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
@@ -111,6 +137,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
   allClientVehicles: any[] = [];
   allClientTickets: any[] = [];
 
+  readonly dashboardMapMode: FleetMode = 'projects';
+
+  dashboardMapLoading = true;
+  dashboardMapError = '';
+  dashboardMapIsDark = false;
+  dashboardMapProjects: ApiProject[] = [];
+  dashboardMapClients: ApiClient[] = [];
+  dashboardMapManufacturers: ApiManufacturer[] = [];
+  dashboardMapLocations: ApiLocation[] = [];
+  dashboardMapViewedProject: ApiProject | null = null;
+  dashboardMapSelectedEntity: FleetSelectedEntity | null = null;
+  dashboardMapSelectedStatus: DashboardMapStatusFilter = 'all';
+  dashboardMapSelectedManufacturerIds: string[] = [];
+  dashboardMapManufacturerOptions: DashboardMapFilterOption[] = [];
+  readonly dashboardMapStatusOptions = DASHBOARD_MAP_STATUS_OPTIONS;
+
+  private allMapProjects: ApiProject[] = [];
+  private allMapClients: ApiClient[] = [];
+  private allMapManufacturers: ApiManufacturer[] = [];
+  private allMapLocations: ApiLocation[] = [];
+  private dashboardMapDataLoaded = false;
+
   private resizeSession: DashboardResizeSession | null = null;
   private projectsRequestVersion = 0;
   private vehiclesRequestVersion = 0;
@@ -126,6 +174,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   };
 
   private userSubscription?: Subscription;
+  private themeSubscription?: Subscription;
 
   constructor(
     private authService: AuthService,
@@ -133,12 +182,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private clientService: ClientService,
     @Inject(ClientDashboardService) private clientDashboardService: ClientDashboardService,
     private toastService: ToastService,
+    private fleetMapApiService: FleetMapApiService,
+    private appStateService: AppStateService,
   ) {}
 
   ngOnInit(): void {
     try {
+      this.syncDashboardTheme();
       this.applyRole(this.authService.userRole);
       this.fetchAllClientVehiclesAndTickets();
+      this.loadDashboardMapData();
     } catch (err) {
       this.toastService.show('Client dashboard initialization failed: ' + (typeof err === 'object' && err && 'message' in err ? (err as any).message : String(err)), { classname: 'bg-danger text-light', autohide: true });
     }
@@ -149,6 +202,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       } catch (err) {
         this.toastService.show('Client dashboard role error: ' + (typeof err === 'object' && err && 'message' in err ? (err as any).message : String(err)), { classname: 'bg-danger text-light', autohide: true });
       }
+    });
+    this.themeSubscription = this.appStateService.state$.subscribe((state) => {
+      this.syncDashboardTheme(state?.theme);
     });
 
     document.addEventListener('mousemove', this.mouseMoveHandler);
@@ -161,6 +217,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.saveLayoutToStorage();
     this.userSubscription?.unsubscribe();
+    this.themeSubscription?.unsubscribe();
     document.removeEventListener('mousemove', this.mouseMoveHandler);
     document.removeEventListener('mouseup', this.mouseUpHandler);
     document.removeEventListener('keydown', this.keydownHandler);
@@ -176,6 +233,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   toggleAdminOpenClosed(): void {
     this.selectedVehicle = 'all';
+    this.updateDashboardMapView();
     this.loadProjects();
   }
 
@@ -190,6 +248,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   trackByIndex(index: number): number {
     return index;
+  }
+
+  trackByWidgetId(_index: number, widget: DashboardWidget): string {
+    return widget.id;
+  }
+
+  trackByFilterOptionId(
+    _index: number,
+    option: DashboardMapFilterOption | DashboardMapStatusOption,
+  ): string {
+    return option.id;
   }
 
   getStatIconClass(trendClass: string): string {
@@ -211,6 +280,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   onProjectChange(projectId: string): void {
     this.selectedProject = projectId;
     this.selectedVehicle = 'all';
+    this.updateDashboardMapView();
     this.refreshVehiclesByMakeModelChart();
     this.refreshVehiclesByPropulsionTypesChart();
     this.loadVehicles(projectId);
@@ -230,6 +300,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.projects = [{ id: 'all', name: 'All Projects' }];
     this.vehicles = [{ id: 'all', name: 'All Vehicles' }];
 
+    this.updateDashboardMapView();
     this.loadProjects();
   }
 
@@ -244,6 +315,87 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.fetchAllClientVehiclesAndTickets();
       this.refreshClientView();
     }
+  }
+
+  onDashboardMapSelect(entity: FleetSelectedEntity | null): void {
+    this.dashboardMapSelectedEntity = entity;
+  }
+
+  get dashboardMapProjectCount(): number {
+    return this.dashboardMapProjects.length;
+  }
+
+  get dashboardMapClientCount(): number {
+    return this.dashboardMapClients.length;
+  }
+
+  get dashboardMapLocationCount(): number {
+    return this.dashboardMapLocations.length;
+  }
+
+  get dashboardMapManufacturerCount(): number {
+    return this.dashboardMapManufacturers.length;
+  }
+
+  get dashboardMapWidgetSubtitle(): string {
+    if (this.selectedProject !== 'all') {
+      return `Focused on ${this.getSelectedProjectName()}`;
+    }
+
+    if (this.isAdminRole && this.selectedClient !== 'all') {
+      return `${this.getSelectedClientName()} project network`;
+    }
+
+    return 'All mapped projects';
+  }
+
+  get hasDashboardMapFilters(): boolean {
+    return this.dashboardMapSelectedStatus !== 'all' || this.dashboardMapSelectedManufacturerIds.length > 0;
+  }
+
+  setDashboardMapStatus(status: DashboardMapStatusFilter): void {
+    if (this.dashboardMapSelectedStatus === status) {
+      return;
+    }
+
+    this.dashboardMapSelectedStatus = status;
+    this.updateDashboardMapView();
+  }
+
+  toggleDashboardMapManufacturer(manufacturerId: string): void {
+    const normalizedId = String(manufacturerId ?? '').trim();
+    if (!normalizedId) {
+      return;
+    }
+
+    this.dashboardMapSelectedManufacturerIds = this.dashboardMapSelectedManufacturerIds.includes(normalizedId)
+      ? this.dashboardMapSelectedManufacturerIds.filter((id) => id !== normalizedId)
+      : [...this.dashboardMapSelectedManufacturerIds, normalizedId];
+
+    this.updateDashboardMapView();
+  }
+
+  isDashboardMapManufacturerSelected(manufacturerId: string): boolean {
+    return this.dashboardMapSelectedManufacturerIds.includes(manufacturerId);
+  }
+
+  resetDashboardMapFilters(): void {
+    if (!this.hasDashboardMapFilters) {
+      return;
+    }
+
+    this.dashboardMapSelectedStatus = 'all';
+    this.dashboardMapSelectedManufacturerIds = [];
+    this.updateDashboardMapView();
+  }
+
+  clearDashboardMapManufacturers(): void {
+    if (this.dashboardMapSelectedManufacturerIds.length === 0) {
+      return;
+    }
+
+    this.dashboardMapSelectedManufacturerIds = [];
+    this.updateDashboardMapView();
   }
 
   onWidgetDrop(event: CdkDragDrop<DashboardWidget[]>): void {
@@ -320,13 +472,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   resetDashboardLayout(): void {
     localStorage.removeItem(this.getLayoutStorageKey());
     this.initializeWidgets();
+    this.widgets = this.buildWidgets();
     this.saveLayoutToStorage();
-    this.loadProjects();
-    if (this.isAdminRole) {
-      this.setAdminStatCards();
-    } else {
-      this.refreshClientView();
-    }
     window.dispatchEvent(new Event('resize'));
   }
 
@@ -383,6 +530,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.initializeWidgets();
     this.loadProjects();
+    this.updateDashboardMapView();
 
     if (this.isAdminRole) {
       this.setAdminStatCards();
@@ -420,6 +568,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.refreshVehiclesByMakeModelChart();
         this.refreshVehiclesByPropulsionTypesChart();
 
+        this.updateDashboardMapView();
         this.loadVehicles(this.selectedProject);
         if (!this.isAdminRole) {
           this.refreshClientView();
@@ -434,6 +583,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.updateProjectScopedComparisonWidgets();
         this.refreshVehiclesByMakeModelChart();
         this.refreshVehiclesByPropulsionTypesChart();
+        this.updateDashboardMapView();
         this.loadVehicles(this.selectedProject);
         if (!this.isAdminRole) {
           this.refreshClientView();
@@ -541,13 +691,219 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (!hasSelectedClient) {
           this.selectedClient = 'all';
         }
+
+        this.updateDashboardMapView();
       },
       error: (err) => {
         this.clients = [{ id: 'all', name: 'All Clients' }];
         this.selectedClient = 'all';
+        this.updateDashboardMapView();
         this.toastService.show('Failed to load clients: ' + (err?.message || 'Unknown error'), { classname: 'bg-danger text-light', autohide: true });
       },
     });
+  }
+
+  private loadDashboardMapData(): void {
+    this.dashboardMapLoading = true;
+    this.dashboardMapError = '';
+    this.updateDashboardMapWidgetState();
+
+    forkJoin({
+      projects: this.fleetMapApiService.fetchProjects(),
+      clients: this.fleetMapApiService.fetchClients(),
+      manufacturers: this.fleetMapApiService.fetchManufacturers(),
+      locations: this.fleetMapApiService.fetchLocations(),
+    }).subscribe({
+      next: ({ projects, clients, manufacturers, locations }) => {
+        this.allMapProjects = projects;
+        this.allMapClients = clients;
+        this.allMapManufacturers = manufacturers;
+        this.allMapLocations = locations;
+        this.dashboardMapDataLoaded = true;
+        this.dashboardMapLoading = false;
+        this.updateDashboardMapView();
+      },
+      error: (err) => {
+        this.dashboardMapLoading = false;
+        this.dashboardMapError = err?.message || 'Unable to load fleet map data.';
+        this.dashboardMapProjects = [];
+        this.dashboardMapClients = [];
+        this.dashboardMapManufacturers = [];
+        this.dashboardMapLocations = [];
+        this.dashboardMapManufacturerOptions = [];
+        this.updateDashboardMapWidgetState();
+      },
+    });
+  }
+
+  private updateDashboardMapView(): void {
+    if (!this.dashboardMapDataLoaded) {
+      return;
+    }
+
+    const effectiveClientId = this.getEffectiveClientId();
+    const effectiveClientKey = effectiveClientId != null ? String(effectiveClientId) : null;
+    const selectedProjectKey = String(this.selectedProject ?? '').trim().toLowerCase();
+
+    const filteredProjects = this.allMapProjects.filter((project) => {
+      if (effectiveClientKey && project.clientId !== effectiveClientKey) {
+        return false;
+      }
+
+      if (selectedProjectKey && selectedProjectKey !== 'all') {
+        return project.id === this.selectedProject;
+      }
+
+      return true;
+    });
+
+    const baseLocationIds = this.collectDashboardMapLocationIds(filteredProjects);
+    const baseManufacturers = this.allMapManufacturers.filter((manufacturer) => (
+      manufacturer.locationIds.some((locationId) => baseLocationIds.has(locationId))
+    ));
+    const availableManufacturerIds = new Set(baseManufacturers.map((manufacturer) => manufacturer.id));
+    const nextSelectedManufacturerIds = this.dashboardMapSelectedManufacturerIds.filter((manufacturerId) => (
+      availableManufacturerIds.has(manufacturerId)
+    ));
+
+    if (nextSelectedManufacturerIds.length !== this.dashboardMapSelectedManufacturerIds.length) {
+      this.dashboardMapSelectedManufacturerIds = nextSelectedManufacturerIds;
+    }
+
+    this.dashboardMapManufacturerOptions = baseManufacturers
+      .map((manufacturer) => ({ id: manufacturer.id, label: manufacturer.name }))
+      .sort((left, right) => left.label.localeCompare(right.label));
+
+    const selectedManufacturerLocationIds = new Set<string>();
+    if (this.dashboardMapSelectedManufacturerIds.length > 0) {
+      baseManufacturers.forEach((manufacturer) => {
+        if (!this.dashboardMapSelectedManufacturerIds.includes(manufacturer.id)) {
+          return;
+        }
+
+        manufacturer.locationIds.forEach((locationId) => selectedManufacturerLocationIds.add(locationId));
+      });
+    }
+
+    const locationIds = new Set<string>();
+    const clientIds = new Set<string>();
+
+    const statusFilteredProjects = filteredProjects.filter((project) => {
+      const statusMatch = this.dashboardMapSelectedStatus === 'all' || project.status === this.dashboardMapSelectedStatus;
+      if (!statusMatch) {
+        return false;
+      }
+
+      if (selectedManufacturerLocationIds.size === 0) {
+        return true;
+      }
+
+      return this.projectMatchesDashboardMapManufacturerFilter(project, selectedManufacturerLocationIds);
+    });
+
+    statusFilteredProjects.forEach((project) => {
+      clientIds.add(project.clientId);
+      project.locationIds.forEach((locationId) => locationIds.add(locationId));
+      if (project.locationId) {
+        locationIds.add(project.locationId);
+      }
+    });
+
+    const filteredLocations = this.allMapLocations.filter((location) => locationIds.has(location.id));
+    const filteredManufacturers = baseManufacturers.filter((manufacturer) => (
+      manufacturer.locationIds.some((locationId) => locationIds.has(locationId)) &&
+      (this.dashboardMapSelectedManufacturerIds.length === 0 ||
+        this.dashboardMapSelectedManufacturerIds.includes(manufacturer.id))
+    ));
+    const filteredClients = this.allMapClients.filter((client) => clientIds.has(client.id));
+
+    this.dashboardMapProjects = statusFilteredProjects;
+    this.dashboardMapClients = filteredClients;
+    this.dashboardMapManufacturers = filteredManufacturers;
+    this.dashboardMapLocations = filteredLocations;
+    this.dashboardMapViewedProject = this.selectedProject !== 'all'
+      ? statusFilteredProjects.find((project) => project.id === this.selectedProject) ?? null
+      : null;
+
+    if (
+      this.dashboardMapSelectedEntity &&
+      !this.isDashboardMapSelectionVisible(this.dashboardMapSelectedEntity)
+    ) {
+      this.dashboardMapSelectedEntity = null;
+    }
+
+    this.updateDashboardMapWidgetState();
+  }
+
+  private collectDashboardMapLocationIds(projects: ApiProject[]): Set<string> {
+    const locationIds = new Set<string>();
+
+    projects.forEach((project) => {
+      project.locationIds.forEach((locationId) => locationIds.add(locationId));
+      if (project.locationId) {
+        locationIds.add(project.locationId);
+      }
+    });
+
+    return locationIds;
+  }
+
+  private projectMatchesDashboardMapManufacturerFilter(
+    project: ApiProject,
+    selectedManufacturerLocationIds: Set<string>,
+  ): boolean {
+    if (selectedManufacturerLocationIds.size === 0) {
+      return true;
+    }
+
+    if (project.locationId && selectedManufacturerLocationIds.has(project.locationId)) {
+      return true;
+    }
+
+    return project.locationIds.some((locationId) => selectedManufacturerLocationIds.has(locationId));
+  }
+
+  private updateDashboardMapWidgetState(): void {
+    if (!this.widgets.length) {
+      return;
+    }
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-map'
+        ? {
+            ...widget,
+            subtitle: this.dashboardMapWidgetSubtitle,
+            loading: this.dashboardMapLoading,
+          }
+        : widget
+    ));
+  }
+
+  private syncDashboardTheme(theme?: string | null): void {
+    const html = document.documentElement;
+    const resolvedTheme = String(theme ?? html.getAttribute('data-theme-mode') ?? '').trim().toLowerCase();
+    this.dashboardMapIsDark = resolvedTheme === 'dark' || html.classList.contains('dark');
+  }
+
+  private isDashboardMapSelectionVisible(entity: FleetSelectedEntity): boolean {
+    switch (entity.kind) {
+      case 'project':
+        return this.dashboardMapProjects.some((project) => project.id === entity.data.id);
+      case 'client':
+        return this.dashboardMapClients.some((client) => client.id === entity.data.id);
+      case 'manufacturer':
+        return this.dashboardMapManufacturers.some((manufacturer) => manufacturer.id === entity.data.id);
+      case 'location':
+        return this.dashboardMapLocations.some((location) => location.id === entity.data.id);
+    }
+  }
+
+  private getSelectedClientName(): string {
+    return this.clients.find((client) => client.id === this.selectedClient)?.name ?? 'All Clients';
+  }
+
+  private getSelectedProjectName(): string {
+    return this.projects.find((project) => project.id === this.selectedProject)?.name ?? 'All Projects';
   }
 
   private loadClientBranding(user: CurrentUser | null): void {
@@ -1105,27 +1461,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.widgets = this.widgets.map((widget) => (
       widget.id === 'widget-9' ? { ...widget, chartOptions, loading: false } : widget
     ));
-    // Also update Overall Defects by Area (widget-4) when API provides
-    // `overallByArea` data. Accept both single payload and array of payloads.
-    try {
-      let areaCombined: Array<{ name: string; value: number }> = [];
-      if (Array.isArray(payload)) {
-        for (const p of payload) {
-          const items = this.normalizeTicketsByStatusShape(p?.overallByArea ?? p?.data?.overallByArea ?? p?.overallByArea?.items ?? null);
-          areaCombined = areaCombined.concat(items.map((it: any) => ({ name: String(it?.name ?? ''), value: Number(it?.value ?? 0) || 0 })));
-        }
-      } else {
-        const items = this.normalizeTicketsByStatusShape(payload?.overallByArea ?? payload?.data?.overallByArea ?? payload?.overallByArea?.items ?? null);
-        areaCombined = items.map((it: any) => ({ name: String(it?.name ?? ''), value: Number(it?.value ?? 0) || 0 }));
-      }
-
-      const areaChartOptions = busPulseData.buildDefectsByAreaTreemap(areaCombined);
-      this.widgets = this.widgets.map((widget) => (
-        widget.id === 'widget-4' ? { ...widget, chartOptions: areaChartOptions } : widget
-      ));
-    } catch (e) {
-      // never break the dashboard on optional area updates
-    }
   }
 
   private updateOverallDefectsByAreaWidgetFromApi(payload: any | any[]): void {
@@ -1171,9 +1506,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           const point = opts?.w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex];
           const rawValue = Number(point?.rawValue ?? point?.y ?? opts?.value ?? 0);
           const safeValue = Number.isFinite(rawValue) ? rawValue : 0;
-          const maxLen = 16;
-          const label = text.length > maxLen ? text.substring(0, maxLen) + '…' : text;
-          return [label, safeValue.toLocaleString()];
+          return [text, safeValue.toLocaleString()];
         },
       },
       tooltip: {
@@ -1473,7 +1806,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private extractOverallByAreaEntries(payload: any): Array<{ area: string; count: number }> {
-    const container = payload?.overallByDefectType ?? payload?.data?.overallByDefectType ?? payload?.result?.overallByDefectType;
+    const container = payload?.overallByArea ?? payload?.data?.overallByArea ?? payload?.result?.overallByArea;
     if (!container) {
       return [];
     }

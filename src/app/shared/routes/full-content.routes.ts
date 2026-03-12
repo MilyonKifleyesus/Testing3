@@ -9,7 +9,6 @@ export const content: Routes = [
       { path: '', loadChildren: () => import('../../../app/components/apps/blog/blog.routes').then((r) => r.blogRoutingModule) },
       { path: '', loadChildren: () => import('../../../app/components/apps/filemanager/filemanager.routes').then((r) => r.filemanagerRoutingModule) },
       { path: '', loadChildren: () => import('../../../app/components/apps/mail/mail.routes').then((r) => r.mailRoutingModule) },
-      { path: '', loadChildren: () => import('../../../app/components/apps/maps/maps.routes').then((r) => r.mapsRoutingModule) },
       { path: '', loadChildren: () => import('../../../app/components/apps/tables/tables.route').then((r) => r.tablesRoutingModule) },
       { path: '', loadChildren: () => import('../../../app/components/apps/apps.routes').then((r) => r.appsRoutingModule) },
       { path: '', loadChildren: () => import('../../../app/components/elements/elements.routes').then((r) => r.elementsRoutingModule) },

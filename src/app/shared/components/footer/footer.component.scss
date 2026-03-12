@@ -1,0 +1,36 @@
+.footer {
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  box-sizing: border-box;
+
+  .container {
+    min-width: 0;
+    max-width: 100%;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 576px) {
+    font-size: 0.8rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+
+    .container {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.75rem;
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+
+    .container {
+      padding-left: 0.4rem;
+      padding-right: 0.4rem;
+    }
+  }
+}

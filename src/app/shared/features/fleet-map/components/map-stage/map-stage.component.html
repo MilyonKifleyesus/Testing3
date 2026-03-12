@@ -1,0 +1,134 @@
+<div
+  class="fleet-map-stage"
+  [class.fleet-map-stage--widget]="surface() === 'widget'"
+  [class.fleet-map-stage--dark]="isDark()"
+  [style.background-color]="isDark() ? '#050608' : '#edf3f4'"
+  role="region"
+  aria-label="Interactive fleet map"
+>
+  <p id="fleet-map-stage-description" class="visually-hidden">
+    Interactive BusPulse map with keyboard-accessible zoom controls and selectable markers for projects, clients,
+    manufacturers, and linked sites.
+  </p>
+
+  <div
+    #mapContainer
+    class="fleet-map-container"
+    tabindex="0"
+    [attr.aria-busy]="!mapReady()"
+    aria-describedby="fleet-map-stage-description"
+  ></div>
+
+  @if (!mapReady()) {
+    <div class="fleet-map-stage__loading fleet-glass-panel" role="status" aria-live="polite">
+      <span>{{ mapActivated() ? 'Loading interactive fleet map…' : 'Preparing fleet map…' }}</span>
+    </div>
+  }
+
+  @if (selectedEntity(); as entity) {
+    <aside class="fleet-map-detail fleet-glass-panel" aria-label="Selected map item details">
+      <div class="fleet-map-detail__header">
+        <div class="fleet-map-detail__identity">
+          <div class="fleet-map-detail__visual">
+            @if (detailLogoVisible(entity.kind + ':' + entity.data.id, primaryLogoUrl())) {
+              <img
+                [src]="primaryLogoUrl()"
+                [alt]="selectionTitle()"
+                loading="lazy"
+                decoding="async"
+                (error)="markDetailLogoFailed(entity.kind + ':' + entity.data.id, primaryLogoUrl())"
+              />
+            } @else {
+              <i [class]="selectionIconClass()"></i>
+            }
+          </div>
+          <div class="fleet-map-detail__copy">
+            <strong>{{ selectionTitle() }}</strong>
+            <span>{{ selectionBadge() }}</span>
+          </div>
+        </div>
+
+        <button type="button" class="fleet-map-icon-button" (click)="closeSelection()" aria-label="Close detail card">
+          <i class="bi bi-x"></i>
+        </button>
+      </div>
+
+      @if (relatedLogos().length > 0) {
+        <div class="fleet-map-detail__logos">
+          @for (logo of relatedLogos(); track logo.key) {
+            <div class="fleet-map-detail__logo-pill">
+              <div class="fleet-map-detail__logo-image">
+                <img [src]="logo.src" [alt]="logo.name" loading="lazy" decoding="async" />
+              </div>
+              <div class="fleet-map-detail__logo-copy">
+                <p>{{ logo.kind }}</p>
+                <span>{{ logo.name }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <div class="fleet-map-detail__grid">
+        @for (line of detailLines(); track line.label) {
+          <div class="fleet-map-detail__line">
+            <p>{{ line.label }}</p>
+            <span>{{ line.value }}</span>
+          </div>
+        }
+      </div>
+    </aside>
+  }
+
+  <div class="fleet-map-legend fleet-glass-panel" aria-label="Map legend">
+    @if (mode() === 'projects') {
+      <div class="fleet-map-legend__item">
+        <span class="fleet-map-legend__marker fleet-map-legend__marker--manufacturer"></span>
+        <span>Manufacturer</span>
+      </div>
+      <div class="fleet-map-legend__item">
+        <span class="fleet-map-legend__marker fleet-map-legend__marker--client"></span>
+        <span>Client</span>
+      </div>
+      <div class="fleet-map-legend__item">
+        <span class="fleet-map-legend__line fleet-map-legend__line--active"></span>
+        <span>Active</span>
+      </div>
+      <div class="fleet-map-legend__item">
+        <span class="fleet-map-legend__line fleet-map-legend__line--inactive"></span>
+        <span>Inactive</span>
+      </div>
+    } @else {
+      @if (mode() === 'clients') {
+        <div class="fleet-map-legend__item">
+          <span class="fleet-map-legend__marker fleet-map-legend__marker--client-outline"></span>
+          <span>Client</span>
+        </div>
+      }
+      @if (mode() === 'manufacturers') {
+        <div class="fleet-map-legend__item">
+          <span class="fleet-map-legend__marker fleet-map-legend__marker--origin"></span>
+          <span>Manufacturer</span>
+        </div>
+      }
+      @if (showLinkedLocations()) {
+        <div class="fleet-map-legend__item">
+          <span class="fleet-map-legend__marker fleet-map-legend__marker--location"></span>
+          <span>Site</span>
+        </div>
+      }
+    }
+  </div>
+
+  <div class="fleet-map-zoom" role="group" aria-label="Map zoom controls">
+    <button type="button" class="fleet-map-icon-button fleet-glass-panel" (click)="zoomIn()" aria-label="Zoom in">
+      <i class="bi bi-plus-lg"></i>
+    </button>
+    <button type="button" class="fleet-map-icon-button fleet-glass-panel" (click)="zoomOut()" aria-label="Zoom out">
+      <i class="bi bi-dash-lg"></i>
+    </button>
+    <button type="button" class="fleet-map-icon-button fleet-glass-panel" (click)="resetMapView()" aria-label="Reset view">
+      <i class="bi bi-compass"></i>
+    </button>
+  </div>
+</div>

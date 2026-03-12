@@ -2,6 +2,7 @@ import { Injectable, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, fromEvent, Subject } from 'rxjs';
 import { takeUntil, debounceTime } from 'rxjs/operators';
+import { resolveFleetMapPathByRole } from '../routes/fleet-map-route';
 
 //Menu Bar
 export interface Menu {
@@ -27,8 +28,8 @@ export class NavService implements OnDestroy {
   private readonly roleMenuAccess: Record<string, string[]> = {
     superadmin: ['/admin'],
     admin: ['/admin'],
-    client: ['/client/dashboard', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets', '/client/snags'],
-    user: ['/client/dashboard', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets', '/client/snags'],
+    client: ['/client/dashboard', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets'],
+    user: ['/client/dashboard', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets'],
     inspector: ['/dashboard'],
   };
 
@@ -119,6 +120,20 @@ export class NavService implements OnDestroy {
           path: '/admin/dashboard',
           title: 'Dashboard',
           icon: 'ti-dashboard',
+          type: 'link',
+          active: false,
+        },
+        {
+          path: '/fleet-map',
+          title: 'Fleet Map',
+          icon: 'ti-location-pin',
+          type: 'link',
+          active: false,
+        },
+        {
+          path: '/admin/timelog',
+          title: 'Time Log',
+          icon: 'ti-write',
           type: 'link',
           active: false,
         },
@@ -415,13 +430,6 @@ export class NavService implements OnDestroy {
           type: 'link',
         }
       ]
-    },
-    {
-      path: '/client/snags',
-      title: 'Snags',
-      icon: 'ti-flag',
-      type: 'link',
-      active: false,
     },
     {
       title: 'REPORTS',
@@ -1021,7 +1029,7 @@ export class NavService implements OnDestroy {
       case 'superadmin':
       case 'admin':
         // Show all menu items for superadmin/admin, no filtering
-        return this.cloneMenu(this.SUPERADMIN_MENUITEMS);
+        return this.resolveRoleBasedPaths(this.cloneMenu(this.SUPERADMIN_MENUITEMS), role);
       case 'inspector':
         baseMenu = this.MENUITEMS; // Can be customized for inspector
         break;
@@ -1087,6 +1095,16 @@ export class NavService implements OnDestroy {
     return menuItems.map((menuItem) => ({
       ...menuItem,
       children: menuItem.children ? this.cloneMenu(menuItem.children) : undefined,
+    }));
+  }
+
+  private resolveRoleBasedPaths(menuItems: Menu[], role: string): Menu[] {
+    const fleetMapPath = resolveFleetMapPathByRole(role);
+
+    return menuItems.map((menuItem) => ({
+      ...menuItem,
+      path: menuItem.path === '/fleet-map' ? fleetMapPath : menuItem.path,
+      children: menuItem.children ? this.resolveRoleBasedPaths(menuItem.children, role) : undefined,
     }));
   }
 }

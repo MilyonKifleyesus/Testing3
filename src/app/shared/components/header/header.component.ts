@@ -161,32 +161,7 @@ collapse: any;
       }
       themeType = 'dark';
       updateTheme(theme: string) {
-        this.appStateService.updateState({ theme , menuColor:theme });
-        if(theme=='light'){
-          this.appStateService.updateState({ theme,themeBackground : '',headerColor:'light',menuColor:'color' });
-          let html = document.querySelector('html');
-            html?.style.removeProperty( '--body-bg-rgb');
-            html?.style.removeProperty( '--body-bg-rgb2');
-            html?.style.removeProperty( '--light-rgb');
-            html?.style.removeProperty( '--form-control-bg');
-            html?.style.removeProperty( '--input-border' );
-            html?.style.removeProperty( '--sidemenu-active-bgcolor' );
-          }
-        if(theme=='dark'){
-          this.appStateService.updateState({ theme,themeBackground : '',headerColor:'dark',menuColor:'color' });
-          let html = document.querySelector('html');
-            html?.style.removeProperty( '--body-bg-rgb');
-            html?.style.removeProperty( '--body-bg-rgb2');
-            html?.style.removeProperty( '--light-rgb');
-            html?.style.removeProperty( '--form-control-bg');
-            html?.style.removeProperty( '--input-border' );
-            html?.style.removeProperty( '--sidemenu-active-bgcolor' );
-
-        }
-        if( window.innerWidth <= 992 ){
-          let html = document.querySelector('html');
-          html?.setAttribute('data-toggled', 'close');
-        }
+        this.appStateService.setTheme(theme);
       }
       toggleFullscreen() {
         if (this.isFullscreen) {
@@ -422,4 +397,3 @@ collapse: any;
       ?.classList.add('searchdrop');
     }
 }
-

@@ -87,7 +87,7 @@
 
     <div class="charts-grid" [class.compact-mode]="showFilters && selectedProject !== 'all'">
       <div class="widgets-row" cdkDropList (cdkDropListDropped)="onWidgetDrop($event)">
-        <ng-container *ngFor="let widget of widgets">
+        <ng-container *ngFor="let widget of widgets; trackBy: trackByWidgetId">
           <div
             [hidden]="!isWidgetVisible(widget)"
             [ngClass]="(showFilters && selectedProject !== 'all') ? 'widget-container compact-widget' : 'widget-container'"
@@ -129,6 +129,109 @@
                 </div>
 
                 <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions" [class.widget-content-blur]="widget.loading"></spk-apex-charts>
+
+                <div *ngIf="widget.id === 'widget-map'" class="dashboard-map-widget" [class.widget-content-blur]="widget.loading">
+                  <div class="dashboard-map-widget__summary" [class.dashboard-map-widget__summary--client]="!isAdminRole">
+                    <div class="dashboard-map-widget__pill">
+                      <span>Projects</span>
+                      <strong>{{ dashboardMapProjectCount }}</strong>
+                    </div>
+                    <div *ngIf="isAdminRole" class="dashboard-map-widget__pill">
+                      <span>Clients</span>
+                      <strong>{{ dashboardMapClientCount }}</strong>
+                    </div>
+                    <div class="dashboard-map-widget__pill">
+                      <span>Manufacturers</span>
+                      <strong>{{ dashboardMapManufacturerCount }}</strong>
+                    </div>
+                    <div class="dashboard-map-widget__pill">
+                      <span>Sites</span>
+                      <strong>{{ dashboardMapLocationCount }}</strong>
+                    </div>
+                  </div>
+
+                  <div class="dashboard-map-widget__filters">
+                    <div class="dashboard-map-widget__filter-group">
+                      <span class="dashboard-map-widget__filter-label">Project Status</span>
+                      <div class="dashboard-map-widget__filter-buttons">
+                        <button
+                          *ngFor="let status of dashboardMapStatusOptions; trackBy: trackByFilterOptionId"
+                          type="button"
+                          class="dashboard-map-widget__filter-button"
+                          [class.dashboard-map-widget__filter-button--active]="dashboardMapSelectedStatus === status.id"
+                          (click)="setDashboardMapStatus(status.id)"
+                        >
+                          {{ status.label }}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="dashboard-map-widget__filter-group">
+                      <div class="dashboard-map-widget__filter-header">
+                        <span class="dashboard-map-widget__filter-label">Manufacturers</span>
+                        <button
+                          *ngIf="hasDashboardMapFilters"
+                          type="button"
+                          class="dashboard-map-widget__reset-button"
+                          (click)="resetDashboardMapFilters()"
+                        >
+                          Reset map filters
+                        </button>
+                      </div>
+
+                      <div class="dashboard-map-widget__filter-buttons">
+                        <button
+                          type="button"
+                          class="dashboard-map-widget__filter-button"
+                          [class.dashboard-map-widget__filter-button--active]="dashboardMapSelectedManufacturerIds.length === 0"
+                          (click)="clearDashboardMapManufacturers()"
+                        >
+                          All Manufacturers
+                        </button>
+
+                        <button
+                          *ngFor="let manufacturer of dashboardMapManufacturerOptions; trackBy: trackByFilterOptionId"
+                          type="button"
+                          class="dashboard-map-widget__filter-button"
+                          [class.dashboard-map-widget__filter-button--active]="isDashboardMapManufacturerSelected(manufacturer.id)"
+                          (click)="toggleDashboardMapManufacturer(manufacturer.id)"
+                        >
+                          {{ manufacturer.label }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="dashboard-map-stage-shell dashboard-map-stage-shell--widget">
+                    <div *ngIf="!dashboardMapLoading && dashboardMapError" class="dashboard-map-state dashboard-map-state--error">
+                      <i class="ti ti-alert-circle"></i>
+                      <span>{{ dashboardMapError }}</span>
+                    </div>
+
+                    <div *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount === 0" class="dashboard-map-state dashboard-map-state--empty">
+                      <i class="ti ti-map-off"></i>
+                      <div>
+                        <strong>No mapped projects for the current dashboard filters.</strong>
+                        <p class="mb-0">Change the client, project, status, or manufacturer filters to widen the view.</p>
+                      </div>
+                    </div>
+
+                    <app-map-stage
+                      *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount > 0"
+                      [mode]="dashboardMapMode"
+                      [projects]="dashboardMapProjects"
+                      [clients]="dashboardMapClients"
+                      [manufacturers]="dashboardMapManufacturers"
+                      [locations]="dashboardMapLocations"
+                      [isDark]="dashboardMapIsDark"
+                      [surface]="'widget'"
+                      [viewedProject]="dashboardMapViewedProject"
+                      [selectedEntity]="dashboardMapSelectedEntity"
+                      [focusedEntity]="dashboardMapSelectedEntity"
+                      (selectEntity)="onDashboardMapSelect($event)"
+                    ></app-map-stage>
+                  </div>
+                </div>
 
                 <div *ngIf="widget.id === 'widget-14'" class="recent-activities-container" [class.widget-content-blur]="widget.loading">
                   <div class="table-responsive">
@@ -203,6 +306,109 @@
         <div class="fullscreen-content" *ngIf="fullscreenWidget">
           <spk-apex-charts *ngIf="fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions"></spk-apex-charts>
 
+          <div *ngIf="fullscreenWidget.id === 'widget-map'" class="dashboard-map-widget dashboard-map-widget--fullscreen">
+            <div class="dashboard-map-widget__summary" [class.dashboard-map-widget__summary--client]="!isAdminRole">
+              <div class="dashboard-map-widget__pill">
+                <span>Projects</span>
+                <strong>{{ dashboardMapProjectCount }}</strong>
+              </div>
+              <div *ngIf="isAdminRole" class="dashboard-map-widget__pill">
+                <span>Clients</span>
+                <strong>{{ dashboardMapClientCount }}</strong>
+              </div>
+              <div class="dashboard-map-widget__pill">
+                <span>Manufacturers</span>
+                <strong>{{ dashboardMapManufacturerCount }}</strong>
+              </div>
+              <div class="dashboard-map-widget__pill">
+                <span>Sites</span>
+                <strong>{{ dashboardMapLocationCount }}</strong>
+              </div>
+            </div>
+
+            <div class="dashboard-map-widget__filters">
+              <div class="dashboard-map-widget__filter-group">
+                <span class="dashboard-map-widget__filter-label">Project Status</span>
+                <div class="dashboard-map-widget__filter-buttons">
+                  <button
+                    *ngFor="let status of dashboardMapStatusOptions; trackBy: trackByFilterOptionId"
+                    type="button"
+                    class="dashboard-map-widget__filter-button"
+                    [class.dashboard-map-widget__filter-button--active]="dashboardMapSelectedStatus === status.id"
+                    (click)="setDashboardMapStatus(status.id)"
+                  >
+                    {{ status.label }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="dashboard-map-widget__filter-group">
+                <div class="dashboard-map-widget__filter-header">
+                  <span class="dashboard-map-widget__filter-label">Manufacturers</span>
+                  <button
+                    *ngIf="hasDashboardMapFilters"
+                    type="button"
+                    class="dashboard-map-widget__reset-button"
+                    (click)="resetDashboardMapFilters()"
+                  >
+                    Reset map filters
+                  </button>
+                </div>
+
+                <div class="dashboard-map-widget__filter-buttons">
+                  <button
+                    type="button"
+                    class="dashboard-map-widget__filter-button"
+                    [class.dashboard-map-widget__filter-button--active]="dashboardMapSelectedManufacturerIds.length === 0"
+                    (click)="clearDashboardMapManufacturers()"
+                  >
+                    All Manufacturers
+                  </button>
+
+                  <button
+                    *ngFor="let manufacturer of dashboardMapManufacturerOptions; trackBy: trackByFilterOptionId"
+                    type="button"
+                    class="dashboard-map-widget__filter-button"
+                    [class.dashboard-map-widget__filter-button--active]="isDashboardMapManufacturerSelected(manufacturer.id)"
+                    (click)="toggleDashboardMapManufacturer(manufacturer.id)"
+                  >
+                    {{ manufacturer.label }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="dashboard-map-stage-shell dashboard-map-stage-shell--widget dashboard-map-stage-shell--fullscreen">
+              <div *ngIf="!dashboardMapLoading && dashboardMapError" class="dashboard-map-state dashboard-map-state--error">
+                <i class="ti ti-alert-circle"></i>
+                <span>{{ dashboardMapError }}</span>
+              </div>
+
+              <div *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount === 0" class="dashboard-map-state dashboard-map-state--empty">
+                <i class="ti ti-map-off"></i>
+                <div>
+                  <strong>No mapped projects for the current dashboard filters.</strong>
+                  <p class="mb-0">Change the client, project, status, or manufacturer filters to widen the view.</p>
+                </div>
+              </div>
+
+              <app-map-stage
+                *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount > 0"
+                [mode]="dashboardMapMode"
+                [projects]="dashboardMapProjects"
+                [clients]="dashboardMapClients"
+                [manufacturers]="dashboardMapManufacturers"
+                [locations]="dashboardMapLocations"
+                [isDark]="dashboardMapIsDark"
+                [surface]="'widget'"
+                [viewedProject]="dashboardMapViewedProject"
+                [selectedEntity]="dashboardMapSelectedEntity"
+                [focusedEntity]="dashboardMapSelectedEntity"
+                (selectEntity)="onDashboardMapSelect($event)"
+              ></app-map-stage>
+            </div>
+          </div>
+
           <div *ngIf="fullscreenWidget.id === 'widget-14'" class="recent-activities-container fullscreen-activities">
             <div class="table-responsive">
               <table class="table table-bordered table-hover align-middle">
@@ -268,7 +474,5 @@
         </div>
       </div>
     </div>
-
-    <app-fluorescence-map></app-fluorescence-map>
   </div>
 </div>

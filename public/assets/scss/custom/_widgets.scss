@@ -63,17 +63,6 @@
         border-top-color: variables.$danger;
     }
 }
-#users-map {
-    height: 14rem;
-    #jvm-markers-labels-group {
-        display: none;
-    }
-}
-[dir="rtl"] {
-    #users-map {
-        direction: ltr  ;
-    }
-}
 [dir="ltr"] {
     #views .apexcharts-yaxis {
         transform: translate(0, 0);

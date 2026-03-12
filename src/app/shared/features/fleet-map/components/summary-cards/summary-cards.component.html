@@ -1,0 +1,13 @@
+<div class="fleet-summary-cards">
+  @for (card of cards; track card.key; let index = $index) {
+    <div class="fleet-summary-card fleet-glass-panel" [style.animationDelay.ms]="(index + 1) * 50">
+      <div class="fleet-summary-card__icon" [class]="card.toneClass">
+        <i [class]="card.iconClass"></i>
+      </div>
+      <div class="fleet-summary-card__body">
+        <p>{{ card.label }}</p>
+        <strong>{{ stats()[card.key] }}</strong>
+      </div>
+    </div>
+  }
+</div>

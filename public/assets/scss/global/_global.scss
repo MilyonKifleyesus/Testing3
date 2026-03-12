@@ -675,15 +675,6 @@
     border-radius: 50%;
 }
 
-.leaflet-top,
-.leaflet-bottom {
-    z-index: 8 !important;
-}
-
-.leaflet-pane {
-    z-index: 1 !important;
-}
-
 .app-sidebar {
     *::-webkit-scrollbar {
         width: 0;

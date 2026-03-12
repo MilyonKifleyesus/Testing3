@@ -120,7 +120,7 @@
               <td *ngIf="isColumnVisible('project')"><span class="badge bg-info-transparent">{{ displayValue(ticket.project) }}</span></td>
               <td *ngIf="isColumnVisible('vehicle')" class="text-muted">{{ displayValue(ticket.vehicle) }}</td>
               <td *ngIf="isColumnVisible('safetyCritical')">
-                <span class="badge" [class.bg-danger]="ticket.safetyCritical" [class.bg-light]="!ticket.safetyCritical" [style.color]="ticket.safetyCritical ? 'white' : '#666'">
+                <span class="badge" [class.bg-success]="ticket.safetyCritical" [class.bg-light]="!ticket.safetyCritical" [style.color]="ticket.safetyCritical ? 'white' : '#666'">
                   {{ticket.safetyCritical ? 'True' : 'False'}}
                 </span>
               </td>

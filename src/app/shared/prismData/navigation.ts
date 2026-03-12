@@ -293,19 +293,6 @@ export let navHTML9 =
                     </ng-template>
                 </ng-container>
                 <ng-container ngbNavItem>
-                    <a href="javascript:;" ngbNavLink>Maps</a>
-                    <ng-template ngbNavContent>
-                        <h6 class="tx-gray-900">Maps</h6>
-                        <span>But I must explain to you how all this mistaken idea of denouncing
-                            pleasure and praising pain was born and I will give you a complete
-                            account of the system, and expound the actual teachings of the great
-                            explorer of the truth, the master-builder of human happiness. No one rejects,
-                            dislikes, or avoids pleasure itself, because it is pleasure, but because those
-                            who do not know how to pursue pleasure rationally encounter consequences that
-                            are extremely painful.</span>
-                    </ng-template>
-                </ng-container>
-                <ng-container ngbNavItem>
                     <a href="javascript:;" ngbNavLink>Tables</a>
                     <ng-template ngbNavContent>
                         <h6 class="tx-gray-900">Tables</h6>
@@ -378,4 +365,3 @@ export let navTS9 =
   styleUrls: ['./navigation.component.scss']
 })
 export class NavigationComponent { }`
-

@@ -296,31 +296,6 @@ function mapApiManufacturer(item: ApiManufacturer): ManufacturerOption {
   };
 }
 
-export interface InspectorStatistics {
-  busesInspected: number;
-  busesAssigned: number;
-  roadTests: number;
-  waterTests: number;
-  totalSnags: number;
-  safetyCriticalSnags: number;
-  snagsByArea: string;
-  rating: number;
-}
-
-function mapInspectorStats(raw: unknown): InspectorStatistics {
-  const obj = asObject(raw) ?? {};
-  return {
-    busesInspected: Number(obj['busesInspected'] ?? obj['totalInspected'] ?? obj['inspectedCount'] ?? obj['totalVehiclesInspected'] ?? 0),
-    busesAssigned: Number(obj['busesAssigned'] ?? obj['assignedBuses'] ?? obj['assignedCount'] ?? obj['totalAssigned'] ?? 0),
-    roadTests: Number(obj['roadTests'] ?? obj['road'] ?? obj['roadTestCount'] ?? 0),
-    waterTests: Number(obj['waterTests'] ?? obj['water'] ?? obj['waterTestCount'] ?? 0),
-    totalSnags: Number(obj['totalSnags'] ?? obj['snags'] ?? obj['snagCount'] ?? obj['totalDefects'] ?? 0),
-    safetyCriticalSnags: Number(obj['safetyCriticalSnags'] ?? obj['criticalSnags'] ?? obj['safetyCritical'] ?? obj['criticalDefects'] ?? 0),
-    snagsByArea: String(obj['snagsByArea'] ?? obj['topSnagAreas'] ?? obj['areaBreakdown'] ?? obj['defectAreas'] ?? ''),
-    rating: Number(obj['rating'] ?? obj['averageRating'] ?? obj['performanceRating'] ?? 0),
-  };
-}
-
 @Injectable({
   providedIn: 'root',
 })
@@ -550,13 +525,6 @@ export class UserManagementService {
     return this.http.get<unknown>(this.manufacturersApiUrl, { params }).pipe(
       map((raw) => extractCollection(raw).map((item) => mapApiManufacturer(item as ApiManufacturer))),
       map((items) => items.filter((item) => item.id !== '0' && item.name.length > 0)),
-    );
-  }
-
-  getInspectorStatistics(inspectorId: number): Observable<InspectorStatistics | null> {
-    return this.http.get<unknown>(`${environment.apiBaseUrl}/inspector/${inspectorId}/statistics`).pipe(
-      map((raw) => mapInspectorStats(raw)),
-      catchError(() => of(null)),
     );
   }
 

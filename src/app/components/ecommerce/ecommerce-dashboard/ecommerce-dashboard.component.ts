@@ -2,8 +2,6 @@ import { Component } from '@angular/core';
 import { SharedModule } from '../../../shared/shared.module';
 import * as chartData from "../../../shared/data/ecommerce-Dash";
 import { NgApexchartsModule } from 'ng-apexcharts';
-import * as L from 'leaflet';
-import { LeafletModule } from '@bluehalo/ngx-leaflet';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { SpkApexChartsComponent } from '../../../@spk/reusable-charts/spk-apex-charts/spk-apex-charts.component';
 import { SpkReusableTablesComponent } from "../../../@spk/reusable-tables/spk-reusable-tables/spk-reusable-tables.component";
@@ -11,7 +9,7 @@ import { SpkEcommerceComponent } from "../../../@spk/reusable-ecommerce/spk-ecom
 @Component({
   selector: 'app-ecommerce-dashboard',
   standalone: true,
-  imports: [SharedModule, NgApexchartsModule, LeafletModule, NgbModule, SpkApexChartsComponent, SpkReusableTablesComponent, SpkEcommerceComponent],
+  imports: [SharedModule, NgApexchartsModule, NgbModule, SpkApexChartsComponent, SpkReusableTablesComponent, SpkEcommerceComponent],
   templateUrl: './ecommerce-dashboard.component.html',
   styleUrl: './ecommerce-dashboard.component.scss'
 })
@@ -249,50 +247,6 @@ constructor(){
     labels: [''],
   }
 }
-map!: L.Map;
-json:any;
-//Basic Map
-options1 = {
-  layers: [
-    L.tileLayer("http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 20,
-      attribution: ""
-    }),
-    L.circle([-23.533773, -46.625290], {
-      color: '#6259ca',
-      fillColor: '',
-      fillOpacity: 0.8,
-      radius: 100
-    }),
-    L.circle([55.751244, 37.618423], {
-      color: '#6259ca',
-      fillColor: '#6259ca',
-      fillOpacity: 0.9,
-      radius: 100
-    }),
-    L.circle([52.237049, 21.017532], {
-      color: '#6259ca',
-      fillColor: '#6259ca',
-      fillOpacity: 0.9,
-      radius: 100
-    }),
-    L.circle([51.213890, -110.005470], {
-      color: '#6259ca',
-      fillColor: '#6259ca',
-      fillOpacity: 0.9,
-      radius: 100
-    }),
-    L.circle([20.5937, 78.9629], {
-      color: '#6259ca',
-      fillColor: '#6259ca',
-      fillOpacity: 0.9,
-      radius: 100
-    }),
-  ],
-  zoom: 1.2,
-  center: L.latLng([0,0])
-
-};
 visitors = [
   {
     name: 'Vanessa',

@@ -1,0 +1,387 @@
+<div class="main-container container-fluid px-0">
+  <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
+    <div>
+      <h1 class="page-title fw-semibold fs-20 mb-0">New Time Log</h1>
+      <p class="mb-0 text-muted fs-13">Add time log entries manually or import from Excel/CSV</p>
+    </div>
+    <div class="btn-list">
+      <button type="button" class="btn btn-light btn-wave" (click)="backToTimeLogs()">
+        <i class="ti ti-arrow-left me-2"></i>Back to Time Logs
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="lookupWarning" class="alert alert-warning py-2 px-3 mb-3">
+    {{ lookupWarning }}
+  </div>
+
+  <!-- Tabs: Manual Entry | Import -->
+  <div class="card custom-card mb-4">
+    <div class="card-header border-bottom">
+      <ul
+        ngbNav
+        #nav="ngbNav"
+        class="nav-tabs card-header-tabs"
+        [activeId]="activeTab()"
+        (activeIdChange)="setTab($event)"
+        role="tablist">
+        <li ngbNavItem="manual">
+          <button type="button" ngbNavLink>Manual Entry</button>
+        </li>
+        <li ngbNavItem="import">
+          <button type="button" ngbNavLink>Import Excel / CSV</button>
+        </li>
+      </ul>
+    </div>
+    <div class="card-body">
+      <!-- Manual Entry -->
+      @if (activeTab() === 'manual') {
+        @if (refDataLoading()) {
+          <p class="text-muted mb-0">Loading lookup data…</p>
+        } @else {
+          <form [formGroup]="manualForm" (ngSubmit)="onAddFromManual()" class="row g-3">
+            <div class="col-md-6 col-lg-3">
+              <label class="form-label">Project <span class="text-danger">*</span></label>
+              <ng-select
+                #manualProjectSelect
+                class="new-time-log-select"
+                [items]="projectSelectOptions"
+                bindLabel="name"
+                bindValue="id"
+                [searchable]="false"
+                [clearable]="false"
+                formControlName="projectId"
+                (close)="onManualDropdownClose(manualProjectSelect, 'project')">
+                <ng-template ng-header-tmp>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm new-time-log-search-input"
+                    placeholder="search"
+                    [(ngModel)]="manualDropdownSearch.project"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onManualDropdownSearch(manualProjectSelect, $event)"
+                    (keydown)="$event.stopPropagation()"
+                    (click)="$event.stopPropagation()" />
+                </ng-template>
+              </ng-select>
+            </div>
+            <div class="col-md-6 col-lg-3">
+              <label class="form-label">Vehicle <span class="text-danger">*</span></label>
+              <ng-select
+                #manualVehicleSelect
+                class="new-time-log-select"
+                [items]="vehicleSelectOptions"
+                bindLabel="name"
+                bindValue="id"
+                [searchable]="false"
+                [clearable]="false"
+                formControlName="vehicleId"
+                (close)="onManualDropdownClose(manualVehicleSelect, 'vehicle')">
+                <ng-template ng-header-tmp>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm new-time-log-search-input"
+                    placeholder="search"
+                    [(ngModel)]="manualDropdownSearch.vehicle"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onManualDropdownSearch(manualVehicleSelect, $event)"
+                    (keydown)="$event.stopPropagation()"
+                    (click)="$event.stopPropagation()" />
+                </ng-template>
+              </ng-select>
+            </div>
+            <div class="col-md-6 col-lg-3">
+              <label class="form-label">User <span class="text-danger">*</span></label>
+              <ng-select
+                #manualUserSelect
+                class="new-time-log-select"
+                [items]="userSelectOptions"
+                bindLabel="name"
+                bindValue="id"
+                [searchable]="false"
+                [clearable]="false"
+                formControlName="userId"
+                (close)="onManualDropdownClose(manualUserSelect, 'user')">
+                <ng-template ng-header-tmp>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm new-time-log-search-input"
+                    placeholder="search"
+                    [(ngModel)]="manualDropdownSearch.user"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onManualDropdownSearch(manualUserSelect, $event)"
+                    (keydown)="$event.stopPropagation()"
+                    (click)="$event.stopPropagation()" />
+                </ng-template>
+              </ng-select>
+            </div>
+            <div class="col-md-6 col-lg-3">
+              <label class="form-label">Type of Time <span class="text-danger">*</span></label>
+              <ng-select
+                #manualTypeSelect
+                class="new-time-log-select"
+                [items]="typeOfTimeSelectOptions"
+                bindLabel="name"
+                bindValue="id"
+                [searchable]="false"
+                [clearable]="false"
+                formControlName="typeOfTime"
+                (close)="onManualDropdownClose(manualTypeSelect, 'typeOfTime')">
+                <ng-template ng-header-tmp>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm new-time-log-search-input"
+                    placeholder="search"
+                    [(ngModel)]="manualDropdownSearch.typeOfTime"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onManualDropdownSearch(manualTypeSelect, $event)"
+                    (keydown)="$event.stopPropagation()"
+                    (click)="$event.stopPropagation()" />
+                </ng-template>
+              </ng-select>
+            </div>
+            <div class="col-md-6 col-lg-3">
+              <label class="form-label">Start Date/Time <span class="text-danger">*</span></label>
+              <input
+                type="datetime-local"
+                class="form-control form-control-sm"
+                formControlName="startDateTime" />
+            </div>
+            <div class="col-md-6 col-lg-2">
+              <label class="form-label">Spent Time (hours) <span class="text-danger">*</span></label>
+              <input
+                type="number"
+                step="0.25"
+                min="0.01"
+                class="form-control form-control-sm"
+                formControlName="spentTimeHours"
+                placeholder="0" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Description</label>
+              <textarea
+                class="form-control form-control-sm"
+                formControlName="description"
+                rows="2"
+                placeholder="Optional"></textarea>
+            </div>
+            <div class="col-12">
+              <button
+                type="submit"
+                class="btn btn-primary btn-sm"
+                [disabled]="manualForm.invalid || manualAddLoading() || !lookupsReady()">
+                @if (manualAddLoading()) {
+                  <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                  Adding…
+                } @else {
+                  <i class="ti ti-plus me-1"></i>Add to staging
+                }
+              </button>
+            </div>
+          </form>
+        }
+      }
+
+      <!-- Import -->
+      @if (activeTab() === 'import') {
+        <div class="mb-2">
+          <button type="button" class="btn btn-sm btn-outline-primary" (click)="onDownloadTemplate()">
+            <i class="ti ti-download me-1"></i>Download sample .xlsx template
+          </button>
+        </div>
+        <div class="mb-3 small text-muted">
+          Expected columns: Start Date, Spent Time, Description, Project, Vehicle, Type of Time, User (headers matched case-insensitively). Vehicle should use fleet number from API, for example <code>LF76-104</code> or <code>7215</code>.
+        </div>
+        <div
+          class="border border-2 border-dashed rounded p-4 text-center"
+          (click)="(importParsing() || !lookupsReady()) ? null : fileInput.click()"
+          [class.opacity-75]="importParsing() || !lookupsReady()"
+          [style.cursor]="(importParsing() || !lookupsReady()) ? 'not-allowed' : 'pointer'">
+          <input
+            #fileInput
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            class="d-none"
+            [disabled]="importParsing() || !lookupsReady()"
+            (change)="onFileSelected($event)" />
+          @if (importParsing()) {
+            <p class="mb-0">Parsing file…</p>
+          } @else if (!lookupsReady()) {
+            <p class="mb-0">Lookups are loading. Import will unlock when Projects, Vehicles, and Users are ready.</p>
+          } @else {
+            <p class="mb-0">Drop a file here or click to browse (.xlsx, .xls, .csv)</p>
+          }
+        </div>
+        @if (importSummary()) {
+          <div class="mt-2 small text-muted">
+            Parsed summary: matched {{ importSummary()!.matched }}, warning {{ importSummary()!.warning }},
+            error {{ importSummary()!.error }}, skipped {{ importSummary()!.skipped }}.
+          </div>
+        }
+      }
+    </div>
+  </div>
+
+  <!-- Staging table -->
+  @if (stagingRows().length > 0) {
+    <div class="card custom-card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="card-title mb-0">Staging ({{ stagingRows().length }} row(s))</span>
+        <div class="btn-group btn-group-sm">
+          <button
+            type="button"
+            class="btn btn-danger btn-sm"
+            [disabled]="submitLoading()"
+            (click)="onDiscardAll()">
+            <i class="ti ti-trash me-1"></i>Discard all
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary btn-sm"
+            [disabled]="!canSubmit() || submitLoading()"
+            (click)="onSubmit()">
+            @if (submitLoading()) {
+              <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Submitting...
+            } @else {
+              <i class="ti ti-send me-1"></i>Submit
+            }
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover table-bordered mb-0">
+            <thead>
+              <tr>
+                <th class="text-center row-number-col">#</th>
+                <th>Status</th>
+                <th>Source</th>
+                <th>Start Date</th>
+                <th>Hours</th>
+                <th>Description</th>
+                <th>Project</th>
+                <th>Vehicle</th>
+                <th>Type</th>
+                <th>User</th>
+                <th style="width: 60px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of stagingRows(); track row._id; let rowIndex = $index) {
+                <tr>
+                  <td class="text-center fw-semibold text-muted row-number-col">{{ rowIndex + 1 }}</td>
+                  <td>
+                    <span
+                      class="badge"
+                      [class.bg-success]="row._status === 'matched'"
+                      [class.bg-warning]="row._status === 'warning'"
+                      [class.bg-danger]="row._status === 'error'">
+                      {{ row._status }}
+                    </span>
+                    @if (row._errors.length) {
+                      <small class="d-block text-danger">{{ row._errors[0] }}</small>
+                    }
+                    @if (!row._errors.length && row._warnings.length) {
+                      <small class="d-block text-warning">{{ row._warnings[0] }}</small>
+                    }
+                  </td>
+                  <td>
+                    <span class="badge bg-light text-dark">{{ row._source }}</span>
+                  </td>
+                  <td>
+                    <input
+                      type="datetime-local"
+                      class="form-control form-control-sm"
+                      [ngModel]="row.startDate"
+                      (ngModelChange)="onUpdateRow(row._id, { startDate: $event })" />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      step="0.25"
+                      class="form-control form-control-sm"
+                      style="width: 80px"
+                      [ngModel]="row.spentTimeHours"
+                      (ngModelChange)="onUpdateRow(row._id, { spentTimeHours: $event })" />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      [ngModel]="row.description"
+                      (ngModelChange)="onUpdateRow(row._id, { description: $event })"
+                      placeholder="Description" />
+                  </td>
+                  <td>
+                    <select
+                      class="form-select form-select-sm"
+                      [ngModel]="row.projectId"
+                      (ngModelChange)="onProjectChanged(row._id, $event)">
+                      @for (p of projects; track p.id) {
+                        <option [value]="p.id">{{ p.name }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      class="form-select form-select-sm"
+                      [ngModel]="row.vehicleId"
+                      (ngModelChange)="onUpdateRow(row._id, { vehicleId: $event })">
+                      @for (v of getVehiclesForProject(row.projectId); track v.id) {
+                        <option [value]="v.id">{{ v.fleetNumber }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      class="form-select form-select-sm"
+                      [ngModel]="row.typeOfTime"
+                      (ngModelChange)="onUpdateRow(row._id, { typeOfTime: $event })">
+                      @for (t of typeOfTimeOptions; track t) {
+                        <option [value]="t">{{ t }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      class="form-select form-select-sm"
+                      [ngModel]="row.userId"
+                      (ngModelChange)="onUpdateRow(row._id, { userId: $event })">
+                      @for (i of users; track i.id) {
+                        <option [value]="i.id">{{ i.name }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      [disabled]="submitLoading()"
+                      (click)="onDeleteRow(row._id)"
+                      title="Remove">
+                      <i class="ti ti-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+</div>
+
+<ng-template #confirmDiscardModal>
+  <div class="modal-header">
+    <h5 class="modal-title">Discard all</h5>
+    <button type="button" class="btn-close" (click)="cancelDiscard()"></button>
+  </div>
+  <div class="modal-body">
+    <p>Clear all {{ stagingRows().length }} row(s) from staging? This cannot be undone.</p>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="cancelDiscard()">Cancel</button>
+    <button type="button" class="btn btn-danger" (click)="confirmDiscard()">Discard all</button>
+  </div>
+</ng-template>

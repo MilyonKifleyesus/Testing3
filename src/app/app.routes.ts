@@ -24,7 +24,6 @@ export const App_Route: Route[] = [
     loadComponent: () =>
       import('../app/authentication/login/login.component').then((m) => m.LoginComponent)
   },
-  // No cart route present
   {
     path: '**',
     redirectTo: '/custom/sign-in',

@@ -3247,10 +3247,6 @@ hr {
 
 /*** rtl styles ***/
 [dir="rtl"] {
-  #marker-map,
-  #marker-image-map {
-    direction: ltr;
-  }
   // .apexcharts-toolbar {
   //   left: 3px !important;
   //   right: inherit !important;
@@ -3491,11 +3487,6 @@ pre .tag {
   width: 100% !important;
   .apexcharts-canvas,.apexcharts-svg{
   width: 100% !important;
-  }
-}
-#users-map {
-  .jvm-marker.jvm-element {
-    fill: variables.$primary;
   }
 }
 .tree-leaf .tree-leaf-text:hover {

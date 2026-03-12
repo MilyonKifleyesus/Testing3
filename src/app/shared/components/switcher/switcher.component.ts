@@ -29,30 +29,7 @@ export class SwitcherComponent {
   }
 
   updateTheme(theme: string) {
-    this.appStateService.updateState({ theme, menuColor: theme, headerColor: theme });
-    if (theme == 'light') {
-      this.appStateService.updateState({ theme, themeBackground: '', headerColor: 'light', menuColor: 'color' });
-      let html = document.querySelector('html');
-      html?.style.removeProperty('--body-bg-rgb');
-      html?.style.removeProperty('--body-bg-rgb2');
-      html?.style.removeProperty('--light-rgb');
-      html?.style.removeProperty('--form-control-bg');
-      html?.style.removeProperty('--input-border');
-      html?.style.removeProperty('--sidemenu-active-bgcolor');
-
-    }
-    if (theme == 'dark') {
-      this.appStateService.updateState({ theme, themeBackground: '', headerColor: 'dark', menuColor: 'color' });
-      let html = document.querySelector('html');
-      html?.style.removeProperty('--body-bg-rgb');
-      html?.style.removeProperty('--body-bg-rgb2');
-      html?.style.removeProperty('--light-rgb');
-      html?.style.removeProperty('--form-control-bg');
-      html?.style.removeProperty('--input-border');
-      html?.style.removeProperty('--sidemenu-active-bgcolor');
-
-
-    }
+    this.appStateService.setTheme(theme);
   }
   updatemenuType(navigationStyles: string) {
     this.appStateService.updateState({ navigationStyles });

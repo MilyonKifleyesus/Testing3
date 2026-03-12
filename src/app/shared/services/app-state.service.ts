@@ -17,6 +17,9 @@ interface StateType {
   themeBackground: string,
   backgroundImage: string,
 };
+
+export type ThemeMode = 'light' | 'dark';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -43,8 +46,7 @@ export class AppStateService {
 
   constructor() {
     const initialState: StateType = this.getInitialStateFromLocalStorage();
-    this.initializeState();
-    this.stateSubject.next(initialState);
+    this.updateStateAndEmit(initialState);
   }
 
 
@@ -62,12 +64,6 @@ export class AppStateService {
     }
 
     return this.initialState;
-  }
-
-  private initializeState() {
-    const state = { ...this.initialState }; // Clone initial state to avoid mutation
-    this.applyDirectionSpecificChanges(state.direction); // Apply initial changes
-    this.stateSubject.next(state); // Emit initial state after changes
   }
 
   updateState(newState?: Partial<any>) { // Use any for partial updates
@@ -114,6 +110,7 @@ export class AppStateService {
     let html = document.querySelector('html');
     // Only set theme mode here; header/menu styles come from headerColor/menuColor
     html?.setAttribute('data-theme-mode', theme);
+    html?.classList.toggle('dark', theme === 'dark');
   }
   private applyNavigationStylesSpecificChanges(navigationStyles: string) {
 
@@ -205,6 +202,47 @@ export class AppStateService {
     let html = document.querySelector('html');        
     html?.setAttribute('data-bg-img', backgroundImage);
   }
+
+  getResolvedTheme(): ThemeMode {
+    const currentStateTheme = String(this.stateSubject.getValue()?.theme ?? '').trim().toLowerCase();
+    if (currentStateTheme === 'dark') {
+      return 'dark';
+    }
+
+    if (currentStateTheme === 'light') {
+      return 'light';
+    }
+
+    const htmlTheme = String(document.querySelector('html')?.getAttribute('data-theme-mode') ?? '').trim().toLowerCase();
+    return htmlTheme === 'dark' ? 'dark' : 'light';
+  }
+
+  setTheme(theme: string): void {
+    const resolvedTheme: ThemeMode = theme === 'dark' ? 'dark' : 'light';
+    const html = document.querySelector('html');
+
+    this.updateState({
+      theme: resolvedTheme,
+      themeBackground: '',
+      headerColor: resolvedTheme,
+      menuColor: 'color',
+    });
+
+    html?.style.removeProperty('--body-bg-rgb');
+    html?.style.removeProperty('--body-bg-rgb2');
+    html?.style.removeProperty('--light-rgb');
+    html?.style.removeProperty('--form-control-bg');
+    html?.style.removeProperty('--input-border');
+    html?.style.removeProperty('--sidemenu-active-bgcolor');
+
+    if (window.innerWidth <= 992) {
+      html?.setAttribute('data-toggled', 'close');
+    }
+  }
+
+  toggleTheme(): void {
+    this.setTheme(this.getResolvedTheme() === 'dark' ? 'light' : 'dark');
+  }
  
   public applyReset() {
     let html = document.querySelector('html');
@@ -220,6 +258,7 @@ export class AppStateService {
       html?.style.removeProperty('--primary-rgb');
       
     }
+    html?.classList.remove('dark');
     html?.removeAttribute('data-bg-img');
     html?.setAttribute('data-vertical-style','overlay');
     this.stateSubject.next(this.initialState);
@@ -294,7 +333,6 @@ export class AppStateService {
     }
   }
 }
-
 
 
 

@@ -1,0 +1,295 @@
+<div class="fleet-data-panel fleet-glass-panel" [class.fleet-data-panel--open]="open()" [class.fleet-data-panel--closed]="!open()">
+  <button type="button" class="fleet-data-panel__toggle" (click)="toggleOpen()">
+    <div class="fleet-data-panel__toggle-left">
+      <i class="bi bi-clipboard-data fleet-data-panel__toggle-icon"></i>
+      <span class="fleet-data-panel__toggle-title">Operational Data</span>
+      <div class="fleet-data-panel__summary">
+        @for (tab of tabs; track tab.id) {
+          <span class="fleet-data-panel__summary-pill">{{ tab.label }} {{ counts()[tab.id] }}</span>
+        }
+      </div>
+    </div>
+    <div class="fleet-data-panel__toggle-right">
+      <span>{{ open() ? 'Collapse' : 'Expand' }}</span>
+      <i [class]="open() ? 'bi bi-chevron-down' : 'bi bi-chevron-up'"></i>
+    </div>
+  </button>
+
+  @if (open()) {
+    <div class="fleet-data-panel__content">
+      <div class="fleet-data-panel__toolbar">
+        <div class="fleet-data-panel__tabs">
+          @for (tab of tabs; track tab.id) {
+            <button
+              type="button"
+              class="fleet-data-panel__tab"
+              [class.fleet-data-panel__tab--active]="activeTab() === tab.id"
+              (click)="changeTab(tab.id)"
+            >
+              <i [class]="tab.iconClass"></i>
+              <span>{{ tab.label }}</span>
+              <small>{{ counts()[tab.id] }}</small>
+            </button>
+          }
+        </div>
+
+        <label class="fleet-data-panel__search">
+          <i class="bi bi-search"></i>
+          <input #searchInput type="text" [value]="search()" [placeholder]="'Search ' + activeTab() + '...'" (input)="emitSearch(searchInput.value)" />
+        </label>
+      </div>
+
+      <div class="fleet-data-panel__table-wrap">
+        <table class="fleet-data-panel__table">
+          @if (activeTab() === 'projects') {
+            <thead>
+              <tr>
+                <th>Project Name</th>
+                <th class="hide-md">Client</th>
+                <th class="hide-lg">Manufacturer</th>
+                <th class="hide-sm">Status</th>
+                <th class="hide-lg">Details</th>
+                <th class="hide-md">Locations</th>
+                <th class="align-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (project of projectRows(); track project.id) {
+                @let meta = projectMeta(project.id);
+                <tr [class.is-selected]="isSelected('project', project.id)">
+                  <td>
+                    <div class="fleet-data-panel__primary">
+                      <div class="fleet-data-panel__avatar">{{ entityInitials(project.name) }}</div>
+                      <div class="fleet-data-panel__primary-copy">
+                        <strong>{{ project.name }}</strong>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="hide-md">
+                    <div class="fleet-data-panel__entity-cell">
+                      <div class="fleet-data-panel__entity-visual">
+                        @if (meta && hasLogo('client', project.id, meta.clientLogoUrl)) {
+                          <img [src]="meta.clientLogoUrl" [alt]="meta.clientName" (error)="markLogoFailed('client', project.id, meta.clientLogoUrl)" />
+                        } @else {
+                          <span>{{ entityInitials(meta?.clientName ?? project.clientId) }}</span>
+                        }
+                      </div>
+                      <div>
+                        <strong>{{ meta?.clientName ?? project.clientId }}</strong>
+                        @if (meta?.clientAuxiliary) {
+                          <small>{{ meta?.clientAuxiliary }}</small>
+                        }
+                      </div>
+                    </div>
+                  </td>
+                  <td class="hide-lg">
+                    <div class="fleet-data-panel__entity-cell">
+                      <div class="fleet-data-panel__entity-visual">
+                        @if (meta && hasLogo('manufacturer', project.id, meta.primaryManufacturerLogoUrl)) {
+                          <img [src]="meta.primaryManufacturerLogoUrl" [alt]="meta.primaryManufacturerName" (error)="markLogoFailed('manufacturer', project.id, meta.primaryManufacturerLogoUrl)" />
+                        } @else {
+                          <span>{{ entityInitials(meta?.primaryManufacturerName ?? 'Unassigned') }}</span>
+                        }
+                      </div>
+                      <div>
+                        <strong>{{ meta?.primaryManufacturerName ?? 'Unassigned' }}</strong>
+                        @if (meta?.manufacturerLabel && meta?.manufacturerLabel !== meta?.primaryManufacturerName) {
+                          <small>{{ meta?.manufacturerLabel }}</small>
+                        }
+                      </div>
+                    </div>
+                  </td>
+                  <td class="hide-sm">
+                    <span
+                      class="fleet-data-panel__status"
+                      [class.fleet-data-panel__status--active]="project.status === 'active'"
+                      [class.fleet-data-panel__status--inactive]="project.status === 'inactive'"
+                    >
+                      {{ projectStatusLabel(project.status) }}
+                    </span>
+                  </td>
+                  <td class="hide-lg">{{ project.type }}</td>
+                  <td class="hide-md">
+                    <span class="fleet-data-panel__pill">{{ meta?.locationCount ?? 0 }} sites</span>
+                  </td>
+                  <td class="align-right">
+                    <button type="button" class="fleet-data-panel__action" (click)="emitView('projects', project)">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          } @else if (activeTab() === 'clients') {
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="hide-sm">Details</th>
+                <th class="hide-md">Locations</th>
+                <th class="hide-xl">Map</th>
+                <th class="align-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (client of clientRows(); track client.id) {
+                <tr [class.is-selected]="isSelected('client', client.id)">
+                  <td>
+                    <div class="fleet-data-panel__primary">
+                      <div class="fleet-data-panel__entity-visual fleet-data-panel__entity-visual--large">
+                        @if (hasLogo('client', client.id, client.logoUrl)) {
+                          <img [src]="client.logoUrl" [alt]="client.name" (error)="markLogoFailed('client', client.id, client.logoUrl)" />
+                        } @else {
+                          <span>{{ entityInitials(client.name) }}</span>
+                        }
+                      </div>
+                      <div class="fleet-data-panel__primary-copy">
+                        <strong>{{ client.name }}</strong>
+                        <div class="show-md-inline">
+                          @for (name of clientLocationNames(client.id); track name) {
+                            <span class="fleet-data-panel__pill">{{ name }}</span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="hide-sm">{{ countMappedLocations(client.locationIds) }}/{{ client.locationIds.length }} mapped locations</td>
+                  <td class="hide-md">
+                    <div class="fleet-data-panel__chip-list">
+                      @for (name of clientLocationNames(client.id); track name) {
+                        <span class="fleet-data-panel__pill">{{ name }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td class="hide-xl">
+                    <span class="fleet-data-panel__pill">
+                      @if (client.lat != null && client.lng != null) {
+                        {{ client.lat.toFixed(2) }}, {{ client.lng.toFixed(2) }}
+                      } @else {
+                        Unmapped
+                      }
+                    </span>
+                  </td>
+                  <td class="align-right">
+                    <button type="button" class="fleet-data-panel__action" (click)="emitView('clients', client)">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          } @else if (activeTab() === 'manufacturers') {
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="hide-sm">Details</th>
+                <th class="hide-md">Locations</th>
+                <th class="align-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (manufacturer of manufacturerRows(); track manufacturer.id) {
+                <tr [class.is-selected]="isSelected('manufacturer', manufacturer.id)">
+                  <td>
+                    <div class="fleet-data-panel__primary">
+                      <div class="fleet-data-panel__entity-visual fleet-data-panel__entity-visual--large">
+                        @if (hasLogo('manufacturer', manufacturer.id, manufacturer.logoUrl)) {
+                          <img [src]="manufacturer.logoUrl" [alt]="manufacturer.name" (error)="markLogoFailed('manufacturer', manufacturer.id, manufacturer.logoUrl)" />
+                        } @else {
+                          <span>{{ entityInitials(manufacturer.name) }}</span>
+                        }
+                      </div>
+                      <div class="fleet-data-panel__primary-copy">
+                        <strong>{{ manufacturer.name }}</strong>
+                        <div class="show-md-inline">
+                          @for (name of manufacturerLocationNames(manufacturer.id); track name) {
+                            <span class="fleet-data-panel__pill">{{ name }}</span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="hide-sm">{{ countMappedLocations(manufacturer.locationIds) }}/{{ manufacturer.locationIds.length }} mapped sites</td>
+                  <td class="hide-md">
+                    <div class="fleet-data-panel__chip-list">
+                      @for (name of manufacturerLocationNames(manufacturer.id); track name) {
+                        <span class="fleet-data-panel__pill">{{ name }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td class="align-right">
+                    <button type="button" class="fleet-data-panel__action" (click)="emitView('manufacturers', manufacturer)">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          } @else {
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="hide-sm">Details</th>
+                <th class="hide-md">Map</th>
+                <th class="align-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (location of locationRows(); track location.id) {
+                @let meta = locationBrandMeta(location.id);
+                <tr [class.is-selected]="isSelected('location', location.id)">
+                  <td>
+                    <div class="fleet-data-panel__primary">
+                      <div class="fleet-data-panel__entity-visual fleet-data-panel__entity-visual--large">
+                        @if (meta && hasLogo('location', location.id, meta.logoUrl)) {
+                          <img [src]="meta.logoUrl" [alt]="location.name" (error)="markLogoFailed('location', location.id, meta.logoUrl)" />
+                        } @else {
+                          <span>{{ entityInitials(location.name) }}</span>
+                        }
+                      </div>
+                      <div class="fleet-data-panel__primary-copy">
+                        <strong>{{ location.name }}</strong>
+                        @if (meta?.label) {
+                          <small>{{ meta?.kind }}: {{ meta?.label }}</small>
+                        }
+                      </div>
+                    </div>
+                  </td>
+                  <td class="hide-sm">{{ location.type ?? location.id }}</td>
+                  <td class="hide-md">
+                    <span class="fleet-data-panel__pill">
+                      @if (location.lat != null && location.lng != null) {
+                        {{ location.lat.toFixed(2) }}, {{ location.lng.toFixed(2) }}
+                      } @else {
+                        Unmapped
+                      }
+                    </span>
+                  </td>
+                  <td class="align-right">
+                    <button type="button" class="fleet-data-panel__action" (click)="emitView('locations', location)">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          }
+
+          @if (
+            (activeTab() === 'projects' && projectRows().length === 0) ||
+            (activeTab() === 'clients' && clientRows().length === 0) ||
+            (activeTab() === 'manufacturers' && manufacturerRows().length === 0) ||
+            (activeTab() === 'locations' && locationRows().length === 0)
+          ) {
+            <tbody>
+              <tr>
+                <td [attr.colspan]="emptyColspan()" class="fleet-data-panel__empty">
+                  No results@if (search()) { for "{{ search() }}" }.
+                </td>
+              </tr>
+            </tbody>
+          }
+        </table>
+      </div>
+    </div>
+  }
+</div>

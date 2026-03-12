@@ -1,4 +1,6 @@
 /* You can add global styles to this file, and also import other style files */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap');
+@import "../node_modules/maplibre-gl/dist/maplibre-gl.css";
 
 /* Keep global typography smoothing lightweight to avoid expensive full-DOM style recalculation */
 html,
@@ -18,7 +20,6 @@ body {
 
 @import '../node_modules/ngx-owl-carousel-o/lib/styles/prebuilt-themes/owl.carousel.css';
 @import "../node_modules/@ng-select/ng-select/themes/default.theme.css";
-@import "../node_modules/leaflet/dist/leaflet.css";
 // angular material
 @import "../node_modules/@angular/material/prebuilt-themes/indigo-pink.css";
 @import '../node_modules/dropzone/dist/dropzone.css';
@@ -507,4 +508,104 @@ ul.productdetails {
 .table-responsive > .table {
   margin-bottom: 0;
   white-space: nowrap;
+}
+
+:root {
+  --fleet-background: #f7fbfb;
+  --fleet-foreground: #032226;
+  --fleet-card: #ffffff;
+  --fleet-panel: rgba(255, 255, 255, 0.86);
+  --fleet-muted: #edf3f4;
+  --fleet-muted-foreground: #60707b;
+  --fleet-border: #d5e2e4;
+  --fleet-primary: #0d9488;
+  --fleet-primary-foreground: #ffffff;
+  --fleet-destructive: #dc2626;
+}
+
+html.dark {
+  --fleet-background: #050f12;
+  --fleet-foreground: #eef7f7;
+  --fleet-card: #0a1a1f;
+  --fleet-panel: rgba(8, 24, 28, 0.86);
+  --fleet-muted: #113037;
+  --fleet-muted-foreground: #8ea0b3;
+  --fleet-border: #173940;
+  --fleet-primary: #14b8a6;
+  --fleet-primary-foreground: #ffffff;
+  --fleet-destructive: #f87171;
+}
+
+body .fleet-map-shell,
+body .fleet-map-loading {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.fleet-glass-panel {
+  background: var(--fleet-panel);
+  border: 1px solid var(--fleet-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 28px -18px rgba(2, 31, 36, 0.32);
+}
+
+.fleet-map-container {
+  position: absolute;
+  inset: 0;
+}
+
+.fleet-map-primary-button,
+.fleet-map-secondary-button {
+  height: 2.25rem;
+  border-radius: 0.95rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fleet-map-primary-button {
+  border: 0;
+  background: var(--fleet-primary);
+  color: var(--fleet-primary-foreground);
+  box-shadow: 0 16px 36px -24px rgba(13, 148, 136, 0.85);
+}
+
+.fleet-map-secondary-button {
+  border: 1px solid var(--fleet-border);
+  background: transparent;
+  color: var(--fleet-foreground);
+}
+
+.maplibregl-ctrl-logo,
+.maplibregl-ctrl-attrib {
+  display: none !important;
+}
+
+@keyframes fleetFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fleetPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes fleetSkeleton {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }

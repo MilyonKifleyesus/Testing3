@@ -60,8 +60,8 @@
             ],
             "styles": [
               "src/styles.scss",
-              "node_modules/swiper/swiper.css"
-
+              "node_modules/swiper/swiper.css",
+              "node_modules/animate.css/animate.min.css"
             ],
             "scripts": [
               "public/assets/libs/bootstrap/js/bootstrap.bundle.min.js"
@@ -128,8 +128,8 @@
             ],
             "styles": [
               "src/styles.scss",
-              "node_modules/swiper/swiper.css"
-
+              "node_modules/swiper/swiper.css",
+              "node_modules/animate.css/animate.min.css"
             ],
             "scripts": [
               "public/assets/libs/bootstrap/js/bootstrap.bundle.min.js"
