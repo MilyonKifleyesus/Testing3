@@ -36,6 +36,7 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     clients: Array<{ id: string; name: string }> = [
       { id: 'all', name: 'All Clients' }
     ];
+    allProjects: ProjectRow[] = [];
 
     get isClientPortal(): boolean {
       return this.portalPrefix === '/client';
@@ -44,8 +45,18 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     sortDirection: 'asc' | 'desc' = 'asc';
 
     onClientFilterChange(): void {
-      // TODO: Implement client filter logic
-      // For now, just reload projects or filter as needed
+      // Filter projects by selected client
+      if (this.selectedClientId === 'all') {
+        this.projects = [...this.allProjects];
+      } else {
+        this.projects = this.allProjects.filter(p => {
+          // Try to match by client id or client name
+          return (
+            (p.client && p.client.toLowerCase() === this.clients.find(c => c.id === this.selectedClientId)?.name.toLowerCase()) ||
+            (p.client && p.client === this.selectedClientId)
+          );
+        });
+      }
       this.currentPage = 1;
     }
 
@@ -56,8 +67,31 @@ export class ProjectListComponent implements OnInit, OnDestroy {
         this.sortColumn = column;
         this.sortDirection = 'asc';
       }
-      // TODO: Implement actual sorting logic
-      // For now, just trigger change detection
+      // Implement actual sorting logic
+      this.projects.sort((a: any, b: any) => {
+        let aValue = a[column];
+        let bValue = b[column];
+        // Handle null/undefined
+        if (aValue == null) aValue = '';
+        if (bValue == null) bValue = '';
+        // For arrays (like userAccess), sort by length
+        if (Array.isArray(aValue) && Array.isArray(bValue)) {
+          aValue = aValue.length;
+          bValue = bValue.length;
+        }
+        // For numbers, compare as numbers
+        if (!isNaN(Number(aValue)) && !isNaN(Number(bValue))) {
+          aValue = Number(aValue);
+          bValue = Number(bValue);
+        } else {
+          // Compare as lowercase strings
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
+        }
+        if (aValue < bValue) return this.sortDirection === 'asc' ? -1 : 1;
+        if (aValue > bValue) return this.sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
       this.currentPage = 1;
     }
   readonly paginationEllipsis = PAGINATION_ELLIPSIS;
@@ -94,27 +128,39 @@ export class ProjectListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-        // If logged in as client, auto-select and restrict client filter
-        if (this.isClientPortal && this.scopedClientId) {
-          this.selectedClientId = this.scopedClientId;
-          this.clients = [{ id: this.scopedClientId, name: 'Your Client' }];
-          this.isLoadingClients = false;
-        }
+    // Fetch clients for dropdown
+    this.isLoadingClients = true;
+    this.clientService.getClients().subscribe({
+      next: (items) => {
+        const mapped = items
+          .map((client) => ({
+            id: String(client.id ?? '').trim(),
+            name: String(client.name ?? '').trim(),
+          }))
+          .filter((client) => client.id && client.name)
+          .sort((left, right) => left.name.localeCompare(right.name));
+        this.clients = [{ id: 'all', name: 'All Clients' }, ...mapped];
+        this.isLoadingClients = false;
+      },
+      error: () => {
+        this.clients = [{ id: 'all', name: 'All Clients' }];
+        this.isLoadingClients = false;
+      },
+    });
+
+    // Fetch all projects (unfiltered)
     this.isLoadingProjects = true;
     const filters = this.scopedClientId ? { clientId: this.scopedClientId } : {};
-
     const sub = combineLatest([
       this.projectService.getProjectsWithRefresh(filters),
       this.clientService.getClientNameMap(),
     ]).subscribe({
       next: ([projects]) => {
-        console.log('Loaded projects:', projects);
         const uniqueProjectIds = Array.from(new Set(
           projects
             .map((project) => String(project.id ?? '').trim())
             .filter((id) => id.length > 0),
         ));
-
         const assetCountRequests = uniqueProjectIds.map((projectId) =>
           this.dashboardProjectsService
             .getVehicleOptionsByProjectResult(projectId, {
@@ -127,23 +173,19 @@ export class ProjectListComponent implements OnInit, OnDestroy {
               catchError(() => of([projectId, null] as const)),
             ),
         );
-
         const counts$ = assetCountRequests.length
           ? forkJoin(assetCountRequests)
           : of([] as ReadonlyArray<readonly [string, number | null]>);
-
         const countsSub = counts$.subscribe({
           next: (pairs) => {
             const projectAssetCountMap = new Map<string, number | null>(pairs as Array<[string, number | null]>);
-
-            this.projects = projects.map((project) => {
+            this.allProjects = projects.map((project) => {
               const projectId = String(project.id ?? '').trim();
               const mappedAssetCount = projectAssetCountMap.get(projectId);
               const fallbackAssetCount =
                 typeof project.totalAssets === 'number' && Number.isFinite(project.totalAssets)
                   ? project.totalAssets
                   : null;
-
               return {
                 id: project.id,
                 projectName: project.projectName?.trim() ? project.projectName : '-',
@@ -156,7 +198,12 @@ export class ProjectListComponent implements OnInit, OnDestroy {
                 status: project.status ?? 'Open',
               };
             });
-
+            // Initially show all projects or filter by scoped client
+            if (this.selectedClientId === 'all' || !this.selectedClientId) {
+              this.projects = [...this.allProjects];
+            } else {
+              this.onClientFilterChange();
+            }
             this.currentPage = 1;
             this.isLoadingProjects = false;
           },
@@ -164,14 +211,12 @@ export class ProjectListComponent implements OnInit, OnDestroy {
             this.isLoadingProjects = false;
           }
         });
-
         this.subscriptions.add(countsSub);
       },
       error: () => {
         this.isLoadingProjects = false;
       }
     });
-
     this.subscriptions.add(sub);
   }
 

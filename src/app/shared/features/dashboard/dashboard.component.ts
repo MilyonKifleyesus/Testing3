@@ -968,6 +968,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.dashboardProjectsService.getTicketsDashboard({
       projectId: this.selectedProject !== 'all' ? this.selectedProject : undefined,
       vehicleId: this.selectedVehicle !== 'all' ? this.selectedVehicle : undefined,
+      clientId: this.getEffectiveClientId(),
       includeClosed: this.includeClosedProjects,
     }).subscribe({
       next: (res) => {
@@ -1001,7 +1002,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (this.selectedVehicle && this.selectedVehicle !== 'all') {
           totalAssets = 1;
         } else {
-          totalAssets = Array.isArray(this.allClientVehicles) ? this.allClientVehicles.length : 0;
+          totalAssets = Array.isArray(this.allClientVehicles) ? this.allClientVehicles.filter((v) => v.id !== 'all').length : 0;
         }
       } else {
         // Specific project

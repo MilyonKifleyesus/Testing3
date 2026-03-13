@@ -711,6 +711,7 @@ export class DashboardProjectsService {
     projectId?: number | string;
     vehicleId?: number | string;
     userId?: number;
+    clientId?: number | string;
     includeClosed?: boolean;
   } = {}): Observable<DashboardTicketsDashboardResult> {
     // Normalize incoming ids so API receives numeric IDs when possible

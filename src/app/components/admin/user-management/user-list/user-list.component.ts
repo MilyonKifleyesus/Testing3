@@ -265,6 +265,7 @@ export class UserListComponent implements OnInit {
 
   private loadUsersFromApi() {
     this.isLoading = true;
+    this.userManagementService.clearUsersCache();
 
     this.userManagementService.getUsers({
       page: 1,
@@ -298,9 +299,12 @@ export class UserListComponent implements OnInit {
           };
         });
 
-        const requestedRole = this.selectedRoleApiValue.trim().toLowerCase();
-        if (requestedRole) {
-          mappedUsers = mappedUsers.filter((user) => user.role.trim().toLowerCase() === requestedRole);
+        const requestedRole = this.selectedRole.trim().toLowerCase();
+        if (requestedRole && requestedRole !== 'all') {
+          mappedUsers = mappedUsers.filter((user) => {
+            const userRole = user.role.trim().toLowerCase();
+            return userRole === requestedRole || userRole === this.selectedRoleApiValue.trim().toLowerCase();
+          });
         }
 
         this.allUsers = mappedUsers;

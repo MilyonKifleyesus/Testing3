@@ -478,6 +478,10 @@ export class UserManagementService {
     };
   }
 
+  clearUsersCache(): void {
+    this.usersQueryCache.clear();
+  }
+
   getUsers(query: UserListQuery): Observable<UserListResult> {
     const cacheKey = JSON.stringify({
       role: String(query.role ?? '').trim().toLowerCase(),
