@@ -164,6 +164,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private vehiclesRequestVersion = 0;
   private makeModelRequestVersion = 0;
   private propulsionRequestVersion = 0;
+  private vehicleStationRequestVersion = 0;
+  // Labels shown in the left column of widget-15 (vehicle list)
+  vehicleStationLabels: string[] = [];
 
   private readonly mouseMoveHandler = (event: MouseEvent) => this.onMouseMove(event);
   private readonly mouseUpHandler = (event: MouseEvent) => this.onMouseUp();
@@ -227,6 +230,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.resizeSession = null;
   }
 
+  // Sync handlers for widget-15 scrollable chart/labels column
+  onChartScroll(chartEl: HTMLElement, labelsEl: HTMLElement): void {
+    try {
+      if (labelsEl && chartEl) labelsEl.scrollTop = chartEl.scrollTop;
+    } catch { /* ignore */ }
+  }
+
+  onLabelsScroll(labelsEl: HTMLElement, chartEl: HTMLElement): void {
+    try {
+      if (labelsEl && chartEl) chartEl.scrollTop = labelsEl.scrollTop;
+    } catch { /* ignore */ }
+  }
+
   get isAdminRole(): boolean {
     return this.role === 'admin';
   }
@@ -288,6 +304,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.fetchAllClientVehiclesAndTickets();
       this.refreshClientView();
     }
+    // refresh vehicle station tracking when project changes
+    this.refreshVehicleStationTrackingWidget();
   }
 
   onAdminClientChange(clientId: string): void {
@@ -315,6 +333,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.fetchAllClientVehiclesAndTickets();
       this.refreshClientView();
     }
+    this.refreshVehicleStationTrackingWidget();
   }
 
   onDashboardMapSelect(entity: FleetSelectedEntity | null): void {
@@ -1277,6 +1296,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const widget10ProjectNames = projectNames.slice(0, 12);
     const widget12ProjectNames = projectNames.slice(0, 12);
     const widget13ProjectNames = projectNames.slice(0, 10);
+    const widget15VehicleNames = (Array.isArray(this.vehicles) && this.vehicles.filter(v => String(v?.id ?? '').toLowerCase() !== 'all').map((v: any) => String(v.name ?? v.id)).slice(0, 10)) || widget13ProjectNames;
 
     const templateWidget10 = busPulseData.projectsByAreaStackedChart as any;
     const widget10Options = {
@@ -1337,11 +1357,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
       }],
     };
 
+    // Build Vehicle Station Tracking widget options (widget-15) from template
+    const templateWidget15 = (busPulseData as any).vehicleStationTrackingChart as any;
+    const templateTimelineData15 = Array.isArray(templateWidget15?.series?.[0]?.data) ? templateWidget15.series[0].data : [];
+    const vehicleTimelineData = widget15VehicleNames.map((vehicleName: string, index: number) => {
+      const templateItem = templateTimelineData15[index % Math.max(templateTimelineData15.length, 1)] ?? {};
+      return { ...templateItem, x: vehicleName };
+    });
+    const widget15Options = {
+      ...templateWidget15,
+      series: [{ ...(templateWidget15?.series?.[0] ?? {}), data: vehicleTimelineData }],
+    };
+
     this.widgets = this.widgets.map((widget) => {
       if (widget.id === 'widget-10') return { ...widget, chartOptions: widget10Options, loading: false };
       if (widget.id === 'widget-11') return { ...widget, chartOptions: widget11Options, loading: false };
       if (widget.id === 'widget-12') return { ...widget, chartOptions: widget12Options, loading: false };
       if (widget.id === 'widget-13') return { ...widget, chartOptions: widget13Options, loading: false };
+      if (widget.id === 'widget-15') return { ...widget, chartOptions: widget15Options, loading: false };
       return widget;
     });
   }
@@ -1408,6 +1441,266 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         this.updateVehicleDistributionWidget(widgetId, buildChartOptions([]));
       },
+    });
+  }
+
+  private refreshVehicleStationTrackingWidget(): void {
+    const requestVersion = ++this.vehicleStationRequestVersion;
+
+    const projectIdParam = this.selectedProject !== 'all' ? this.selectedProject : undefined;
+    const vehicleIdParam = this.selectedVehicle !== 'all' ? this.selectedVehicle : undefined;
+
+    // set loading flag for widget-15
+    this.widgets = this.widgets.map((w) => (w.id === 'widget-15' ? { ...w, loading: true } : w));
+
+    // Fetch a lighter page to keep widget responsive on large fleets.
+    const stationTrackerPageSize = vehicleIdParam ? 500 : 350;
+    this.dashboardProjectsService.getStationTrackers({
+      projectId: projectIdParam,
+      vehicleId: vehicleIdParam,
+      pageSize: stationTrackerPageSize,
+    }).subscribe({
+      next: (items) => {
+        if (requestVersion !== this.vehicleStationRequestVersion) return;
+
+        // group by vehicleId
+        const grouped = new Map<string, any[]>();
+        for (const it of Array.isArray(items) ? items : []) {
+          const vid = String(it?.vehicleId ?? it?.vehicleID ?? it?.vehicle_id ?? 'unknown');
+          if (!grouped.has(vid)) grouped.set(vid, []);
+          grouped.get(vid)!.push(it);
+        }
+
+        const palette = ['#1b5e20', '#2e7d32', '#388e3c', '#4caf50', '#66bb6a', '#81c784', '#50c878', '#83bc96'];
+        const seriesData: any[] = [];
+        let colorIndex = 0;
+
+        // Determine the authoritative list of vehicles to display on the Y axis.
+        // Prefer the currently-loaded vehicle options when project-scoped; fall
+        // back to allClientVehicles or the IDs returned by the tracker API.
+        let vehicleIdsToShow: string[] = [];
+
+        if (vehicleIdParam) {
+          vehicleIdsToShow = [String(vehicleIdParam)];
+        } else if (Array.isArray(this.vehicles) && this.vehicles.length > 1) {
+          vehicleIdsToShow = (this.vehicles || [])
+            .map((v: any) => String(v?.id ?? ''))
+            .filter((id: string) => id && id.toLowerCase() !== 'all');
+        } else if (Array.isArray(this.allClientVehicles) && this.allClientVehicles.length) {
+          vehicleIdsToShow = (this.allClientVehicles || []).map((v: any) => String(v?.id ?? '')).filter((id: string) => id);
+        } else {
+          vehicleIdsToShow = Array.from(grouped.keys());
+        }
+
+        // Ensure unique ordering and then populate series for each vehicle id.
+        vehicleIdsToShow = Array.from(new Set(vehicleIdsToShow));
+
+        // Prepare left-column labels (exposed to template) based on ordered ids
+        const vehicleLabels = vehicleIdsToShow.map((vid) => {
+          const opt = (this.vehicles || []).find((v: any) => String(v.id) === String(vid)) || (this.allClientVehicles || []).find((v: any) => String(v.id) === String(vid));
+          return opt ? String(opt.name ?? opt.id) : `Vehicle ${vid}`;
+        });
+        this.vehicleStationLabels = vehicleLabels;
+
+        for (const vid of vehicleIdsToShow) {
+          const records = grouped.get(vid) ?? [];
+
+          const vehicleOption = (this.vehicles || []).find((v: any) => String(v.id) === String(vid)) || (this.allClientVehicles || []).find((v: any) => String(v.id) === String(vid));
+          const vehicleLabel = vehicleOption ? String(vehicleOption.name ?? vehicleOption.id) : `Vehicle ${vid}`;
+
+          if (!records.length) {
+            // Add a tiny transparent placeholder so the vehicle appears on the Y axis
+            const now = Date.now();
+            seriesData.push({ x: vehicleLabel, y: [now, now + 1], fillColor: 'rgba(0,0,0,0)', meta: { stationId: null, stationNumber: '', stationName: '', raw: null, label: '' } });
+            continue;
+          }
+
+          for (const rec of records) {
+            const startDateIso = rec?.startDate ?? rec?.dateStarted ?? null;
+            const endDateIso = rec?.endDate ?? rec?.dateEnded ?? null;
+            const startMs = startDateIso ? new Date(startDateIso).getTime() : Date.now();
+            const endMs = endDateIso ? new Date(endDateIso).getTime() : (startMs + 60 * 60 * 1000);
+            const stationId = rec?.stationId ?? rec?.stationID ?? rec?.station_id ?? null;
+            const stationNumber = String(rec?.stationNumber ?? rec?.stationNo ?? '').trim();
+            const stationName = String(rec?.stationName ?? '').trim();
+            const label = stationNumber || stationName || (stationId ? `Station ${stationId}` : String(rec?.description ?? ''));
+            const color = palette[(colorIndex++) % palette.length];
+            seriesData.push({ x: vehicleLabel, y: [startMs, endMs], fillColor: color, meta: { stationId, stationNumber, stationName, raw: rec, label, startDate: startDateIso, endDate: endDateIso } });
+          }
+        }
+
+        const template = (busPulseData as any).vehicleStationTrackingChart ?? {};
+
+        // Compute chart height so Y-axis labels have room. This will be applied
+        // both to Apex options and to the chart host element so the wrapper
+        // measures the correct height.
+        // Increase per-row pixel allocation and minimum height so vehicle names
+        // aren't cramped when many rows are shown.
+        const perRowPx = 30; // pixels per vehicle row (increased for readability)
+        const minHeight = 480; // raise minimum to afford readable labels
+        const maxHeight = 2500;
+        const calculatedHeight = Math.min(Math.max(minHeight, (vehicleIdsToShow.length * perRowPx) + 120), maxHeight);
+
+        // Compute width so timeline spacing increases with vehicle count.
+        const perVehicleWidth = 60; // px added per vehicle to spread timeline
+        const minWidth = 1200;
+        const maxWidth = 6000;
+        const calculatedWidth = Math.min(Math.max(minWidth, (vehicleIdsToShow.length * perVehicleWidth) + 800), maxWidth);
+
+        const axisTitleColor = (((template && template.yaxis && template.yaxis.title && template.yaxis.title.style && template.yaxis.title.style.color) !== undefined)
+          ? template.yaxis.title.style.color
+          : '#1b5e20');
+
+        const chartOptions = {
+          ...(template || {}),
+          chart: {
+            ...((template && template.chart) || {}),
+            height: calculatedHeight,
+            width: calculatedWidth,
+            zoom: {
+              ...(((template && template.chart && template.chart.zoom) || {})),
+              enabled: false,
+            },
+            toolbar: {
+              ...(((template && template.chart && template.chart.toolbar) || {})),
+              show: false,
+            },
+          },
+          // Align bars and y-axis labels: increase bar height slightly and
+          // nudge y-axis label vertical offset so labels and range bars center
+          // on the same row. We merge with any template.plotOptions.
+          plotOptions: {
+            ...((template && template.plotOptions) || {}),
+            bar: {
+              ...(((template && template.plotOptions && template.plotOptions.bar) || {})),
+              // restore template bar height for consistent alignment
+              barHeight: ((template && template.plotOptions && template.plotOptions.bar && template.plotOptions.bar.barHeight) !== undefined)
+                ? template.plotOptions.bar.barHeight
+                : '60%',
+              // maintain grouping behavior from template if present
+              rangeBarGroupRows: ((template && template.plotOptions && template.plotOptions.bar && template.plotOptions.bar.rangeBarGroupRows) !== undefined)
+                ? template.plotOptions.bar.rangeBarGroupRows
+                : false,
+            },
+          },
+          xaxis: {
+            ...((template && template.xaxis) || {}),
+            type: 'datetime',
+            tickAmount: 6,
+            // Add an explicit x-axis title for the timeline (Date)
+            // Use template xaxis title when present, otherwise default to
+            // 'Date' and match the y-axis title color when available.
+            title: ((template && template.xaxis && template.xaxis.title) !== undefined)
+              ? template.xaxis.title
+              : {
+                text: 'Date',
+                style: {
+                  fontSize: '13px',
+                  fontFamily: 'Poppins, sans-serif',
+                  color: axisTitleColor,
+                },
+              },
+            labels: {
+              ...(((template && template.xaxis && template.xaxis.labels) || {})),
+              rotate: -30,
+              hideOverlappingLabels: true,
+              style: {
+                ...(((template && template.xaxis && template.xaxis.labels && template.xaxis.labels.style) || {})),
+                fontSize: '11px',
+              },
+              formatter: (val: any) => {
+                const d = new Date(val);
+                try {
+                  return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+                } catch {
+                  return String(val);
+                }
+              },
+            },
+          },
+          yaxis: {
+            ...((template && template.yaxis) || {}),
+            // Ensure y-axis title uses the same explicit color as the x-axis
+            title: {
+              ...(((template && template.yaxis && template.yaxis.title) || {})),
+              style: {
+                ...(((template && template.yaxis && template.yaxis.title && template.yaxis.title.style) || {})),
+                color: axisTitleColor,
+              },
+            },
+            labels: {
+              ...(((template && template.yaxis && template.yaxis.labels) || {})),
+              // Respect template offset when present; otherwise no manual nudge
+              offsetY: ((template && template.yaxis && template.yaxis.labels && template.yaxis.labels.offsetY) !== undefined)
+                ? template.yaxis.labels.offsetY
+                : 0,
+              style: {
+                ...(((template && template.yaxis && template.yaxis.labels && template.yaxis.labels.style) || {})),
+                fontSize: '12px',
+                lineHeight: '20px',
+              },
+              formatter: (val: any) => {
+                const s = String(val ?? '');
+                return s.length > 30 ? s.slice(0, 27) + '\u2026' : s;
+              },
+            },
+          },
+          tooltip: {
+            ...(template?.tooltip ?? {}),
+            custom: ({ seriesIndex, dataPointIndex, w }: any) => {
+              const point = w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex];
+              const meta = point?.meta ?? {};
+              const vehicle = String(point?.x ?? '').trim() || 'Vehicle';
+              const stationNumber = String(meta?.stationNumber ?? '').trim();
+              const stationName = String(meta?.stationName ?? '').trim();
+              const stationValue = stationName || stationNumber || String(meta?.label ?? 'Station').trim();
+              const stationLine = stationValue ? `<div><strong>Station Name:</strong> ${stationValue}</div>` : '';
+              const stationNumberLine = stationNumber ? `<div><strong>Station Number:</strong> ${stationNumber}</div>` : '';
+
+              const fmt = (iso?: string | null) => {
+                if (!iso) return '';
+                try {
+                  const d = new Date(iso);
+                  return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                } catch (e) {
+                  return String(iso);
+                }
+              };
+
+              const startIso = meta?.startDate ?? null;
+              const endIso = meta?.endDate ?? null;
+              const startLine = startIso ? `<div><strong>Start:</strong> ${fmt(startIso)}</div>` : '';
+              const endLine = endIso ? `<div><strong>End:</strong> ${fmt(endIso)}</div>` : '';
+
+              return `<div class="apexcharts-tooltip-rangebar" style="padding:8px 10px;">` +
+                  `<div><strong>Vehicle:</strong> ${vehicle}</div>` +
+                  stationLine +
+                  stationNumberLine +
+                  startLine +
+                  endLine +
+                  `</div>`;
+            },
+          },
+          series: [{ ...(template?.series?.[0] ?? {}), data: seriesData }],
+        };
+
+        // small helpers to sync label/scroll interactions exist in template
+        // attach calculated sizes for the host element to consume
+        (chartOptions as any).__calculatedHostHeight = calculatedHeight;
+        (chartOptions as any).__calculatedHostWidth = calculatedWidth;
+
+        // Attach the calculated height and width to the chartOptions so callers
+        // can read them (used by the template to set the host element size).
+        (chartOptions as any).__calculatedHostHeight = calculatedHeight;
+        (chartOptions as any).__calculatedHostWidth = calculatedWidth;
+
+        this.widgets = this.widgets.map((w) => (w.id === 'widget-15' ? { ...w, chartOptions, loading: false } : w));
+      },
+      error: () => {
+        if (requestVersion !== this.vehicleStationRequestVersion) return;
+        this.widgets = this.widgets.map((w) => (w.id === 'widget-15' ? { ...w, chartOptions: (busPulseData as any).vehicleStationTrackingChart, loading: false } : w));
+        try { this.toastService.show('Failed to load Vehicle Station Tracking data', { classname: 'bg-warning text-dark', autohide: true }); } catch { }
+      }
     });
   }
 
@@ -2310,6 +2603,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
       }
 
       this.widgets = sortWidgetsByOrder(applyWidgetLayout(this.widgets, parsedLayout));
+      // Ensure Vehicle Station Tracking (`widget-15`) appears above Project Timeline (`widget-13`)
+      // even if user had a saved layout that placed them differently. This keeps the
+      // requested default ordering consistent across environments. If you prefer
+      // to preserve user custom layouts, remove this migration.
+      try {
+        const idx15 = this.widgets.findIndex((w) => w.id === 'widget-15');
+        const idx13 = this.widgets.findIndex((w) => w.id === 'widget-13');
+        if (idx15 > -1 && idx13 > -1 && idx15 > idx13) {
+          // swap their order values and persist
+          const w15 = { ...this.widgets[idx15] };
+          const w13 = { ...this.widgets[idx13] };
+          const tempOrder = w15.order;
+          w15.order = w13.order;
+          w13.order = tempOrder;
+          this.widgets[idx15] = w15;
+          this.widgets[idx13] = w13;
+          this.widgets = sortWidgetsByOrder(this.widgets);
+          this.saveLayoutToStorage();
+        }
+      } catch {
+        // ignore migration failures
+      }
     } catch {
       this.applyDefaultWidgetLayout();
     }

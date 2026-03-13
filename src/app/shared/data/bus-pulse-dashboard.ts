@@ -497,6 +497,45 @@ export const projectTimelineChart = {
 };
 
 /**
+ * Vehicle Station Tracking (template reused from Project Timeline)
+ */
+export const vehicleStationTrackingChart = {
+  series: [
+    {
+      data: [
+        { x: 'Vehicle A', y: [new Date('2024-03-01').getTime(), new Date('2024-03-03').getTime()], fillColor: '#1b5e20' },
+        { x: 'Vehicle B', y: [new Date('2024-03-04').getTime(), new Date('2024-03-10').getTime()], fillColor: '#2e7d32' },
+        { x: 'Vehicle C', y: [new Date('2024-03-08').getTime(), new Date('2024-03-20').getTime()], fillColor: '#388e3c' }
+      ]
+    }
+  ],
+  chart: {
+    height: 350,
+    type: 'rangeBar',
+    toolbar: { show: true },
+    dropShadow: { enabled: true, enabledOnSeries: undefined, top: 3, left: 0, blur: 3, color: '#000', opacity: 0.1 }
+  },
+  plotOptions: {
+    bar: {
+      horizontal: true,
+      barHeight: '60%',
+      rangeBarGroupRows: false
+    }
+  },
+  xaxis: {
+    type: 'datetime',
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+    labels: { style: { fontSize: '12px', fontFamily: 'Poppins, sans-serif' } }
+  },
+  yaxis: {
+    title: { text: 'Vehicles', style: { fontSize: '13px', fontFamily: 'Poppins, sans-serif' } }
+  },
+  dataLabels: { enabled: false },
+  legend: { show: false }
+};
+
+/**
  * 13. Comparison of Project Magnitude (Bubble Chart)
  */
 export const projectMagnitudeBubble = {

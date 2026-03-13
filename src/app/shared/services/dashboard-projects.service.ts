@@ -51,6 +51,10 @@ export class DashboardProjectsService {
     string,
     { expiresAt: number; observable: Observable<DashboardVehicleOptionsResult> }
   >();
+  private readonly stationTrackersCache = new Map<
+    string,
+    { expiresAt: number; observable: Observable<any[]> }
+  >();
 
   constructor(private http: HttpClient) {}
 
@@ -741,6 +745,50 @@ export class DashboardProjectsService {
     return this.http.get<DashboardTicketsDashboardResult>(`${this.apiBaseUrl}/tickets/dashboard`, {
       params: httpParams,
     });
+  }
+
+  /**
+   * Fetch station tracker entries for vehicles. Returns an array of items.
+   * Supports filtering by projectId and vehicleId.
+   */
+  getStationTrackers(params: {
+    projectId?: string | number;
+    vehicleId?: string | number;
+    orderBy?: string;
+    orderDirection?: 'asc' | 'desc';
+    page?: number;
+    pageSize?: number;
+  } = {}): Observable<any[]> {
+    // Do not enforce a client-side cap here; respect whatever `pageSize`
+    // the caller provides. If `pageSize` is omitted we won't include it
+    // in the HTTP params so the backend can decide the default behaviour
+    // (including returning all matching records if supported).
+    const pageSizeProvided = params.pageSize !== undefined && params.pageSize !== null;
+
+    const cacheKey = JSON.stringify({
+      projectId: params.projectId ?? null,
+      vehicleId: params.vehicleId ?? null,
+      orderBy: params.orderBy ?? null,
+      orderDirection: params.orderDirection ?? null,
+      page: params.page ?? null,
+      pageSize: pageSizeProvided ? params.pageSize : null,
+    });
+
+    let httpParams = new HttpParams();
+    if (params.projectId !== undefined && params.projectId !== null) httpParams = httpParams.set('projectId', String(params.projectId));
+    if (params.vehicleId !== undefined && params.vehicleId !== null) httpParams = httpParams.set('vehicleId', String(params.vehicleId));
+    if (params.orderBy) httpParams = httpParams.set('orderBy', params.orderBy);
+    if (params.orderDirection) httpParams = httpParams.set('orderDirection', params.orderDirection);
+    if (params.page !== undefined && params.page !== null) httpParams = httpParams.set('page', String(params.page));
+    if (pageSizeProvided) httpParams = httpParams.set('pageSize', String(params.pageSize));
+
+    return this.getCachedObservable(this.stationTrackersCache, cacheKey, () =>
+      this.http.get<unknown>(`${this.apiBaseUrl}/StationTrackers`, { params: httpParams }).pipe(
+        catchError(() => this.http.get<unknown>(`${this.apiBaseUrl}/stationtrackers`, { params: httpParams }).pipe(catchError(() => of([])))),
+        map((response: any) => this.extractItems(response)),
+        catchError(() => of([])),
+      ),
+    );
   }
 
   private getCachedObservable<T>(

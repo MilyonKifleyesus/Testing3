@@ -128,7 +128,19 @@
                   </div>
                 </div>
 
-                <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions" [class.widget-content-blur]="widget.loading"></spk-apex-charts>
+                <ng-container *ngIf="widget.id === 'widget-15'">
+                  <div class="widget-chart-scroll" [class.widget-content-blur]="widget.loading">
+                    <spk-apex-charts
+                      *ngIf="widget.chartOptions"
+                      [chartOptions]="widget.chartOptions"
+                      [style.height.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostHeight || widget.chartOptions.chart?.height)) || 600"
+                      [style.min-width.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostWidth || widget.chartOptions.chart?.width)) || 1200">
+                    </spk-apex-charts>
+                  </div>
+                </ng-container>
+                <ng-container *ngIf="widget.id !== 'widget-15'">
+                  <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions" [class.widget-content-blur]="widget.loading"></spk-apex-charts>
+                </ng-container>
 
                 <div *ngIf="widget.id === 'widget-map'" class="dashboard-map-widget" [class.widget-content-blur]="widget.loading">
                   <div class="dashboard-map-widget__summary" [class.dashboard-map-widget__summary--client]="!isAdminRole">

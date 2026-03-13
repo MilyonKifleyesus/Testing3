@@ -240,30 +240,33 @@
     <table class="table table-hover mb-0">
       <thead class="table-header-sticky">
         <tr>
-          <th style="width: 10%;">ID</th>
-          <th style="width: 30%;">Name</th>
-          <th style="width: 25%;">Username</th>
-          <th style="width: 20%;">Role</th>
-          <th style="width: 15%;">Actions</th>
+          <th style="width: 12%;">ID</th>
+          <th style="width: 36%;">Name</th>
+          <th style="width: 24%;">Username</th>
+          <th style="width: 12%;">Role</th>
+          <th style="width: 16%;">Actions</th>
         </tr>
       </thead>
       <tbody>
+        <tr *ngIf="filteredInspectors.length === 0">
+          <td colspan="5" class="text-center text-muted py-4">No inspectors found.</td>
+        </tr>
         <tr *ngFor="let inspector of filteredInspectors" class="inspector-table-row">
           <td>
-            <small class="fw-semibold text-primary">{{inspector.id}}</small>
+            <small class="fw-semibold text-primary">{{ inspector.id }}</small>
           </td>
           <td>
             <div class="d-flex align-items-center gap-2">
               <div class="inspector-avatar-small-table" [style.background]="inspector.avatarBg">
-                {{getInitials(inspector.fullName)}}
+                {{ getInitials(inspector.fullName) }}
               </div>
               <div>
-                <p class="mb-0 fw-semibold">{{inspector.fullName}}</p>
+                <p class="mb-0 fw-semibold">{{ inspector.fullName }}</p>
               </div>
             </div>
           </td>
           <td>
-            <small class="fw-semibold">{{inspector.name}}</small>
+            <small class="fw-semibold">{{ inspector.name }}</small>
           </td>
           <td>
             <span class="badge bg-success-transparent">
@@ -272,168 +275,26 @@
           </td>
           <td>
             <div class="d-flex gap-2">
-              <button class="btn btn-icon btn-sm btn-primary-light" 
-                      [routerLink]="['/admin/users/inspectors', inspector.id]"
-                      title="View Profile">
+              <button
+                class="btn btn-icon btn-sm btn-primary-light"
+                [routerLink]="['/admin/users/inspectors', inspector.id]"
+                title="View Profile"
+              >
                 <i class="ti ti-eye"></i>
               </button>
-              <button class="btn btn-icon btn-sm btn-secondary-light" 
-                      (click)="showMessageModal(inspector)"
-                      title="Send Message">
+              <button
+                class="btn btn-icon btn-sm btn-secondary-light"
+                (click)="showMessageModal(inspector)"
+                title="Send Message"
+              >
                 <i class="ti ti-mail"></i>
               </button>
             </div>
-
-            <ng-container *ngIf="!isLoading && !loadError">
-              <div class="table-responsive">
-                <table class="table text-nowrap table-hover border table-bordered mb-0">
-                  <thead>
-                    <tr>
-                      <th scope="col" (click)="sortTable('id')" style="cursor:pointer;width:6%">
-                        ID <span *ngIf="sortColumn === 'id'">{{ sortIcon('id') }}</span>
-                      </th>
-                      <th scope="col" (click)="sortTable('fullName')" style="cursor:pointer;width:20%">
-                        Inspector <span *ngIf="sortColumn === 'fullName'">{{ sortIcon('fullName') }}</span>
-                      </th>
-                      <th scope="col" (click)="sortTable('busesInspected')" style="cursor:pointer;width:10%">
-                        Inspected <span *ngIf="sortColumn === 'busesInspected'">{{ sortIcon('busesInspected') }}</span>
-                      </th>
-                      <th scope="col" style="width:14%">Test Coverage</th>
-                      <th scope="col" (click)="sortTable('rating')" style="cursor:pointer;width:9%">
-                        Rating <span *ngIf="sortColumn === 'rating'">{{ sortIcon('rating') }}</span>
-                      </th>
-                      <th scope="col" (click)="sortTable('status')" style="cursor:pointer;width:9%">
-                        Status <span *ngIf="sortColumn === 'status'">{{ sortIcon('status') }}</span>
-                      </th>
-                      <th scope="col" style="width:8%">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngIf="paginatedInspectors.length === 0">
-                      <td colspan="7" class="text-center text-muted py-4">No inspectors found.</td>
-                    </tr>
-                    <tr *ngFor="let inspector of paginatedInspectors">
-                      <!-- ID -->
-                      <td class="fw-semibold text-primary">{{ inspector.id }}</td>
-
-                      <!-- Inspector (avatar + name + username) -->
-                      <td>
-                        <div class="d-flex align-items-center gap-2">
-                          <div class="inspector-avatar-sm" [style.background]="inspector.avatarBg">
-                            {{ getInitials(inspector.fullName) }}
-                          </div>
-                          <div>
-                            <div class="fw-semibold">{{ inspector.fullName }}</div>
-                            <small class="text-muted">{{ inspector.username }}</small>
-                          </div>
-                        </div>
-                      </td>
-
-                      <!-- Buses Inspected -->
-                      <td>
-                        <ng-container *ngIf="!inspector.statsLoading; else tblSpinner">
-                          <span class="fw-semibold text-success">{{ inspector.busesInspected }}</span>
-                          <small class="text-muted d-block">of {{ inspector.busesAssigned }} assigned</small>
-                        </ng-container>
-                      </td>
-
-                      <!-- Test Coverage -->
-                      <td>
-                        <ng-container *ngIf="!inspector.statsLoading; else tblSpinner">
-                          <div class="d-flex gap-1 flex-wrap">
-                            <span class="badge bg-secondary-transparent fs-11">
-                              <i class="ti ti-road me-1"></i>{{ inspector.tests.road }}
-                            </span>
-                            <span class="badge bg-info-transparent fs-11">
-                              <i class="ti ti-windmill me-1"></i>{{ inspector.tests.water }}
-                            </span>
-                          </div>
-                        </ng-container>
-                      </td>
-
-                      <!-- Rating -->
-                      <td>
-                        <ng-container *ngIf="!inspector.statsLoading; else tblSpinner">
-                          <div class="d-flex align-items-center gap-1">
-                            <i class="ti ti-star-filled text-warning fs-14"></i>
-                            <span class="fw-semibold">{{ inspector.rating | number:'1.1-1' }}</span>
-                          </div>
-                          <small class="text-muted">{{ getRatingLabel(inspector.rating) }}</small>
-                        </ng-container>
-                      </td>
-
-                      <!-- Status -->
-                      <td>
-                        <span class="badge" [ngClass]="inspector.isActive ? 'bg-success-transparent' : 'bg-secondary-transparent'">
-                          <i class="ti ti-circle-filled me-1 fs-10"></i>
-                          {{ inspector.isActive ? 'Active' : 'Inactive' }}
-                        </span>
-                      </td>
-
-                      <!-- Actions (dropdown — project management pattern) -->
-                      <td>
-                        <div class="dropdown">
-                          <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
-                                  data-bs-toggle="dropdown" aria-expanded="false">
-                            Action
-                          </button>
-                          <ul class="dropdown-menu dropdown-menu-end">
-                            <li>
-                              <a class="dropdown-item" href="javascript:void(0);"
-                                 [routerLink]="['/admin/users/inspectors', inspector.id]">
-                                <i class="ti ti-eye me-2"></i>View Profile
-                              </a>
-                            </li>
-                            <li>
-                              <a class="dropdown-item" href="javascript:void(0);"
-                                 (click)="showMessageModal(inspector)">
-                                <i class="ti ti-mail me-2"></i>Send Message
-                              </a>
-                            </li>
-                          </ul>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </ng-container>
-          </div>
-
-          <!-- Card Footer — pagination -->
-          <div class="card-footer" *ngIf="!isLoading && !loadError">
-            <div class="d-flex align-items-center">
-              <div class="text-muted small">
-                Showing {{ pageStartItem }} to {{ pageEndItem }} of {{ filteredInspectors.length }} Entries
-              </div>
-              <div class="ms-auto">
-                <nav aria-label="Inspectors pagination" class="pagination-style-4">
-                  <ul class="pagination mb-0">
-                    <li class="page-item" [class.disabled]="currentPage === 1">
-                      <a class="page-link" href="javascript:void(0);" (click)="previousPage()">Prev</a>
-                    </li>
-                    <li class="page-item"
-                        *ngFor="let page of visiblePages"
-                        [class.active]="page === currentPage"
-                        [class.disabled]="page === paginationEllipsis">
-                      <a class="page-link" href="javascript:void(0);"
-                         (click)="page !== paginationEllipsis && changePage(+page)">
-                        {{ page === paginationEllipsis ? '...' : page }}
-                      </a>
-                    </li>
-                    <li class="page-item" [class.disabled]="currentPage === totalPages">
-                      <a class="page-link text-primary" href="javascript:void(0);" (click)="nextPage()">Next</a>
-                    </li>
-                  </ul>
-                </nav>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  </ng-container>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 <div class="message-modal" [class.active]="isMessageModalOpen" *ngIf="isMessageModalOpen">
   <div class="modal-overlay" (click)="closeMessageModal()"></div>

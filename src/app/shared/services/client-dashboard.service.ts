@@ -30,6 +30,23 @@ export class ClientDashboardService {
     return this.http.get<any>(`${this.apiBaseUrl}/Tickets`, { params: httpParams });
   }
 
+  getSnags(params: {
+    clientId?: number;
+    projectId?: number;
+    userId?: number;
+    vehicleId?: number;
+    pageNumber?: number;
+    pageSize?: number;
+    orderBy?: string;
+    orderDirection?: 'asc' | 'desc';
+    finalInspectionCategory?: number;
+    safetyCritical?: boolean;
+    search?: string;
+  } = {}): Observable<any> {
+    const httpParams = this.buildParams(params as Record<string, string | number | boolean | null | undefined>);
+    return this.http.get<any>(`${this.apiBaseUrl}/Snags`, { params: httpParams });
+  }
+
   getTicketsDashboard(params: { projectId?: number; userId?: number; vehicleId?: number } = {}): Observable<any> {
     const httpParams = this.buildParams(params);
     return this.http.get<any>(`${this.apiBaseUrl}/tickets/dashboard`, { params: httpParams });
