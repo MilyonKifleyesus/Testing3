@@ -184,6 +184,11 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
 
       try {
         this.chartInstance.updateOptions(nextOptions, false, true);
+        if (Array.isArray(nextOptions?.series)) {
+          // Some chart types (notably radial gauges) can ignore series changes
+          // through updateOptions alone, so apply series explicitly.
+          this.chartInstance.updateSeries(nextOptions.series, true);
+        }
         if (width > 0) {
           this.lastWidth = width;
         }

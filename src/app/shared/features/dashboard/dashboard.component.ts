@@ -426,8 +426,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   isWidgetVisible(widget: DashboardWidget): boolean {
-    if (!this.showFilters || this.selectedProject === 'all') return true;
+    // Admins always see all widgets
     if (this.isAdminRole) return true;
+
+    // If both filters are set to 'all', hide the Vehicle Station Tracking widget (widget-15)
+    if (this.selectedProject === 'all' && this.selectedVehicle === 'all' && widget.id === 'widget-15') {
+      return false;
+    }
+
+    // Preserve existing compact-mode behavior: when filters aren't shown or project is 'all', show widgets
+    if (!this.showFilters || this.selectedProject === 'all') return true;
+
     return !CLIENT_COMPACT_HIDDEN_WIDGET_IDS.includes(widget.id);
   }
 
@@ -2002,6 +2011,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return null;
     };
 
+    const normalizePercentValue = (value: number): number => {
+      if (!Number.isFinite(value) || value < 0) {
+        return 0;
+      }
+
+      // Handle APIs that return ratios (0..1) instead of percentages (0..100).
+      if (value > 0 && value <= 1) {
+        return value * 100;
+      }
+
+      return value;
+    };
+
+    const readRepeatedTickets = (source: any): number | null => {
+      const candidates = [
+        source?.repeatedTickets,
+        source?.RepeatedTickets,
+        source?.repeatTickets,
+        source?.RepeatTickets,
+        source?.data?.repeatedTickets,
+        source?.result?.repeatedTickets,
+      ];
+
+      for (const candidate of candidates) {
+        const parsed = Number(candidate);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          return parsed;
+        }
+      }
+
+      return null;
+    };
+
     const readTotalTickets = (source: any): number | null => {
       const candidates = [
         source?.totalTickets,
@@ -2022,8 +2064,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return null;
     };
 
+    const computePercent = (source: any): number | null => {
+      const explicitPercent = readPercent(source);
+      if (explicitPercent !== null) {
+        return normalizePercentValue(explicitPercent);
+      }
+
+      const repeatedTickets = readRepeatedTickets(source);
+      const totalTickets = readTotalTickets(source);
+      if (repeatedTickets !== null && totalTickets !== null && totalTickets > 0) {
+        return (repeatedTickets / totalTickets) * 100;
+      }
+
+      return null;
+    };
+
     if (!Array.isArray(payload)) {
-      return readPercent(payload) ?? 0;
+      return computePercent(payload) ?? 0;
     }
 
     let weightedPercentSum = 0;
@@ -2031,7 +2088,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const fallbackPercents: number[] = [];
 
     for (const item of payload) {
-      const percent = readPercent(item);
+      const percent = computePercent(item);
       if (percent === null) {
         continue;
       }
