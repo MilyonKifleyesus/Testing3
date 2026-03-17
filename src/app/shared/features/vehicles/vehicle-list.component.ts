@@ -44,9 +44,9 @@ function normalizeId(value: unknown): string {
   styleUrl: './vehicle-list.component.scss'
 })
 export class VehicleListComponent implements OnInit {
-  private readonly projectVehiclesFetchPageSize = 250;
+  private readonly projectVehiclesFetchPageSize = 500;
   private readonly maxProjectVehiclePages = 500;
-  private readonly projectEnrichmentConcurrency = 6;
+  private readonly projectEnrichmentConcurrency = 20;
   private vehiclesRequestVersion = 0;
   private readonly allVehiclesEnrichedCache = new Map<string, unknown[]>();
   private readonly projectVehiclesCache = new Map<string, unknown[]>();

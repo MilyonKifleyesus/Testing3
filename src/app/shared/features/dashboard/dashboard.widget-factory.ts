@@ -3,13 +3,13 @@ import { DashboardWidget } from '../../models/client-dashboard.models';
 
 export function createDefaultDashboardWidgets(): DashboardWidget[] {
   return [
-    { id: 'widget-1', title: 'Project Status', subtitle: 'Open vs Closed Projects', type: 'chart', chartOptions: busPulseData.openClosedProjectsChart, width: 4, height: 400, order: 1, loading: true },
-    { id: 'widget-2', title: 'Vehicles by Make & Model', subtitle: 'Fleet composition by manufacturer', type: 'chart', chartOptions: busPulseData.vehiclesByMakeModelChart, width: 4, height: 400, order: 2, loading: true },
-    { id: 'widget-3', title: 'Propulsion Types', subtitle: 'Fleet fuel/energy distribution', type: 'chart', chartOptions: busPulseData.vehiclesByPropulsionChart, width: 4, height: 400, order: 3, loading: true },
+    { id: 'widget-1', title: 'Project Status', subtitle: 'Open vs Closed Projects', type: 'chart', chartOptions: null, width: 4, height: 400, order: 1, loading: true },
+    { id: 'widget-2', title: 'Vehicles by Make & Model', subtitle: 'Fleet composition by manufacturer', type: 'chart', chartOptions: null, width: 4, height: 400, order: 2, loading: true },
+    { id: 'widget-3', title: 'Propulsion Types', subtitle: 'Fleet fuel/energy distribution', type: 'chart', chartOptions: null, width: 4, height: 400, order: 3, loading: true },
     { id: 'widget-4', title: 'Overall Defects by Area', subtitle: 'Defects by vehicle inspection area', type: 'treemap', chartOptions: busPulseData.defectsByAreaTreemap, width:10, height: 450, order: 4, loading: true },
-    { id: 'widget-5', title: 'Repeated Defects', subtitle: 'Recurring issues percentage', type: 'gauge', chartOptions: busPulseData.repeatedDefectsGauge, width: 2, height: 450, order: 5, loading: true },
+    { id: 'widget-5', title: 'Repeated Defects', subtitle: 'Recurring issues percentage', type: 'gauge', chartOptions: null, width: 2, height: 450, order: 5, loading: true },
     { id: 'widget-6', title: 'Average Defects by Station', subtitle: 'Inspection quality metrics', type: 'chart', chartOptions: busPulseData.defectsByStationChart, width: 12, height: 450, order: 6, loading: true },
-    { id: 'widget-7', title: 'Safety Critical Percentage', subtitle: 'Safety-critical issue share', type: 'gauge', chartOptions: busPulseData.safetyCriticalDefectsGauge, width: 3, height: 450, order: 8.5, loading: true },
+    { id: 'widget-7', title: 'Safety Critical Percentage', subtitle: 'Safety-critical issue share', type: 'gauge', chartOptions: null, width: 3, height: 450, order: 8.5, loading: true },
     { id: 'widget-8', title: 'Repeated Defects by Area', subtitle: 'Areas with recurring issues', type: 'treemap', chartOptions: busPulseData.repeatedDefectsByAreaTreemap, width: 9, height: 450, order: 8, loading: true },
     { id: 'widget-9', title: 'Tickets by Status', subtitle: 'Distribution of support tickets', type: 'bar', chartOptions: busPulseData.buildTicketsByStatusBar(), width: 4, height: 450, order: 9, loading: true },
     { id: 'widget-10', title: 'Comparison of Projects by Area', subtitle: 'Average defects per project across areas', type: 'chart', chartOptions: busPulseData.projectsByAreaStackedChart, width: 8, height: 450, order: 10, loading: true },

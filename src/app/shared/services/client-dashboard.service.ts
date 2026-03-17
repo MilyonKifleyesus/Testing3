@@ -30,24 +30,7 @@ export class ClientDashboardService {
     return this.http.get<any>(`${this.apiBaseUrl}/Tickets`, { params: httpParams });
   }
 
-  getSnags(params: {
-    clientId?: number;
-    projectId?: number;
-    userId?: number;
-    vehicleId?: number;
-    pageNumber?: number;
-    pageSize?: number;
-    orderBy?: string;
-    orderDirection?: 'asc' | 'desc';
-    finalInspectionCategory?: number;
-    safetyCritical?: boolean;
-    search?: string;
-  } = {}): Observable<any> {
-    const httpParams = this.buildParams(params as Record<string, string | number | boolean | null | undefined>);
-    return this.http.get<any>(`${this.apiBaseUrl}/Snags`, { params: httpParams });
-  }
-
-  getTicketsDashboard(params: { projectId?: number; userId?: number; vehicleId?: number } = {}): Observable<any> {
+  getTicketsDashboard(params: { clientId?: number; projectId?: number; userId?: number; vehicleId?: number } = {}): Observable<any> {
     const httpParams = this.buildParams(params);
     return this.http.get<any>(`${this.apiBaseUrl}/tickets/dashboard`, { params: httpParams });
   }
@@ -55,6 +38,43 @@ export class ClientDashboardService {
   getVehicles(params: { clientId?: number; page?: number; pageSize?: number } = {}): Observable<any> {
     const httpParams = this.buildParams(params);
     return this.http.get<any>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams });
+  }
+
+  getVehicleById(id: number): Observable<any> {
+    return this.http.get<any>(`${this.apiBaseUrl}/Vehicles/${id}`);
+  }
+
+  getClientById(id: number): Observable<any> {
+    return this.http.get<any>(`${this.apiBaseUrl}/Clients/${id}`);
+  }
+
+  getStationTrackers(params: {
+    vehicleId?:       number;
+    projectId?:       number;
+    pageNumber?:      number;
+    pageSize?:        number;
+    orderBy?:         string;
+    orderDirection?:  string;
+  } = {}): Observable<any> {
+    const httpParams = this.buildParams(params);
+    return this.http.get<any>(`${this.apiBaseUrl}/StationTrackers`, { params: httpParams });
+  }
+
+  getSnags(params: {
+    pageNumber?:               number;
+    pageSize?:                 number;
+    finalInspectionCategory?:  number;
+    snagNumber?:               string;
+    ticketId?:                 number;
+    projectId?:                number;
+    vehicleId?:                number;
+    userId?:                   number;
+    orderBy?:                  string;
+    orderDirection?:           string;
+    safetyCritical?:           boolean;
+  } = {}): Observable<any> {
+    const httpParams = this.buildParams(params);
+    return this.http.get<any>(`${this.apiBaseUrl}/Snags`, { params: httpParams });
   }
 
   private buildParams(params: Record<string, string | number | boolean | null | undefined>): HttpParams {

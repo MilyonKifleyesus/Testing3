@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, shareReplay, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { getFirstDefinedValue, toOptionalText, toText } from '../utils/api-data.utils';
+import { extractArrayFromApiResponse, getFirstDefinedValue, toOptionalText, toText } from '../utils/api-data.utils';
 
 export interface DashboardProjectOption {
   id: string;
@@ -417,6 +417,48 @@ export class DashboardProjectsService {
     );
   }
 
+  getAllVehiclesForProjects(params: {
+    projectIds?: string[];
+    clientId?: number;
+    includeClosed?: boolean;
+  } = {}): Observable<any[]> {
+    const { projectIds, clientId, includeClosed } = params;
+    const normalizedProjectIds = Array.from(new Set(
+      (projectIds ?? [])
+        .map((id) => this.normalizeProjectId(id))
+        .filter((id) => !!id),
+    ));
+
+    if (normalizedProjectIds.length >= 1) {
+      return forkJoin(
+        normalizedProjectIds.map((projectId) => {
+          const encodedId = encodeURIComponent(projectId);
+          return this.http
+            .get<unknown>(`${this.apiBaseUrl}/projects/${encodedId}/vehicles`)
+            .pipe(
+              map((response) => extractArrayFromApiResponse(response)),
+              catchError(() => of([] as any[])),
+            );
+        }),
+      ).pipe(
+        map((arrays) => arrays.flat()),
+        catchError(() => of([] as any[])),
+      );
+    }
+
+    let httpParams = new HttpParams().set('pageSize', '10000');
+    if (clientId !== undefined && clientId !== null) {
+      httpParams = httpParams.set('clientId', String(clientId));
+    }
+    if (includeClosed !== undefined && includeClosed !== null) {
+      httpParams = httpParams.set('includeClosed', String(includeClosed));
+    }
+    return this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams }).pipe(
+      map((response) => extractArrayFromApiResponse(response)),
+      catchError(() => of([] as any[])),
+    );
+  }
+
   private getVehiclesDistributionData(
     params: {
       projectIds?: string[];
@@ -462,10 +504,23 @@ export class DashboardProjectsService {
         ))),
       );
 
+    const flatVehicles$ = (): Observable<any[]> => {
+      let httpParams = new HttpParams().set('pageSize', '10000');
+      if (clientId !== undefined && clientId !== null) httpParams = httpParams.set('clientId', String(clientId));
+      if (userId !== undefined && userId !== null) httpParams = httpParams.set('userId', String(userId));
+      if (includeClosed !== undefined && includeClosed !== null) httpParams = httpParams.set('includeClosed', String(includeClosed));
+      return this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams }).pipe(
+        map((response) => this.extractItems(response)),
+        catchError(() => of([] as any[])),
+      );
+    };
+
     return projectIds$.pipe(
       switchMap((resolvedProjectIds) => {
         if (!resolvedProjectIds.length) {
-          return of({ resolvedProjectIds, vehicles: [] as any[] });
+          return flatVehicles$().pipe(
+            map((vehicles) => ({ resolvedProjectIds, vehicles })),
+          );
         }
 
         return forkJoin(
@@ -479,10 +534,17 @@ export class DashboardProjectsService {
             }),
           ),
         ).pipe(
-          map((responses) => ({
-            resolvedProjectIds,
-            vehicles: responses.flat(),
-          })),
+          map((responses) => responses.flat()),
+          switchMap((vehicles) => {
+            if (vehicles.length > 0) {
+              return of({ resolvedProjectIds, vehicles });
+            }
+            // Per-project calls returned nothing — fall back to flat /Vehicles endpoint
+            return flatVehicles$().pipe(
+              map((v) => ({ resolvedProjectIds, vehicles: v })),
+            );
+          }),
+          catchError(() => flatVehicles$().pipe(map((vehicles) => ({ resolvedProjectIds, vehicles })))),
         );
       }),
       map(({ resolvedProjectIds, vehicles }) => {
@@ -791,6 +853,10 @@ export class DashboardProjectsService {
     );
   }
 
+  clearProjectsCache(): void {
+    this.projectsCache.clear();
+  }
+
   private getCachedObservable<T>(
     cache: Map<string, { expiresAt: number; observable: Observable<T> }>,
     key: string,
@@ -855,6 +921,10 @@ export class DashboardProjectsService {
       return response.data.projects;
     }
 
+    if (Array.isArray(response?.results)) {
+      return response.results;
+    }
+
     if (Array.isArray(response?.data?.results)) {
       return response.data.results;
     }
@@ -867,6 +937,10 @@ export class DashboardProjectsService {
       return response.data.vehicles;
     }
 
+    if (Array.isArray(response?.result)) {
+      return response.result;
+    }
+
     if (Array.isArray(response?.result?.items)) {
       return response.result.items;
     }
@@ -877,6 +951,10 @@ export class DashboardProjectsService {
 
     if (Array.isArray(response?.result?.data)) {
       return response.result.data;
+    }
+
+    if (Array.isArray(response?.result?.results)) {
+      return response.result.results;
     }
 
     if (Array.isArray(response?.projects)) {

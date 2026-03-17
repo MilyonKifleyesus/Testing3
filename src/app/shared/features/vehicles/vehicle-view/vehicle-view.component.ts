@@ -17,10 +17,11 @@ import {
 } from 'ng-apexcharts';
 import { AuthService } from '../../../services/auth.service';
 import { resolveProjectManagementContext } from '../../project-management/project-management-context';
-import { VehicleDetail, GalleryImage, TimelineEvent } from '../models/vehicle.model';
+import { VehicleDetail, GalleryImage, TimelineEvent, Snag, Defect } from '../models/vehicle.model';
 import { VehicleUtilService } from '../services/vehicle-util.service';
 import { ClientDashboardService } from '../../../services/client-dashboard.service';
-import { catchError, map, of, take } from 'rxjs';
+import { UserManagementService } from '../../../services/user-management.service';
+import { catchError, firstValueFrom, map, of, switchMap, take, forkJoin } from 'rxjs';
 import { extractArrayFromApiResponse, getFirstDefinedValue, toOptionalText, toText } from '../../../utils/api-data.utils';
 import { buildPaginationItems, PAGINATION_ELLIPSIS } from '../../../utils/pagination.utils';
 
@@ -88,6 +89,7 @@ export class VehicleViewComponent implements OnInit {
 
   isLoading: boolean = false;
   errorMessage: string = '';
+  timelineVisible: boolean = true;
 
   private readonly defaultVehicleImage = 'assets/images/vehicles/yrt40.jpeg';
   private readonly defaultAvatar = 'assets/images/faces/4.jpg';
@@ -109,13 +111,73 @@ export class VehicleViewComponent implements OnInit {
   paginatedTickets: any[] = [];
   paginationItems: number[] = [];
 
+  // Sorting for tickets
+  ticketSortCol: string = '';
+  ticketSortDir: 'asc' | 'desc' = 'asc';
+
+  // Pagination for snags
+  snagCurrentPage: number = 1;
+  readonly snagPageSize: number = 10;
+  snagTotalPages: number = 1;
+  paginatedSnags: any[] = [];
+  snagPaginationItems: number[] = [];
+
+  // Sorting for snags
+  snagSortCol: string = '';
+  snagSortDir: 'asc' | 'desc' = 'asc';
+
   public PAGINATION_ELLIPSIS = PAGINATION_ELLIPSIS;
+
+  /** userId → display name, populated once on load */
+  private userNameById = new Map<number, string>();
+
+  // Ticket carousel
+  ticketCarouselLocation: string = 'all';
+  carouselOffset: number = 0;
+  readonly carouselVisibleCount: number = 4;
+
+  get carouselLocations(): string[] {
+    if (!this.vehicle?.tickets) return [];
+    const locs = new Set<string>();
+    this.vehicle.tickets.forEach((t: any) => {
+      if (t.defectLocation && t.defectLocation !== '-') locs.add(t.defectLocation);
+    });
+    return Array.from(locs).sort();
+  }
+
+  get carouselFilteredTickets(): any[] {
+    if (!this.vehicle?.tickets) return [];
+    if (this.ticketCarouselLocation === 'all') return this.vehicle.tickets;
+    return this.vehicle.tickets.filter((t: any) => t.defectLocation === this.ticketCarouselLocation);
+  }
+
+  get maxCarouselOffset(): number {
+    return Math.max(0, this.carouselFilteredTickets.length - this.carouselVisibleCount);
+  }
+
+  get carouselDots(): number[] {
+    return Array.from({ length: this.maxCarouselOffset + 1 }, (_, i) => i);
+  }
+
+  setCarouselFilter(loc: string): void {
+    this.ticketCarouselLocation = loc;
+    this.carouselOffset = 0;
+  }
+
+  carouselPrev(): void {
+    if (this.carouselOffset > 0) this.carouselOffset--;
+  }
+
+  carouselNext(): void {
+    if (this.carouselOffset < this.maxCarouselOffset) this.carouselOffset++;
+  }
 
   constructor(
     private readonly route: ActivatedRoute,
     private readonly authService: AuthService,
     public vehicleUtil: VehicleUtilService,
     private readonly clientDashboardService: ClientDashboardService,
+    private readonly userManagementService: UserManagementService,
   ) {
     const context = resolveProjectManagementContext(
       this.authService.currentUserValue,
@@ -140,21 +202,8 @@ export class VehicleViewComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
-    this.clientDashboardService
-      .getVehicles({ page: 1, pageSize: 10000 })
+    this.findVehicleInProjects()
       .pipe(
-        map((response) => extractArrayFromApiResponse(response)),
-        map((vehicles) =>
-          vehicles.find((item) => {
-            const id = Number(getFirstDefinedValue(item, ['id', 'vehicleId', 'vehicleID', 'VehicleId', 'vehicle.id']) ?? 0);
-            return Number.isFinite(id) && id === this.vehicleId;
-          }),
-        ),
-        catchError((error) => {
-          console.error('Failed to load vehicle detail:', error);
-          this.errorMessage = 'Failed to load vehicle details.';
-          return of(undefined);
-        }),
         take(1),
       )
       .subscribe((item) => {
@@ -169,13 +218,16 @@ export class VehicleViewComponent implements OnInit {
         }
 
         this.vehicle = this.mapVehicleDetail(item);
-        this.totalPages = Math.ceil((this.vehicle?.tickets?.length || 0) / this.pageSize);
         this.currentPage = 1;
         this.updatePagination();
-        this.timeline = this.vehicle.timeline || [];
-        this.galleryImages = this.vehicle.images.gallery || [];
-        this.selectedImage = this.galleryImages.length ? this.galleryImages[0].url : '';
         this.isLoading = false;
+
+        // Load users first (cached), then data in parallel so names are resolved
+        this.loadUsers().then(() => {
+          this.loadVehicleTickets();
+          this.loadVehicleSnags();
+          this.loadStationTrackers();
+        });
       });
   }
 
@@ -198,33 +250,246 @@ export class VehicleViewComponent implements OnInit {
     this.updatePagination();
   }
 
+  goToSnagPage(page: number): void {
+    if (page < 1 || page > this.snagTotalPages || page === PAGINATION_ELLIPSIS) return;
+    this.snagCurrentPage = page;
+    this.updateSnagPagination();
+  }
+
+  updateSnagPagination(): void {
+    const snags = this.vehicle?.snags ?? [];
+    this.snagTotalPages = Math.max(1, Math.ceil(snags.length / this.snagPageSize));
+    const start = (this.snagCurrentPage - 1) * this.snagPageSize;
+    this.paginatedSnags = snags.slice(start, start + this.snagPageSize);
+    this.snagPaginationItems = buildPaginationItems(this.snagTotalPages, this.snagCurrentPage);
+  }
+
+  sortTickets(col: string): void {
+    if (this.ticketSortCol === col) {
+      this.ticketSortDir = this.ticketSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.ticketSortCol = col;
+      this.ticketSortDir = 'asc';
+    }
+    if (!this.vehicle) return;
+    const dir = this.ticketSortDir === 'asc' ? 1 : -1;
+    const sorted = [...this.vehicle.tickets].sort((a, b) => {
+      const av = String((a as any)[col] ?? '').toLowerCase();
+      const bv = String((b as any)[col] ?? '').toLowerCase();
+      return av < bv ? -dir : av > bv ? dir : 0;
+    });
+    this.vehicle = { ...this.vehicle, tickets: sorted };
+    this.currentPage = 1;
+    this.updatePagination();
+  }
+
+  sortSnags(col: string): void {
+    if (this.snagSortCol === col) {
+      this.snagSortDir = this.snagSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.snagSortCol = col;
+      this.snagSortDir = 'asc';
+    }
+    if (!this.vehicle) return;
+    const dir = this.snagSortDir === 'asc' ? 1 : -1;
+    const sorted = [...this.vehicle.snags].sort((a, b) => {
+      const av = String((a as any)[col] ?? '').toLowerCase();
+      const bv = String((b as any)[col] ?? '').toLowerCase();
+      return av < bv ? -dir : av > bv ? dir : 0;
+    });
+    this.vehicle = { ...this.vehicle, snags: sorted };
+    this.snagCurrentPage = 1;
+    this.updateSnagPagination();
+  }
+
+  /** Fetch all users into a local map (id → name). Result is cached by UserManagementService. */
+  private loadUsers(): Promise<void> {
+    return firstValueFrom(
+      this.userManagementService.getUsers({ page: 1, pageSize: 500, role: '', clientId: '0', manufacturerId: '0' }).pipe(
+        map((result) => {
+          result.items.forEach((u) => this.userNameById.set(u.id, u.name));
+        }),
+        catchError(() => of(void 0)),
+      ),
+    );
+  }
+
+  /**
+   * Resolve a display name from a raw field value.
+   * - Plain text (e.g. "John Smith") → returned as-is
+   * - Pure numeric string / number (e.g. "42") → looked up in userNameById, falls back to "User #42"
+   */
+  private resolveUserName(raw: unknown, fallback = '-'): string {
+    const str = String(raw ?? '').trim();
+    if (!str || str === '-' || str === 'null' || str === 'undefined') return fallback;
+    const asNum = Number(str);
+    if (Number.isFinite(asNum) && asNum > 0 && String(asNum) === str) {
+      return this.userNameById.get(asNum) ?? `User #${str}`;
+    }
+    return str;
+  }
+
   private loadVehicleTickets(): void {
     this.clientDashboardService
       .getTickets({ vehicleId: this.vehicleId, page: 1, pageSize: 5000 })
       .pipe(
         map((response) => extractArrayFromApiResponse(response)),
+        catchError(() => of([] as any[])),
+        take(1),
+      )
+      .subscribe((tickets) => {
+        if (!this.vehicle) return;
+        const mappedTickets = tickets.map((ticket, index) => this.mapTicket(ticket, index));
+        this.vehicle = { ...this.vehicle, tickets: mappedTickets };
+        this.totalPages = Math.ceil(mappedTickets.length / this.pageSize);
+        this.updatePagination();
+        this.initializeCharts();
+      });
+  }
+
+  private loadStationTrackers(): void {
+    this.clientDashboardService
+      .getStationTrackers({
+        vehicleId: this.vehicleId,
+        pageNumber: 1,
+        pageSize: 100,
+        orderBy: 'id',
+        orderDirection: 'desc',
+      })
+      .pipe(
+        map((response) => extractArrayFromApiResponse(response)),
+        catchError(() => of([] as any[])),
+        take(1),
+      )
+      .subscribe((trackers) => {
+        this.timeline = this.buildTimelineFromStationTrackers(trackers);
+      });
+  }
+
+  private loadVehicleSnags(): void {
+    this.clientDashboardService
+      .getSnags({ vehicleId: this.vehicleId, pageSize: 5000 })
+      .pipe(
+        map((response) => extractArrayFromApiResponse(response)),
         catchError((error) => {
-          console.error('Failed to load vehicle tickets:', error);
+          console.error('Failed to load vehicle snags:', error);
           return of([] as any[]);
         }),
         take(1),
       )
-      .subscribe((tickets) => {
-        if (!this.vehicle) {
-          this.isLoading = false;
-          return;
-        }
-
-        const mappedTickets = tickets.map((ticket, index) => this.mapTicket(ticket, index));
-        this.vehicle = {
-          ...this.vehicle,
-          tickets: mappedTickets,
-        };
-
-        this.timeline = this.buildTimelineFromTickets(tickets);
+      .subscribe((snags) => {
+        if (!this.vehicle) return;
+        const mappedSnags: Snag[] = snags.map((snag: any, index: number) => this.mapSnag(snag, index));
+        const defects: Defect[] = this.buildDefectsFromSnags(snags);
+        this.vehicle = { ...this.vehicle, snags: mappedSnags, defects };
+        this.snagCurrentPage = 1;
+        this.updateSnagPagination();
         this.initializeCharts();
-        this.isLoading = false;
       });
+  }
+
+  private mapSnag(snag: any, index: number): Snag {
+    // API fields: id, snagNumber, uniqueId, description, finalInspectionCategoryName,
+    //             userId, safetyCritical, repeater, projectId, vehicleId, lastupdate
+    const rawId = getFirstDefinedValue(snag, ['id', 'snagId']) ?? index + 1;
+    const number = toText(getFirstDefinedValue(snag, ['snagNumber', 'uniqueId']), String(rawId));
+    return {
+      id: String(rawId),
+      number,
+      description: toText(getFirstDefinedValue(snag, ['description', 'snagDescription', 'notes']), '-'),
+      location: toText(getFirstDefinedValue(snag, ['finalInspectionCategoryName', 'categoryName', 'location']), '-'),
+      severity: 'low',
+      status: 'open',
+      inspector: this.resolveUserName(getFirstDefinedValue(snag, ['userId', 'modifiedBy', 'userName', 'inspectorName'])),
+      project: toText(getFirstDefinedValue(snag, ['projectName', 'project']), '-'),
+      category: toText(getFirstDefinedValue(snag, ['finalInspectionCategoryName', 'categoryName']), '-'),
+      safetyCritical: Boolean(getFirstDefinedValue(snag, ['safetyCritical', 'isSafetyCritical']) ?? false),
+      repeater: Boolean(getFirstDefinedValue(snag, ['repeater', 'isRepeater']) ?? false),
+      hasImages: Boolean(getFirstDefinedValue(snag, ['hasImages', 'hasImage']) ?? (Number(getFirstDefinedValue(snag, ['imageCount']) ?? 0) > 0)),
+    };
+  }
+
+  private buildDefectsFromSnags(snags: any[]): Defect[] {
+    const areaMap = new Map<string, number>();
+    for (const snag of snags) {
+      const area = toText(getFirstDefinedValue(snag, ['finalInspectionCategoryName', 'categoryName', 'location', 'area']), 'Other');
+      areaMap.set(area, (areaMap.get(area) ?? 0) + 1);
+    }
+    return Array.from(areaMap.entries()).map(([area, count]) => ({
+      area,
+      count,
+      severity: (count > 5 ? 'high' : count > 2 ? 'medium' : 'low') as any,
+    }));
+  }
+
+  /**
+   * Fallback: fetch vehicle with full data (make/model/propulsion) via project vehicles endpoint.
+   * 1. Load flat /Vehicles list to get clientId
+   * 2. Load projects for that clientId
+   * 3. Search through project vehicles to find the matching vehicle
+   */
+  private findVehicleInProjects() {
+    return this.clientDashboardService.getVehicles({ page: 1, pageSize: 10000 }).pipe(
+      map((response) => extractArrayFromApiResponse(response)),
+      map((vehicles) => vehicles.find((v) => {
+        const id = Number(getFirstDefinedValue(v, ['id', 'vehicleId', 'vehicleID', 'VehicleId']) ?? 0);
+        return Number.isFinite(id) && id === this.vehicleId;
+      }) ?? null),
+      switchMap((minimalItem) => {
+        if (!minimalItem) return of(null);
+        const clientId = Number(getFirstDefinedValue(minimalItem, ['clientId', 'ClientId', 'clientID']) ?? 0);
+        if (!clientId) return of(minimalItem);
+
+        return forkJoin({
+          projects: this.clientDashboardService.getProjects({ clientId, pageSize: 500 }).pipe(
+            map((response) => extractArrayFromApiResponse(response)),
+            catchError(() => of([] as any[])),
+          ),
+          clientInfo: this.clientDashboardService.getClientById(clientId).pipe(
+            catchError(() => of(null)),
+          ),
+        }).pipe(
+          switchMap(({ projects, clientInfo }) => {
+            const clientName: string = String(
+              getFirstDefinedValue(clientInfo, ['customerName', 'name', 'clientName', 'companyName']) ?? '-'
+            );
+
+            if (!projects.length) return of({ ...minimalItem, clientName });
+
+            const projectIds = projects
+              .map((p: any) => Number(getFirstDefinedValue(p, ['id', 'projectId', 'ProjectId']) ?? 0))
+              .filter((id: number) => id > 0);
+
+            if (!projectIds.length) return of({ ...minimalItem, clientName });
+
+            // Search project vehicles sequentially until found
+            const searchNext = (index: number): any => {
+              if (index >= projectIds.length) return of({ ...minimalItem, clientName });
+              const projectItem = projects[index];
+              return this.clientDashboardService.getProjectVehicles(projectIds[index], { clientId, pageSize: 5000 }).pipe(
+                map((response) => extractArrayFromApiResponse(response)),
+                switchMap((vehicles) => {
+                  const found = vehicles.find((v: any) => {
+                    const id = Number(getFirstDefinedValue(v, ['id', 'vehicleId', 'vehicleID', 'VehicleId']) ?? 0);
+                    return Number.isFinite(id) && id === this.vehicleId;
+                  });
+                  if (found) {
+                    const projectName = getFirstDefinedValue(projectItem, ['projectName', 'name', 'ProjectName', 'Name']);
+                    return of({ ...minimalItem, ...found, projectName, clientName });
+                  }
+                  return searchNext(index + 1);
+                }),
+                catchError(() => searchNext(index + 1)),
+              );
+            };
+
+            return searchNext(0);
+          }),
+          catchError(() => of(minimalItem)),
+        );
+      }),
+      catchError(() => of(null)),
+    );
   }
 
   private mapVehicleDetail(item: any): VehicleDetail {
@@ -239,13 +504,14 @@ export class VehicleViewComponent implements OnInit {
 
     return {
       id: this.vehicleId,
-      client: toText(getFirstDefinedValue(item, ['clientName', 'client', 'customerName']), '-'),
+      client: toText(getFirstDefinedValue(item, ['clientName', 'ClientName', 'client', 'customerName']), '-'),
+      project: toOptionalText(getFirstDefinedValue(item, ['projectName', 'ProjectName', 'project'])),
       fleetNumber,
-      make: toText(getFirstDefinedValue(item, ['make', 'manufacturer', 'makeName']), '-'),
-      model: toText(getFirstDefinedValue(item, ['model', 'modelValue', 'vehicleModel']), '-'),
+      make: toText(getFirstDefinedValue(item, ['make', 'Make', 'manufacturer', 'makeName']), '-'),
+      model: toText(getFirstDefinedValue(item, ['model', 'Model', 'modelValue', 'vehicleModel']), '-'),
       vin: toText(getFirstDefinedValue(item, ['vin', 'VIN']), '-'),
       mileageType: toText(getFirstDefinedValue(item, ['mileageType', 'distanceUnit']), 'miles'),
-      propulsion: toText(getFirstDefinedValue(item, ['propulsionTypeName', 'propulsion', 'fuelType']), '-'),
+      propulsion: toText(getFirstDefinedValue(item, ['propulsionTypeName', 'PropulsionTypeName', 'propulsion', 'Propulsion', 'fuelType', 'FuelType']), '-'),
       status: 'completed',
       imageUrl: toText(getFirstDefinedValue(item, ['imageUrl', 'photo', 'vehicleImage']), this.defaultVehicleImage),
       inspectionDate,
@@ -286,17 +552,138 @@ export class VehicleViewComponent implements OnInit {
   }
 
   private mapTicket(ticket: any, index: number): any {
-    const id = toText(getFirstDefinedValue(ticket, ['ticketNumber', 'id', 'ticketId']), String(index + 1));
-    const status = toText(getFirstDefinedValue(ticket, ['status', 'ticketStatus']), 'open').toLowerCase();
-    const priority = toText(getFirstDefinedValue(ticket, ['priority', 'severity']), 'low').toLowerCase();
-
+    // API fields: id, ticketNumber, ticketDescription, statusTicketName, defectLocationName,
+    //             stationName, assignedBy (userId), assignedTo (userId),
+    //             safetyCritical, repeated, createdAt
+    const id = toText(getFirstDefinedValue(ticket, ['ticketNumber', 'uniqueId', 'id']), String(index + 1));
+    const rawStatus = String(getFirstDefinedValue(ticket, ['statusTicketName', 'statusName', 'status']) ?? 'open').toLowerCase();
+    const createdDate = toText(getFirstDefinedValue(ticket, ['createdAt', 'createdDate', 'dateCreated']), '-');
     return {
       id,
-      title: toText(getFirstDefinedValue(ticket, ['title', 'description', 'defectType']), 'Ticket'),
-      priority: priority === 'high' || priority === 'medium' || priority === 'low' ? priority : 'low',
-      status: status === 'open' || status === 'in-progress' || status === 'resolved' || status === 'closed' ? status : 'open',
-      createdDate: toText(getFirstDefinedValue(ticket, ['createdDate', 'dateCreated', 'openedDate']), '-'),
+      title: toText(getFirstDefinedValue(ticket, ['ticketDescription', 'description', 'title']), '-'),
+      status: rawStatus || 'open',
+      createdDate,
+      defectLocation: toText(getFirstDefinedValue(ticket, ['defectLocationName', 'defectLocation']), '-'),
+      station: toText(getFirstDefinedValue(ticket, ['stationName', 'station']), '-'),
+      description: toText(getFirstDefinedValue(ticket, ['ticketDescription', 'description']), '-'),
+      safetyCritical: Boolean(getFirstDefinedValue(ticket, ['safetyCritical', 'isSafetyCritical']) ?? false),
+      repeater: Boolean(getFirstDefinedValue(ticket, ['repeated', 'repeater', 'isRepeater']) ?? false),
+      hasImages: Boolean(getFirstDefinedValue(ticket, ['hasImages', 'hasImage']) ?? (Number(getFirstDefinedValue(ticket, ['imageCount']) ?? 0) > 0)),
+      assignedBy: this.resolveUserName(getFirstDefinedValue(ticket, ['assignedBy', 'assignedByName', 'assignedById'])),
+      assignedTo: this.resolveUserName(getFirstDefinedValue(ticket, ['assignedTo', 'assignedToName', 'assignedToId'])),
     };
+  }
+
+  // Station label map reused from vehicle-station-tracker report
+  private static readonly STATION_LABELS: Record<string, string> = {
+    station01: '01 · Chassis Prep, AC Prep, Fire Suppression, Engine Dress',
+    station02: '02 · Modify Front End, Air Bags, Brake Lines & Fuel Lines',
+    station03: '03 · Cab Cut Out, Frame Kickups, Rear Axle, Bike Racks',
+    station04: '04 · RR Frame & Shelling, Birdcage, Ramp Support',
+    station05: '05 · Air Lines, Exhaust, Drive Shafts, Brake Lines, Rough Electric',
+    station06: '06 · Floor, Rear Wall, Roof, AC Mount, Hatches, Electrical',
+    station07: '07 · Floor Prep, Hoses, Electrical, Mirror Harness',
+    station08: '08 · Polyurea Spray',
+    station09: '09 · Front Cap & Seal, Ext Lights, Electrical Upstairs, Fiberglass',
+    station10: '10 · Interior Electrical, Ramps',
+    station11: '11 · Electrical Console, Interior Lights, Warning Buzzer, Mirrors',
+    station12: '12 · Stanchions, Transitions, Speakers, Windows',
+    station13: '13 · Test, Bike Racks, Luggage Racks',
+    station14: '14 · Seats, Entry Door',
+    station15: '15 · ABS Plastics, Exterior Finish, Fire Suppression',
+    station16: '16 · Underbody, Vacuum, Coolant, Headlights',
+    station17: '17 · Drys Box, Rub Rails, Clean & Detail',
+    station18: '18 · Alignment, Leak Down Test',
+    station19: '19 · Post Road Test Bay',
+    station20: '20 · Inspector Testing & PDI',
+    station21: '21 · Recuperation',
+    station22: '22 · Nova Bus Finishing Area',
+    station23: '23 · Nova Bus Coach Tester Inspection',
+    station24: '24 · Coach Tester Road Test, Inspection & Painting',
+    station25: '25 · Coach Tester Water Test, Repairs after Road Test',
+    station26: '26 · Cleaning & Washing Before Presenting',
+    station27: '27 · Station 27',
+    station28: '28 · Station 28',
+    station29: '29 · Shipped to Client',
+  };
+
+  private buildTimelineFromStationTrackers(trackers: any[]): TimelineEvent[] {
+    if (!trackers.length) return [];
+
+    const stationKeys = Object.keys(VehicleViewComponent.STATION_LABELS);
+    const events: TimelineEvent[] = [];
+
+    for (const tracker of trackers) {
+      const stationName = toOptionalText(getFirstDefinedValue(tracker, [
+        'stationName', 'StationName', 'stageName', 'stage', 'station',
+      ]));
+      const user = this.resolveUserName(
+        getFirstDefinedValue(tracker, ['userName', 'UserName', 'inspectorName', 'assignedTo', 'userId', 'UserId']),
+      );
+      const statusRaw = toText(getFirstDefinedValue(tracker, [
+        'status', 'stageStatus', 'statusName',
+      ]), 'Completed');
+
+      if (stationName) {
+        // API returns one record per station event
+        const stationNumber = toOptionalText(getFirstDefinedValue(tracker, ['stationNumber', 'StationNumber']));
+        const stationTypeName = toOptionalText(getFirstDefinedValue(tracker, ['stationTypeName', 'StationTypeName']));
+        const descriptionRaw = toOptionalText(getFirstDefinedValue(tracker, ['description', 'Description']));
+
+        const startRaw = toOptionalText(getFirstDefinedValue(tracker, ['startDate', 'StartDate']));
+        const endRaw = toOptionalText(getFirstDefinedValue(tracker, ['endDate', 'EndDate']));
+        const startDate = this.formatDate(startRaw);
+        const endDate = this.formatDate(endRaw);
+
+        const label = stationNumber
+          ? `${stationNumber} · ${stationName}`
+          : stationName;
+
+        const descParts = [stationTypeName, descriptionRaw].filter(Boolean);
+
+        events.push({
+          date: startDate ?? endDate ?? '-',
+          event: label,
+          user,
+          icon: 'ti-map-pin',
+          color: '#26bf94',
+          status: statusRaw,
+          startDate,
+          endDate,
+          description: descParts.join(' — ') || undefined,
+        });
+      } else {
+        // API returns one record per vehicle with station01–29 fields
+        const startRaw = toOptionalText(getFirstDefinedValue(tracker, [
+          'startDate', 'StartDate', 'createdDate',
+        ]));
+        const globalStart = this.formatDate(startRaw);
+
+        for (const key of stationKeys) {
+          const value = toOptionalText(tracker[key]);
+          if (!value) continue;
+          const endDate = this.formatDate(value) ?? value;
+          events.push({
+            date: globalStart ?? endDate,
+            event: VehicleViewComponent.STATION_LABELS[key],
+            user: toText(getFirstDefinedValue(tracker, ['inspector', 'inspectorName', 'userName']), '-'),
+            icon: 'ti-map-pin',
+            color: '#26bf94',
+            status: 'Completed',
+            startDate: globalStart ?? undefined,
+            endDate,
+          });
+        }
+      }
+    }
+
+    return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  private formatDate(raw: string | null | undefined): string | undefined {
+    if (!raw) return undefined;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? raw : d.toLocaleDateString();
   }
 
   private buildTimelineFromTickets(tickets: any[]): TimelineEvent[] {

@@ -1,0 +1,44 @@
+
+.apexcharts-treemap-rect {
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+.apexcharts-treemap-text {
+  white-space: normal !important;
+  word-break: break-word !important;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.25rem;
+  max-width: 95%;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  hyphens: auto;
+  font-size: clamp(0.7rem, 1vw, 1rem);
+  line-height: 1.1;
+}
+
+.apexcharts-treemap-rect {
+  border-radius: 8px;
+}
+
+.apexcharts-treemap-text {
+  color: #fff;
+  line-height: 1.2;
+}
+
+.apexcharts-treemap-rect[data-label="Other"] {
+  background: #495057 !important;
+}
+
+.apexcharts-treemap-rect[data-label="Unknown"] {
+  background: #6c757d !important;
+}
+
+.apexcharts-treemap-rect {
+  transition: background 0.2s;
+}

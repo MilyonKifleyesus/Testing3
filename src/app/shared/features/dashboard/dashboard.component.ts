@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Inject, OnDestroy, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { NgSelectModule } from '@ng-select/ng-select';
@@ -58,7 +60,6 @@ import {
   getNextFullscreenWidgetId,
   getResizeCursor,
 } from './dashboard-interactions.utils';
-import { Inject } from '@angular/core';
 import { ToastService } from '../../../components/elements/toast/toast.service';
 import { MapStageComponent } from '../fleet-map/components/map-stage/map-stage.component';
 import type {
@@ -72,6 +73,7 @@ import type {
 import { FleetMapApiService } from '../fleet-map/services/fleet-map-api.service';
 import { getProjectStatusDisplayLabel } from '../fleet-map/utils/fleet-map-status';
 import { AppStateService } from '../../services/app-state.service';
+import { UserManagementService } from '../../services/user-management.service';
 
 type DashboardMapStatusFilter = 'all' | ApiProject['status'];
 
@@ -104,8 +106,35 @@ const DASHBOARD_MAP_STATUS_OPTIONS: DashboardMapStatusOption[] = [
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+      private debounceDashboardMapView(): void {
+        if (this.dashboardFilterChangeTimeout) {
+          clearTimeout(this.dashboardFilterChangeTimeout);
+        }
+        this.dashboardFilterChangeTimeout = setTimeout(() => {
+          this.updateDashboardMapView();
+        }, this.dashboardFilterDebounceMs);
+      }
+    // ...existing code...
+      private dashboardFilterChangeTimeout: any = null;
+      private readonly dashboardFilterDebounceMs = 150;
+    userIdToUsername: { [id: number]: string } = {};
+
+    constructor(
+      private authService: AuthService,
+      private dashboardProjectsService: DashboardProjectsService,
+      private clientService: ClientService,
+      @Inject(ClientDashboardService) private clientDashboardService: ClientDashboardService,
+      private toastService: ToastService,
+      private fleetMapApiService: FleetMapApiService,
+      private appStateService: AppStateService,
+      private userManagementService: UserManagementService,
+      private location: Location,
+      private route: ActivatedRoute,
+      private cdr: ChangeDetectorRef,
+    ) {}
   role: DashboardRole = 'client';
   title = 'BusPulse Dashboard';
   welcomeUserName = 'User';
@@ -165,6 +194,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private makeModelRequestVersion = 0;
   private propulsionRequestVersion = 0;
   private vehicleStationRequestVersion = 0;
+  private ticketsDashboardRequestVersion = 0;
   // Labels shown in the left column of widget-15 (vehicle list)
   vehicleStationLabels: string[] = [];
 
@@ -179,20 +209,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private userSubscription?: Subscription;
   private themeSubscription?: Subscription;
 
-  constructor(
-    private authService: AuthService,
-    private dashboardProjectsService: DashboardProjectsService,
-    private clientService: ClientService,
-    @Inject(ClientDashboardService) private clientDashboardService: ClientDashboardService,
-    private toastService: ToastService,
-    private fleetMapApiService: FleetMapApiService,
-    private appStateService: AppStateService,
-  ) {}
 
   ngOnInit(): void {
     try {
       this.syncDashboardTheme();
       this.applyRole(this.authService.userRole);
+      // Restore filter state from URL query params (applyRole resets to 'all', so apply after)
+      const qp = this.route.snapshot.queryParams;
+      if (qp['projectId']) this.selectedProject = qp['projectId'];
+      if (qp['vehicleId']) this.selectedVehicle = qp['vehicleId'];
       this.fetchAllClientVehiclesAndTickets();
       this.loadDashboardMapData();
     } catch (err) {
@@ -205,9 +230,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       } catch (err) {
         this.toastService.show('Client dashboard role error: ' + (typeof err === 'object' && err && 'message' in err ? (err as any).message : String(err)), { classname: 'bg-danger text-light', autohide: true });
       }
+      this.cdr.markForCheck();
     });
     this.themeSubscription = this.appStateService.state$.subscribe((state) => {
       this.syncDashboardTheme(state?.theme);
+      this.cdr.markForCheck();
     });
 
     document.addEventListener('mousemove', this.mouseMoveHandler);
@@ -248,7 +275,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   toggleAdminOpenClosed(): void {
+    this.selectedProject = 'all';
     this.selectedVehicle = 'all';
+    this.dashboardProjectsService.clearProjectsCache();
+    this.setDonutChartsLoading();
     this.updateDashboardMapView();
     this.loadProjects();
   }
@@ -293,19 +323,73 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return 'stat-icon--success';
   }
 
+  private updateQueryParams(): void {
+    const projectId = this.selectedProject !== 'all' ? this.selectedProject : '0';
+    const vehicleId = this.selectedVehicle !== 'all' ? this.selectedVehicle : '0';
+    const currentPath = this.location.path(false).split('?')[0];
+    const query = `projectId=${encodeURIComponent(projectId)}&userId=0&vehicleId=${encodeURIComponent(vehicleId)}`;
+    this.location.replaceState(currentPath, query);
+  }
+
   onProjectChange(projectId: string): void {
     this.selectedProject = projectId;
     this.selectedVehicle = 'all';
+    this.updateQueryParams();
     this.updateDashboardMapView();
-    this.refreshVehiclesByMakeModelChart();
-    this.refreshVehiclesByPropulsionTypesChart();
+    this.updateProjectStatusChart(this.projects);
+    this.fetchAllVehiclesForSelectedProjects();
     this.loadVehicles(projectId);
-    if (!this.isAdminRole) {
+    if (this.isAdminRole) {
+      this.setAdminStatCards();
+    } else {
       this.fetchAllClientVehiclesAndTickets();
       this.refreshClientView();
     }
     // refresh vehicle station tracking when project changes
     this.refreshVehicleStationTrackingWidget();
+  }
+
+  private fetchAllVehiclesForSelectedProjects(): void {
+    this.refreshVehiclesByMakeModelChart();
+    this.refreshVehiclesByPropulsionTypesChart();
+  }
+
+  private refreshVehiclesByMakeModelChart(): void {
+    this.refreshVehicleDistributionWidget(
+      'widget-2',
+      () => ++this.makeModelRequestVersion,
+      () => this.makeModelRequestVersion,
+      () => this.dashboardProjectsService.getVehiclesByMakeModelData({
+        projectIds: this.getSelectedOrAllVisibleProjectIds(),
+        clientId: this.getEffectiveClientId(),
+        userId: undefined,
+        includeClosed: this.includeClosedProjects,
+        maxItems: 7,
+      }),
+      (items) => buildVehiclesByMakeModelChartOptions(
+        busPulseData.vehiclesByMakeModelChart,
+        items,
+      ),
+    );
+  }
+
+  private refreshVehiclesByPropulsionTypesChart(): void {
+    this.refreshVehicleDistributionWidget(
+      'widget-3',
+      () => ++this.propulsionRequestVersion,
+      () => this.propulsionRequestVersion,
+      () => this.dashboardProjectsService.getVehiclesByPropulsionTypeData({
+        projectIds: this.getSelectedOrAllVisibleProjectIds(),
+        clientId: this.getEffectiveClientId(),
+        userId: undefined,
+        includeClosed: this.includeClosedProjects,
+        maxItems: 7,
+      }),
+      (items) => buildVehiclesByPropulsionTypeChartOptions(
+        busPulseData.vehiclesByPropulsionChart,
+        items,
+      ),
+    );
   }
 
   onAdminClientChange(clientId: string): void {
@@ -318,12 +402,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.projects = [{ id: 'all', name: 'All Projects' }];
     this.vehicles = [{ id: 'all', name: 'All Vehicles' }];
 
+    // Reset all three donut charts to loading so stale data from the previous
+    // client is not shown while the new client's data is being fetched.
+    this.setDonutChartsLoading();
     this.updateDashboardMapView();
     this.loadProjects();
   }
 
   onVehicleChange(vehicleId: string): void {
     this.selectedVehicle = vehicleId;
+    this.updateQueryParams();
     if (this.isAdminRole) {
       this.setAdminStatCards();
       return;
@@ -376,9 +464,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.dashboardMapSelectedStatus === status) {
       return;
     }
-
     this.dashboardMapSelectedStatus = status;
-    this.updateDashboardMapView();
+    this.debounceDashboardMapView();
   }
 
   toggleDashboardMapManufacturer(manufacturerId: string): void {
@@ -386,12 +473,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!normalizedId) {
       return;
     }
-
     this.dashboardMapSelectedManufacturerIds = this.dashboardMapSelectedManufacturerIds.includes(normalizedId)
       ? this.dashboardMapSelectedManufacturerIds.filter((id) => id !== normalizedId)
       : [...this.dashboardMapSelectedManufacturerIds, normalizedId];
-
-    this.updateDashboardMapView();
+    this.debounceDashboardMapView();
   }
 
   isDashboardMapManufacturerSelected(manufacturerId: string): boolean {
@@ -428,6 +513,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   isWidgetVisible(widget: DashboardWidget): boolean {
     // Admins always see all widgets
     if (this.isAdminRole) return true;
+
+    // Hide fleet map and recent activities widgets for non-admin users
+    if (widget.id === 'widget-map' || widget.id === 'widget-14') return false;
 
     // If both filters are set to 'all', hide the Vehicle Station Tracking widget (widget-15)
     if (this.selectedProject === 'all' && this.selectedVehicle === 'all' && widget.id === 'widget-15') {
@@ -472,6 +560,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   restoreAllWidgets(): void {
     localStorage.removeItem(this.getLayoutStorageKey());
     this.initializeWidgets();
+    this.loadProjects();
+    if (!this.isAdminRole) {
+      this.fetchAllClientVehiclesAndTickets();
+      this.fetchAllVehiclesForSelectedProjects();
+    }
   }
 
   toggleFullscreen(widgetId: string): void {
@@ -499,9 +592,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   resetDashboardLayout(): void {
     localStorage.removeItem(this.getLayoutStorageKey());
-    this.initializeWidgets();
-    this.widgets = this.buildWidgets();
-    this.saveLayoutToStorage();
+    // Restore any deleted widgets while preserving chart data in existing widgets
+    const existingIds = new Set(this.widgets.map((w) => w.id));
+    const missing = createDefaultDashboardWidgets().filter((w) => !existingIds.has(w.id));
+    if (missing.length) {
+      this.widgets = [...this.widgets, ...missing];
+    }
+    this.applyDefaultWidgetLayout();
     window.dispatchEvent(new Event('resize'));
   }
 
@@ -593,14 +690,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         this.updateProjectStatusChart(this.projects);
         this.updateProjectScopedComparisonWidgets();
-        this.refreshVehiclesByMakeModelChart();
-        this.refreshVehiclesByPropulsionTypesChart();
+        this.fetchAllVehiclesForSelectedProjects();
 
         this.updateDashboardMapView();
         this.loadVehicles(this.selectedProject);
-        if (!this.isAdminRole) {
+        if (this.isAdminRole) {
+          this.setAdminStatCards();
+        } else {
           this.refreshClientView();
         }
+        this.cdr.markForCheck();
       },
       error: (err) => {
         if (requestVersion !== this.projectsRequestVersion) return;
@@ -609,14 +708,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.selectedVehicle = 'all';
         this.updateProjectStatusChart(this.projects);
         this.updateProjectScopedComparisonWidgets();
-        this.refreshVehiclesByMakeModelChart();
-        this.refreshVehiclesByPropulsionTypesChart();
+        this.fetchAllVehiclesForSelectedProjects();
         this.updateDashboardMapView();
         this.loadVehicles(this.selectedProject);
-        if (!this.isAdminRole) {
+        if (this.isAdminRole) {
+          this.setAdminStatCards();
+        } else {
           this.refreshClientView();
         }
         this.toastService.show('Failed to load projects: ' + (err?.message || 'Unknown error'), { classname: 'bg-danger text-light', autohide: true });
+        this.cdr.markForCheck();
       },
     });
   }
@@ -691,6 +792,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.fetchAllClientVehiclesAndTickets();
           this.refreshClientView();
         }
+        this.cdr.markForCheck();
       },
       error: (err) => {
         if (requestVersion !== this.vehiclesRequestVersion) return;
@@ -698,6 +800,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.selectedVehicle = 'all';
         this.totalVehiclesCount = null;
         this.toastService.show('Failed to load vehicles: ' + (err?.message || 'Unknown error'), { classname: 'bg-danger text-light', autohide: true });
+        this.cdr.markForCheck();
       },
     });
   }
@@ -721,12 +824,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
 
         this.updateDashboardMapView();
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.clients = [{ id: 'all', name: 'All Clients' }];
         this.selectedClient = 'all';
         this.updateDashboardMapView();
         this.toastService.show('Failed to load clients: ' + (err?.message || 'Unknown error'), { classname: 'bg-danger text-light', autohide: true });
+        this.cdr.markForCheck();
       },
     });
   }
@@ -750,6 +855,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.dashboardMapDataLoaded = true;
         this.dashboardMapLoading = false;
         this.updateDashboardMapView();
+        this.cdr.markForCheck();
       },
       error: (err) => {
         this.dashboardMapLoading = false;
@@ -760,11 +866,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.dashboardMapLocations = [];
         this.dashboardMapManufacturerOptions = [];
         this.updateDashboardMapWidgetState();
+        this.cdr.markForCheck();
       },
     });
   }
 
   private updateDashboardMapView(): void {
+    // ...existing code...
+    // ...existing code...
     if (!this.dashboardMapDataLoaded) {
       return;
     }
@@ -777,11 +886,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (effectiveClientKey && project.clientId !== effectiveClientKey) {
         return false;
       }
-
       if (selectedProjectKey && selectedProjectKey !== 'all') {
         return project.id === this.selectedProject;
       }
-
       return true;
     });
 
@@ -808,7 +915,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (!this.dashboardMapSelectedManufacturerIds.includes(manufacturer.id)) {
           return;
         }
-
         manufacturer.locationIds.forEach((locationId) => selectedManufacturerLocationIds.add(locationId));
       });
     }
@@ -821,11 +927,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (!statusMatch) {
         return false;
       }
-
       if (selectedManufacturerLocationIds.size === 0) {
         return true;
       }
-
       return this.projectMatchesDashboardMapManufacturerFilter(project, selectedManufacturerLocationIds);
     });
 
@@ -968,10 +1072,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
           vehicle: client.name || fallbackProfile.vehicle,
         };
         this.customerLogoName = client.logoName || client.name || '';
+        this.cdr.markForCheck();
       },
       error: () => {
         this.clientProfile = fallbackProfile;
         this.customerLogoName = '';
+        this.cdr.markForCheck();
       },
     });
   }
@@ -991,8 +1097,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private setAdminStatCards(): void {
     const totalProjects = this.projects.filter((project) => project.id !== 'all').length || 0;
-    this.updateProjectStatusChart(this.projects);
-    // Always fetch tickets dashboard and update admin stats from API result
+    const requestVersion = ++this.ticketsDashboardRequestVersion;
+
+    if (totalProjects > 0 || this.projects.some((p) => p.id !== 'all')) {
+      this.updateProjectStatusChart(this.projects);
+    }
+
     this.dashboardProjectsService.getTicketsDashboard({
       projectId: this.selectedProject !== 'all' ? this.selectedProject : undefined,
       vehicleId: this.selectedVehicle !== 'all' ? this.selectedVehicle : undefined,
@@ -1000,23 +1110,35 @@ export class DashboardComponent implements OnInit, OnDestroy {
       includeClosed: this.includeClosedProjects,
     }).subscribe({
       next: (res) => {
-        // Reuse repeatedTickets and safetyCriticalTickets from API result
+        if (requestVersion !== this.ticketsDashboardRequestVersion) return;
+        const resolveCount = (candidates: any[]): number | null => {
+          for (const c of candidates) {
+            const n = Number(c);
+            if (Number.isFinite(n) && n >= 0) return n;
+          }
+          return null;
+        };
         const statsSource = {
           ...busPulseData.dashboardStats,
-          repeatedDefects: res?.repeatedTickets ?? busPulseData.dashboardStats.repeatedDefects,
-          criticalDefects: res?.safetyCriticalTickets ?? busPulseData.dashboardStats.criticalDefects,
+          repeatedDefects: resolveCount([res?.repeatedTickets, (res as any)?.RepeatedTickets, (res as any)?.repeatTickets, (res as any)?.RepeatTickets, (res as any)?.data?.repeatedTickets, (res as any)?.result?.repeatedTickets]) ?? busPulseData.dashboardStats.repeatedDefects,
+          criticalDefects: resolveCount([res?.safetyCriticalTickets, (res as any)?.SafetyCriticalTickets, (res as any)?.criticalTickets, (res as any)?.CriticalTickets, (res as any)?.data?.safetyCriticalTickets, (res as any)?.result?.safetyCriticalTickets]) ?? busPulseData.dashboardStats.criticalDefects,
         };
         this.statCards = buildAdminStatCards(statsSource, totalProjects, this.totalVehiclesCount);
         this.updateTicketsByStatusWidgetFromApi(res);
+        this.cdr.markForCheck();
       },
       error: () => {
+        if (requestVersion !== this.ticketsDashboardRequestVersion) return;
         this.statCards = buildAdminStatCards(busPulseData.dashboardStats, totalProjects, this.totalVehiclesCount);
         this.updateTicketsByStatusWidgetFromApi([]);
+        this.cdr.markForCheck();
       },
     });
   }
 
   private refreshClientView(): void {
+    const requestVersion = ++this.ticketsDashboardRequestVersion;
+
     this.currentProjectStats = resolveClientProjectStats(
       projectStats,
       this.selectedProject,
@@ -1048,198 +1170,63 @@ export class DashboardComponent implements OnInit, OnDestroy {
         totalAssets,
       };
     }
-    
+
     // If a client has selected a specific project, fetch authoritative ticket totals
     // from the tickets dashboard API. Use project-level totals when "All Vehicles"
     // is selected, and vehicle-level totals when a single vehicle is selected.
     if (!this.isAdminRole && this.selectedProject !== 'all') {
       const projectIdParam = this.selectedProject;
+      const clientIdParam = this.getEffectiveClientId();
+      const params = this.selectedVehicle === 'all'
+        ? { projectId: projectIdParam, clientId: clientIdParam }
+        : { projectId: projectIdParam, vehicleId: this.selectedVehicle, clientId: clientIdParam };
 
-      if (this.selectedVehicle === 'all') {
-        this.dashboardProjectsService.getTicketsDashboard({ projectId: projectIdParam }).subscribe({
-          next: (res) => {
-            const result: any = res ?? {};
-            const candidates = [result.totalTickets, result.total, result.count, result.totalItems, result.totalRecords];
-            let total = Number(this.currentProjectStats.totalTickets ?? 0);
-            for (const c of candidates) {
-              const n = Number(c);
-              if (Number.isFinite(n) && n >= 0) {
-                total = n;
-                break;
-              }
-            }
-
-            this.currentProjectStats = {
-              ...this.currentProjectStats,
-              totalTickets: total,
-            };
-
-            this.statCards = buildClientStatCards(
-              this.currentProjectStats,
-              this.showFilters,
-              this.selectedProject,
-            );
-            // Update Tickets by Status widget from API response when available
-            this.updateTicketsByStatusWidgetFromApi(result);
-          },
-          error: () => {
-            // Show canonical zeros on API error
-            this.updateTicketsByStatusWidgetFromApi([]);
-          },
-        });
-      } else {
-        const vehicleIdParam = this.selectedVehicle;
-        this.dashboardProjectsService.getTicketsDashboard({ projectId: projectIdParam, vehicleId: vehicleIdParam }).subscribe({
-          next: (res) => {
-            const result: any = res ?? {};
-            const candidates = [result.totalTickets, result.total, result.count, result.totalItems, result.totalRecords];
-            let total = Number(this.currentProjectStats.totalTickets ?? 0);
-            for (const c of candidates) {
-              const n = Number(c);
-              if (Number.isFinite(n) && n >= 0) {
-                total = n;
-                break;
-              }
-            }
-
-            this.currentProjectStats = {
-              ...this.currentProjectStats,
-              totalTickets: total,
-            };
-
-            this.statCards = buildClientStatCards(
-              this.currentProjectStats,
-              this.showFilters,
-              this.selectedProject,
-            );
-            // Update Tickets by Status widget from API response when available
-            this.updateTicketsByStatusWidgetFromApi(result);
-          },
-          error: () => {
-            // Show canonical zeros on API error
-            this.updateTicketsByStatusWidgetFromApi([]);
-          },
-        });
-      }
-    }
-    // If a specific vehicle is selected, request the tickets dashboard for that vehicle
-    // and update the Total Tickets card with the API result (if present).
-    if (!this.isAdminRole && this.selectedProject !== 'all' && this.selectedVehicle !== 'all') {
-      const projectIdParam = this.selectedProject;
-      const vehicleIdParam = this.selectedVehicle;
-
-      this.dashboardProjectsService.getTicketsDashboard({ projectId: projectIdParam, vehicleId: vehicleIdParam }).subscribe({
-        next: (result) => {
-          const res: any = result ?? {};
-          const candidates = [res.totalTickets, res.total, res.count, res.totalItems, res.totalRecords];
-
-          let total = 0;
-          for (const c of candidates) {
-            const n = Number(c);
-            if (Number.isFinite(n) && n >= 0) {
-              total = n;
-              break;
-            }
-          }
-
+      this.dashboardProjectsService.getTicketsDashboard(params).subscribe({
+        next: (res) => {
+          if (requestVersion !== this.ticketsDashboardRequestVersion) return;
+          const result: any = res ?? {};
           this.currentProjectStats = {
             ...this.currentProjectStats,
-            totalTickets: total,
+            totalTickets: this.extractTicketTotal(result),
           };
-
-          this.statCards = buildClientStatCards(
-            this.currentProjectStats,
-            this.showFilters,
-            this.selectedProject,
-          );
-          // Update Tickets by Status widget from API response when available
-          this.updateTicketsByStatusWidgetFromApi(res);
+          this.statCards = buildClientStatCards(this.currentProjectStats, this.showFilters, this.selectedProject);
+          this.updateTicketsByStatusWidgetFromApi(result);
+          this.cdr.markForCheck();
         },
         error: () => {
-          // Show canonical zeros on API error
+          if (requestVersion !== this.ticketsDashboardRequestVersion) return;
           this.updateTicketsByStatusWidgetFromApi([]);
+          this.cdr.markForCheck();
         },
       });
     }
     // If All Projects is selected, either fetch vehicle-scoped totals (option A)
     // or aggregate per-project totals when no vehicle is selected.
     if (!this.isAdminRole && this.selectedProject === 'all') {
-      if (this.selectedVehicle && this.selectedVehicle !== 'all') {
-        // Option A: single call by vehicleId across all projects
-        this.dashboardProjectsService.getTicketsDashboard({ vehicleId: this.selectedVehicle }).subscribe({
-          next: (res) => {
-            const r: any = res ?? {};
-            const candidates = [r.totalTickets, r.total, r.count, r.totalItems, r.totalRecords];
-            let total = Number(this.currentProjectStats.totalTickets ?? 0);
-            for (const c of candidates) {
-              const n = Number(c);
-              if (Number.isFinite(n) && n >= 0) {
-                total = n;
-                break;
-              }
-            }
+      const clientIdParam = this.getEffectiveClientId();
+      const params = (this.selectedVehicle && this.selectedVehicle !== 'all')
+        ? { vehicleId: this.selectedVehicle, clientId: clientIdParam }
+        : { clientId: clientIdParam };
 
-            this.currentProjectStats = {
-              ...this.currentProjectStats,
-              totalTickets: total,
-            };
-
-            this.statCards = buildClientStatCards(
-              this.currentProjectStats,
-              this.showFilters,
-              this.selectedProject,
-            );
-            // Update Tickets by Status widget from API response when available
-            this.updateTicketsByStatusWidgetFromApi(r);
-          },
-          error: () => {
-            // Show canonical zeros on API error and keep stat cards
-            this.updateTicketsByStatusWidgetFromApi([]);
-            this.statCards = buildClientStatCards(
-              this.currentProjectStats,
-              this.showFilters,
-              this.selectedProject,
-            );
-          },
-        });
-      } else {
-        // Use one aggregated request for client scope to avoid spawning
-        // one network call per project (can freeze/crash on large fleets).
-        this.dashboardProjectsService.getTicketsDashboard().subscribe({
-          next: (res) => {
-            const r: any = res ?? {};
-            const candidates = [r.totalTickets, r.total, r.count, r.totalItems, r.totalRecords];
-            let total = Number(this.currentProjectStats.totalTickets ?? 0);
-            for (const c of candidates) {
-              const n = Number(c);
-              if (Number.isFinite(n) && n >= 0) {
-                total = n;
-                break;
-              }
-            }
-
-            this.currentProjectStats = {
-              ...this.currentProjectStats,
-              totalTickets: total,
-            };
-
-            this.statCards = buildClientStatCards(
-              this.currentProjectStats,
-              this.showFilters,
-              this.selectedProject,
-            );
-            this.updateTicketsByStatusWidgetFromApi(r);
-          },
-          error: () => {
-            this.updateTicketsByStatusWidgetFromApi([]);
-            this.statCards = buildClientStatCards(
-              this.currentProjectStats,
-              this.showFilters,
-              this.selectedProject,
-            );
-          },
-        });
-      }
+      this.dashboardProjectsService.getTicketsDashboard(params).subscribe({
+        next: (res) => {
+          if (requestVersion !== this.ticketsDashboardRequestVersion) return;
+          const r: any = res ?? {};
+          this.currentProjectStats = {
+            ...this.currentProjectStats,
+            totalTickets: this.extractTicketTotal(r),
+          };
+          this.statCards = buildClientStatCards(this.currentProjectStats, this.showFilters, this.selectedProject);
+          this.updateTicketsByStatusWidgetFromApi(r);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          if (requestVersion !== this.ticketsDashboardRequestVersion) return;
+          this.updateTicketsByStatusWidgetFromApi([]);
+          this.statCards = buildClientStatCards(this.currentProjectStats, this.showFilters, this.selectedProject);
+          this.cdr.markForCheck();
+        },
+      });
     } else {
       this.statCards = buildClientStatCards(
         this.currentProjectStats,
@@ -1255,9 +1242,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private initializeWidgets(): void {
     this.widgets = createDefaultDashboardWidgets();
-    this.updateProjectStatusWidget(this.projectStatusChartOptions);
-
     this.loadLayoutFromStorage();
+  }
+
+  private setDonutChartsLoading(): void {
+    if (!this.widgets.length) return;
+    const donutIds = new Set(['widget-1', 'widget-2', 'widget-3']);
+    this.widgets = this.widgets.map((widget) =>
+      donutIds.has(widget.id) ? { ...widget, loading: true, chartOptions: null } : widget,
+    );
   }
 
   private updateProjectStatusChart(projects: DashboardProjectOption[]): void {
@@ -1388,43 +1381,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private refreshVehiclesByMakeModelChart(): void {
-    this.refreshVehicleDistributionWidget(
-      'widget-2',
-      () => ++this.makeModelRequestVersion,
-      () => this.makeModelRequestVersion,
-      () => this.dashboardProjectsService.getVehiclesByMakeModelData({
-        projectIds: this.getSelectedOrAllVisibleProjectIds(),
-        clientId: this.getEffectiveClientId(),
-        userId: undefined,
-        includeClosed: this.includeClosedProjects,
-        maxItems: 7,
-      }),
-      (items) => buildVehiclesByMakeModelChartOptions(
-        busPulseData.vehiclesByMakeModelChart,
-        items,
-      ),
-    );
-  }
-
-  private refreshVehiclesByPropulsionTypesChart(): void {
-    this.refreshVehicleDistributionWidget(
-      'widget-3',
-      () => ++this.propulsionRequestVersion,
-      () => this.propulsionRequestVersion,
-      () => this.dashboardProjectsService.getVehiclesByPropulsionTypeData({
-        projectIds: this.getSelectedOrAllVisibleProjectIds(),
-        clientId: this.getEffectiveClientId(),
-        userId: undefined,
-        includeClosed: this.includeClosedProjects,
-        maxItems: 7,
-      }),
-      (items) => buildVehiclesByPropulsionTypeChartOptions(
-        busPulseData.vehiclesByPropulsionChart,
-        items,
-      ),
-    );
-  }
 
   private refreshVehicleDistributionWidget(
     widgetId: 'widget-2' | 'widget-3',
@@ -1442,6 +1398,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
 
         this.updateVehicleDistributionWidget(widgetId, buildChartOptions(items));
+        this.cdr.markForCheck();
       },
       error: () => {
         if (requestVersion !== currentRequestVersion()) {
@@ -1449,6 +1406,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
 
         this.updateVehicleDistributionWidget(widgetId, buildChartOptions([]));
+        this.cdr.markForCheck();
       },
     });
   }
@@ -1504,18 +1462,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
         // Ensure unique ordering and then populate series for each vehicle id.
         vehicleIdsToShow = Array.from(new Set(vehicleIdsToShow));
 
-        // Prepare left-column labels (exposed to template) based on ordered ids
-        const vehicleLabels = vehicleIdsToShow.map((vid) => {
-          const opt = (this.vehicles || []).find((v: any) => String(v.id) === String(vid)) || (this.allClientVehicles || []).find((v: any) => String(v.id) === String(vid));
+        // Build a single lookup map to avoid repeated .find() calls per vehicle
+        const vehicleLookup = new Map<string, any>([
+          ...(this.vehicles || []).map((v: any) => [String(v.id), v] as [string, any]),
+          ...(this.allClientVehicles || []).map((v: any) => [String(v.id), v] as [string, any]),
+        ]);
+        const getVehicleLabel = (vid: string): string => {
+          const opt = vehicleLookup.get(vid);
           return opt ? String(opt.name ?? opt.id) : `Vehicle ${vid}`;
-        });
-        this.vehicleStationLabels = vehicleLabels;
+        };
+
+        // Prepare left-column labels (exposed to template) based on ordered ids
+        this.vehicleStationLabels = vehicleIdsToShow.map(getVehicleLabel);
 
         for (const vid of vehicleIdsToShow) {
           const records = grouped.get(vid) ?? [];
-
-          const vehicleOption = (this.vehicles || []).find((v: any) => String(v.id) === String(vid)) || (this.allClientVehicles || []).find((v: any) => String(v.id) === String(vid));
-          const vehicleLabel = vehicleOption ? String(vehicleOption.name ?? vehicleOption.id) : `Vehicle ${vid}`;
+          const vehicleLabel = getVehicleLabel(vid);
 
           if (!records.length) {
             // Add a tiny transparent placeholder so the vehicle appears on the Y axis
@@ -1556,67 +1518,38 @@ export class DashboardComponent implements OnInit, OnDestroy {
         const maxWidth = 6000;
         const calculatedWidth = Math.min(Math.max(minWidth, (vehicleIdsToShow.length * perVehicleWidth) + 800), maxWidth);
 
-        const axisTitleColor = (((template && template.yaxis && template.yaxis.title && template.yaxis.title.style && template.yaxis.title.style.color) !== undefined)
-          ? template.yaxis.title.style.color
-          : '#1b5e20');
+        const axisTitleColor = template?.yaxis?.title?.style?.color ?? '#1b5e20';
 
         const chartOptions = {
-          ...(template || {}),
+          ...(template ?? {}),
           chart: {
-            ...((template && template.chart) || {}),
+            ...(template?.chart ?? {}),
             height: calculatedHeight,
             width: calculatedWidth,
-            zoom: {
-              ...(((template && template.chart && template.chart.zoom) || {})),
-              enabled: false,
-            },
-            toolbar: {
-              ...(((template && template.chart && template.chart.toolbar) || {})),
-              show: false,
-            },
+            zoom: { ...(template?.chart?.zoom ?? {}), enabled: false },
+            toolbar: { ...(template?.chart?.toolbar ?? {}), show: false },
           },
-          // Align bars and y-axis labels: increase bar height slightly and
-          // nudge y-axis label vertical offset so labels and range bars center
-          // on the same row. We merge with any template.plotOptions.
           plotOptions: {
-            ...((template && template.plotOptions) || {}),
+            ...(template?.plotOptions ?? {}),
             bar: {
-              ...(((template && template.plotOptions && template.plotOptions.bar) || {})),
-              // restore template bar height for consistent alignment
-              barHeight: ((template && template.plotOptions && template.plotOptions.bar && template.plotOptions.bar.barHeight) !== undefined)
-                ? template.plotOptions.bar.barHeight
-                : '60%',
-              // maintain grouping behavior from template if present
-              rangeBarGroupRows: ((template && template.plotOptions && template.plotOptions.bar && template.plotOptions.bar.rangeBarGroupRows) !== undefined)
-                ? template.plotOptions.bar.rangeBarGroupRows
-                : false,
+              ...(template?.plotOptions?.bar ?? {}),
+              barHeight: template?.plotOptions?.bar?.barHeight ?? '60%',
+              rangeBarGroupRows: template?.plotOptions?.bar?.rangeBarGroupRows ?? false,
             },
           },
           xaxis: {
-            ...((template && template.xaxis) || {}),
+            ...(template?.xaxis ?? {}),
             type: 'datetime',
             tickAmount: 6,
-            // Add an explicit x-axis title for the timeline (Date)
-            // Use template xaxis title when present, otherwise default to
-            // 'Date' and match the y-axis title color when available.
-            title: ((template && template.xaxis && template.xaxis.title) !== undefined)
-              ? template.xaxis.title
-              : {
-                text: 'Date',
-                style: {
-                  fontSize: '13px',
-                  fontFamily: 'Poppins, sans-serif',
-                  color: axisTitleColor,
-                },
-              },
+            title: template?.xaxis?.title ?? {
+              text: 'Date',
+              style: { fontSize: '13px', fontFamily: 'Poppins, sans-serif', color: axisTitleColor },
+            },
             labels: {
-              ...(((template && template.xaxis && template.xaxis.labels) || {})),
+              ...(template?.xaxis?.labels ?? {}),
               rotate: -30,
               hideOverlappingLabels: true,
-              style: {
-                ...(((template && template.xaxis && template.xaxis.labels && template.xaxis.labels.style) || {})),
-                fontSize: '11px',
-              },
+              style: { ...(template?.xaxis?.labels?.style ?? {}), fontSize: '11px' },
               formatter: (val: any) => {
                 const d = new Date(val);
                 try {
@@ -1628,23 +1561,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
             },
           },
           yaxis: {
-            ...((template && template.yaxis) || {}),
-            // Ensure y-axis title uses the same explicit color as the x-axis
+            ...(template?.yaxis ?? {}),
             title: {
-              ...(((template && template.yaxis && template.yaxis.title) || {})),
-              style: {
-                ...(((template && template.yaxis && template.yaxis.title && template.yaxis.title.style) || {})),
-                color: axisTitleColor,
-              },
+              ...(template?.yaxis?.title ?? {}),
+              style: { ...(template?.yaxis?.title?.style ?? {}), color: axisTitleColor },
             },
             labels: {
-              ...(((template && template.yaxis && template.yaxis.labels) || {})),
-              // Respect template offset when present; otherwise no manual nudge
-              offsetY: ((template && template.yaxis && template.yaxis.labels && template.yaxis.labels.offsetY) !== undefined)
-                ? template.yaxis.labels.offsetY
-                : 0,
+              ...(template?.yaxis?.labels ?? {}),
+              offsetY: template?.yaxis?.labels?.offsetY ?? 0,
               style: {
-                ...(((template && template.yaxis && template.yaxis.labels && template.yaxis.labels.style) || {})),
+                ...(template?.yaxis?.labels?.style ?? {}),
                 fontSize: '12px',
                 lineHeight: '20px',
               },
@@ -1693,22 +1619,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
           series: [{ ...(template?.series?.[0] ?? {}), data: seriesData }],
         };
 
-        // small helpers to sync label/scroll interactions exist in template
-        // attach calculated sizes for the host element to consume
-        (chartOptions as any).__calculatedHostHeight = calculatedHeight;
-        (chartOptions as any).__calculatedHostWidth = calculatedWidth;
-
-        // Attach the calculated height and width to the chartOptions so callers
-        // can read them (used by the template to set the host element size).
+        // Attach calculated sizes for the host element to consume
         (chartOptions as any).__calculatedHostHeight = calculatedHeight;
         (chartOptions as any).__calculatedHostWidth = calculatedWidth;
 
         this.widgets = this.widgets.map((w) => (w.id === 'widget-15' ? { ...w, chartOptions, loading: false } : w));
+        this.cdr.markForCheck();
       },
       error: () => {
         if (requestVersion !== this.vehicleStationRequestVersion) return;
         this.widgets = this.widgets.map((w) => (w.id === 'widget-15' ? { ...w, chartOptions: (busPulseData as any).vehicleStationTrackingChart, loading: false } : w));
         try { this.toastService.show('Failed to load Vehicle Station Tracking data', { classname: 'bg-warning text-dark', autohide: true }); } catch { }
+        this.cdr.markForCheck();
       }
     });
   }
@@ -1726,23 +1648,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private updateTicketsByStatusWidgetFromApi(payload: any | any[]): void {
     if (!this.widgets.length) return;
 
-    this.updateSafetyCriticalGaugeWidgetFromApi(payload);
-    this.updateRepeatedDefectsGaugeWidgetFromApi(payload);
-    this.updateOverallDefectsByAreaWidgetFromApi(payload);
-    this.updateRepeatedDefectsByAreaWidgetFromApi(payload);
-    this.updateDefectsByStationWidgetFromApi(payload);
-
-    // Temporary debug logging to help capture API payloads that cause the
-    // Tickets-by-Status widget to fall back to demo/demo values. Reproduce
-    // the failing selection and check the browser console for these entries.
-    try {
-      console.debug('[TicketsByStatus] raw payload:', payload, { project: this.selectedProject, vehicle: this.selectedVehicle });
-    } catch (e) {
-      // Ignore console failures in restricted environments
-    }
-
     let combined: Array<{ name: string; value: number }> = [];
-
     if (Array.isArray(payload)) {
       for (const p of payload) {
         const items = this.normalizeTicketsByStatusShape(p?.ticketsByStatus ?? p?.data?.ticketsByStatus ?? p?.ticketsByStatus?.items ?? null);
@@ -1753,21 +1659,61 @@ export class DashboardComponent implements OnInit, OnDestroy {
       combined = items.map((it: any) => ({ name: String(it?.name ?? ''), value: Number(it?.value ?? 0) || 0 }));
     }
 
-    try {
-      console.debug('[TicketsByStatus] normalized combined:', combined);
-    } catch (e) {
-      // swallow
+    // Compute all chart options and apply in a single widgets pass
+    this.applyWidgetUpdates({
+      'widget-7': { chartOptions: this.computeSafetyCriticalGaugeOptions(payload), loading: false },
+      'widget-5': { chartOptions: this.computeRepeatedDefectsGaugeOptions(payload), loading: false },
+      'widget-4': { chartOptions: this.computeOverallDefectsByAreaOptions(payload), loading: false },
+      'widget-8': { chartOptions: this.computeRepeatedDefectsByAreaOptions(payload), loading: false },
+      'widget-6': { chartOptions: this.computeDefectsByStationOptions(payload), loading: false, width: 12 },
+      'widget-9': { chartOptions: busPulseData.buildTicketsByStatusBar({ ticketsByStatus: combined }), loading: false },
+    });
+
+    if (this.isAdminRole) {
+      this.updateStatCardCountsFromPayload(payload);
     }
-
-    const chartOptions = busPulseData.buildTicketsByStatusBar({ ticketsByStatus: combined });
-
-    this.widgets = this.widgets.map((widget) => (
-      widget.id === 'widget-9' ? { ...widget, chartOptions, loading: false } : widget
-    ));
   }
 
-  private updateOverallDefectsByAreaWidgetFromApi(payload: any | any[]): void {
-    if (!this.widgets.length) return;
+  private updateStatCardCountsFromPayload(payload: any | any[]): void {
+    if (!this.statCards.length) return;
+
+    const source = Array.isArray(payload) ? payload[0] : payload;
+    if (!source) return;
+
+    const resolveCount = (candidates: any[]): number | null => {
+      for (const c of candidates) {
+        const n = Number(c);
+        if (Number.isFinite(n) && n >= 0) return n;
+      }
+      return null;
+    };
+
+    const criticalCount = resolveCount([
+      source?.safetyCriticalTickets, source?.SafetyCriticalTickets,
+      source?.criticalTickets, source?.CriticalTickets,
+      source?.data?.safetyCriticalTickets, source?.result?.safetyCriticalTickets,
+    ]);
+
+    const repeatedCount = resolveCount([
+      source?.repeatedTickets, source?.RepeatedTickets,
+      source?.repeatTickets, source?.RepeatTickets,
+      source?.data?.repeatedTickets, source?.result?.repeatedTickets,
+    ]);
+
+    if (criticalCount === null && repeatedCount === null) return;
+
+    this.statCards = this.statCards.map((card) => {
+      if (card.label === 'Critical Issues' && criticalCount !== null) {
+        return { ...card, value: criticalCount };
+      }
+      if (card.label === 'Repeated Issues' && repeatedCount !== null) {
+        return { ...card, value: repeatedCount };
+      }
+      return card;
+    });
+  }
+
+  private computeOverallDefectsByAreaOptions(payload: any | any[]): unknown {
 
     const totalsByArea = new Map<string, number>();
 
@@ -1834,47 +1780,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
         : fallbackSeries,
     };
 
-    this.widgets = this.widgets.map((widget) => (
-      widget.id === 'widget-4' ? { ...widget, chartOptions, loading: false } : widget
-    ));
+    return chartOptions;
   }
 
-  private updateRepeatedDefectsGaugeWidgetFromApi(payload: any | any[]): void {
-    if (!this.widgets.length) return;
-
-    const resolvedPercent = this.resolveRepeatedPercent(payload);
-    const boundedPercent = Number.isFinite(resolvedPercent)
-      ? Math.max(0, Math.min(100, Number(resolvedPercent)))
-      : 0;
-
-    const fallbackGauge = busPulseData.repeatedDefectsGauge as any;
-    const chartOptions = {
-      ...fallbackGauge,
-      series: [Number(boundedPercent.toFixed(2))],
-    };
-
-    this.widgets = this.widgets.map((widget) => (
-      widget.id === 'widget-5' ? { ...widget, chartOptions, loading: false } : widget
-    ));
+  private computeRepeatedDefectsGaugeOptions(payload: any | any[]): unknown {
+    const percent = this.resolveRepeatedPercent(payload);
+    const boundedPercent = Math.max(0, Math.min(100, percent));
+    return { ...(busPulseData.repeatedDefectsGauge as any), series: [Number(boundedPercent.toFixed(2))] };
   }
 
-  private updateSafetyCriticalGaugeWidgetFromApi(payload: any | any[]): void {
-    if (!this.widgets.length) return;
+  private computeSafetyCriticalGaugeOptions(payload: any | any[]): unknown {
+    const percent = this.resolveSafetyCriticalPercent(payload);
+    const boundedPercent = Math.max(0, Math.min(100, percent));
+    return { ...(busPulseData.safetyCriticalDefectsGauge as any), series: [Number(boundedPercent.toFixed(2))] };
+  }
 
-    const resolvedPercent = this.resolveSafetyCriticalPercent(payload);
-    const boundedPercent = Number.isFinite(resolvedPercent)
-      ? Math.max(0, Math.min(100, Number(resolvedPercent)))
-      : 0;
-
-    const fallbackGauge = busPulseData.safetyCriticalDefectsGauge as any;
-    const chartOptions = {
-      ...fallbackGauge,
-      series: [Number(boundedPercent.toFixed(2))],
-    };
-
-    this.widgets = this.widgets.map((widget) => (
-      widget.id === 'widget-7' ? { ...widget, chartOptions, loading: false } : widget
-    ));
+  /** Apply one or more widget updates in a single array pass. */
+  private applyWidgetUpdates(updates: Record<string, Partial<DashboardWidget>>): void {
+    if (!this.widgets.length || !Object.keys(updates).length) return;
+    this.widgets = this.widgets.map((w) => updates[w.id] ? { ...w, ...updates[w.id] } : w);
   }
 
   private resolveSafetyCriticalPercent(payload: any | any[]): number {
@@ -2157,7 +2081,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private extractOverallByAreaEntries(payload: any): Array<{ area: string; count: number }> {
-    const container = payload?.overallByArea ?? payload?.data?.overallByArea ?? payload?.result?.overallByArea;
+    const container =
+      payload?.overallByDefectType ?? payload?.data?.overallByDefectType ?? payload?.result?.overallByDefectType ??
+      payload?.overallByArea       ?? payload?.data?.overallByArea       ?? payload?.result?.overallByArea;
     if (!container) {
       return [];
     }
@@ -2193,8 +2119,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return [];
   }
 
-  private updateRepeatedDefectsByAreaWidgetFromApi(payload: any | any[]): void {
-    if (!this.widgets.length) return;
+  private computeRepeatedDefectsByAreaOptions(payload: any | any[]): unknown {
 
     const totalsByArea = new Map<string, number>();
 
@@ -2261,13 +2186,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         : fallbackSeries,
     };
 
-    this.widgets = this.widgets.map((widget) => (
-      widget.id === 'widget-8' ? { ...widget, chartOptions, loading: false } : widget
-    ));
+    return chartOptions;
   }
 
-  private updateDefectsByStationWidgetFromApi(payload: any | any[]): void {
-    if (!this.widgets.length) return;
+  private computeDefectsByStationOptions(payload: any | any[]): unknown {
 
     const totalsByStation = new Map<string, number>();
 
@@ -2452,9 +2374,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
     };
 
-    this.widgets = this.widgets.map((widget) => (
-      widget.id === 'widget-6' ? { ...widget, width: 12, chartOptions, loading: false } : widget
-    ));
+    return chartOptions;
   }
 
   private extractStationPrefixNumber(stationName: string): number | null {
@@ -2636,19 +2556,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private buildWidgets(): DashboardWidget[] {
-    const base = sortWidgetsByOrder(this.widgets).map((item) => ({ ...item }));
-
-    if (!this.isAdminRole) {
-      const clientBase = base.filter((widget) => widget.id !== 'widget-14');
-
-      if (this.showFilters && this.selectedProject !== 'all') {
-        return clientBase.filter((widget) => !CLIENT_COMPACT_HIDDEN_WIDGET_IDS.includes(widget.id));
-      }
-
-      return clientBase;
-    }
-
-    return base;
+    return sortWidgetsByOrder(this.widgets).map((item) => ({ ...item }));
   }
 
   private loadLayoutFromStorage(): void {
@@ -2720,6 +2628,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.saveLayoutToStorage();
   }
 
+  private extractTicketTotal(response: any): number {
+    const candidates = [
+      response?.totalTickets,
+      response?.total,
+      response?.count,
+      response?.totalItems,
+      response?.totalRecords,
+    ];
+    for (const c of candidates) {
+      const n = Number(c);
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+    return Number(this.currentProjectStats.totalTickets ?? 0);
+  }
+
   private fetchAllClientVehiclesAndTickets(): void {
     if (this.isAdminRole) return;
     const clientId = this.getEffectiveClientId();
@@ -2733,6 +2656,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.clientDashboardService.getTickets({ clientId, page: 1, pageSize: 1000 }).subscribe({
       next: (tickets: any[]) => {
         this.allClientTickets = tickets || [];
+        // Collect all unique assignBy and assignTo IDs
+        const userIds = Array.from(new Set(
+          tickets.flatMap(t => [t.assignBy, t.assignTo]).filter(id => typeof id === 'number' && id > 0)
+        ));
+        if (userIds.length) {
+          // Batch fetch user details
+          this.userManagementService.getUsers({ page: 1, pageSize: userIds.length, role: '', clientId: '', manufacturerId: '' }).subscribe({
+            next: (result: any) => {
+              if (result && Array.isArray(result.items)) {
+                for (const user of result.items) {
+                  this.userIdToUsername[user.id] = user.username || user.name || 'Unknown';
+                }
+              }
+            }
+          });
+        }
       },
     });
   }

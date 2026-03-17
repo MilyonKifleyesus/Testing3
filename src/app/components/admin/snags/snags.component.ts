@@ -1,19 +1,26 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ClientDashboardService } from '../../../shared/services/client-dashboard.service';
+import { UserManagementService } from '../../../shared/services/user-management.service';
+
+interface DropdownOption { id: number | string; name: string; }
 
 interface SnagRow {
-  number: string;
-  project: string;
-  vehicle: string;
-  category: string;
-  description: string;
-  inspector: string;
-  area: string;
+  id:             number | string;
+  number:         string;
+  projectId:      number | string;
+  project:        string;
+  vehicleId:      number | string;
+  vehicle:        string;
+  category:       string;
+  description:    string;
+  inspectorId?:   number;
+  inspector:      string;
   safetyCritical: boolean;
-  repeater: boolean;
-  hasImages: boolean;
-  selected?: boolean;
+  repeater:       boolean;
+  hasImages:      boolean;
+  selected?:      boolean;
 }
 
 @Component({
@@ -46,41 +53,35 @@ interface SnagRow {
               <div class="row g-3">
                 <div class="col-lg-6">
                   <label class="form-label">Project</label>
-                  <select class="form-select" [(ngModel)]="filters.project">
-                    <option value="">All projects</option>
-                    <option *ngFor="let p of projects" [value]="p">{{p}}</option>
+                  <select class="form-select" [(ngModel)]="filters.projectId" (ngModelChange)="onProjectChange($event)">
+                    <option value="">All Projects</option>
+                    <option *ngFor="let p of projectOptions" [value]="p.id">{{p.name}}</option>
                   </select>
                 </div>
                 <div class="col-lg-6">
                   <label class="form-label">Vehicle</label>
-                  <select class="form-select" [(ngModel)]="filters.vehicle">
-                    <option value="">All vehicles</option>
-                    <option *ngFor="let v of vehicles" [value]="v">{{v}}</option>
-                  </select>
-                </div>
-                <div class="col-lg-6">
-                  <label class="form-label">Inspector</label>
-                  <select class="form-select" [(ngModel)]="filters.inspector">
-                    <option value="">All inspectors</option>
-                    <option *ngFor="let i of inspectors" [value]="i">{{i}}</option>
+                  <select class="form-select" [(ngModel)]="filters.vehicleId" (ngModelChange)="onFilterChange()">
+                    <option value="">All Vehicles</option>
+                    <option *ngFor="let v of vehicleOptions" [value]="v.id">{{v.name}}</option>
                   </select>
                 </div>
                 <div class="col-lg-6">
                   <label class="form-label">Area</label>
-                  <select class="form-select" [(ngModel)]="filters.area">
-                    <option value="">All areas</option>
-                    <option *ngFor="let a of areas" [value]="a">{{a}}</option>
+                  <select class="form-select" [(ngModel)]="filters.areaId" (ngModelChange)="onFilterChange()">
+                    <option value="">All Areas</option>
+                    <option *ngFor="let a of areaOptions" [value]="a.id">{{a.name}}</option>
                   </select>
                 </div>
-                <div class="col-12 d-flex align-items-center mt-1">
-                  <input class="form-check-input me-2" type="checkbox" id="includeImages" [(ngModel)]="filters.includeImages">
-                  <label class="form-check-label" for="includeImages">Include images only</label>
-                  <div class="ms-auto" style="max-width: 260px;">
-                    <div class="input-group">
-                      <span class="input-group-text"><i class="ti ti-search"></i></span>
-                      <input class="form-control" placeholder="Search snag, vehicle, project..." [(ngModel)]="filters.search">
-                    </div>
+                <div class="col-lg-6 d-flex flex-column justify-content-end">
+                  <label class="form-label">Search</label>
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="ti ti-search"></i></span>
+                    <input class="form-control" placeholder="Snag number..." [(ngModel)]="filters.search" (ngModelChange)="onSearchChange()">
                   </div>
+                </div>
+                <div class="col-12 d-flex align-items-center">
+                  <input class="form-check-input me-2" type="checkbox" id="includeImages" [(ngModel)]="filters.includeImages">
+                  <label class="form-check-label" for="includeImages">Include Images</label>
                 </div>
               </div>
             </div>
@@ -95,11 +96,9 @@ interface SnagRow {
                 <div class="d-flex justify-content-between align-items-center">
                   <div>
                     <p class="text-muted mb-1">Total Snags</p>
-                    <h3 class="mb-0">{{filteredSnags.length}}</h3>
+                    <h3 class="mb-0">{{isLoading ? '—' : totalCount}}</h3>
                   </div>
-                  <div class="icon-badge bg-primary">
-                    <i class="ti ti-alert-triangle"></i>
-                  </div>
+                  <div class="icon-badge bg-primary"><i class="ti ti-alert-triangle"></i></div>
                 </div>
               </div>
             </div>
@@ -110,9 +109,7 @@ interface SnagRow {
                     <p class="text-muted mb-1">Safety Critical</p>
                     <h3 class="mb-0">{{safetyCriticalCount}}</h3>
                   </div>
-                  <div class="icon-badge bg-danger">
-                    <i class="ti ti-shield-lock"></i>
-                  </div>
+                  <div class="icon-badge bg-danger"><i class="ti ti-shield-lock"></i></div>
                 </div>
               </div>
             </div>
@@ -124,8 +121,14 @@ interface SnagRow {
                     <h3 class="mb-0">{{selectedCount}}</h3>
                   </div>
                   <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-success" (click)="checkAll()"><i class="ti ti-check me-1"></i>Check All</button>
-                    <button class="btn btn-sm btn-outline-secondary" (click)="uncheckAll()">Uncheck</button>
+                    <button class="btn btn-sm btn-success" (click)="checkAll()" [disabled]="isPrintLoading">
+                      <span *ngIf="isPrintLoading" class="spinner-border spinner-border-sm me-1" role="status"></span>
+                      <i *ngIf="!isPrintLoading" class="ti ti-check me-1"></i>Check All
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" (click)="uncheckAll()" [disabled]="isPrintLoading">Uncheck</button>
+                    <button class="btn btn-sm btn-primary" (click)="printSelectedSnags()" [disabled]="selectedCount === 0 || isPrintLoading">
+                      <i class="ti ti-printer me-1"></i>Print
+                    </button>
                   </div>
                 </div>
               </div>
@@ -137,43 +140,45 @@ interface SnagRow {
       <!-- Table Card -->
       <div class="card custom-card mt-3">
         <div class="card-header flex-wrap gap-2">
-          <div class="card-title mb-0">Snag Register</div>
-          <div class="ms-auto d-flex gap-2 flex-wrap">
-            <button class="btn btn-sm btn-light" (click)="uncheckAll()">Uncheck All</button>
-            <button class="btn btn-sm btn-success" (click)="checkAll()">Check All</button>
-            <button class="btn btn-sm btn-outline-primary"><i class="ti ti-printer me-1"></i>Print</button>
+<div class="ms-auto d-flex gap-2 flex-wrap align-items-center">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm text-primary" role="status"></span>
           </div>
         </div>
-        <div class="card-body p-0">
+        <div class="card-body p-0" style="position:relative;">
+          <!-- Loading overlay -->
+          <div *ngIf="isLoading" style="position:absolute;inset:0;background:rgba(255,255,255,0.6);z-index:10;display:flex;align-items:center;justify-content:center;">
+            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+          </div>
+
           <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
               <thead>
                 <tr>
-                  <th style="width: 48px;" class="text-center"><input type="checkbox" class="form-check-input" [checked]="allSelected" (change)="toggleAll($event)"></th>
-                  <th>Snag #</th>
+                  <th style="width:48px" class="text-center">
+                    <input type="checkbox" class="form-check-input" [checked]="allSelected" (change)="toggleAll($event)">
+                  </th>
+                  <th (click)="onSort('id')" style="cursor:pointer">Snag # {{getSortIcon('id')}}</th>
                   <th>Inspector</th>
                   <th>Project</th>
                   <th>Vehicle</th>
                   <th>Category</th>
                   <th>Description</th>
-                  <th>Area</th>
-                  <th>Safety</th>
+                  <th (click)="onSort('safetyCritical')" style="cursor:pointer">Safety {{getSortIcon('safetyCritical')}}</th>
                   <th>Repeater</th>
                   <th>Images</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of filteredSnags" [class.table-active]="row.selected">
+                <tr *ngFor="let row of displayedSnags" [class.table-active]="row.selected">
                   <td class="text-center">
-                    <input type="checkbox" class="form-check-input" [(ngModel)]="row.selected" (change)="updateSelection()">
+                    <input type="checkbox" class="form-check-input" [(ngModel)]="row.selected" (change)="updateSelection(row)">
                   </td>
                   <td class="fw-semibold">{{row.number}}</td>
                   <td>{{row.inspector}}</td>
                   <td><span class="badge bg-info-transparent">{{row.project}}</span></td>
                   <td class="text-muted">{{row.vehicle}}</td>
                   <td><span class="badge bg-secondary-transparent">{{row.category}}</span></td>
-                  <td class="text-truncate" style="max-width: 260px;" title="{{row.description}}">{{row.description}}</td>
-                  <td>{{row.area}}</td>
+                  <td class="text-truncate" style="max-width:260px" title="{{row.description}}">{{row.description}}</td>
                   <td>
                     <span class="badge" [class.bg-danger-transparent]="row.safetyCritical" [class.bg-success-transparent]="!row.safetyCritical">
                       {{row.safetyCritical ? 'Critical' : 'Normal'}}
@@ -181,18 +186,41 @@ interface SnagRow {
                   </td>
                   <td>
                     <span class="badge" [class.bg-warning-transparent]="row.repeater" [class.bg-light]="!row.repeater">
-                      {{row.repeater ? 'Repeater' : 'First' }}
+                      {{row.repeater ? 'True' : 'False'}}
                     </span>
                   </td>
                   <td>
                     <i class="ti" [ngClass]="row.hasImages ? 'ti-photo text-primary' : 'ti-photo-off text-muted'"></i>
                   </td>
                 </tr>
-                <tr *ngIf="filteredSnags.length === 0">
-                  <td colspan="11" class="text-center py-4 text-muted">No snags match your filters.</td>
+                <tr *ngIf="!isLoading && displayedSnags.length === 0">
+                  <td colspan="10" class="text-center py-4 text-muted">No snags found.</td>
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="card-footer" *ngIf="totalPages > 1">
+          <div class="d-flex align-items-center">
+            <div class="text-muted small">Showing {{pageStartItem}}–{{pageEndItem}} of {{totalCount}}</div>
+            <div class="ms-auto">
+              <nav>
+                <ul class="pagination mb-0 pagination-style-4">
+                  <li class="page-item" [class.disabled]="currentPage === 1">
+                    <a class="page-link" href="javascript:void(0)" (click)="changePage(currentPage - 1)">Prev</a>
+                  </li>
+                  <li *ngFor="let p of visiblePages" class="page-item"
+                      [class.active]="p === currentPage" [class.disabled]="p === '...'">
+                    <a class="page-link" href="javascript:void(0)" (click)="p !== '...' && changePage(+p)">{{p}}</a>
+                  </li>
+                  <li class="page-item" [class.disabled]="currentPage === totalPages">
+                    <a class="page-link text-primary" href="javascript:void(0)" (click)="changePage(currentPage + 1)">Next</a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           </div>
         </div>
       </div>
@@ -200,93 +228,371 @@ interface SnagRow {
   `,
   styles: [`
     .highlight-card {
-      border-radius: 12px;
-      padding: 14px;
+      border-radius: 12px; padding: 14px;
       border: 1px solid var(--default-border);
       box-shadow: 0 8px 20px rgba(0,0,0,0.04);
     }
     .icon-badge {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+      width: 40px; height: 40px; border-radius: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.12);
     }
     .bg-primary-01 { background: rgba(var(--primary-rgb), 0.08); }
-    .bg-danger-01 { background: rgba(var(--danger-rgb), 0.08); }
+    .bg-danger-01  { background: rgba(var(--danger-rgb),  0.08); }
     .bg-success-01 { background: rgba(var(--success-rgb), 0.08); }
+    th[style*="cursor:pointer"]:hover { background: rgba(0,0,0,0.03); }
   `]
 })
-export class SnagsComponent {
-  projects = ['Arboc 23FT', 'Metro X', 'Cargo Lite'];
-  vehicles = ['5045-W784', '4098-K221', '3301-Z900'];
-  inspectors = ['All inspectors', 'Lena Okafor', 'Jordan Carter', 'Mei Chen'];
-  areas = ['UnderCarriage', 'Interior', 'Exterior', 'Roof', 'Function', 'Water', 'Road Test', 'Engine', 'Buybacks', 'Final Walk'];
+export class SnagsComponent implements OnInit, OnDestroy {
 
-  filters = {
-    project: '',
-    vehicle: '',
-    inspector: '',
-    area: '',
-    includeImages: false,
-    search: ''
-  };
-
-  snags: SnagRow[] = [
-    { number: 'SN-1201', project: 'Arboc 23FT', vehicle: '5045-W784', category: 'Electrical', description: 'Interior light flickering intermittently', inspector: 'Lena Okafor', area: 'Interior', safetyCritical: false, repeater: false, hasImages: true },
-    { number: 'SN-1202', project: 'Arboc 23FT', vehicle: '5045-W784', category: 'Roof', description: 'Minor leak trace near roof vent', inspector: 'Jordan Carter', area: 'Roof', safetyCritical: true, repeater: true, hasImages: true },
-    { number: 'SN-1203', project: 'Metro X', vehicle: '4098-K221', category: 'Engine', description: 'Oil seepage observed at rear main seal area', inspector: 'Mei Chen', area: 'Engine', safetyCritical: true, repeater: false, hasImages: false },
-    { number: 'SN-1204', project: 'Cargo Lite', vehicle: '3301-Z900', category: 'Function', description: 'Door sensor occasionally fails to register close state', inspector: 'Jordan Carter', area: 'Function', safetyCritical: false, repeater: true, hasImages: true },
-    { number: 'SN-1205', project: 'Metro X', vehicle: '4098-K221', category: 'UnderCarriage', description: 'Surface corrosion on crossmember; needs cleaning and coat', inspector: 'Lena Okafor', area: 'UnderCarriage', safetyCritical: false, repeater: false, hasImages: false }
+  readonly areaOptions: DropdownOption[] = [
+    { id: 3,  name: 'UnderCarriage' },
+    { id: 4,  name: 'Interior' },
+    { id: 5,  name: 'Exterior' },
+    { id: 6,  name: 'Roof' },
+    { id: 7,  name: 'Function' },
+    { id: 8,  name: 'Water' },
+    { id: 9,  name: 'Road Test' },
+    { id: 10, name: 'Engine' },
+    { id: 12, name: 'Buybacks' },
+    { id: 13, name: 'Final Walk' },
   ];
 
-  get filteredSnags(): SnagRow[] {
-    return this.snags.filter(s => {
-      const matchesProject = !this.filters.project || s.project === this.filters.project;
-      const matchesVehicle = !this.filters.vehicle || s.vehicle === this.filters.vehicle;
-      const matchesInspector = !this.filters.inspector || s.inspector === this.filters.inspector;
-      const matchesArea = !this.filters.area || s.area === this.filters.area;
-      const matchesImages = !this.filters.includeImages || s.hasImages;
-      const search = this.filters.search?.toLowerCase() || '';
-      const matchesSearch = !search ||
-        s.number.toLowerCase().includes(search) ||
-        s.project.toLowerCase().includes(search) ||
-        s.vehicle.toLowerCase().includes(search) ||
-        s.description.toLowerCase().includes(search);
-      return matchesProject && matchesVehicle && matchesInspector && matchesArea && matchesImages && matchesSearch;
+  projectOptions: DropdownOption[] = [];
+  vehicleOptions: DropdownOption[] = [];
+
+  private projectMap = new Map<number | string, string>();
+  private vehicleMap = new Map<number | string, string>();
+  private readonly areaMap = new Map<number | string, string>(
+    this.areaOptions.map(a => [a.id, a.name])
+  );
+
+  filters = {
+    projectId:     '' as string | number,
+    vehicleId:     '' as string | number,
+    areaId:        '' as string | number,
+    search:        '',
+    includeImages: false,
+  };
+
+  isLoading      = false;
+  isPrintLoading = false;
+  snags: SnagRow[] = [];
+  totalCount     = 0;
+  totalSafetyCriticalCount = 0;
+  currentPage    = 1;
+  readonly pageSize = 10;
+
+  sortColumn:    string = 'id';
+  sortDirection: 'asc' | 'desc' = 'desc';
+
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  private selectedMap = new Map<string, SnagRow>();
+
+  get displayedSnags(): SnagRow[] {
+    return this.filters.includeImages ? this.snags.filter(s => s.hasImages) : this.snags;
+  }
+
+  get safetyCriticalCount(): number { return this.totalSafetyCriticalCount; }
+  get selectedCount():       number { return this.selectedMap.size; }
+
+  get allSelected(): boolean {
+    return this.snags.length > 0 && this.snags.every(s => s.selected);
+  }
+
+  get totalPages(): number { return Math.max(1, Math.ceil(this.totalCount / this.pageSize)); }
+
+  get pageStartItem(): number { return this.totalCount ? (this.currentPage - 1) * this.pageSize + 1 : 0; }
+  get pageEndItem():   number { return Math.min(this.currentPage * this.pageSize, this.totalCount); }
+
+  get visiblePages(): (number | string)[] {
+    const total = this.totalPages;
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const pages: (number | string)[] = [1];
+    if (this.currentPage > 3) pages.push('...');
+    for (let i = Math.max(2, this.currentPage - 1); i <= Math.min(total - 1, this.currentPage + 1); i++) pages.push(i);
+    if (this.currentPage < total - 2) pages.push('...');
+    pages.push(total);
+    return pages;
+  }
+
+  private userIdToName = new Map<number, string>();
+
+  constructor(private svc: ClientDashboardService, private userManagementService: UserManagementService) {}
+
+  ngOnInit(): void {
+    this.loadProjects();
+    this.fetchSnags();
+  }
+
+  ngOnDestroy(): void {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+  }
+
+  private loadProjects(): void {
+    this.svc.getProjects({ pageSize: 10000 }).subscribe({
+      next: (raw) => {
+        const items = this.extractItems(raw);
+        this.projectOptions = items.map((p: any) => ({
+          id:   p.projectId ?? p.id,
+          name: p.projectName ?? p.name ?? String(p.projectId ?? p.id),
+        }));
+        this.projectOptions.forEach(p => this.projectMap.set(p.id, p.name));
+      },
     });
   }
 
-  get safetyCriticalCount(): number {
-    return this.filteredSnags.filter(s => s.safetyCritical).length;
+  private loadVehicles(projectId: number | string): void {
+    this.vehicleOptions = [];
+    this.svc.getProjectVehicles(Number(projectId), { pageSize: 10000 }).subscribe({
+      next: (raw) => {
+        const items = this.extractItems(raw);
+        this.vehicleOptions = items.map((v: any) => ({
+          id:   v.vehicleId ?? v.id,
+          name: v.vehicleName ?? v.name ?? v.vehicleNumber ?? String(v.vehicleId ?? v.id),
+        }));
+        this.vehicleOptions.forEach(v => this.vehicleMap.set(v.id, v.name));
+      },
+    });
   }
 
-  get selectedCount(): number {
-    return this.filteredSnags.filter(s => s.selected).length;
+  onProjectChange(projectId: string | number): void {
+    this.filters.vehicleId = '';
+    this.vehicleOptions    = [];
+    if (projectId) this.loadVehicles(projectId);
+    this.onFilterChange();
   }
 
-  get allSelected(): boolean {
-    return this.filteredSnags.length > 0 && this.filteredSnags.every(s => s.selected);
+  onFilterChange(): void {
+    this.currentPage = 1;
+    this.fetchSnags();
+  }
+
+  onSearchChange(): void {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => { this.currentPage = 1; this.fetchSnags(); }, 400);
+  }
+
+  private buildParams(page: number, size: number): Record<string, any> {
+    const p: Record<string, any> = {
+      pageNumber:     page,
+      pageSize:       size,
+      orderBy:        this.sortColumn,
+      orderDirection: this.sortDirection,
+    };
+    if (this.filters.projectId)      p['projectId']               = Number(this.filters.projectId);
+    if (this.filters.vehicleId)      p['vehicleId']               = Number(this.filters.vehicleId);
+    if (this.filters.areaId)         p['finalInspectionCategory'] = Number(this.filters.areaId);
+    if (this.filters.search?.trim()) p['snagNumber']              = this.filters.search.trim();
+    return p;
+  }
+
+  private fetchSnags(): void {
+    this.isLoading = true;
+    this.svc.getSnags(this.buildParams(this.currentPage, this.pageSize)).subscribe({
+      next: (raw) => {
+        const { items, total } = this.normalizeResponse(raw);
+        this.totalCount = total;
+        this.snags = items.map((item: any) => this.mapToRow(item));
+        this.snags.forEach(s => { if (this.selectedMap.has(String(s.id))) s.selected = true; });
+        this.resolveInspectorNames();
+        this.isLoading = false;
+      },
+      error: () => { this.snags = []; this.totalCount = 0; this.isLoading = false; },
+    });
+    this.svc.getSnags({ ...this.buildParams(1, 1), safetyCritical: true }).subscribe({
+      next: (raw) => {
+        const { total } = this.normalizeResponse(raw);
+        this.totalSafetyCriticalCount = total;
+      },
+    });
+  }
+
+  onSort(col: string): void {
+    this.sortDirection = this.sortColumn === col
+      ? (this.sortDirection === 'asc' ? 'desc' : 'asc')
+      : 'asc';
+    this.sortColumn  = col;
+    this.currentPage = 1;
+    this.fetchSnags();
+  }
+
+  getSortIcon(col: string): string {
+    return this.sortColumn !== col ? '' : this.sortDirection === 'asc' ? '▲' : '▼';
+  }
+
+  changePage(page: number): void {
+    if (page < 1 || page > this.totalPages) return;
+    this.currentPage = page;
+    this.fetchSnags();
   }
 
   toggleAll(event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
-    this.filteredSnags.forEach(s => s.selected = checked);
+    this.snags.forEach(s => {
+      s.selected = checked;
+      checked ? this.selectedMap.set(String(s.id), s) : this.selectedMap.delete(String(s.id));
+    });
+  }
+
+  updateSelection(row: SnagRow): void {
+    row.selected ? this.selectedMap.set(String(row.id), row) : this.selectedMap.delete(String(row.id));
   }
 
   checkAll(): void {
-    this.filteredSnags.forEach(s => s.selected = true);
+    this.isPrintLoading = true;
+    this.svc.getSnags(this.buildParams(1, this.totalCount || 10000)).subscribe({
+      next: (raw) => {
+        const { items } = this.normalizeResponse(raw);
+        items.forEach((item: any) => {
+          const row = this.mapToRow(item);
+          row.selected = true;
+          this.selectedMap.set(String(row.id), row);
+        });
+        this.snags.forEach(s => s.selected = true);
+        this.snags = [...this.snags];
+        this.isPrintLoading = false;
+      },
+      error: () => {
+        this.snags.forEach(s => { s.selected = true; this.selectedMap.set(String(s.id), s); });
+        this.snags = [...this.snags];
+        this.isPrintLoading = false;
+      },
+    });
   }
 
   uncheckAll(): void {
-    this.filteredSnags.forEach(s => s.selected = false);
+    this.selectedMap.clear();
+    this.snags.forEach(s => s.selected = false);
+    this.snags = [...this.snags];
   }
 
-  updateSelection(): void {
-    // Trigger change detection for derived getters
-    this.snags = [...this.snags];
+  printSelectedSnags(): void {
+    const selected = Array.from(this.selectedMap.values());
+    if (!selected.length) return;
+
+    const grouped = new Map<string, SnagRow[]>();
+    for (const snag of selected) {
+      const cat = snag.category || '—';
+      if (!grouped.has(cat)) grouped.set(cat, []);
+      grouped.get(cat)!.push(snag);
+    }
+
+    const inspectorName = selected[0]?.inspector || '—';
+    const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
+    let tablesHtml = '';
+    for (const [category, list] of grouped) {
+      const rows = list.map((s, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td style="text-align:left">${s.description || '—'}</td>
+          <td>${s.safetyCritical ? 'Yes' : 'No'}</td>
+          <td></td><td></td><td></td><td></td>
+        </tr>`).join('');
+      tablesHtml += `
+        <table>
+          <thead><tr>
+            <th>SR No.</th><th>${category} Description</th><th>Safety Critical</th>
+            <th>Prod Sign Off</th><th>NG</th><th>Prod Sign Off</th><th>Inspector Buyoff</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    const html = `<!DOCTYPE html><html><head><title>Customer Identified Defects</title>
+<style>
+  body{font-family:Arial,sans-serif;margin:28px;font-size:12px}
+  h1{text-align:center;font-size:22px;font-weight:bold;text-transform:uppercase;margin-bottom:24px}
+  .meta p{margin:2px 0;font-size:12px} .meta strong{font-weight:bold}
+  table{width:100%;border-collapse:collapse;margin-top:18px}
+  th{border:1px solid #333;padding:5px 7px;background:#f5f5f5;font-size:11px;text-align:center;font-weight:bold}
+  td{border:1px solid #333;padding:5px 7px;font-size:11px;text-align:center;vertical-align:top}
+  @media print{@page{margin:15mm}}
+</style></head><body>
+  <h1>Customer Identified Defects</h1>
+  <div class="meta">
+    <p>Inspector: <strong>${inspectorName}</strong></p>
+    <p><strong>Date: ${today} &nbsp; LF64 Fleet #: &nbsp; Frame #: &nbsp; VIN #:</strong></p>
+  </div>
+  ${tablesHtml}
+</body></html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url  = URL.createObjectURL(blob);
+    const win  = window.open(url, '_blank');
+    if (win) win.addEventListener('load', () => { win.print(); URL.revokeObjectURL(url); });
+  }
+
+  private resolveInspectorNames(): void {
+    const userIds = Array.from(new Set(
+      this.snags.map(s => s.inspectorId).filter((id): id is number => typeof id === 'number' && id > 0)
+    ));
+    if (!userIds.length) return;
+
+    const applyNames = () => {
+      this.snags = this.snags.map(s => ({
+        ...s,
+        inspector: s.inspectorId && this.userIdToName.has(s.inspectorId)
+          ? this.userIdToName.get(s.inspectorId)!
+          : s.inspector,
+      }));
+    };
+
+    const uncached = userIds.filter(id => !this.userIdToName.has(id));
+    if (!uncached.length) { applyNames(); return; }
+
+    this.userManagementService.getUsers({ page: 1, pageSize: 10000, role: '', clientId: '', manufacturerId: '' }).subscribe({
+      next: (result) => {
+        for (const user of result.items) {
+          this.userIdToName.set(user.id, user.username || user.name || String(user.id));
+        }
+        applyNames();
+      },
+    });
+  }
+
+  private normalizeResponse(raw: unknown): { items: any[]; total: number } {
+    if (Array.isArray(raw)) return { items: raw, total: raw.length };
+    if (raw && typeof raw === 'object') {
+      const obj = raw as Record<string, unknown>;
+      const total = Number(obj['totalCount'] ?? obj['total'] ?? obj['totalItems'] ?? obj['count'] ?? 0);
+      for (const key of ['items', 'snags', 'results', 'data'] as const) {
+        if (Array.isArray(obj[key])) return { items: obj[key] as any[], total };
+      }
+      if (obj['data'] && typeof obj['data'] === 'object' && !Array.isArray(obj['data'])) {
+        const d = obj['data'] as Record<string, unknown>;
+        const dt = Number(d['totalCount'] ?? d['total'] ?? total);
+        for (const key of ['items', 'snags', 'results'] as const) {
+          if (Array.isArray(d[key])) return { items: d[key] as any[], total: dt };
+        }
+      }
+    }
+    return { items: [], total: 0 };
+  }
+
+  private extractItems(raw: unknown): any[] { return this.normalizeResponse(raw).items; }
+
+  private mapToRow(item: any): SnagRow {
+    const id     = item?.id ?? item?.snagId ?? item?.snagID ?? '-';
+    const projId = item?.projectId;
+    const vehId  = item?.vehicleId;
+    const areaId = item?.finalInspectionCategory ?? item?.finalInspectionCategoryId;
+    return {
+      id,
+      number:         item?.snagNumber ?? item?.snagNo ?? item?.uniqueId ?? String(id),
+      projectId:      projId,
+      project:        this.projectMap.get(projId) ?? item?.projectName ?? String(projId ?? '—'),
+      vehicleId:      vehId,
+      vehicle:        this.vehicleMap.get(vehId)  ?? item?.vehicleName  ?? item?.vehicleNumber ?? String(vehId ?? '—'),
+      category:       item?.finalInspectionCategoryName ?? this.areaMap.get(areaId) ?? '—',
+      description:    item?.description ?? item?.snagDescription ?? '—',
+      inspectorId:    typeof item?.userId === 'number' ? item.userId : undefined,
+      inspector:      item?.userName ?? item?.inspectorName ?? item?.userFullName ?? '-',
+      safetyCritical: Boolean(item?.safetyCritical ?? item?.isSafetyCritical ?? false),
+      repeater:       Boolean(item?.repeater ?? item?.isRepeater ?? false),
+      hasImages:      Boolean(item?.hasImages ?? item?.hasImage ?? Number(item?.imageCount ?? 0) > 0),
+      selected:       this.selectedMap.has(String(id)),
+    };
   }
 }

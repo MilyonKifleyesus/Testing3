@@ -22,13 +22,13 @@
     <div class="col-xl-12">
       <div class="card custom-card">
         <div class="card-body">
-          <div class="row g-3">
+          <div class="row g-3 align-items-end">
 
             <!-- Client Filter -->
             <div class="col-md-4">
               <label class="form-label">Client</label>
-              <select 
-                class="form-select" 
+              <select
+                class="form-select"
                 [(ngModel)]="selectedClient"
                 (ngModelChange)="onClientChange()"
                 [disabled]="!isAdminPortal">
@@ -40,13 +40,30 @@
             <!-- Project Filter -->
             <div class="col-md-4">
               <label class="form-label">Project</label>
-              <select 
-                class="form-select" 
+              <select
+                class="form-select"
                 [(ngModel)]="selectedProject"
                 (ngModelChange)="onProjectChange()">
                 <option value="all">All Projects</option>
                 <option *ngFor="let project of projects" [value]="project.id">{{project.name}}</option>
               </select>
+            </div>
+
+            <!-- Search -->
+            <div class="col-md-3">
+              <label class="form-label">Search</label>
+              <input
+                class="form-control"
+                type="text"
+                placeholder="Search Vehicles..."
+                aria-label="Search"
+                [(ngModel)]="searchTerm"
+                (ngModelChange)="filterVehicles()">
+            </div>
+
+            <!-- Vehicle Count -->
+            <div class="col-md-1 d-flex align-items-end pb-1">
+              <span class="badge bg-primary-transparent fs-13">{{ filteredVehicles.length }} vehicles</span>
             </div>
           </div>
         </div>
@@ -58,20 +75,8 @@
   <div class="row">
     <div class="col-xl-12">
       <div class="card custom-card">
-        <div class="card-header d-flex justify-content-between">
+        <div class="card-header">
           <div class="card-title">Vehicle List</div>
-          <div class="d-flex align-items-center">
-            <div class="me-3">
-              <input
-                class="form-control form-control-sm"
-                type="text"
-                placeholder="Search Vehicles..."
-                aria-label="Search"
-                [(ngModel)]="searchTerm"
-                (ngModelChange)="filterVehicles()">
-            </div>
-            <span class="badge bg-primary-transparent">{{ filteredVehicles.length }} vehicles</span>
-          </div>
         </div>
         <div class="card-body project-table-body">
           <div *ngIf="isLoadingVehicles" class="project-loader-overlay">
@@ -92,40 +97,32 @@
                     <i class="ti ti-photo"></i>
                   </th>
                   <th scope="col" (click)="sortVehicles('client')" style="cursor:pointer">Client <span *ngIf="sortColumn === 'client'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                  <th scope="col" (click)="sortVehicles('project')" style="cursor:pointer">Project <span *ngIf="sortColumn === 'project'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                  <th scope="col" (click)="sortVehicles('fleetNumber')" style="cursor:pointer">Fleet Number <span *ngIf="sortColumn === 'fleetNumber'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+<th scope="col" (click)="sortVehicles('fleetNumber')" style="cursor:pointer">Fleet Number <span *ngIf="sortColumn === 'fleetNumber'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th scope="col" (click)="sortVehicles('make')" style="cursor:pointer">Make <span *ngIf="sortColumn === 'make'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th scope="col" (click)="sortVehicles('model')" style="cursor:pointer">Model <span *ngIf="sortColumn === 'model'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th scope="col" (click)="sortVehicles('vin')" style="cursor:pointer">VIN <span *ngIf="sortColumn === 'vin'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th scope="col" (click)="sortVehicles('mileageType')" style="cursor:pointer">Mileage Type <span *ngIf="sortColumn === 'mileageType'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th scope="col" (click)="sortVehicles('propulsion')" style="cursor:pointer">Propulsion <span *ngIf="sortColumn === 'propulsion'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                  <th scope="col" (click)="sortVehicles('status')" style="cursor:pointer">Status <span *ngIf="sortColumn === 'status'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                  <th scope="col" (click)="sortVehicles('inspector')" style="cursor:pointer">Inspector <span *ngIf="sortColumn === 'inspector'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th scope="col" class="text-center">Action</th>
                 </tr>
               </thead>
                 <tbody>
                   <tr *ngIf="paginatedVehicles.length === 0">
-                    <td colspan="12" class="text-center text-muted">No vehicles found.</td>
+                    <td colspan="9" class="text-center text-muted">No vehicles found.</td>
                   </tr>
                   <tr *ngFor="let vehicle of paginatedVehicles" class="vehicle-row">
                   <!-- Image -->
                   <td class="text-center">
-                    <div class="vehicle-thumbnail">
+                    <a [routerLink]="[vehicleViewPathPrefix, vehicle.id]" class="vehicle-thumbnail d-block">
                       <img [src]="vehicle.imageUrl" [alt]="vehicle.model" class="rounded">
-                    </div>
+                    </a>
                   </td>
                   
                   <!-- Client -->
                   <td>
-                    <span class="badge bg-info-transparent">{{vehicle.client}}</span>
+                    {{vehicle.client}}
                   </td>
 
-                  <!-- Project -->
-                  <td>
-                    <span class="badge bg-primary-transparent">{{ vehicle.project || '-' }}</span>
-                  </td>
-                  
                   <!-- Fleet Number -->
                   <td>
                     <span class="fw-semibold text-primary">{{vehicle.fleetNumber}}</span>
@@ -156,27 +153,6 @@
                     <span [class]="getPropulsionBadgeClass(vehicle.propulsion)">
                       <i class="ti ti-bolt me-1"></i>{{vehicle.propulsion}}
                     </span>
-                  </td>
-                  
-                  <!-- Status -->
-                  <td>
-                    <span [class]="getStatusClass(vehicle.status)">
-                      <i [class]="getStatusIcon(vehicle.status)" class="me-1"></i>
-                      {{vehicle.status | titlecase}}
-                    </span>
-                  </td>
-                  
-                  <!-- Inspector -->
-                  <td>
-                    <div class="d-flex align-items-center" *ngIf="vehicle.inspector">
-                      <div class="avatar avatar-sm me-2">
-                        <div class="avatar-title rounded-circle bg-primary-transparent text-primary">
-                          {{getInspectorInitial(vehicle.inspector)}}
-                        </div>
-                      </div>
-                      <span class="text-muted">{{getInspectorName(vehicle.inspector)}}</span>
-                    </div>
-                    <span *ngIf="!vehicle.inspector" class="text-muted">—</span>
                   </td>
                   
                   <!-- Action -->

@@ -8,15 +8,15 @@
     <div class="btn-list d-flex gap-2 align-items-center">
       <!-- View Toggle Buttons -->
       <div class="btn-group" role="group">
-        <button type="button" 
-                class="btn btn-sm" 
+        <button type="button"
+                class="btn btn-sm"
                 [ngClass]="viewMode === 'card' ? 'btn-primary' : 'btn-outline-primary'"
                 (click)="toggleViewMode('card')"
                 title="Card View">
           <i class="ti ti-layout-grid me-1"></i>Cards
         </button>
-        <button type="button" 
-                class="btn btn-sm" 
+        <button type="button"
+                class="btn btn-sm"
                 [ngClass]="viewMode === 'table' ? 'btn-primary' : 'btn-outline-primary'"
                 (click)="toggleViewMode('table')"
                 title="Table View">
@@ -34,13 +34,13 @@
   <!-- Search Bar -->
   <div class="mb-4">
     <div class="search-box search-box-compact">
-      <input type="text" 
-             class="form-control" 
+      <input type="text"
+             class="form-control"
              placeholder="Search by name, username, or ID..."
              [(ngModel)]="searchQuery"
              (input)="filterInspectors()">
       <i class="ti ti-search search-icon-left"></i>
-      <button class="btn-clear" 
+      <button class="btn-clear"
               *ngIf="searchQuery"
               (click)="clearSearch()"
               type="button"
@@ -50,23 +50,32 @@
     </div>
   </div>
 
+  <!-- Loading / Error States -->
+  <div *ngIf="isLoading" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="text-muted mt-2">Loading inspectors…</p>
+  </div>
+  <div *ngIf="!isLoading && loadError" class="alert alert-danger text-center">
+    Failed to load inspectors. Please try again.
+  </div>
+
   <!-- Card View -->
-  <div *ngIf="viewMode === 'card'" class="row g-3">
-    <div class="col-xxl-3 col-xl-3 col-lg-4 col-md-6" *ngFor="let inspector of inspectors">
-      <div class="flip-card-wrapper" 
-           (mouseenter)="flipCard(inspector.id)" 
+  <div *ngIf="!isLoading && !loadError && viewMode === 'card'" class="row g-3">
+    <div class="col-xxl-3 col-xl-3 col-lg-4 col-md-6" *ngFor="let inspector of filteredInspectors">
+      <div class="flip-card-wrapper"
+           (mouseenter)="flipCard(inspector.id)"
            (mouseleave)="unflipCard(inspector.id)">
         <div class="flip-card" [class.flipped]="isCardFlipped(inspector.id)">
           <!-- Front Side -->
           <div class="flip-card-front">
             <div class="card inspector-card h-100">
               <!-- Header Background Gradient -->
-              <div class="card-header-gradient" [style.background]="inspector.avatarBg" style="opacity: 0.1;"></div>
-              
+              <div class="card-header-gradient"></div>
+
               <div class="card-body p-4 d-flex flex-column">
                 <!-- Avatar -->
                 <div class="inspector-avatar-container mb-4">
-                  <div class="inspector-avatar-large" [style.background]="inspector.avatarBg">
+                  <div class="inspector-avatar-large">
                     <span>{{getInitials(inspector.fullName)}}</span>
                   </div>
                 </div>
@@ -75,10 +84,10 @@
                 <h5 class="mb-1 text-center fw-bold fs-18">{{inspector.fullName}}</h5>
                 <p class="text-center text-muted small mb-3">{{inspector.name}}</p>
 
-                <!-- Location Badge -->
+                <!-- Client Badge -->
                 <div class="text-center mb-4">
                   <span class="badge bg-primary-transparent">
-                    <i class="ti ti-map-pin me-1"></i>{{inspector.location}}
+                    <i class="ti ti-building me-1"></i>{{inspector.client || 'N/A'}}
                   </span>
                 </div>
 
@@ -86,15 +95,19 @@
                 <div class="row g-2 mb-4">
                   <div class="col-6">
                     <div class="quick-stat">
-                      <div class="stat-number text-primary fw-bold">{{inspector.busesInspected}}</div>
+                      <ng-container *ngIf="!inspector.statsLoading; else cardSpinner">
+                        <div class="stat-number text-primary fw-bold">{{inspector.stats?.busesInspected ?? '—'}}</div>
+                      </ng-container>
                       <div class="stat-label text-muted small">Inspected</div>
                     </div>
                   </div>
                   <div class="col-6">
                     <div class="quick-stat">
-                      <div class="stat-number rating-display fw-bold">
-                        <i class="ti ti-star-filled me-1"></i>{{inspector.rating}}.0
-                      </div>
+                      <ng-container *ngIf="!inspector.statsLoading; else cardSpinner">
+                        <div class="stat-number rating-display fw-bold">
+                          <i class="ti ti-star-filled me-1"></i>{{inspector.stats?.rating ?? '—'}}
+                        </div>
+                      </ng-container>
                       <div class="stat-label text-muted small">Rating</div>
                     </div>
                   </div>
@@ -131,77 +144,88 @@
 
                 <!-- Scrollable Content -->
                 <div class="flex-grow-1 overflow-auto pe-2 me-2">
-                  <!-- Main Stats Grid -->
-                  <div class="row g-2 mb-3">
-                    <div class="col-6">
-                      <div class="stat-box modern">
-                        <div class="stat-icon text-success">
-                          <i class="ti ti-clipboard-check"></i>
-                        </div>
-                        <small class="text-muted d-block mb-1">Inspected</small>
-                        <div class="fw-bold fs-18 text-success">{{inspector.busesInspected}}</div>
-                      </div>
+                  <!-- Stats loading spinner -->
+                  <ng-container *ngIf="inspector.statsLoading">
+                    <div class="text-center py-3">
+                      <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                     </div>
-                    <div class="col-6">
-                      <div class="stat-box modern">
-                        <div class="stat-icon text-info">
-                          <i class="ti ti-bus"></i>
-                        </div>
-                        <small class="text-muted d-block mb-1">Assigned</small>
-                        <div class="fw-bold fs-18 text-info">{{inspector.busesAssigned}}</div>
-                      </div>
-                    </div>
-                  </div>
+                  </ng-container>
 
-                  <!-- Performance Badges -->
-                  <div class="mb-3 p-2 bg-light rounded">
-                    <small class="d-block text-muted mb-2 fw-bold">Rating & Performance</small>
-                    <div class="d-flex align-items-center gap-2">
-                      <span class="fs-18 fw-bold rating-display">
-                        <i class="ti ti-star-filled me-1"></i>{{inspector.rating}}.0
-                      </span>
-                      <span class="badge bg-success-transparent">{{inspector.rating >= 4 ? 'Excellent' : 'Good'}}</span>
-                    </div>
-                  </div>
-
-                  <!-- Tests Section -->
-                  <div class="mb-3">
-                    <small class="d-block text-muted mb-2 fw-bold">Test Coverage</small>
-                    <div class="d-flex gap-2 flex-wrap">
-                      <span class="badge bg-secondary-transparent fs-11 py-2">
-                        <i class="ti ti-road me-1"></i>{{inspector.tests.road}} Road Tests
-                      </span>
-                      <span class="badge bg-info-transparent fs-11 py-2">
-                        <i class="ti ti-windmill me-1"></i>{{inspector.tests.water}} Water Tests
-                      </span>
-                    </div>
-                  </div>
-
-                  <!-- Snags Section -->
-                  <div class="mb-3 p-2 bg-danger-transparent rounded">
-                    <small class="d-block text-muted mb-2 fw-bold">Snags Summary</small>
-                    <div class="row g-2">
+                  <ng-container *ngIf="!inspector.statsLoading">
+                    <!-- Main Stats Grid -->
+                    <div class="row g-2 mb-3">
                       <div class="col-6">
-                        <div class="small">
-                          <span class="d-block text-muted fs-11">Total Snags</span>
-                          <span class="fw-bold fs-16 text-danger">{{inspector.snags.total}}</span>
+                        <div class="stat-box modern">
+                          <div class="stat-icon text-success">
+                            <i class="ti ti-clipboard-check"></i>
+                          </div>
+                          <small class="text-muted d-block mb-1">Inspected</small>
+                          <div class="fw-bold fs-18 text-success">{{inspector.stats?.busesInspected ?? '—'}}</div>
                         </div>
                       </div>
                       <div class="col-6">
-                        <div class="small">
-                          <span class="d-block text-muted fs-11">Safety Critical</span>
-                          <span class="fw-bold fs-16 text-danger">{{inspector.snags.safetyCritical}}</span>
+                        <div class="stat-box modern">
+                          <div class="stat-icon text-info">
+                            <i class="ti ti-bus"></i>
+                          </div>
+                          <small class="text-muted d-block mb-1">Assigned</small>
+                          <div class="fw-bold fs-18 text-info">{{inspector.stats?.busesAssigned ?? '—'}}</div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <!-- Location Info -->
+                    <!-- Performance Badges -->
+                    <div class="mb-3 p-2 bg-light rounded">
+                      <small class="d-block text-muted mb-2 fw-bold">Rating & Performance</small>
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="fs-18 fw-bold rating-display">
+                          <i class="ti ti-star-filled me-1"></i>{{inspector.stats?.rating ?? '—'}}
+                        </span>
+                        <span class="badge bg-success-transparent" *ngIf="inspector.stats">
+                          {{getRatingLabel(inspector.stats.rating)}}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Tests Section -->
+                    <div class="mb-3">
+                      <small class="d-block text-muted mb-2 fw-bold">Test Coverage</small>
+                      <div class="d-flex gap-2 flex-wrap">
+                        <span class="badge bg-secondary-transparent fs-11 py-2">
+                          <i class="ti ti-road me-1"></i>{{inspector.stats?.roadTests ?? 0}} Road Tests
+                        </span>
+                        <span class="badge bg-info-transparent fs-11 py-2">
+                          <i class="ti ti-windmill me-1"></i>{{inspector.stats?.waterTests ?? 0}} Water Tests
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Snags Section -->
+                    <div class="mb-3 p-2 bg-danger-transparent rounded">
+                      <small class="d-block text-muted mb-2 fw-bold">Snags Summary</small>
+                      <div class="row g-2">
+                        <div class="col-6">
+                          <div class="small">
+                            <span class="d-block text-muted fs-11">Total Snags</span>
+                            <span class="fw-bold fs-16 text-danger">{{inspector.stats?.totalSnags ?? '—'}}</span>
+                          </div>
+                        </div>
+                        <div class="col-6">
+                          <div class="small">
+                            <span class="d-block text-muted fs-11">Safety Critical</span>
+                            <span class="fw-bold fs-16 text-danger">{{inspector.stats?.safetyCriticalSnags ?? '—'}}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </ng-container>
+
+                  <!-- Client Info -->
                   <div class="mb-3 p-2 bg-primary-transparent rounded">
                     <small class="d-block text-muted mb-1 fw-bold">
-                      <i class="ti ti-map-pin me-1"></i>Location
+                      <i class="ti ti-building me-1"></i>Client
                     </small>
-                    <span class="fw-semibold small">{{inspector.location}}</span>
+                    <span class="fw-semibold small">{{inspector.client || 'N/A'}}</span>
                   </div>
 
                   <!-- ID & Username -->
@@ -213,7 +237,7 @@
                     </div>
                     <div class="small">
                       <span class="text-muted">Username:</span>
-                      <span class="fw-semibold ms-1">{{inspector.name}}</span>
+                      <span class="fw-semibold ms-1">{{inspector.username}}</span>
                     </div>
                   </div>
                 </div>
@@ -236,66 +260,176 @@
   </div>
 
   <!-- Table View -->
-  <div *ngIf="viewMode === 'table'" class="table-responsive">
-    <table class="table table-hover mb-0">
-      <thead class="table-header-sticky">
-        <tr>
-          <th style="width: 12%;">ID</th>
-          <th style="width: 36%;">Name</th>
-          <th style="width: 24%;">Username</th>
-          <th style="width: 12%;">Role</th>
-          <th style="width: 16%;">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngIf="filteredInspectors.length === 0">
-          <td colspan="5" class="text-center text-muted py-4">No inspectors found.</td>
-        </tr>
-        <tr *ngFor="let inspector of filteredInspectors" class="inspector-table-row">
-          <td>
-            <small class="fw-semibold text-primary">{{ inspector.id }}</small>
-          </td>
-          <td>
-            <div class="d-flex align-items-center gap-2">
-              <div class="inspector-avatar-small-table" [style.background]="inspector.avatarBg">
-                {{ getInitials(inspector.fullName) }}
+  <ng-container *ngIf="!isLoading && !loadError && viewMode === 'table'">
+    <div class="row">
+      <div class="col-xl-12">
+        <div class="card custom-card">
+          <div class="card-body p-0">
+
+            <ng-container *ngIf="!isLoading && !loadError">
+              <div class="table-responsive">
+                <table class="table text-nowrap table-hover border table-bordered mb-0">
+                  <thead>
+                    <tr>
+                      <th scope="col" (click)="sortTable('id')" style="cursor:pointer;width:6%">
+                        ID <span *ngIf="sortColumn === 'id'">{{ sortIcon('id') }}</span>
+                      </th>
+                      <th scope="col" (click)="sortTable('fullName')" style="cursor:pointer;width:20%">
+                        Inspector <span *ngIf="sortColumn === 'fullName'">{{ sortIcon('fullName') }}</span>
+                      </th>
+                      <th scope="col" (click)="sortTable('busesInspected')" style="cursor:pointer;width:10%">
+                        Inspected <span *ngIf="sortColumn === 'busesInspected'">{{ sortIcon('busesInspected') }}</span>
+                      </th>
+                      <th scope="col" style="width:14%">Test Coverage</th>
+                      <th scope="col" (click)="sortTable('rating')" style="cursor:pointer;width:9%">
+                        Rating <span *ngIf="sortColumn === 'rating'">{{ sortIcon('rating') }}</span>
+                      </th>
+                      <th scope="col" (click)="sortTable('status')" style="cursor:pointer;width:9%">
+                        Status <span *ngIf="sortColumn === 'status'">{{ sortIcon('status') }}</span>
+                      </th>
+                      <th scope="col" style="width:8%">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngIf="paginatedInspectors.length === 0">
+                      <td colspan="7" class="text-center text-muted py-4">No inspectors found.</td>
+                    </tr>
+                    <tr *ngFor="let inspector of paginatedInspectors">
+                      <!-- ID -->
+                      <td class="fw-semibold text-primary">{{ inspector.id }}</td>
+
+                      <!-- Inspector (avatar + name + username) -->
+                      <td>
+                        <div class="d-flex align-items-center gap-2">
+                          <div class="inspector-avatar-sm">
+                            {{ getInitials(inspector.fullName) }}
+                          </div>
+                          <div>
+                            <div class="fw-semibold">{{ inspector.fullName }}</div>
+                            <small class="text-muted">{{ inspector.username }}</small>
+                          </div>
+                        </div>
+                      </td>
+
+                      <!-- Buses Inspected -->
+                      <td>
+                        <ng-container *ngIf="!inspector.statsLoading; else tblSpinner">
+                          <span class="fw-semibold text-success">{{ inspector.stats?.busesInspected ?? '—' }}</span>
+                          <small class="text-muted d-block">of {{ inspector.stats?.busesAssigned ?? '—' }} assigned</small>
+                        </ng-container>
+                      </td>
+
+                      <!-- Test Coverage -->
+                      <td>
+                        <ng-container *ngIf="!inspector.statsLoading; else tblSpinner">
+                          <div class="d-flex gap-1 flex-wrap">
+                            <span class="badge bg-secondary-transparent fs-11">
+                              <i class="ti ti-road me-1"></i>{{ inspector.stats?.roadTests ?? 0 }}
+                            </span>
+                            <span class="badge bg-info-transparent fs-11">
+                              <i class="ti ti-windmill me-1"></i>{{ inspector.stats?.waterTests ?? 0 }}
+                            </span>
+                          </div>
+                        </ng-container>
+                      </td>
+
+                      <!-- Rating -->
+                      <td>
+                        <ng-container *ngIf="!inspector.statsLoading; else tblSpinner">
+                          <div class="d-flex align-items-center gap-1">
+                            <i class="ti ti-star-filled text-warning fs-14"></i>
+                            <span class="fw-semibold">{{ inspector.stats?.rating ?? '—' }}</span>
+                          </div>
+                          <small class="text-muted" *ngIf="inspector.stats">{{ getRatingLabel(inspector.stats.rating) }}</small>
+                        </ng-container>
+                      </td>
+
+                      <!-- Status -->
+                      <td>
+                        <span class="badge" [ngClass]="inspector.isActive ? 'bg-success-transparent' : 'bg-secondary-transparent'">
+                          <i class="ti ti-circle-filled me-1 fs-10"></i>
+                          {{ inspector.isActive ? 'Active' : 'Inactive' }}
+                        </span>
+                      </td>
+
+                      <!-- Actions -->
+                      <td>
+                        <div class="dropdown">
+                          <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
+                                  data-bs-toggle="dropdown" aria-expanded="false">
+                            Action
+                          </button>
+                          <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                              <a class="dropdown-item" href="javascript:void(0);"
+                                 [routerLink]="['/admin/users/inspectors', inspector.id]">
+                                <i class="ti ti-eye me-2"></i>View Profile
+                              </a>
+                            </li>
+                            <li>
+                              <a class="dropdown-item" href="javascript:void(0);"
+                                 (click)="showMessageModal(inspector)">
+                                <i class="ti ti-mail me-2"></i>Send Message
+                              </a>
+                            </li>
+                          </ul>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <div>
-                <p class="mb-0 fw-semibold">{{ inspector.fullName }}</p>
+            </ng-container>
+
+          </div>
+
+          <!-- Card Footer — pagination -->
+          <div class="card-footer" *ngIf="!isLoading && !loadError">
+            <div class="d-flex align-items-center">
+              <div class="text-muted small">
+                Showing {{ pageStartItem }} to {{ pageEndItem }} of {{ filteredInspectors.length }} Entries
+              </div>
+              <div class="ms-auto">
+                <nav aria-label="Inspectors pagination" class="pagination-style-4">
+                  <ul class="pagination mb-0">
+                    <li class="page-item" [class.disabled]="currentPage === 1">
+                      <a class="page-link" href="javascript:void(0);" (click)="previousPage()">Prev</a>
+                    </li>
+                    <li class="page-item"
+                        *ngFor="let page of visiblePages"
+                        [class.active]="page === currentPage"
+                        [class.disabled]="page === '...'">
+                      <a class="page-link" href="javascript:void(0);"
+                         (click)="page !== '...' && changePage(page)">
+                        {{ page }}
+                      </a>
+                    </li>
+                    <li class="page-item" [class.disabled]="currentPage === totalPages">
+                      <a class="page-link text-primary" href="javascript:void(0);" (click)="nextPage()">Next</a>
+                    </li>
+                  </ul>
+                </nav>
               </div>
             </div>
-          </td>
-          <td>
-            <small class="fw-semibold">{{ inspector.name }}</small>
-          </td>
-          <td>
-            <span class="badge bg-success-transparent">
-              <i class="ti ti-user-check me-1"></i>Inspector
-            </span>
-          </td>
-          <td>
-            <div class="d-flex gap-2">
-              <button
-                class="btn btn-icon btn-sm btn-primary-light"
-                [routerLink]="['/admin/users/inspectors', inspector.id]"
-                title="View Profile"
-              >
-                <i class="ti ti-eye"></i>
-              </button>
-              <button
-                class="btn btn-icon btn-sm btn-secondary-light"
-                (click)="showMessageModal(inspector)"
-                title="Send Message"
-              >
-                <i class="ti ti-mail"></i>
-              </button>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
 </div>
+
+<ng-template #tblSpinner>
+  <td colspan="1" class="text-center py-2">
+    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+  </td>
+</ng-template>
+
+<ng-template #cardSpinner>
+  <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+</ng-template>
+
 <div class="message-modal" [class.active]="isMessageModalOpen" *ngIf="isMessageModalOpen">
   <div class="modal-overlay" (click)="closeMessageModal()"></div>
   <div class="modal-dialog-wrapper">
@@ -313,12 +447,12 @@
           <!-- Recipient Info -->
           <div class="recipient-card mb-3">
             <div class="d-flex align-items-center gap-3">
-              <div class="inspector-avatar-small" [style.background]="selectedInspector?.avatarBg">
+              <div class="inspector-avatar-small">
                 <span>{{getInitials(selectedInspector?.fullName || '')}}</span>
               </div>
               <div class="flex-grow-1">
                 <div class="fw-semibold fs-15">{{selectedInspector?.fullName}}</div>
-                <div class="text-muted small">{{selectedInspector?.name}} • {{selectedInspector?.location}}</div>
+                <div class="text-muted small">{{selectedInspector?.username}} • {{selectedInspector?.client}}</div>
               </div>
             </div>
           </div>
@@ -326,9 +460,9 @@
           <!-- Subject -->
           <div class="mb-3">
             <label for="messageSubject" class="form-label fw-semibold">Subject <span class="text-danger">*</span></label>
-            <input type="text" 
-                   class="form-control" 
-                   id="messageSubject" 
+            <input type="text"
+                   class="form-control"
+                   id="messageSubject"
                    [(ngModel)]="messageData.subject"
                    placeholder="Enter message subject"
                    autocomplete="off">
@@ -337,18 +471,18 @@
           <!-- Message Body -->
           <div class="mb-3">
             <label for="messageBody" class="form-label fw-semibold">Message <span class="text-danger">*</span></label>
-            <textarea class="form-control" 
-                      id="messageBody" 
+            <textarea class="form-control"
+                      id="messageBody"
                       [(ngModel)]="messageData.body"
-                      rows="6" 
+                      rows="6"
                       placeholder="Type your message here..."></textarea>
           </div>
 
           <!-- Priority -->
           <div class="mb-3">
             <label for="messagePriority" class="form-label fw-semibold">Priority</label>
-            <select class="form-select" 
-                    id="messagePriority" 
+            <select class="form-select"
+                    id="messagePriority"
                     [(ngModel)]="messageData.priority">
               <option value="normal">Normal Priority</option>
               <option value="high">High Priority</option>
@@ -358,9 +492,9 @@
 
           <!-- Send Copy -->
           <div class="form-check">
-            <input class="form-check-input" 
-                   type="checkbox" 
-                   id="sendCopy" 
+            <input class="form-check-input"
+                   type="checkbox"
+                   id="sendCopy"
                    [(ngModel)]="messageData.sendCopy">
             <label class="form-check-label" for="sendCopy">
               Send me a copy of this message

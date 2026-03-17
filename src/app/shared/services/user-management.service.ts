@@ -37,6 +37,17 @@ export interface ManufacturerOption {
   name: string;
 }
 
+export interface InspectorStatistics {
+  busesInspected: number;
+  busesAssigned: number;
+  roadTests: number;
+  waterTests: number;
+  totalSnags: number;
+  safetyCriticalSnags: number;
+  snagsByArea: string;
+  rating: number;
+}
+
 interface ApiUser {
   id?: number;
   userId?: number;
@@ -88,6 +99,20 @@ interface UsersPageResult {
   totalCount: number;
   pageSize: number;
   hasExplicitTotal: boolean;
+}
+
+function mapInspectorStats(raw: unknown): InspectorStatistics {
+  const obj = asObject(raw) ?? {};
+  return {
+    busesInspected: Number(obj['busesInspected'] ?? obj['totalInspected'] ?? obj['inspectedCount'] ?? obj['totalVehiclesInspected'] ?? 0),
+    busesAssigned:  Number(obj['busesAssigned']  ?? obj['assignedBuses'] ?? obj['assignedCount']  ?? obj['totalAssigned']         ?? 0),
+    roadTests:      Number(obj['roadTests']      ?? obj['road']          ?? obj['roadTestCount']  ?? 0),
+    waterTests:     Number(obj['waterTests']     ?? obj['water']         ?? obj['waterTestCount'] ?? 0),
+    totalSnags:     Number(obj['totalSnags']     ?? obj['snags']         ?? obj['snagCount']      ?? obj['totalDefects']          ?? 0),
+    safetyCriticalSnags: Number(obj['safetyCriticalSnags'] ?? obj['criticalSnags'] ?? obj['safetyCritical'] ?? obj['criticalDefects'] ?? 0),
+    snagsByArea: String(obj['snagsByArea'] ?? obj['topSnagAreas'] ?? obj['areaBreakdown'] ?? obj['defectAreas'] ?? ''),
+    rating: Number(obj['rating'] ?? obj['averageRating'] ?? obj['performanceRating'] ?? 0),
+  };
 }
 
 function readTotal(value: unknown): number | undefined {
@@ -303,6 +328,7 @@ export class UserManagementService {
   private readonly usersApiUrl = `${environment.apiBaseUrl}/Users`;
   private readonly manufacturersApiUrl = `${environment.apiBaseUrl}/Manufacturers`;
   private readonly usersQueryCache = new Map<string, Observable<UserListResult>>();
+  private readonly inspectorStatsCache = new Map<number, Observable<InspectorStatistics | null>>();
   private readonly parallelPageConcurrency = 12;
   private readonly defaultFetchPageSize = 200;
   private readonly maxFetchPageSize = 500;
@@ -498,6 +524,18 @@ export class UserManagementService {
     const request$ = from(this.fetchAllUsersPages(query)).pipe(shareReplay(1));
     this.usersQueryCache.set(cacheKey, request$);
     return request$;
+  }
+
+  getInspectorStatistics(inspectorId: number): Observable<InspectorStatistics | null> {
+    const cached = this.inspectorStatsCache.get(inspectorId);
+    if (cached) return cached;
+    const obs$ = this.http.get<unknown>(`${environment.apiBaseUrl}/inspector/${inspectorId}/statistics`).pipe(
+      map((raw) => mapInspectorStats(raw)),
+      catchError(() => of(null)),
+      shareReplay(1),
+    );
+    this.inspectorStatsCache.set(inspectorId, obs$);
+    return obs$;
   }
 
   getUserById(userId: number): Observable<UserListItem | null> {

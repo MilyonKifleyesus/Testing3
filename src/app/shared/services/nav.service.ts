@@ -28,8 +28,8 @@ export class NavService implements OnDestroy {
   private readonly roleMenuAccess: Record<string, string[]> = {
     superadmin: ['/admin'],
     admin: ['/admin'],
-    client: ['/client/dashboard', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets'],
-    user: ['/client/dashboard', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets'],
+    client: ['/client/dashboard', '/client/snags', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets'],
+    user: ['/client/dashboard', '/client/snags', '/client/projects', '/client/vehicles', '/client/reports', '/client/tickets'],
     inspector: ['/dashboard'],
   };
 
@@ -123,20 +123,8 @@ export class NavService implements OnDestroy {
           type: 'link',
           active: false,
         },
-        {
-          path: '/fleet-map',
-          title: 'Fleet Map',
-          icon: 'ti-location-pin',
-          type: 'link',
-          active: false,
-        },
-        {
-          path: '/admin/timelog',
-          title: 'Time Log',
-          icon: 'ti-write',
-          type: 'link',
-          active: false,
-        },
+        // ...existing code...
+          // ...existing code...
     {
       title: 'Project Management',
       type: 'sub',
@@ -351,17 +339,11 @@ export class NavService implements OnDestroy {
       ]
     },
     {
-      path: '/admin/vehicles',
+      path: '/admin/vehicles/list',
       title: 'Vehicles',
-      type: 'sub',
+      type: 'link',
       icon: 'ti-truck',
       active: false,
-      children: [
-        {
-          path: '/admin/vehicles/list',
-          title: 'Vehicles',
-          type: 'link',
-        }],
     },
     {
       path: '/admin/snags',
@@ -377,6 +359,13 @@ export class NavService implements OnDestroy {
       type: 'link',
       active: false,
     },
+    {
+      path: '/admin/fleet-map',
+      title: 'Fleet Map',
+      icon: 'ti-map',
+      type: 'link',
+      active: false,
+    },
   ];
 
   // Client Menu Items
@@ -386,6 +375,13 @@ export class NavService implements OnDestroy {
        path: '/client/dashboard',
        title: 'Dashboard',
        icon: 'ti-dashboard',
+       type: 'link',
+       active: false,
+     },
+     {
+       path: '/client/snags',
+       title: 'Snags',
+       icon: 'ti-flag',
        type: 'link',
        active: false,
      },

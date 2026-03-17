@@ -7,25 +7,55 @@
         <ol class="breadcrumb mb-0">
           <li class="breadcrumb-item"><a href="javascript:void(0);">Home</a></li>
           <li class="breadcrumb-item"><a routerLink="/admin/users/inspectors">Inspectors</a></li>
-          <li class="breadcrumb-item active" aria-current="page">{{inspector.fullName}}</li>
+          <li class="breadcrumb-item active" aria-current="page">
+            {{ isLoading ? 'Loading…' : (inspector.fullName || 'Profile') }}
+          </li>
         </ol>
       </nav>
     </div>
-    <div class="ms-auto pageheader-btn">
+    <div class="ms-auto pageheader-btn d-flex gap-2">
+      <ng-container *ngIf="!isLoading && !loadError">
+        <button *ngIf="!editMode" class="btn btn-primary btn-wave btn-sm" (click)="toggleEditMode()">
+          <i class="ti ti-edit me-1"></i>Edit Profile
+        </button>
+        <ng-container *ngIf="editMode">
+          <button class="btn btn-primary btn-wave btn-sm" (click)="saveProfile()">
+            <i class="ti ti-check me-1"></i>Save
+          </button>
+          <button class="btn btn-outline-secondary btn-wave btn-sm" (click)="toggleEditMode()">
+            <i class="ti ti-x me-1"></i>Cancel
+          </button>
+        </ng-container>
+      </ng-container>
       <button class="btn btn-secondary btn-wave btn-sm" (click)="goBack()">
         <i class="ti ti-arrow-left me-1"></i>Back
       </button>
     </div>
   </div>
 
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="text-muted mt-2">Loading inspector profile…</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="!isLoading && loadError" class="alert alert-danger text-center">
+    Failed to load inspector profile. <a href="javascript:void(0);" (click)="goBack()">Go back</a>
+  </div>
+
+  <!-- Profile Content -->
+  <ng-container *ngIf="!isLoading && !loadError">
+
   <!-- Profile Header with Avatar -->
   <div class="row mb-4">
     <div class="col-xl-12">
       <div class="card custom-card">
         <div class="card-body">
-          <div class="d-flex align-items-center justify-content-between gap-3">
+          <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+            <!-- Avatar + Name -->
             <div class="d-flex align-items-center gap-3">
-              <div class="inspector-avatar-large" [style.background]="avatarBg">
+              <div class="inspector-avatar-large">
                 <span>{{getInitials(inspector.fullName)}}</span>
               </div>
               <div>
@@ -38,10 +68,29 @@
                 </div>
               </div>
             </div>
-            <div class="text-end">
-              <span class="badge" [ngClass]="getStatusBadgeClass(inspector.status)">
-                {{inspector.status | titlecase}}
-              </span>
+            <!-- Status & Role inline dropdowns -->
+            <div class="d-flex align-items-center gap-3">
+              <div class="d-flex align-items-center gap-2">
+                <label class="form-label small fw-semibold mb-0 text-nowrap">Status</label>
+                <select class="form-select form-select-sm profile-header-select"
+                        [(ngModel)]="inspector.status"
+                        [disabled]="!editMode">
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <label class="form-label small fw-semibold mb-0 text-nowrap">Role</label>
+                <select class="form-select form-select-sm profile-header-select"
+                        [(ngModel)]="inspector.role"
+                        [disabled]="!editMode">
+                  <option value="">Select Role</option>
+                  <option value="Inspector">Inspector</option>
+                  <option value="Senior Inspector">Senior Inspector</option>
+                  <option value="Team Lead">Team Lead</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -50,11 +99,12 @@
   </div>
 
   <!-- Main Content -->
-  <div class="row">
-    <!-- Left Column - Form -->
-    <div class="col-xl-8">
+  <div class="row g-4">
+
+    <!-- Row 1: Personal Information -->
+    <div class="col-xl-6 d-flex flex-column">
       <!-- Personal Information Card -->
-      <div class="card custom-card mb-4">
+      <div class="card custom-card flex-grow-1">
         <div class="card-header">
           <h6 class="card-title mb-0">
             <i class="ti ti-user me-2"></i>Personal Information
@@ -125,8 +175,12 @@
         </div>
       </div>
 
+    </div><!-- /col Personal Information -->
+
+    <!-- Row 1: Work Statistics -->
+    <div class="col-xl-6 d-flex flex-column">
       <!-- Work Statistics Card -->
-      <div class="card custom-card mb-4">
+      <div class="card custom-card flex-grow-1">
         <div class="card-header">
           <h6 class="card-title mb-0">
             <i class="ti ti-chart-bar me-2"></i>Work Statistics
@@ -174,8 +228,12 @@
         </div>
       </div>
 
+    </div><!-- /col Work Statistics -->
+
+    <!-- Row 2: Experience & Skills -->
+    <div class="col-xl-6 d-flex flex-column">
       <!-- Experience & Skills Card -->
-      <div class="card custom-card mb-4">
+      <div class="card custom-card flex-grow-1">
         <div class="card-header">
           <h6 class="card-title mb-0">
             <i class="ti ti-certificate me-2"></i>Experience & Skills
@@ -221,8 +279,12 @@
         </div>
       </div>
 
+    </div><!-- /col Experience & Skills -->
+
+    <!-- Row 2: Work Assignments -->
+    <div class="col-xl-6 d-flex flex-column">
       <!-- Work Assignments Card -->
-      <div class="card custom-card mb-4">
+      <div class="card custom-card flex-grow-1">
         <div class="card-header">
           <h6 class="card-title mb-0">
             <i class="ti ti-briefcase me-2"></i>Work Assignments
@@ -280,89 +342,9 @@
           </div>
         </div>
       </div>
-    </div>
+    </div><!-- /col Work Assignments -->
 
-    <!-- Right Column - Summary & Actions -->
-    <div class="col-xl-4">
-      <!-- Account Status Card -->
-      <div class="card custom-card mb-4">
-        <div class="card-header">
-          <h6 class="card-title mb-0">
-            <i class="ti ti-info-circle me-2"></i>Account Settings
-          </h6>
-        </div>
-        <div class="card-body">
-          <div class="mb-3">
-            <label class="form-label">Status</label>
-            <select class="form-select" [(ngModel)]="inspector.status" [disabled]="!editMode">
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="suspended">Suspended</option>
-            </select>
-          </div>
+  </div><!-- /row -->
 
-          <div class="mb-3">
-            <label class="form-label">Role</label>
-            <select class="form-select" [(ngModel)]="inspector.role" [disabled]="!editMode">
-              <option value="">Select Role</option>
-              <option value="Inspector">Inspector</option>
-              <option value="Senior Inspector">Senior Inspector</option>
-              <option value="Team Lead">Team Lead</option>
-            </select>
-          </div>
-
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" id="allowOvertime" [(ngModel)]="inspector.allowOvertime" [disabled]="!editMode">
-            <label class="form-check-label" for="allowOvertime">Allow Overtime</label>
-          </div>
-
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="sendNotifications" [(ngModel)]="inspector.sendNotifications" [disabled]="!editMode">
-            <label class="form-check-label" for="sendNotifications">Send Notifications</label>
-          </div>
-        </div>
-      </div>
-
-      <!-- Snags Summary Card -->
-      <div class="card custom-card summary-card mb-4">
-        <div class="card-header">
-          <h6 class="card-title mb-0">
-            <i class="ti ti-alert-triangle me-2"></i>Snags Overview
-          </h6>
-        </div>
-        <div class="card-body">
-          <div class="snag-stat-item">
-            <div class="snag-count">{{inspector.snags.total}}</div>
-            <div class="snag-label">Total Snags</div>
-          </div>
-          <div class="snag-stat-item safety-critical mt-3">
-            <div class="snag-count-danger">{{inspector.snags.safetyCritical}}</div>
-            <div class="snag-label-safety">Safety Critical</div>
-          </div>
-          <div class="snag-areas mt-3">
-            <label class="form-label mb-2">Areas Covered</label>
-            <p class="text-muted small">{{inspector.snags.byArea}}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Action Buttons -->
-      <div class="d-grid gap-2">
-        <button *ngIf="!editMode" class="btn btn-primary btn-lg" (click)="toggleEditMode()">
-          <i class="ti ti-edit me-2"></i>Edit Profile
-        </button>
-        <div *ngIf="editMode" class="d-flex gap-2">
-          <button class="btn btn-primary btn-lg flex-grow-1" (click)="saveProfile()">
-            <i class="ti ti-check me-2"></i>Save
-          </button>
-          <button class="btn btn-outline-secondary btn-lg flex-grow-1" (click)="toggleEditMode()">
-            <i class="ti ti-x me-2"></i>Cancel
-          </button>
-        </div>
-        <button class="btn btn-outline-secondary btn-lg" (click)="goBack()">
-          <i class="ti ti-arrow-left me-2"></i>Back to List
-        </button>
-      </div>
-    </div>
-  </div>
+  </ng-container><!-- /Profile Content -->
 </div>

@@ -27,6 +27,7 @@ export interface Vehicle {
 export interface VehicleDetail {
   id: number;
   client: string;
+  project?: string;
   fleetNumber: string;
   make: string;
   model: string;
@@ -115,6 +116,16 @@ export interface Ticket {
   priority: TicketPriority;
   status: TicketStatus;
   createdDate: string;
+  project: string;
+  defectType: string;
+  defectLocation: string;
+  description: string;
+  safetyCritical: boolean;
+  repeater: boolean;
+  hasImages: boolean;
+  assignedBy: string;
+  assignedTo: string;
+  station: string;
 }
 
 /**
@@ -122,10 +133,17 @@ export interface Ticket {
  */
 export interface Snag {
   id: string;
+  number: string;
   description: string;
   location: string;
   severity: DefectSeverity;
   status: SnagStatus;
+  inspector: string;
+  project: string;
+  category: string;
+  safetyCritical: boolean;
+  repeater: boolean;
+  hasImages: boolean;
 }
 
 /**
@@ -141,6 +159,8 @@ export interface TimelineEvent {
   avatar?: string;
   status?: string;
   description?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 /**

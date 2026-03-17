@@ -194,11 +194,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  background: #fff;
+  color: #374151;
   font-weight: 700;
   font-size: 1.5rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 2px solid #e5e7eb;
   flex-shrink: 0;
+}
+
+.profile-header-select {
+  min-width: 150px;
 }
 
 .rating-stars {

@@ -62,24 +62,16 @@
     <div class="summary-stats-section mb-5">
       <div class="row g-3 stats-row">
         <div class="col-12" [ngClass]="isAdminRole ? 'col-sm-6 col-lg-3' : 'col-sm-6 col-lg-6'" *ngFor="let card of statCards">
-          <div class="stat-card redesigned">
-            <div class="stat-header">
-              <h6 class="stat-label">{{ card.label }}</h6>
-              <p class="stat-sublabel">{{ card.subtitle }}</p>
-            </div>
-            <div class="stat-body">
-              <div class="stat-value-section">
-                <h3 class="stat-value">{{ card.value }}</h3>
-              </div>
-              <div class="stat-change-section">
-                <div class="stat-change-text">
-                  <span class="change-percentage" [ngClass]="card.trendClass">{{ card.trend }}</span>
-                </div>
-                <div class="stat-icon" [ngClass]="getStatIconClass(card.trendClass)">
-                  <i [class]="card.iconClass"></i>
-                </div>
+          <div class="stat-card-v2" [ngClass]="getStatIconClass(card.trendClass)">
+            <div class="scv2-glow"></div>
+            <div class="scv2-top-row">
+              <div class="scv2-icon-wrap">
+                <i [class]="card.iconClass"></i>
               </div>
             </div>
+            <div class="scv2-value">{{ card.value | number }}</div>
+            <div class="scv2-label">{{ card.label }}</div>
+            <div class="scv2-subtitle">{{ card.subtitle }}</div>
           </div>
         </div>
       </div>
@@ -250,27 +242,18 @@
                     <table class="table table-bordered table-hover align-middle">
                       <thead class="table-light">
                         <tr>
-                          <th>Inspector & Last Sync</th>
+                          <th>Assign By</th>
+                          <th>Assign To</th>
                           <th>Tickets Generated</th>
                           <th>Hours Worked</th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr *ngFor="let activity of recentActivities; trackBy: trackByIndex">
-                          <td>
-                            <div class="d-flex align-items-center gap-2">
-                              <span class="badge bg-primary">{{ activity.inspector }}</span>
-                              <span>{{ activity.lastSync }}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <span class="fw-bold text-success">{{ activity.ticketsGenerated }}</span>
-                            <span class="ms-2 text-muted small">tickets</span>
-                          </td>
-                          <td>
-                            <span class="fw-bold text-info">{{ activity.hoursWorked }}</span>
-                            <span class="ms-2 text-muted small">hours</span>
-                          </td>
+                        <tr *ngFor="let ticket of allClientTickets; let i = index">
+                          <td>{{ userIdToUsername[ticket.assignBy] || ticket.assignBy }}</td>
+                          <td>{{ userIdToUsername[ticket.assignTo] || ticket.assignTo }}</td>
+                          <td>{{ ticket.ticketsGenerated }}</td>
+                          <td>{{ ticket.hoursWorked }}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -432,22 +415,12 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let activity of recentActivities; trackBy: trackByIndex">
-                    <td>
-                      <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-primary">{{ activity.inspector }}</span>
-                        <span>{{ activity.lastSync }}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span class="fw-bold text-success">{{ activity.ticketsGenerated }}</span>
-                      <span class="ms-2 text-muted small">tickets</span>
-                    </td>
-                    <td>
-                      <span class="fw-bold text-info">{{ activity.hoursWorked }}</span>
-                      <span class="ms-2 text-muted small">hours</span>
-                    </td>
-                  </tr>
+                        <tr *ngFor="let ticket of allClientTickets; trackBy: trackByIndex">
+                          <td>{{ userIdToUsername[ticket.assignBy] || ticket.assignBy }}</td>
+                          <td>{{ userIdToUsername[ticket.assignTo] || ticket.assignTo }}</td>
+                          <td>{{ ticket.ticketsGenerated }}</td>
+                          <td>{{ ticket.hoursWorked }}</td>
+                        </tr>
                 </tbody>
               </table>
             </div>
@@ -477,6 +450,7 @@
               <tbody>
                 <tr *ngFor="let activity of recentActivities; trackBy: trackByIndex">
                   <td>{{ activity.lastSync }}</td>
+                  <td>{{ activity.inspector }}</td>
                   <td>{{ activity.ticketsGenerated }}</td>
                   <td>{{ activity.hoursWorked }}</td>
                 </tr>

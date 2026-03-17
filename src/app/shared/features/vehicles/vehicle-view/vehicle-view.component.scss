@@ -721,6 +721,20 @@
     letter-spacing: 0.5px;
     color: var(--text-muted);
     background: rgba(var(--primary-rgb), 0.03);
+
+    &.sortable {
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+
+      i { font-size: 0.75rem; opacity: 0.5; margin-left: 2px; }
+
+      &:hover {
+        color: var(--primary);
+        background: rgba(var(--primary-rgb), 0.07);
+        i { opacity: 1; color: var(--primary); }
+      }
+    }
   }
   
   td {
@@ -806,6 +820,364 @@ code {
   
   .gallery-thumb {
     height: 60px !important;
+  }
+}
+
+// Sidebar timeline scroll body
+.timeline-scroll-body {
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--default-border);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--primary-color, #6c757d);
+    border-radius: 4px;
+
+    &:hover {
+      background: var(--primary-tint, #555);
+    }
+  }
+}
+
+// ─── Ticket Image Carousel ──────────────────────────────────────────────────
+
+.ticket-carousel-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.ticket-carousel-viewport {
+  flex: 1;
+  overflow: hidden;
+}
+
+.ticket-carousel-track {
+  display: flex;
+  gap: 12px;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.ticket-carousel-card {
+  flex: 0 0 280px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--default-border);
+  background: var(--custom-white);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+    transform: translateY(-3px);
+
+    .tcc-image .tcc-overlay {
+      opacity: 1;
+    }
+
+    .tcc-image::before {
+      background: rgba(0,0,0,0.88);
+    }
+  }
+}
+
+.tcc-image {
+  position: relative;
+  height: 280px;
+  background-size: cover;
+  background-position: center;
+  background-color: rgba(var(--primary-rgb), 0.06);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.55) 100%);
+    z-index: 1;
+    transition: background 0.3s ease;
+  }
+}
+
+// Always-visible corner badges
+.tcc-status-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  font-size: 0.65rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.tcc-safety-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(220,53,69,0.9);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.tcc-img-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 2;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.8rem;
+}
+
+// Hover overlay
+.tcc-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  display: flex;
+  align-items: flex-start;
+  padding: 14px 12px;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar { width: 3px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.4); border-radius: 2px; }
+}
+
+.tcc-overlay-content {
+  width: 100%;
+  color: #fff;
+}
+
+.tcc-ticket-id {
+  margin-bottom: 8px;
+  code {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+  }
+}
+
+.tcc-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 5px;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding-bottom: 4px;
+}
+
+.tcc-lbl {
+  color: rgba(255,255,255,0.55);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.tcc-val {
+  color: #fff;
+  font-weight: 600;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+  font-size: 0.76rem;
+}
+
+.tcc-desc {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.9);
+  margin: 7px 0 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.tcc-date {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.55);
+  margin-top: 6px;
+}
+
+.tcc-footer {
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid var(--default-border);
+  background: var(--custom-white);
+}
+
+.tcc-title {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--default-text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tcc-loc {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Nav arrows
+.carousel-nav-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--default-border);
+  background: var(--custom-white);
+  color: var(--default-text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+
+  i { font-size: 1rem; }
+
+  &:hover:not(:disabled) {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+// Dot indicators
+.tcc-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.tcc-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--default-border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &.active {
+    background: var(--primary);
+    width: 18px;
+    border-radius: 4px;
+  }
+}
+
+// Responsive: fewer cards on smaller screens
+@media (max-width: 1199px) {
+  .ticket-carousel-card { flex: 0 0 240px; }
+}
+
+@media (max-width: 767px) {
+  .ticket-carousel-card { flex: 0 0 200px; }
+  .tcc-image { height: 220px; }
+}
+
+// ─── end Ticket Image Carousel ───────────────────────────────────────────────
+
+// Sidebar timeline (right 30% column)
+.timeline-sidebar {
+  position: relative;
+  padding-left: 20px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--default-border);
+  }
+}
+
+.timeline-sidebar-item {
+  position: relative;
+  padding-bottom: 1.25rem;
+
+  &.last {
+    padding-bottom: 0;
+  }
+
+  .timeline-sidebar-dot {
+    position: absolute;
+    left: -17px;
+    top: 3px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #09ad95;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px rgba(9, 173, 149, 0.25);
+    z-index: 1;
+  }
+
+  &.status-info .timeline-sidebar-dot {
+    background: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.25);
+  }
+
+  &.status-warning .timeline-sidebar-dot {
+    background: #fcd539;
+    box-shadow: 0 0 0 2px rgba(252, 213, 57, 0.25);
+  }
+
+  &.status-danger .timeline-sidebar-dot {
+    background: #f16d75;
+    box-shadow: 0 0 0 2px rgba(241, 109, 117, 0.25);
+  }
+
+  .timeline-sidebar-content {
+    background: var(--light);
+    border: 1px solid var(--default-border);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
   }
 }
 

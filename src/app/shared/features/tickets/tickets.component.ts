@@ -12,6 +12,7 @@ import {
   DashboardVehicleOptionsResult,
 } from '../../services/dashboard-projects.service';
 import { buildPaginationItems, PAGINATION_ELLIPSIS } from '../../utils/pagination.utils';
+import { UserManagementService } from '../../services/user-management.service';
 import { map, Observable } from 'rxjs';
 
 interface TicketRow {
@@ -27,6 +28,7 @@ interface TicketRow {
   ticketUpdatedDate?: string;
   userId?: number;
   ticketAssignedBy?: number;
+  assignedToId?: number;
   assignedBy?: string;
   assignedTo?: string;
   projectId?: string | number;
@@ -110,12 +112,15 @@ export class TicketsComponent implements OnInit {
 
   private initialProjectIdFromRoute: string | null = null;
 
+  private userIdToName = new Map<number, string>();
+
   constructor(
     private route: ActivatedRoute,
     private dashboardProjectsService: DashboardProjectsService,
     private authService: AuthService,
     private clientService: ClientService,
     private clientDashboardService: ClientDashboardService,
+    private userManagementService: UserManagementService,
   ) {}
 
   ngOnInit(): void {
@@ -228,6 +233,44 @@ export class TicketsComponent implements OnInit {
     if (!text) return '-';
     if (!this.hasClientNameMap) return text;
     return this.clientService.resolveClientName(text, text);
+  }
+
+  private resolveAssignedUserNames(): void {
+    const userIds = Array.from(new Set(
+      this.tickets.flatMap(t => [t.ticketAssignedBy, t.assignedToId])
+        .filter((id): id is number => typeof id === 'number' && id > 0)
+    ));
+
+    if (!userIds.length) return;
+
+    const applyNames = () => {
+      this.tickets = this.tickets.map(ticket => ({
+        ...ticket,
+        assignedBy: ticket.ticketAssignedBy && this.userIdToName.has(ticket.ticketAssignedBy)
+          ? this.userIdToName.get(ticket.ticketAssignedBy)!
+          : ticket.assignedBy,
+        assignedTo: ticket.assignedToId && this.userIdToName.has(ticket.assignedToId)
+          ? this.userIdToName.get(ticket.assignedToId)!
+          : ticket.assignedTo,
+      }));
+      this.applyFilters();
+    };
+
+    const uncachedIds = userIds.filter(id => !this.userIdToName.has(id));
+
+    if (!uncachedIds.length) {
+      applyNames();
+      return;
+    }
+
+    this.userManagementService.getUsers({ page: 1, pageSize: 10000, role: '', clientId: '', manufacturerId: '' }).subscribe({
+      next: (result) => {
+        for (const user of result.items) {
+          this.userIdToName.set(user.id, user.username || user.name || String(user.id));
+        }
+        applyNames();
+      },
+    });
   }
 
   private applyClientNamesToTickets(): void {
@@ -407,9 +450,10 @@ export class TicketsComponent implements OnInit {
       createdDate: createdAtValue != null ? String(createdAtValue) : undefined,
       ticketUpdatedDate: this.getFirstDefinedValue(item, ['ticketUpdatedDate', 'updatedDate', 'updated_at']),
       userId: this.getFirstDefinedValue(item, ['userId', 'user_id']),
-      ticketAssignedBy: this.getFirstDefinedValue(item, ['ticketAssignedBy', 'assignedById']),
-      assignedBy: this.getFirstDefinedValue(item, ['assignedBy', 'assignedByName']) ?? '-',
-      assignedTo: this.getFirstDefinedValue(item, ['assignedTo', 'assignedToName']) ?? '-',
+      ticketAssignedBy: this.getFirstDefinedValue(item, ['ticketAssignedBy', 'assignedById', 'assignedBy', 'assignBy']),
+      assignedToId: this.getFirstDefinedValue(item, ['assignedToId', 'assignedTo', 'assignTo']),
+      assignedBy: this.getFirstDefinedValue(item, ['assignedByName']) ?? '-',
+      assignedTo: this.getFirstDefinedValue(item, ['assignedToName']) ?? '-',
       projectId: mappedProject.id,
       vehicleId: mappedVehicle.id,
       inspectionTaskId: this.getFirstDefinedValue(item, ['inspectionTaskId', 'inspection_task_id']),
@@ -517,6 +561,7 @@ export class TicketsComponent implements OnInit {
           this.tickets = items.map((item) => this.mapApiTicketToRow(item));
           this.applyVehicleClientIdsToTickets();
           this.applyClientNamesToTickets();
+          this.resolveAssignedUserNames();
           this.applyFilters();
           this.isLoadingTickets = false;
         },

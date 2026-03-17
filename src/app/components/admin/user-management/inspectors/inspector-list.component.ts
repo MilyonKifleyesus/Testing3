@@ -1,26 +1,55 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import {
+  UserManagementService,
+  UserListItem,
+  InspectorStatistics,
+} from '../../../../shared/services/user-management.service';
 
 interface InspectorCard {
-  id: string;
+  id: number;
   name: string;
   fullName: string;
-  location: string;
-  busesInspected: number;
-  busesAssigned: number;
-  tests: {
-    road: number;
-    water: number;
+  username: string;
+  email: string;
+  role: string;
+  client: string;
+  isActive: boolean;
+  statsLoading: boolean;
+  stats: InspectorStatistics | null;
+}
+
+function mapUserToCard(user: UserListItem): InspectorCard {
+  return {
+    id: user.id,
+    name: user.name,
+    fullName: user.name,
+    username: user.username,
+    email: user.email,
+    role: user.role,
+    client: user.client,
+    isActive: user.isActive ?? true,
+    statsLoading: true,
+    stats: null,
   };
-  snags: {
-    total: number;
-    byArea: string;
-    safetyCritical: number;
-  };
-  rating: number;
-  avatarBg: string;
+}
+
+function buildPaginationItems(current: number, total: number): (number | string)[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const pages: (number | string)[] = [1];
+  if (current > 3) pages.push('...');
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+    pages.push(i);
+  }
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
 }
 
 @Component({
@@ -28,88 +57,109 @@ interface InspectorCard {
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './inspector-list.component.html',
-  styleUrl: './inspector-list.component.scss'
+  styleUrl: './inspector-list.component.scss',
 })
-export class InspectorListComponent {
-  inspectors: InspectorCard[] = [
-    {
-      id: 'inspector-001',
-      name: 'J. Carter',
-      fullName: 'Jordan Carter',
-      location: 'Seattle, WA',
-      busesInspected: 142,
-      busesAssigned: 8,
-      tests: { road: 118, water: 24 },
-      snags: { total: 63, byArea: 'Engine, Suspension, Interior', safetyCritical: 7 },
-      rating: 5,
-      avatarBg: 'linear-gradient(135deg, #5b8def 0%, #0049b7 100%)'
-    },
-    {
-      id: 'inspector-002',
-      name: 'A. Singh',
-      fullName: 'Anika Singh',
-      location: 'Austin, TX',
-      busesInspected: 128,
-      busesAssigned: 6,
-      tests: { road: 102, water: 26 },
-      snags: { total: 54, byArea: 'Body, Electrical, Doors', safetyCritical: 5 },
-      rating: 4,
-      avatarBg: 'linear-gradient(135deg, #f97794 0%, #623aa2 100%)'
-    },
-    {
-      id: 'inspector-003',
-      name: 'M. Chen',
-      fullName: 'Mei Chen',
-      location: 'San Diego, CA',
-      busesInspected: 116,
-      busesAssigned: 7,
-      tests: { road: 94, water: 22 },
-      snags: { total: 48, byArea: 'HVAC, Brakes, Interior', safetyCritical: 4 },
-      rating: 4,
-      avatarBg: 'linear-gradient(135deg, #2af598 0%, #009efd 100%)'
-    },
-    {
-      id: 'inspector-004',
-      name: 'D. Alvarez',
-      fullName: 'Diego Alvarez',
-      location: 'Miami, FL',
-      busesInspected: 101,
-      busesAssigned: 5,
-      tests: { road: 81, water: 20 },
-      snags: { total: 39, byArea: 'Cooling, Exterior, Seats', safetyCritical: 3 },
-      rating: 4,
-      avatarBg: 'linear-gradient(135deg, #ff9966 0%, #ff5e62 100%)'
-    },
-    {
-      id: 'inspector-005',
-      name: 'L. Okafor',
-      fullName: 'Lena Okafor',
-      location: 'Chicago, IL',
-      busesInspected: 95,
-      busesAssigned: 4,
-      tests: { road: 76, water: 19 },
-      snags: { total: 35, byArea: 'Doors, Lighting, Interior', safetyCritical: 2 },
-      rating: 5,
-      avatarBg: 'linear-gradient(135deg, #f8cdda 0%, #1d2b64 100%)'
-    },
-    {
-      id: 'inspector-006',
-      name: 'S. Patel',
-      fullName: 'Sanjay Patel',
-      location: 'Newark, NJ',
-      busesInspected: 88,
-      busesAssigned: 5,
-      tests: { road: 69, water: 19 },
-      snags: { total: 31, byArea: 'Chassis, HVAC, Roof', safetyCritical: 2 },
-      rating: 3,
-      avatarBg: 'linear-gradient(135deg, #fad961 0%, #f76b1c 100%)'
+export class InspectorListComponent implements OnInit {
+  private static listCache: InspectorCard[] | null = null;
+
+  inspectors: InspectorCard[] = [];
+  filteredInspectors: InspectorCard[] = [];
+
+  isLoading = false;
+  loadError = false;
+
+  viewMode: 'card' | 'table' = 'card';
+
+  searchQuery = '';
+
+  flippedCards = new Set<number>();
+
+  sortColumn = 'name';
+  sortDir: 'asc' | 'desc' = 'asc';
+
+  readonly pageSize = 10;
+  currentPage = 1;
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredInspectors.length / this.pageSize));
+  }
+
+  get pageStartItem(): number {
+    if (!this.filteredInspectors.length) return 0;
+    return (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  get pageEndItem(): number {
+    return Math.min(this.currentPage * this.pageSize, this.filteredInspectors.length);
+  }
+
+  get paginatedInspectors(): InspectorCard[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.filteredInspectors.slice(start, start + this.pageSize);
+  }
+
+  get visiblePages(): (number | string)[] {
+    return buildPaginationItems(this.currentPage, this.totalPages);
+  }
+
+  // Message modal
+  isMessageModalOpen = false;
+  selectedInspector: InspectorCard | null = null;
+  messageData = { subject: '', body: '', priority: 'normal', sendCopy: false };
+
+  constructor(private userMgmt: UserManagementService) {}
+
+  ngOnInit(): void {
+    if (InspectorListComponent.listCache) {
+      this.inspectors = InspectorListComponent.listCache;
+      this.applyFilter();
+      this.loadStatsForAll();
+    } else {
+      this.loadInspectors();
     }
-  ];
+  }
+
+  private loadInspectors(): void {
+    this.isLoading = true;
+    this.loadError = false;
+
+    this.userMgmt
+      .getUsers({ page: 1, pageSize: 200, role: 'Inspector', clientId: '', manufacturerId: '' })
+      .pipe(catchError(() => of({ items: [], totalCount: 0 })))
+      .subscribe((result) => {
+        this.isLoading = false;
+        if (!result.items.length && result.totalCount === 0) {
+          this.loadError = true;
+          return;
+        }
+        this.inspectors = result.items.map((u) => mapUserToCard(u));
+        InspectorListComponent.listCache = this.inspectors;
+        this.applyFilter();
+        this.loadStatsForAll();
+      });
+  }
+
+  private loadStatsForAll(): void {
+    this.inspectors.forEach((insp) => {
+      if (insp.stats !== null || !insp.statsLoading) return;
+      this.userMgmt.getInspectorStatistics(insp.id).subscribe((stats) => {
+        const idx = this.inspectors.findIndex((i) => i.id === insp.id);
+        if (idx === -1) return;
+        this.inspectors[idx] = { ...this.inspectors[idx], statsLoading: false, stats };
+        InspectorListComponent.listCache = this.inspectors;
+        this.filteredInspectors = this.filteredInspectors.map((i) =>
+          i.id === insp.id ? this.inspectors[idx] : i,
+        );
+      });
+    });
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
 
   getInitials(name: string): string {
     return name
       .split(' ')
-      .map(part => part.trim()[0])
+      .map((part) => part.trim()[0])
       .filter(Boolean)
       .join('')
       .slice(0, 2)
@@ -120,100 +170,95 @@ export class InspectorListComponent {
     return Array.from({ length: 5 }, (_, i) => i < rating);
   }
 
-  // View Mode Toggle
-  viewMode: 'card' | 'table' = 'card';
+  getRatingLabel(rating: number): string {
+    return rating >= 4 ? 'Excellent' : 'Good';
+  }
 
-  toggleViewMode(mode: 'card' | 'table') {
+  // ── View Mode ────────────────────────────────────────────────────────────────
+
+  toggleViewMode(mode: 'card' | 'table'): void {
     this.viewMode = mode;
-    // Reset flip cards when switching to table view
-    if (mode === 'table') {
-      this.flippedCards.clear();
-    }
+    if (mode === 'table') this.flippedCards.clear();
   }
 
-  // Search functionality
-  searchQuery: string = '';
-  filteredInspectors: InspectorCard[] = [];
+  // ── Search ───────────────────────────────────────────────────────────────────
 
-  ngOnInit() {
-    this.filteredInspectors = this.inspectors;
+  filterInspectors(): void {
+    this.applyFilter();
   }
 
-  filterInspectors() {
-    if (!this.searchQuery.trim()) {
-      this.filteredInspectors = this.inspectors;
-      return;
-    }
-
-    const query = this.searchQuery.toLowerCase();
-    this.filteredInspectors = this.inspectors.filter(inspector => 
-      inspector.id.toLowerCase().includes(query) ||
-      inspector.fullName.toLowerCase().includes(query) ||
-      inspector.name.toLowerCase().includes(query)
-    );
-  }
-
-  clearSearch() {
+  clearSearch(): void {
     this.searchQuery = '';
-    this.filteredInspectors = this.inspectors;
+    this.applyFilter();
   }
 
-  // Flip card state management
-  flippedCards: Set<string> = new Set();
-
-  flipCard(inspectorId: string) {
-    this.flippedCards.add(inspectorId);
+  private applyFilter(): void {
+    const q = this.searchQuery.toLowerCase().trim();
+    this.filteredInspectors = q
+      ? this.inspectors.filter(
+          (i) =>
+            i.fullName.toLowerCase().includes(q) ||
+            i.username.toLowerCase().includes(q) ||
+            i.email.toLowerCase().includes(q) ||
+            i.client.toLowerCase().includes(q),
+        )
+      : [...this.inspectors];
+    this.currentPage = 1;
   }
 
-  unflipCard(inspectorId: string) {
-    this.flippedCards.delete(inspectorId);
+  // ── Flip Cards ───────────────────────────────────────────────────────────────
+
+  flipCard(id: number): void    { this.flippedCards.add(id); }
+  unflipCard(id: number): void  { this.flippedCards.delete(id); }
+  isCardFlipped(id: number): boolean { return this.flippedCards.has(id); }
+
+  // ── Sorting ──────────────────────────────────────────────────────────────────
+
+  sortTable(column: string): void {
+    if (this.sortColumn === column) {
+      this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortColumn = column;
+      this.sortDir = 'asc';
+    }
   }
 
-  isCardFlipped(inspectorId: string): boolean {
-    return this.flippedCards.has(inspectorId);
+  sortIcon(column: string): string {
+    if (this.sortColumn !== column) return '';
+    return this.sortDir === 'asc' ? '▲' : '▼';
   }
 
-  // Message Modal
-  isMessageModalOpen = false;
-  selectedInspector: InspectorCard | null = null;
-  messageData = {
-    subject: '',
-    body: '',
-    priority: 'normal',
-    sendCopy: false
-  };
+  // ── Pagination ───────────────────────────────────────────────────────────────
 
-  showMessageModal(inspector: InspectorCard) {
+  previousPage(): void { this.changePage(this.currentPage - 1); }
+  nextPage(): void     { this.changePage(this.currentPage + 1); }
+  changePage(page: number | string): void {
+    const p = Number(page);
+    if (!Number.isFinite(p) || p < 1 || p > this.totalPages) return;
+    this.currentPage = p;
+  }
+
+  // ── Message Modal ─────────────────────────────────────────────────────────────
+
+  showMessageModal(inspector: InspectorCard): void {
     this.selectedInspector = inspector;
     this.isMessageModalOpen = true;
-    // Reset form
-    this.messageData = {
-      subject: '',
-      body: '',
-      priority: 'normal',
-      sendCopy: false
-    };
-    // Prevent body scroll
+    this.messageData = { subject: '', body: '', priority: 'normal', sendCopy: false };
     document.body.classList.add('modal-open');
   }
 
-  closeMessageModal() {
+  closeMessageModal(): void {
     this.isMessageModalOpen = false;
     this.selectedInspector = null;
-    // Re-enable body scroll
     document.body.classList.remove('modal-open');
   }
 
-  sendMessage() {
+  sendMessage(): void {
     if (!this.messageData.subject || !this.messageData.body) {
       alert('Please enter both subject and message.');
       return;
     }
-
-    // In a real app, call service to send message
-    console.log('Sending message to:', this.selectedInspector?.fullName);
-    console.log('Message data:', this.messageData);
-    
+    console.log('Sending message to:', this.selectedInspector?.fullName, this.messageData);
     alert(`Message sent successfully to ${this.selectedInspector?.fullName}!`);
     this.closeMessageModal();
   }
