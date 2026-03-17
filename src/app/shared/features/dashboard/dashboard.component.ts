@@ -1592,11 +1592,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
               const stationLine = stationValue ? `<div><strong>Station Name:</strong> ${stationValue}</div>` : '';
               const stationNumberLine = stationNumber ? `<div><strong>Station Number:</strong> ${stationNumber}</div>` : '';
 
-              const fmt = (iso?: string | null) => {
+              const fmtDateOnly = (iso?: string | null) => {
                 if (!iso) return '';
                 try {
                   const d = new Date(iso);
-                  return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
                 } catch (e) {
                   return String(iso);
                 }
@@ -1604,8 +1604,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
               const startIso = meta?.startDate ?? null;
               const endIso = meta?.endDate ?? null;
-              const startLine = startIso ? `<div><strong>Start:</strong> ${fmt(startIso)}</div>` : '';
-              const endLine = endIso ? `<div><strong>End:</strong> ${fmt(endIso)}</div>` : '';
+              const startLine = startIso ? `<div><strong>Start:</strong> ${fmtDateOnly(startIso)}</div>` : '';
+              const endLine = endIso ? `<div><strong>End:</strong> ${fmtDateOnly(endIso)}</div>` : '';
 
               return `<div class="apexcharts-tooltip-rangebar" style="padding:8px 10px;">` +
                   `<div><strong>Vehicle:</strong> ${vehicle}</div>` +
