@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Inject, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Inject, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -53,8 +53,9 @@ import {
 } from './dashboard-chart.utils';
 import { DashboardResizeHandle, DashboardRole, DashboardStatCard } from './dashboard.types';
 import { createDefaultDashboardWidgets } from './dashboard.widget-factory';
+import { DashboardSnapshot, DashboardStateService } from './dashboard-state.service';
 import {
-  applyResizeDelta,
+  applyResizeDeltaToDom,
   createResizeSession,
   DashboardResizeSession,
   getNextFullscreenWidgetId,
@@ -134,6 +135,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       private location: Location,
       private route: ActivatedRoute,
       private cdr: ChangeDetectorRef,
+      private ngZone: NgZone,
+      private dashboardStateService: DashboardStateService,
     ) {}
   role: DashboardRole = 'client';
   title = 'BusPulse Dashboard';
@@ -162,6 +165,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   clientProfile = defaultClientProfile;
   customerLogoName = '';
   currentProjectStats: ProjectStats = projectStats[0];
+  userPicture = '';
 
   allClientVehicles: any[] = [];
   allClientTickets: any[] = [];
@@ -188,6 +192,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private allMapLocations: ApiLocation[] = [];
   private dashboardMapDataLoaded = false;
 
+  private dataInitialized = false;
   private resizeSession: DashboardResizeSession | null = null;
   private projectsRequestVersion = 0;
   private vehiclesRequestVersion = 0;
@@ -199,7 +204,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   vehicleStationLabels: string[] = [];
 
   private readonly mouseMoveHandler = (event: MouseEvent) => this.onMouseMove(event);
-  private readonly mouseUpHandler = (event: MouseEvent) => this.onMouseUp();
+  private readonly mouseUpHandler = () => this.ngZone.run(() => this.onMouseUp());
   private readonly keydownHandler = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && this.fullscreenWidgetId) {
       this.toggleFullscreen(this.fullscreenWidgetId);
@@ -213,18 +218,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     try {
       this.syncDashboardTheme();
-      this.applyRole(this.authService.userRole);
-      // Restore filter state from URL query params (applyRole resets to 'all', so apply after)
-      const qp = this.route.snapshot.queryParams;
-      if (qp['projectId']) this.selectedProject = qp['projectId'];
-      if (qp['vehicleId']) this.selectedVehicle = qp['vehicleId'];
-      this.fetchAllClientVehiclesAndTickets();
-      this.loadDashboardMapData();
+      const cached = this.dashboardStateService.snapshot;
+      const currentRole = this.computeRole(this.authService.userRole);
+      if (cached && cached.role === currentRole) {
+        this.restoreFromSnapshot(cached);
+      } else {
+        this.dashboardStateService.snapshot = null;
+        this.applyRole(this.authService.userRole);
+        // Restore filter state from URL query params (applyRole resets to 'all', so apply after)
+        const qp = this.route.snapshot.queryParams;
+        if (qp['projectId']) this.selectedProject = qp['projectId'];
+        if (qp['vehicleId']) this.selectedVehicle = qp['vehicleId'];
+        this.fetchAllClientVehiclesAndTickets();
+        this.loadDashboardMapData();
+      }
     } catch (err) {
       this.toastService.show('Client dashboard initialization failed: ' + (typeof err === 'object' && err && 'message' in err ? (err as any).message : String(err)), { classname: 'bg-danger text-light', autohide: true });
     }
 
     this.userSubscription = this.authService.currentUser$.subscribe((user) => {
+      // Always sync user picture (may arrive async after login)
+      const newPicture = user?.picture || '';
+      if (this.userPicture !== newPicture) {
+        this.userPicture = newPicture;
+        this.cdr.markForCheck();
+      }
+      // Skip full re-init if role hasn't changed — covers the immediate BehaviorSubject emit on subscribe
+      if (this.isRoleMatch(user?.role ?? null)) {
+        this.cdr.markForCheck();
+        return;
+      }
+      // Role changed — invalidate cache and re-initialize
+      this.dataInitialized = false;
+      this.dashboardStateService.snapshot = null;
       try {
         this.applyRole(user?.role ?? null);
       } catch (err) {
@@ -237,8 +263,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
     });
 
-    document.addEventListener('mousemove', this.mouseMoveHandler);
-    document.addEventListener('mouseup', this.mouseUpHandler);
+    this.ngZone.runOutsideAngular(() => {
+      document.addEventListener('mousemove', this.mouseMoveHandler);
+      document.addEventListener('mouseup', this.mouseUpHandler);
+    });
     document.addEventListener('keydown', this.keydownHandler);
 
     setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
@@ -246,6 +274,38 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.saveLayoutToStorage();
+    // Persist dashboard state for next navigation (cleared on browser refresh).
+    // Only save when widgets actually have chart data — skip if data never finished loading.
+    const hasData = this.widgets.some(w => w.chartOptions);
+    if (this.dataInitialized && hasData) {
+      this.dashboardStateService.snapshot = {
+        role: this.role,
+        widgets: this.widgets.map(w => ({ ...w })),
+        statCards: [...this.statCards],
+        projects: [...this.projects],
+        vehicles: [...this.vehicles],
+        clients: [...this.clients],
+        totalVehiclesCount: this.totalVehiclesCount,
+        allClientVehicles: [...this.allClientVehicles],
+        allClientTickets: [...this.allClientTickets],
+        userIdToUsername: { ...this.userIdToUsername },
+        allMapProjects: [...this.allMapProjects],
+        allMapClients: [...this.allMapClients],
+        allMapManufacturers: [...this.allMapManufacturers],
+        allMapLocations: [...this.allMapLocations],
+        dashboardMapDataLoaded: this.dashboardMapDataLoaded,
+        welcomeUserName: this.welcomeUserName,
+        vehicleStationLabels: [...this.vehicleStationLabels],
+        clientProfile: this.clientProfile,
+        customerLogoName: this.customerLogoName,
+        showFilters: this.showFilters,
+        includeClosedProjects: this.includeClosedProjects,
+        selectedProject: this.selectedProject,
+        selectedVehicle: this.selectedVehicle,
+        selectedClient: this.selectedClient,
+        currentProjectStats: this.currentProjectStats,
+      } satisfies DashboardSnapshot;
+    }
     this.userSubscription?.unsubscribe();
     this.themeSubscription?.unsubscribe();
     document.removeEventListener('mousemove', this.mouseMoveHandler);
@@ -255,6 +315,50 @@ export class DashboardComponent implements OnInit, OnDestroy {
     document.body.style.cursor = '';
     document.body.style.overflow = 'auto';
     this.resizeSession = null;
+  }
+
+  private computeRole(roleValue: string | null): DashboardRole {
+    const normalized = String(roleValue ?? '').trim().toLowerCase();
+    return normalized === 'admin' || normalized === 'superadmin' ? 'admin' : 'client';
+  }
+
+  /** Returns true if the given role string resolves to the same DashboardRole as currently active. */
+  private isRoleMatch(roleValue: string | null): boolean {
+    return this.computeRole(roleValue) === this.role;
+  }
+
+  /** Restores full dashboard state from a cached snapshot without any API fetches. */
+  private restoreFromSnapshot(snapshot: DashboardSnapshot): void {
+    this.role = snapshot.role;
+    this.widgets = snapshot.widgets.map(w => ({ ...w }));
+    this.statCards = [...snapshot.statCards];
+    this.projects = [...snapshot.projects];
+    this.vehicles = [...snapshot.vehicles];
+    this.clients = [...snapshot.clients];
+    this.totalVehiclesCount = snapshot.totalVehiclesCount;
+    this.allClientVehicles = [...snapshot.allClientVehicles];
+    this.allClientTickets = [...snapshot.allClientTickets];
+    this.userIdToUsername = { ...snapshot.userIdToUsername };
+    this.allMapProjects = [...snapshot.allMapProjects];
+    this.allMapClients = [...snapshot.allMapClients];
+    this.allMapManufacturers = [...snapshot.allMapManufacturers];
+    this.allMapLocations = [...snapshot.allMapLocations];
+    this.dashboardMapDataLoaded = snapshot.dashboardMapDataLoaded;
+    this.welcomeUserName = snapshot.welcomeUserName;
+    this.vehicleStationLabels = [...snapshot.vehicleStationLabels];
+    this.clientProfile = snapshot.clientProfile;
+    this.customerLogoName = snapshot.customerLogoName;
+    this.showFilters = snapshot.showFilters;
+    this.includeClosedProjects = snapshot.includeClosedProjects;
+    this.selectedProject = snapshot.selectedProject;
+    this.selectedVehicle = snapshot.selectedVehicle;
+    this.selectedClient = snapshot.selectedClient;
+    this.currentProjectStats = snapshot.currentProjectStats;
+    this.title = this.isAdminRole ? 'BusPulse Fleet Dashboard' : 'BusPulse Client Dashboard';
+    this.dashboardMapLoading = false;
+    this.updateDashboardMapView();
+    this.dataInitialized = true;
+    this.cdr.markForCheck();
   }
 
   // Sync handlers for widget-15 scrollable chart/labels column
@@ -508,6 +612,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
       widget.order = index + 1;
     });
     this.saveLayoutToStorage();
+    // After CDK drop animation completes (~300ms), force chart components to
+    // re-read their container dimensions by creating new chartOptions references.
+    // This triggers ngOnChanges → updateChartOptionsInPlace with correct sizes.
+    setTimeout(() => {
+      this.widgets.forEach(w => { if (w.chartOptions) w.chartOptions = { ...w.chartOptions }; });
+      this.cdr.markForCheck();
+    }, 320);
   }
 
   isWidgetVisible(widget: DashboardWidget): boolean {
@@ -584,7 +695,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const widget = this.widgets.find((item) => item.id === widgetId);
     if (!widget) return;
 
-    this.resizeSession = createResizeSession(widget, handle as DashboardResizeHandle, event);
+    const containerEl = document.getElementById('wc-' + widgetId) as HTMLElement;
+    const cardEl = containerEl?.querySelector('.widget-card') as HTMLElement;
+    if (!containerEl || !cardEl) return;
+
+    this.resizeSession = createResizeSession(widget, handle as DashboardResizeHandle, event, containerEl, cardEl);
 
     document.body.classList.add('is-resizing');
     document.body.style.cursor = getResizeCursor(handle as DashboardResizeHandle);
@@ -699,6 +814,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         } else {
           this.refreshClientView();
         }
+        this.dataInitialized = true;
         this.cdr.markForCheck();
       },
       error: (err) => {
@@ -2611,21 +2727,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private onMouseMove(event: MouseEvent): void {
     if (!this.resizeSession) return;
-
-    const resized = applyResizeDelta(this.widgets, this.resizeSession, event);
-    if (!resized) return;
-
-    window.dispatchEvent(new Event('resize'));
+    applyResizeDeltaToDom(this.resizeSession, event);
   }
 
   private onMouseUp(): void {
     if (!this.resizeSession) return;
+
+    const { widgetId, handle, currentWidth, currentHeight } = this.resizeSession;
+    const widget = this.widgets.find((item) => item.id === widgetId);
+    if (widget) {
+      if (handle === 'corner' || handle === 'right') widget.width = currentWidth;
+      if (handle === 'corner' || handle === 'bottom') widget.height = currentHeight;
+    }
 
     this.resizeSession = null;
     document.body.classList.remove('is-resizing');
     document.body.style.cursor = '';
     window.dispatchEvent(new Event('resize'));
     this.saveLayoutToStorage();
+    this.cdr.markForCheck();
   }
 
   private extractTicketTotal(response: any): number {

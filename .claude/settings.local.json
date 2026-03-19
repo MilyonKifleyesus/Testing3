@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "C:\\Users\\adity\\Desktop\\buspulse4\\BusPulseV2\\src\\app\\shared\\features\\tickets",
+      "C:\\Users\\adity\\Desktop\\buspulse4\\BusPulseV2\\src\\app\\shared\\features\\vehicles",
+      "C:\\Users\\adity\\Desktop\\buspulse4\\BusPulseV2\\src\\app\\components\\admin\\user-management\\inspectors",
+      "C:\\Users\\adity\\Desktop\\buspulse4\\BusPulseV2\\src\\app\\shared\\features\\dashboard"
+    ]
+  }
+}

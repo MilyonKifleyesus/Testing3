@@ -43,7 +43,7 @@
       <button class="btn btn-sm btn-outline-secondary" (click)="toggleColumnMenu()" title="Column visibility">
         <i class="ti ti-columns-3 me-1"></i>Column visibility
       </button>
-      <div class="dropdown-menu show" *ngIf="showColumnMenu" style="position: absolute; top: 100%; left: 0; z-index: 1000; min-width: 200px;">
+      <div class="dropdown-menu show" *ngIf="showColumnMenu">
         <div class="p-3">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <strong class="fs-13">Show/Hide Columns</strong>
@@ -65,7 +65,7 @@
         </div>
       </div>
     </div>
-    <div style="max-width: 280px;">
+    <div class="search-wrapper">
       <div class="input-group">
         <span class="input-group-text"><i class="ti ti-search"></i></span>
         <input class="form-control" placeholder="Search..." [(ngModel)]="filters.search" (ngModelChange)="applyFilters()">
@@ -85,24 +85,24 @@
 
       <div class="table-responsive" *ngIf="!isLoadingTickets">
         <table class="table text-nowrap table-hover border table-bordered align-middle mb-0">
-          <thead>
+          <thead class="table-light sticky-thead">
             <tr>
-              <th style="width: 48px;" class="text-center"><input type="checkbox" class="form-check-input" [checked]="allSelected" (change)="toggleAll($event)"></th>
-              <th *ngIf="isColumnVisible('id')" (click)="sortTickets('id')" style="cursor:pointer">Ticket # <span *ngIf="sortColumn === 'id'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('client')" (click)="sortTickets('client')" style="cursor:pointer">Client <span *ngIf="sortColumn === 'client'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('status')" (click)="sortTickets('status')" style="cursor:pointer">Status <span *ngIf="sortColumn === 'status'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('project')" (click)="sortTickets('project')" style="cursor:pointer">Project <span *ngIf="sortColumn === 'project'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('vehicle')" (click)="sortTickets('vehicle')" style="cursor:pointer">Vehicle <span *ngIf="sortColumn === 'vehicle'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('safetyCritical')" (click)="sortTickets('safetyCritical')" style="cursor:pointer">Safety Critical <span *ngIf="sortColumn === 'safetyCritical'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('repeater')" (click)="sortTickets('repeater')" style="cursor:pointer">Repeater <span *ngIf="sortColumn === 'repeater'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('createdDate')" (click)="sortTickets('createdDate')" style="cursor:pointer">Created Date <span *ngIf="sortColumn === 'createdDate'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('defectType')" (click)="sortTickets('defectType')" style="cursor:pointer">Defect Type <span *ngIf="sortColumn === 'defectType'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('defectLocation')" (click)="sortTickets('defectLocation')" style="cursor:pointer">Defect Location <span *ngIf="sortColumn === 'defectLocation'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('description')" (click)="sortTickets('description')" style="cursor:pointer">Description <span *ngIf="sortColumn === 'description'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('hasImages')" (click)="sortTickets('hasImages')" style="cursor:pointer">Images <span *ngIf="sortColumn === 'hasImages'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('assignedBy')" (click)="sortTickets('assignedBy')" style="cursor:pointer">Assign By <span *ngIf="sortColumn === 'assignedBy'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('assignedTo')" (click)="sortTickets('assignedTo')" style="cursor:pointer">Assign To <span *ngIf="sortColumn === 'assignedTo'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-              <th *ngIf="isColumnVisible('station')" (click)="sortTickets('station')" style="cursor:pointer">Station <span *ngIf="sortColumn === 'station'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th class="text-center chk-col"><input type="checkbox" class="form-check-input" [checked]="allSelected" (change)="toggleAll($event)"></th>
+              <th *ngIf="isColumnVisible('id')" (click)="sortTickets('id')" class="sort-col">Ticket # <span *ngIf="sortColumn === 'id'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('client')" (click)="sortTickets('client')" class="sort-col">Client <span *ngIf="sortColumn === 'client'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('status')" (click)="sortTickets('status')" class="sort-col">Status <span *ngIf="sortColumn === 'status'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('project')" (click)="sortTickets('project')" class="sort-col">Project <span *ngIf="sortColumn === 'project'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('vehicle')" (click)="sortTickets('vehicle')" class="sort-col">Vehicle <span *ngIf="sortColumn === 'vehicle'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('safetyCritical')" (click)="sortTickets('safetyCritical')" class="sort-col">Safety Critical <span *ngIf="sortColumn === 'safetyCritical'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('repeater')" (click)="sortTickets('repeater')" class="sort-col">Repeater <span *ngIf="sortColumn === 'repeater'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('createdDate')" (click)="sortTickets('createdDate')" class="sort-col">Created Date <span *ngIf="sortColumn === 'createdDate'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('defectType')" (click)="sortTickets('defectType')" class="sort-col">Defect Type <span *ngIf="sortColumn === 'defectType'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('defectLocation')" (click)="sortTickets('defectLocation')" class="sort-col">Defect Location <span *ngIf="sortColumn === 'defectLocation'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('description')" (click)="sortTickets('description')" class="sort-col">Description <span *ngIf="sortColumn === 'description'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('hasImages')" (click)="sortTickets('hasImages')" class="sort-col">Images <span *ngIf="sortColumn === 'hasImages'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('assignedBy')" (click)="sortTickets('assignedBy')" class="sort-col">Assign By <span *ngIf="sortColumn === 'assignedBy'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('assignedTo')" (click)="sortTickets('assignedTo')" class="sort-col">Assign To <span *ngIf="sortColumn === 'assignedTo'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+              <th *ngIf="isColumnVisible('station')" (click)="sortTickets('station')" class="sort-col">Station <span *ngIf="sortColumn === 'station'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
             </tr>
           </thead>
           <tbody>
@@ -120,21 +120,27 @@
               <td *ngIf="isColumnVisible('project')"><span class="badge bg-info-transparent">{{ displayValue(ticket.project) }}</span></td>
               <td *ngIf="isColumnVisible('vehicle')" class="text-muted">{{ displayValue(ticket.vehicle) }}</td>
               <td *ngIf="isColumnVisible('safetyCritical')">
-                <span class="badge" [class.bg-success]="ticket.safetyCritical" [class.bg-light]="!ticket.safetyCritical" [style.color]="ticket.safetyCritical ? 'white' : '#666'">
-                  {{ticket.safetyCritical ? 'True' : 'False'}}
+                <span class="badge" [ngClass]="ticket.safetyCritical ? 'bg-danger' : 'bg-secondary-transparent'">
+                  {{ticket.safetyCritical ? 'Yes' : 'No'}}
                 </span>
               </td>
               <td *ngIf="isColumnVisible('repeater')">
-                <span class="badge" [class.bg-success]="ticket.repeater" [class.bg-light]="!ticket.repeater" [style.color]="ticket.repeater ? 'white' : '#666'">
-                  {{ticket.repeater ? 'True' : 'False'}}
+                <span class="badge" [ngClass]="ticket.repeater ? 'bg-warning text-dark' : 'bg-secondary-transparent'">
+                  {{ticket.repeater ? 'Yes' : 'No'}}
                 </span>
               </td>
               <td *ngIf="isColumnVisible('createdDate')" class="text-muted fs-13">{{ ticket.createdDate ? (ticket.createdDate | date:'short') : '-' }}</td>
               <td *ngIf="isColumnVisible('defectType')">{{ displayValue(ticket.defectType) }}</td>
               <td *ngIf="isColumnVisible('defectLocation')" class="text-muted fs-13">{{ displayValue(ticket.defectLocation) }}</td>
-              <td *ngIf="isColumnVisible('description')" class="text-truncate" style="max-width: 200px;" [title]="displayValue(ticket.description)">{{ displayValue(ticket.description) }}</td>
+              <td *ngIf="isColumnVisible('description')" class="text-truncate desc-col" [title]="displayValue(ticket.description)">{{ displayValue(ticket.description) }}</td>
               <td *ngIf="isColumnVisible('hasImages')">
-                <i class="ti" [ngClass]="ticket.hasImages ? 'ti-photo text-warning' : 'ti-photo-off text-muted'" style="cursor: pointer;"></i>
+                <ng-container *ngIf="ticket.imageUrl; else noImage">
+                  <img [src]="ticket.imageUrl" alt="Ticket Image" style="width: 64px; height: 40px; object-fit: cover; border-radius: 4px; cursor:pointer;" (click)="openImageModal(ticket.imageUrl)" />
+                </ng-container>
+                <ng-template #noImage>
+                  <i class="ti ti-photo-off text-muted"></i>
+                  <span class="text-muted ms-1">No Image</span>
+                </ng-template>
               </td>
               <td *ngIf="isColumnVisible('assignedBy')">{{ displayValue(ticket.assignedBy) }}</td>
               <td *ngIf="isColumnVisible('assignedTo')">{{ displayValue(ticket.assignedTo) }}</td>
@@ -169,7 +175,7 @@
                   (click)="isPaginationNumber(page) && changePage(page)">{{ page === paginationEllipsis ? '...' : page }}</a>
               </li>
               <li class="page-item" [class.disabled]="currentPage === totalPages">
-                <a class="page-link text-primary" href="javascript:void(0);" (click)="nextPage()">next</a>
+                <a class="page-link" href="javascript:void(0);" (click)="nextPage()">Next</a>
               </li>
             </ul>
           </nav>

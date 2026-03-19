@@ -1,546 +1,709 @@
-<div class="main-container container-fluid px-0">
-  <!-- Page Header -->
-  <div class="d-md-flex d-block align-items-center justify-content-between my-3 page-header-breadcrumb">
-    <div>
-      <h1 class="page-title fw-semibold fs-18 mb-0">Vehicle Details</h1>
-      <nav>
-        <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><a [routerLink]="[homePath]">Home</a></li>
-          <li class="breadcrumb-item"><a [routerLink]="[vehiclesListPath]">Vehicles</a></li>
-          <li class="breadcrumb-item active" aria-current="page">{{vehicle?.fleetNumber}}</li>
-        </ol>
-      </nav>
-    </div>
-    <div class="ms-auto pageheader-btn">
-      <button class="btn btn-primary-light btn-wave btn-sm me-2">
-        <i class="ti ti-edit me-1"></i>Edit
-      </button>
-      <button class="btn btn-info-light btn-wave btn-sm me-2" (click)="timelineVisible = !timelineVisible">
-        <i class="ti me-1" [ngClass]="timelineVisible ? 'ti-layout-sidebar-right-collapse' : 'ti-layout-sidebar-right-expand'"></i>
-        {{timelineVisible ? 'Hide Timeline' : 'Show Timeline'}}
-      </button>
-      <button class="btn btn-success-light btn-wave btn-sm" (click)="exportReport()">
-        <i class="ti ti-download me-1"></i>Export
-      </button>
-    </div>
+<div class="vv-wrapper">
+
+  <!-- ═══ Loading ══════════════════════════════════════════════════════════ -->
+  <div class="vv-loading" *ngIf="isLoading">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="text-muted mt-3 mb-0 fs-14">Loading vehicle details…</p>
   </div>
 
-  <div class="alert alert-danger" *ngIf="errorMessage">
-    <i class="ti ti-alert-triangle me-2"></i>{{ errorMessage }}
+  <!-- ═══ Error ══════════════════════════════════════════════════════════════ -->
+  <div class="alert alert-danger d-flex align-items-center gap-2" *ngIf="errorMessage">
+    <i class="ti ti-alert-triangle fs-18"></i>{{ errorMessage }}
   </div>
 
-  <div class="card custom-card" *ngIf="isLoading">
-    <div class="card-body text-center py-5">
-      <div class="spinner-border text-primary" role="status"></div>
-      <p class="text-muted mt-3 mb-0">Loading vehicle details...</p>
-    </div>
-  </div>
+  <ng-container *ngIf="vehicle">
 
-  <div class="row g-3" *ngIf="vehicle">
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- BUS BANNER                                                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="vv-bus-wrap">
 
-    <!-- LEFT: main content, 70% with timeline, 100% without -->
-    <div [ngClass]="timelineVisible ? 'col-12 col-xl-8' : 'col-12'">
-
-      <!-- Vehicle Insight Section -->
-      <div id="vehicle-insight" class="card custom-card section-card">
-        <div class="card-header">
-          <div class="card-title">
-            <i class="ti ti-chart-line me-2 text-primary"></i>Vehicle Insight
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="row g-3">
-            <!-- KPI Cards -->
-            <div class="col-6 col-md-3">
-              <div class="insight-card bg-success-transparent">
-                <div class="insight-icon">
-                  <i class="ti ti-file-invoice"></i>
-                </div>
-                <div class="insight-data">
-                  <h4>{{vehicle.tickets.length}}</h4>
-                  <p>Tickets</p>
-                </div>
-              </div>
-            </div>
-            <div class="col-6 col-md-3">
-              <div class="insight-card bg-warning-transparent">
-                <div class="insight-icon">
-                  <i class="ti ti-tool"></i>
-                </div>
-                <div class="insight-data">
-                  <h4>{{vehicle.snags.length}}</h4>
-                  <p>Snags</p>
-                </div>
-              </div>
-            </div>
-            <div class="col-6 col-md-3">
-              <div class="insight-card bg-info-transparent">
-                <div class="insight-icon">
-                  <i class="ti ti-clock"></i>
-                </div>
-                <div class="insight-data">
-                  <h4>{{vehicle.inspectionData.duration}}</h4>
-                  <p>Duration</p>
-                </div>
-              </div>
-            </div>
-            <div class="col-6 col-md-3">
-              <div class="insight-card bg-primary-transparent">
-                <div class="insight-icon">
-                  <i class="ti ti-map-pins"></i>
-                </div>
-                <div class="insight-data">
-                  <h4 class="fs-12 mb-0">{{vehicle.shippingDetail.frontCurb || '-'}} / {{vehicle.shippingDetail.backStreet || '-'}}</h4>
-                  <p>Shipping</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Pic Front + Project/Client Info -->
-          <div class="row g-3 mt-1 align-items-stretch">
-            <div class="col-12 col-md-4">
-              <img [src]="vehicle.images.front" alt="Front View" class="img-fluid rounded" style="max-height:130px; width:100%; object-fit:contain; background:#f5f5f5;">
-            </div>
-            <div class="col-12 col-md-8 d-flex flex-column justify-content-center gap-3 ps-md-3">
-              <div class="info-group mb-0">
-                <label class="info-label">Client Name</label>
-                <div class="info-value">{{vehicle.client || '-'}}</div>
-              </div>
-              <div class="info-group mb-0">
-                <label class="info-label">Project Name</label>
-                <div class="info-value">{{vehicle.project || '-'}}</div>
-              </div>
-            </div>
-          </div>
+      <!-- Topbar: breadcrumb + actions — above the bus body -->
+      <div class="vv-bus-topbar">
+        <nav>
+          <ol class="breadcrumb vv-breadcrumb mb-0">
+            <li class="breadcrumb-item"><a [routerLink]="[homePath]">Home</a></li>
+            <li class="breadcrumb-item"><a [routerLink]="[vehiclesListPath]">Vehicles</a></li>
+            <li class="breadcrumb-item active">{{vehicle.fleetNumber}}</li>
+          </ol>
+        </nav>
+        <div class="vv-bus-actions">
+          <button class="vv-action-btn" (click)="exportReport()">
+            <i class="ti ti-download"></i>
+            <span>Export</span>
+          </button>
         </div>
       </div>
 
-      <!-- General Information Section -->
-      <div id="general-info" class="card custom-card section-card">
-        <div class="card-header">
-          <div class="card-title">
-            <i class="ti ti-info-circle me-2 text-success"></i>General Info
-          </div>
-        </div>
-        <div class="card-body p-2">
-          <div class="row g-2">
-            <div class="col-6 col-md-4">
-              <div class="info-group">
-                <label class="info-label">Fleet Number</label>
-                <div class="info-value">{{vehicle.fleetNumber}}</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-4">
-              <div class="info-group">
-                <label class="info-label">VIN</label>
-                <div class="info-value"><code>{{vehicle.vin}}</code></div>
-              </div>
-            </div>
-            <div class="col-6 col-md-4">
-              <div class="info-group">
-                <label class="info-label">Make</label>
-                <div class="info-value">{{vehicle.make}}</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-4">
-              <div class="info-group">
-                <label class="info-label">Model</label>
-                <div class="info-value">{{vehicle.model}}</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-4">
-              <div class="info-group">
-                <label class="info-label">Year</label>
-                <div class="info-value">{{vehicle.year}}</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-4">
-              <div class="info-group">
-                <label class="info-label">Color</label>
-                <div class="info-value">{{vehicle.color}}</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-4">
-              <div class="info-group">
-                <label class="info-label">Propulsion</label>
-                <div class="info-value">{{vehicle.propulsion}}</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-4">
-              <div class="info-group">
-                <label class="info-label">Mileage</label>
-                <div class="info-value">{{vehicle.inspectionData.mileage | number}} {{vehicle.mileageType}}</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-4">
-              <div class="info-group">
-                <label class="info-label">Status</label>
-                <div class="info-value"><span class="badge bg-success">{{vehicle.status | titlecase}}</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- ══ BUS BODY ═══════════════════════════════════════════════════════ -->
+      <div class="vv-bus-body">
 
-      <div class="row g-2">
-        <div class="col-12">
-          <!-- Snag by Area Section -->
-          <div id="snag-area" class="card custom-card section-card">
-            <div class="card-header">
-              <div class="card-title">
-                <i class="ti ti-chart-bar me-2 text-warning"></i>Snag Summary
-                <span class="badge bg-warning-transparent ms-2">{{vehicle.snags.length}}</span>
-              </div>
-            </div>
-            <div class="card-body p-2 snag-chart-container">
-              <div *ngIf="!snagByAreaChart.series" class="text-center text-muted py-3">Loading chart...</div>
-              <apx-chart
-                *ngIf="snagByAreaChart.series && snagByAreaChart.chart"
-                [series]="snagByAreaChart.series!"
-                [chart]="snagByAreaChart.chart!"
-                [plotOptions]="snagByAreaChart.plotOptions!"
-                [colors]="snagByAreaChart.colors!"
-                [dataLabels]="snagByAreaChart.dataLabels!"
-                [xaxis]="snagByAreaChart.xaxis!"
-                [yaxis]="snagByAreaChart.yaxis!"
-                [tooltip]="snagByAreaChart.tooltip!">
-              </apx-chart>
-            </div>
+        <!-- Amber roof stripe: destination board with make/model + status pills -->
+        <div class="vv-bus-roof">
+          <div class="vv-bus-route-info">
+            <i class="ti ti-map-pin"></i>
+            <span class="vv-bus-make-model">{{ vehicle.make }} {{ vehicle.model }}</span>
+          </div>
+          <div class="vv-bus-roof-badges">
+            <span class="vv-status-pill" [ngClass]="vehicle.active ? 'vv-status-pill--active' : 'vv-status-pill--inactive'">
+              <span class="vv-status-dot"></span>
+              {{ vehicle.active ? 'Active' : 'Inactive' }}
+            </span>
+            <span class="vv-year-pill">{{ vehicle.year }}</span>
           </div>
         </div>
 
-        <div class="col-12">
-          <!-- List Tickets Section -->
-          <div id="tickets" class="card custom-card section-card">
-            <div class="card-header">
-              <div class="card-title">
-                <i class="ti ti-ticket me-2 text-danger"></i>List Tickets
-                <span class="badge bg-danger-transparent ms-2">{{vehicle.tickets.length}}</span>
+        <!-- Interior row: rear panel | data windows | front windshield -->
+        <div class="vv-bus-interior">
+
+          <!-- Rear of bus (left side) -->
+          <div class="vv-bus-rear-panel">
+            <div class="vv-bus-rear-window">
+              <i class="ti ti-bus"></i>
+            </div>
+          </div>
+
+          <!-- Centre: four glass data windows -->
+          <div class="vv-bus-windows">
+
+            <!-- Window 1 — Identity -->
+            <div class="vv-bus-window">
+              <div class="vv-bw-header">Identity</div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-hash"></i><span class="vv-bw-lbl-txt">Fleet #</span></span>
+                <span class="vv-bw-val">{{ vehicle.fleetNumber }}</span>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-fingerprint"></i><span class="vv-bw-lbl-txt">VIN</span></span>
+                <code class="vv-bw-val vv-bw-code">{{ vehicle.vin }}</code>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-license"></i><span class="vv-bw-lbl-txt">Plate</span></span>
+                <code class="vv-bw-val vv-bw-code">{{ vehicle.plate || '—' }}</code>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-palette"></i><span class="vv-bw-lbl-txt">Color</span></span>
+                <span class="vv-bw-val">{{ vehicle.color || '—' }}</span>
               </div>
             </div>
-            <div class="card-body">
-              <div *ngIf="!vehicle.tickets.length" class="text-center text-muted py-3">No tickets found for this vehicle.</div>
-              <div class="table-responsive" *ngIf="vehicle.tickets.length">
-                <table class="table table-hover">
+
+            <!-- Window 2 — Vehicle -->
+            <div class="vv-bus-window">
+              <div class="vv-bw-header">Vehicle</div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-building-factory"></i><span class="vv-bw-lbl-txt">Make</span></span>
+                <span class="vv-bw-val">{{ vehicle.make }}</span>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-bus"></i><span class="vv-bw-lbl-txt">Model</span></span>
+                <span class="vv-bw-val">{{ vehicle.model }}</span>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-calendar"></i><span class="vv-bw-lbl-txt">Year</span></span>
+                <span class="vv-bw-val">{{ vehicle.year }}</span>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-bolt"></i><span class="vv-bw-lbl-txt">Propulsion</span></span>
+                <span class="vv-bw-val">{{ vehicle.propulsion }}</span>
+              </div>
+            </div>
+
+            <!-- Window 3 — Assignment -->
+            <div class="vv-bus-window">
+              <div class="vv-bw-header">Assignment</div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-building"></i><span class="vv-bw-lbl-txt">Client</span></span>
+                <span class="vv-bw-val">{{ vehicle.client }}</span>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-folder"></i><span class="vv-bw-lbl-txt">Project</span></span>
+                <span class="vv-bw-val">{{ vehicle.project || '—' }}</span>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-circle-check"></i><span class="vv-bw-lbl-txt">Status</span></span>
+                <span class="vv-bw-val">{{ vehicle.active ? 'Active' : 'Inactive' }}</span>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-gauge"></i><span class="vv-bw-lbl-txt">Mileage</span></span>
+                <span class="vv-bw-val">{{ vehicle.inspectionData.mileage | number }} {{ vehicle.mileageType }}</span>
+              </div>
+            </div>
+
+            <!-- Window 4 — Inspection -->
+            <div class="vv-bus-window">
+              <div class="vv-bw-header">Inspection</div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-user-check"></i><span class="vv-bw-lbl-txt">Inspector</span></span>
+                <span class="vv-bw-val">{{ vehicle.inspector.name }}</span>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-calendar-event"></i><span class="vv-bw-lbl-txt">Date</span></span>
+                <span class="vv-bw-val">{{ vehicle.inspectionDate }}</span>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-clock"></i><span class="vv-bw-lbl-txt">Duration</span></span>
+                <span class="vv-bw-val">{{ vehicle.inspectionData.duration || '—' }}</span>
+              </div>
+              <div class="vv-bw-row">
+                <span class="vv-bw-lbl"><i class="ti ti-map-pin"></i><span class="vv-bw-lbl-txt">Location</span></span>
+                <span class="vv-bw-val">{{ vehicle.shippingDetail.frontCurb || '—' }}</span>
+              </div>
+            </div>
+
+          </div><!-- /vv-bus-windows -->
+
+          <!-- Front of bus (right side) — windshield + headlight -->
+          <div class="vv-bus-front-panel">
+            <div class="vv-bus-windshield">
+              <img *ngIf="userProfilePicture" [src]="userProfilePicture" class="vv-windshield-photo" alt="User" />
+              <div *ngIf="!userProfilePicture" class="vv-windshield-placeholder">
+                <i class="ti ti-user-circle"></i>
+              </div>
+            </div>
+            <div class="vv-bus-headlight"></div>
+          </div>
+
+        </div><!-- /vv-bus-interior -->
+
+        <!-- Chassis underside bar -->
+        <div class="vv-bus-chassis-bar"></div>
+
+      </div><!-- /vv-bus-body -->
+
+      <!-- ══ WHEELS (4 × stat cards) ════════════════════════════════════════ -->
+      <div class="vv-bus-wheels-row">
+
+        <!-- Rear axle: Tickets + Snags -->
+        <div class="vv-bus-axle-group">
+          <div class="vv-bus-wheel vv-bus-wheel--danger">
+            <div class="vv-wheel-rim">
+              <div class="vv-wheel-hub">
+                <span class="vv-wheel-num">{{ vehicle.tickets.length }}</span>
+                <span class="vv-wheel-lbl">Tickets</span>
+              </div>
+            </div>
+          </div>
+          <div class="vv-bus-wheel vv-bus-wheel--warning">
+            <div class="vv-wheel-rim">
+              <div class="vv-wheel-hub">
+                <span class="vv-wheel-num">{{ vehicle.snags.length }}</span>
+                <span class="vv-wheel-lbl">Snags</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Underbody spacer -->
+        <div class="vv-bus-underbody"></div>
+
+        <!-- Front axle: Inspectors + Year -->
+        <div class="vv-bus-axle-group">
+          <div class="vv-bus-wheel vv-bus-wheel--info">
+            <div class="vv-wheel-rim">
+              <div class="vv-wheel-hub">
+                <span class="vv-wheel-num">{{ vehicle.assignments.length }}</span>
+                <span class="vv-wheel-lbl">Inspectors</span>
+              </div>
+            </div>
+          </div>
+          <div class="vv-bus-wheel vv-bus-wheel--success">
+            <div class="vv-wheel-rim">
+              <div class="vv-wheel-hub">
+                <span class="vv-wheel-num vv-wheel-num--sm">{{ vehicle.year }}</span>
+                <span class="vv-wheel-lbl">Year</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /vv-bus-wheels-row -->
+
+      <!-- Road strip -->
+      <div class="vv-bus-road"></div>
+
+    </div><!-- /vv-bus-wrap -->
+
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STICKY SECTION NAV                                                  -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="vv-section-nav">
+      <a class="vv-snav-item" (click)="scrollToSection('vv-assignments')" *ngIf="vehicle.assignments.length">
+        <i class="ti ti-users"></i>Inspectors
+      </a>
+      <a class="vv-snav-item" (click)="scrollToSection('vv-snag-chart')">
+        <i class="ti ti-chart-bar"></i>Snag Chart
+      </a>
+      <a class="vv-snav-item" (click)="scrollToSection('vv-tickets')">
+        <i class="ti ti-ticket"></i>Tickets
+      </a>
+      <a class="vv-snav-item" (click)="scrollToSection('vv-snags')">
+        <i class="ti ti-alert-triangle"></i>Snags
+      </a>
+      <a class="vv-snav-item" *ngIf="timelineVisible" (click)="scrollToSection('vv-timeline')">
+        <i class="ti ti-map-pin"></i>Timeline
+      </a>
+      <button class="vv-snav-timeline-btn ms-auto" (click)="timelineVisible = !timelineVisible">
+        <i class="ti" [ngClass]="timelineVisible ? 'ti-layout-sidebar-right-collapse' : 'ti-layout-sidebar-right-expand'"></i>
+        <span>{{timelineVisible ? 'Hide' : 'Show'}} Timeline</span>
+      </button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- MAIN CONTENT GRID                                                   -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="row g-3">
+
+      <!-- LEFT column -->
+      <div [ngClass]="timelineVisible ? 'col-12 col-xl-8' : 'col-12'">
+
+        <!-- ─── Vehicle Specs ──────────────────────────────────────────── -->
+        <!-- ─── Assigned Inspectors ───────────────────────────────────── -->
+        <div id="vv-assignments" class="vv-card" *ngIf="vehicle.assignments.length">
+          <div class="vv-card-header">
+            <div class="vv-card-icon vv-card-icon--primary">
+              <i class="ti ti-users"></i>
+            </div>
+            <div>
+              <h6 class="vv-card-title">Assigned Inspectors
+                <span class="badge bg-primary-transparent text-primary ms-2">{{ vehicle.assignments.length }}</span>
+              </h6>
+              <p class="vv-card-subtitle">Personnel assigned to this vehicle</p>
+            </div>
+          </div>
+          <div class="vv-card-body">
+            <div class="vv-inspector-grid">
+              <div class="vv-inspector-chip" *ngFor="let a of vehicle.assignments" (click)="openInspectorModal(a)" role="button">
+                <div class="vv-inspector-avatar">
+                  {{ a.inspectorName.charAt(0).toUpperCase() }}
+                </div>
+                <div class="vv-inspector-info">
+                  <span class="vv-inspector-name">{{ a.inspectorName }}</span>
+                  <span class="badge bg-primary-transparent text-primary vv-inspector-project">{{ a.projectName }}</span>
+                </div>
+                <i class="ti ti-chevron-right vv-inspector-arrow"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Snag Chart ────────────────────────────────────────────── -->
+        <div id="vv-snag-chart" class="vv-card">
+          <div class="vv-card-header">
+            <div class="vv-card-icon vv-card-icon--warning">
+              <i class="ti ti-chart-bar"></i>
+            </div>
+            <div>
+              <h6 class="vv-card-title">Snag Summary by Area
+                <span class="badge bg-warning-transparent text-warning ms-2">{{ vehicle.snags.length }}</span>
+              </h6>
+              <p class="vv-card-subtitle">Distribution of defects across inspection categories</p>
+            </div>
+          </div>
+          <div class="vv-card-body vv-chart-body">
+            <div *ngIf="!snagByAreaChart.series" class="vv-empty-chart">
+              <i class="ti ti-chart-bar"></i>
+              <span>Chart loads after snags are fetched…</span>
+            </div>
+            <apx-chart
+              *ngIf="snagByAreaChart.series && snagByAreaChart.chart"
+              [series]="snagByAreaChart.series!"
+              [chart]="snagByAreaChart.chart!"
+              [plotOptions]="snagByAreaChart.plotOptions!"
+              [colors]="snagByAreaChart.colors!"
+              [dataLabels]="snagByAreaChart.dataLabels!"
+              [xaxis]="snagByAreaChart.xaxis!"
+              [yaxis]="snagByAreaChart.yaxis!"
+              [tooltip]="snagByAreaChart.tooltip!">
+            </apx-chart>
+          </div>
+        </div>
+
+        <!-- ─── Tickets Table ─────────────────────────────────────────── -->
+        <div id="vv-tickets" class="vv-card">
+          <div class="vv-card-header">
+            <div class="vv-card-icon vv-card-icon--danger">
+              <i class="ti ti-ticket"></i>
+            </div>
+            <div class="me-auto">
+              <h6 class="vv-card-title">Tickets
+                <span class="badge bg-danger-transparent text-danger ms-2">{{ filteredTicketCount }}</span>
+              </h6>
+              <p class="vv-card-subtitle">All inspection tickets for this vehicle</p>
+            </div>
+            <div class="vv-table-filter" *ngIf="vehicle.assignments.length">
+              <i class="ti ti-user-check vv-table-filter-icon"></i>
+              <select class="vv-table-filter-select" [(ngModel)]="ticketInspectorFilter" (ngModelChange)="onTicketInspectorFilterChange()">
+                <option value="all">All Inspectors</option>
+                <option *ngFor="let name of inspectorNames" [value]="name">{{ name }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="vv-card-body p-0">
+            <div class="vv-empty-state" *ngIf="!vehicle.tickets.length">
+              <i class="ti ti-ticket"></i>
+              <p>No tickets found for this vehicle.</p>
+            </div>
+            <div class="vv-table-wrap" *ngIf="vehicle.tickets.length">
+              <div class="vv-table-scroll">
+                <table class="table vv-table">
                   <thead>
                     <tr>
-                      <th class="sortable" (click)="sortTickets('id')">Ticket # <i class="ti" [ngClass]="ticketSortCol==='id' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th class="sortable" (click)="sortTickets('status')">Status <i class="ti" [ngClass]="ticketSortCol==='status' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
+                      <th class="vv-th-sortable" (click)="sortTickets('status')">Status <i class="ti" [ngClass]="ticketSortCol==='status' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
                       <th>Description</th>
-                      <th class="sortable" (click)="sortTickets('defectLocation')">Defect Location <i class="ti" [ngClass]="ticketSortCol==='defectLocation' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th class="sortable" (click)="sortTickets('station')">Station <i class="ti" [ngClass]="ticketSortCol==='station' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th class="sortable" (click)="sortTickets('assignedBy')">Assigned By <i class="ti" [ngClass]="ticketSortCol==='assignedBy' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th class="sortable" (click)="sortTickets('assignedTo')">Assigned To <i class="ti" [ngClass]="ticketSortCol==='assignedTo' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th class="sortable" (click)="sortTickets('safetyCritical')">Safety Critical <i class="ti" [ngClass]="ticketSortCol==='safetyCritical' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th class="sortable" (click)="sortTickets('repeater')">Repeated <i class="ti" [ngClass]="ticketSortCol==='repeater' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th>Images</th>
-                      <th class="sortable" (click)="sortTickets('createdDate')">Created <i class="ti" [ngClass]="ticketSortCol==='createdDate' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
+                      <th class="vv-th-sortable" (click)="sortTickets('defectLocation')">Location <i class="ti" [ngClass]="ticketSortCol==='defectLocation' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
+                      <th class="vv-th-sortable" (click)="sortTickets('station')">Station <i class="ti" [ngClass]="ticketSortCol==='station' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
+                      <th class="vv-th-sortable" (click)="sortTickets('assignedTo')">Assigned To <i class="ti" [ngClass]="ticketSortCol==='assignedTo' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
+                      <th class="text-center">Safety</th>
+                      <th class="text-center">Repeat</th>
+                      <th class="text-center">Images</th>
+                      <th class="vv-th-sortable" (click)="sortTickets('createdDate')">Created <i class="ti" [ngClass]="ticketSortCol==='createdDate' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr *ngFor="let ticket of paginatedTickets">
-                      <td class="fw-semibold text-primary"><code>{{ticket.id}}</code></td>
                       <td>
-                        <span [class]="getTicketStatusClass(ticket.status)">
-                          {{ticket.status | titlecase}}
+                        <span [class]="getTicketStatusClass(ticket.status)">{{ ticket.status | titlecase }}</span>
+                      </td>
+                      <td class="text-truncate vv-td-desc" [title]="ticket.description">{{ ticket.description }}</td>
+                      <td class="fs-12 text-muted">{{ ticket.defectLocation || '-' }}</td>
+                      <td class="fs-12">{{ ticket.station || '-' }}</td>
+                      <td class="fs-12">{{ ticket.assignedTo }}</td>
+                      <td class="text-center">
+                        <span [class]="ticket.safetyCritical ? 'badge bg-danger-transparent text-danger' : 'badge bg-secondary-transparent text-secondary'">
+                          {{ ticket.safetyCritical ? 'True' : 'False' }}
                         </span>
                       </td>
-                      <td class="text-truncate fs-12" style="max-width:180px" [title]="ticket.description">{{ticket.description}}</td>
-                      <td class="fs-12 text-muted">{{ticket.defectLocation || '-'}}</td>
-                      <td class="fs-12">{{ticket.station || '-'}}</td>
-                      <td class="fs-12">{{ticket.assignedBy}}</td>
-                      <td class="fs-12">{{ticket.assignedTo}}</td>
                       <td class="text-center">
-                        <span *ngIf="ticket.safetyCritical" class="badge bg-danger-transparent">Yes</span>
-                        <span *ngIf="!ticket.safetyCritical" class="text-muted fs-12">No</span>
+                        <span [class]="ticket.repeater ? 'badge bg-warning-transparent text-warning' : 'badge bg-secondary-transparent text-secondary'">
+                          {{ ticket.repeater ? 'True' : 'False' }}
+                        </span>
                       </td>
-                      <td class="text-center">
-                        <span *ngIf="ticket.repeater" class="badge bg-warning-transparent">True</span>
-                        <span *ngIf="!ticket.repeater" class="text-muted fs-12">False</span>
+                      <td class="vv-modal-img-cell">
+                        <img *ngIf="ticket.imageUrl" [src]="ticket.imageUrl" [alt]="'Ticket #' + ticket.id" class="vv-modal-ticket-img" />
+                        <span *ngIf="!ticket.imageUrl" class="text-muted">—</span>
                       </td>
-                      <td class="text-center">
-                        <i *ngIf="ticket.hasImages" class="ti ti-photo text-success"></i>
-                        <span *ngIf="!ticket.hasImages" class="text-muted fs-12">—</span>
-                      </td>
-                      <td class="text-muted fs-12">{{ticket.createdDate | date:'short'}}</td>
+                      <td class="fs-12 text-muted text-nowrap">{{ ticket.createdDate | date:'mediumDate' }}</td>
                     </tr>
                   </tbody>
                 </table>
-                <!-- Pagination Controls -->
-                <nav *ngIf="totalPages > 1" class="mt-2">
-                  <ul class="pagination justify-content-center">
-                    <li class="page-item" [class.disabled]="currentPage === 1">
-                      <button class="page-link" (click)="goToPage(currentPage - 1)">&laquo;</button>
-                    </li>
-                    <li class="page-item" *ngFor="let page of paginationItems" [class.active]="page === currentPage" [class.disabled]="page === PAGINATION_ELLIPSIS">
-                      <button class="page-link" (click)="goToPage(+page)">
-                        <span *ngIf="page !== PAGINATION_ELLIPSIS">{{page}}</span>
-                        <span *ngIf="page === PAGINATION_ELLIPSIS">&hellip;</span>
-                      </button>
-                    </li>
-                    <li class="page-item" [class.disabled]="currentPage === totalPages">
-                      <button class="page-link" (click)="goToPage(currentPage + 1)">&raquo;</button>
-                    </li>
-                  </ul>
-                </nav>
+              </div>
+              <!-- Pagination -->
+              <div class="vv-pagination" *ngIf="totalPages > 1">
+                <button class="vv-page-btn" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">
+                  <i class="ti ti-chevron-left"></i>
+                </button>
+                <ng-container *ngFor="let page of paginationItems">
+                  <button *ngIf="page !== PAGINATION_ELLIPSIS" class="vv-page-btn" [class.vv-page-btn--active]="page === currentPage" (click)="goToPage(+page)">{{ page }}</button>
+                  <span *ngIf="page === PAGINATION_ELLIPSIS" class="vv-page-ellipsis">…</span>
+                </ng-container>
+                <button class="vv-page-btn" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages">
+                  <i class="ti ti-chevron-right"></i>
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="row g-2">
-        <div class="col-12">
-          <!-- List Snags Section -->
-          <div id="snags" class="card custom-card section-card">
-            <div class="card-header">
-              <div class="card-title">
-                <i class="ti ti-alert-triangle me-2 text-warning"></i>List Snags
-                <span class="badge bg-warning-transparent ms-2">{{vehicle.snags.length}}</span>
-              </div>
+        <!-- ─── Snags Table ────────────────────────────────────────────── -->
+        <div id="vv-snags" class="vv-card">
+          <div class="vv-card-header">
+            <div class="vv-card-icon vv-card-icon--warning">
+              <i class="ti ti-alert-triangle"></i>
             </div>
-            <div class="card-body">
-              <div *ngIf="!vehicle.snags.length" class="text-center text-muted py-3">No snags found for this vehicle.</div>
-              <div class="table-responsive" *ngIf="vehicle.snags.length">
-                <table class="table table-hover">
+            <div class="me-auto">
+              <h6 class="vv-card-title">Snags
+                <span class="badge bg-warning-transparent text-warning ms-2">{{ filteredSnagCount }}</span>
+              </h6>
+              <p class="vv-card-subtitle">Recorded defects and issues</p>
+            </div>
+            <div class="vv-table-filter" *ngIf="vehicle.assignments.length">
+              <i class="ti ti-user-check vv-table-filter-icon"></i>
+              <select class="vv-table-filter-select" [(ngModel)]="snagInspectorFilter" (ngModelChange)="onSnagInspectorFilterChange()">
+                <option value="all">All Inspectors</option>
+                <option *ngFor="let name of inspectorNames" [value]="name">{{ name }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="vv-card-body p-0">
+            <div class="vv-empty-state" *ngIf="!vehicle.snags.length">
+              <i class="ti ti-alert-triangle"></i>
+              <p>No snags found for this vehicle.</p>
+            </div>
+            <div class="vv-table-wrap" *ngIf="vehicle.snags.length">
+              <div class="vv-table-scroll">
+                <table class="table vv-table">
                   <thead>
                     <tr>
-                      <th class="sortable" (click)="sortSnags('number')">Snag # <i class="ti" [ngClass]="snagSortCol==='number' ? (snagSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th class="sortable" (click)="sortSnags('inspector')">Inspector <i class="ti" [ngClass]="snagSortCol==='inspector' ? (snagSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th class="sortable" (click)="sortSnags('category')">Category <i class="ti" [ngClass]="snagSortCol==='category' ? (snagSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
+                      <th class="vv-th-sortable" (click)="sortSnags('inspector')">Inspector <i class="ti" [ngClass]="snagSortCol==='inspector' ? (snagSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
+                      <th class="vv-th-sortable" (click)="sortSnags('category')">Category <i class="ti" [ngClass]="snagSortCol==='category' ? (snagSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
                       <th>Description</th>
-                      <th class="sortable" (click)="sortSnags('safetyCritical')">Safety Critical <i class="ti" [ngClass]="snagSortCol==='safetyCritical' ? (snagSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th class="sortable" (click)="sortSnags('repeater')">Repeater <i class="ti" [ngClass]="snagSortCol==='repeater' ? (snagSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th>Images</th>
+                      <th class="text-center">Safety</th>
+                      <th class="text-center">Repeat</th>
+                      <th class="text-center">Images</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr *ngFor="let snag of paginatedSnags">
-                      <td class="fw-semibold">{{snag.number}}</td>
-                      <td class="fs-12">{{snag.inspector}}</td>
-                      <td><span class="badge bg-secondary-transparent">{{snag.category}}</span></td>
-                      <td class="text-truncate fs-12" style="max-width:220px" [title]="snag.description">{{snag.description}}</td>
+                      <td class="fs-12">{{ snag.inspector }}</td>
+                      <td><span class="badge bg-secondary-transparent text-secondary">{{ snag.category }}</span></td>
+                      <td class="text-truncate vv-td-desc fs-12" [title]="snag.description">{{ snag.description }}</td>
                       <td class="text-center">
-                        <span *ngIf="snag.safetyCritical" class="badge bg-danger-transparent">Yes</span>
-                        <span *ngIf="!snag.safetyCritical" class="text-muted fs-12">No</span>
+                        <span [class]="snag.safetyCritical ? 'badge bg-danger-transparent text-danger' : 'badge bg-secondary-transparent text-secondary'">
+                          {{ snag.safetyCritical ? 'True' : 'False' }}
+                        </span>
                       </td>
                       <td class="text-center">
-                        <span *ngIf="snag.repeater" class="badge bg-warning-transparent">True</span>
-                        <span *ngIf="!snag.repeater" class="text-muted fs-12">False</span>
+                        <span [class]="snag.repeater ? 'badge bg-warning-transparent text-warning' : 'badge bg-secondary-transparent text-secondary'">
+                          {{ snag.repeater ? 'True' : 'False' }}
+                        </span>
                       </td>
                       <td class="text-center">
                         <i *ngIf="snag.hasImages" class="ti ti-photo text-success"></i>
-                        <span *ngIf="!snag.hasImages" class="text-muted fs-12">—</span>
+                        <span *ngIf="!snag.hasImages" class="text-muted">—</span>
                       </td>
                     </tr>
                   </tbody>
                 </table>
-                <nav *ngIf="snagTotalPages > 1" class="mt-2">
-                  <ul class="pagination justify-content-center">
-                    <li class="page-item" [class.disabled]="snagCurrentPage === 1">
-                      <button class="page-link" (click)="goToSnagPage(snagCurrentPage - 1)">&laquo;</button>
-                    </li>
-                    <li class="page-item" *ngFor="let page of snagPaginationItems" [class.active]="page === snagCurrentPage" [class.disabled]="page === PAGINATION_ELLIPSIS">
-                      <button class="page-link" (click)="goToSnagPage(+page)">
-                        <span *ngIf="page !== PAGINATION_ELLIPSIS">{{page}}</span>
-                        <span *ngIf="page === PAGINATION_ELLIPSIS">&hellip;</span>
-                      </button>
-                    </li>
-                    <li class="page-item" [class.disabled]="snagCurrentPage === snagTotalPages">
-                      <button class="page-link" (click)="goToSnagPage(snagCurrentPage + 1)">&raquo;</button>
-                    </li>
-                  </ul>
-                </nav>
+              </div>
+              <div class="vv-pagination" *ngIf="snagTotalPages > 1">
+                <button class="vv-page-btn" (click)="goToSnagPage(snagCurrentPage - 1)" [disabled]="snagCurrentPage === 1">
+                  <i class="ti ti-chevron-left"></i>
+                </button>
+                <ng-container *ngFor="let page of snagPaginationItems">
+                  <button *ngIf="page !== PAGINATION_ELLIPSIS" class="vv-page-btn" [class.vv-page-btn--active]="page === snagCurrentPage" (click)="goToSnagPage(+page)">{{ page }}</button>
+                  <span *ngIf="page === PAGINATION_ELLIPSIS" class="vv-page-ellipsis">…</span>
+                </ng-container>
+                <button class="vv-page-btn" (click)="goToSnagPage(snagCurrentPage + 1)" [disabled]="snagCurrentPage === snagTotalPages">
+                  <i class="ti ti-chevron-right"></i>
+                </button>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="col-12">
-          <!-- Media Section -->
-          <div id="media" class="card custom-card section-card">
-            <div class="card-header">
-              <div class="card-title">
-                <i class="ti ti-video me-2 text-info"></i>Media
+        <!-- ─── Media ──────────────────────────────────────────────────── -->
+        <div id="vv-media" class="vv-card">
+          <div class="vv-card-header">
+            <div class="vv-card-icon vv-card-icon--info">
+              <i class="ti ti-video"></i>
+            </div>
+            <div>
+              <h6 class="vv-card-title">Media Files</h6>
+              <p class="vv-card-subtitle">Inspection video recordings</p>
+            </div>
+          </div>
+          <div class="vv-card-body">
+            <div class="vv-media-grid">
+              <div class="vv-media-card">
+                <div class="vv-media-icon"><i class="ti ti-video"></i></div>
+                <h6 class="vv-media-title">Interior Video</h6>
+                <p class="vv-media-desc text-muted">Complete interior inspection footage</p>
+                <button class="btn btn-primary btn-sm btn-wave"><i class="ti ti-player-play me-1"></i>Play</button>
+              </div>
+              <div class="vv-media-card">
+                <div class="vv-media-icon"><i class="ti ti-video"></i></div>
+                <h6 class="vv-media-title">Exterior Video</h6>
+                <p class="vv-media-desc text-muted">Complete exterior inspection footage</p>
+                <button class="btn btn-primary btn-sm btn-wave"><i class="ti ti-player-play me-1"></i>Play</button>
               </div>
             </div>
-            <div class="card-body">
-              <div class="row g-3">
-                <div class="col-12">
-                  <div class="media-box">
-                    <div class="media-icon">
-                      <i class="ti ti-video"></i>
-                    </div>
-                    <h6>Interior Video</h6>
-                    <p class="text-muted mb-3">Complete interior inspection footage</p>
-                    <button class="btn btn-primary btn-sm btn-wave">
-                      <i class="ti ti-player-play me-1"></i>Play Video
-                    </button>
+          </div>
+        </div>
+
+      </div><!-- /left col -->
+
+      <!-- RIGHT: Station Timeline -->
+      <div class="col-12 col-xl-4" *ngIf="timelineVisible">
+        <div id="vv-timeline" class="vv-card vv-timeline-card">
+          <div class="vv-card-header">
+            <div class="vv-card-icon vv-card-icon--info">
+              <i class="ti ti-map-pin"></i>
+            </div>
+            <div>
+              <h6 class="vv-card-title">Station Timeline
+                <span *ngIf="timeline.length" class="badge bg-info-transparent text-info ms-2">{{ timeline.length }}</span>
+              </h6>
+              <p class="vv-card-subtitle">Station progression history</p>
+            </div>
+          </div>
+          <div class="vv-timeline-body">
+            <div class="vv-empty-state" *ngIf="!timeline.length">
+              <i class="ti ti-map-pin"></i>
+              <p>No station events available.</p>
+            </div>
+            <div class="vv-timeline" *ngIf="timeline.length">
+              <div
+                class="vv-tl-item"
+                *ngFor="let item of timeline; let last = last"
+                [class.vv-tl-item--last]="last"
+                [ngClass]="{
+                  'vv-tl-item--info':    (item.status || '').toLowerCase() === 'in-progress',
+                  'vv-tl-item--warning': (item.status || '').toLowerCase() === 'pending',
+                  'vv-tl-item--danger':  (item.status || '').toLowerCase() === 'delayed',
+                  'vv-tl-item--success': !['in-progress','pending','delayed'].includes((item.status || '').toLowerCase())
+                }">
+                <div class="vv-tl-indicator">
+                  <div class="vv-tl-dot"></div>
+                  <div class="vv-tl-line" *ngIf="!last"></div>
+                </div>
+                <div class="vv-tl-content">
+                  <p class="vv-tl-event">{{ item.event }}</p>
+                  <div class="vv-tl-meta">
+                    <span *ngIf="item.startDate" class="vv-tl-date">
+                      <i class="ti ti-calendar-plus"></i>{{ item.startDate }}
+                    </span>
+                    <span *ngIf="item.endDate" class="vv-tl-date">
+                      <i class="ti ti-calendar-check"></i>{{ item.endDate }}
+                    </span>
+                    <span *ngIf="!item.startDate && !item.endDate && item.date !== '-'" class="vv-tl-date">
+                      <i class="ti ti-calendar"></i>{{ item.date }}
+                    </span>
+                    <span *ngIf="item.user && item.user !== '-'" class="vv-tl-user">
+                      <i class="ti ti-user"></i>{{ item.user }}
+                    </span>
                   </div>
-                </div>
-                <div class="col-12">
-                  <div class="media-box">
-                    <div class="media-icon">
-                      <i class="ti ti-video"></i>
-                    </div>
-                    <h6>Exterior Video</h6>
-                    <p class="text-muted mb-3">Complete exterior inspection footage</p>
-                    <button class="btn btn-primary btn-sm btn-wave">
-                      <i class="ti ti-player-play me-1"></i>Play Video
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /col-xl-8 left -->
-
-    <!-- RIGHT: 30% Station Timeline sticky sidebar -->
-    <div class="col-12 col-xl-4" *ngIf="timelineVisible">
-      <div id="timeline" class="card custom-card section-card" style="position: sticky; top: 70px;">
-        <div class="card-header">
-          <div class="card-title">
-            <i class="ti ti-map-pin me-2 text-info"></i>Station Timeline
-            <span *ngIf="timeline.length" class="badge bg-info-transparent ms-2">{{timeline.length}}</span>
-          </div>
-        </div>
-        <div class="card-body p-2 timeline-scroll-body">
-          <div *ngIf="!timeline.length" class="text-center text-muted py-3">No station tracker events available.</div>
-          <div class="timeline-sidebar" *ngIf="timeline.length">
-            <div
-              *ngFor="let item of timeline; let i = index; let last = last"
-              class="timeline-sidebar-item"
-              [ngClass]="{
-                'last': last,
-                'status-info': (item.status || '').toLowerCase() === 'in-progress',
-                'status-warning': (item.status || '').toLowerCase() === 'pending',
-                'status-danger': (item.status || '').toLowerCase() === 'delayed',
-                'status-success': !['in-progress','pending','delayed'].includes((item.status || '').toLowerCase())
-              }">
-              <div class="timeline-sidebar-dot"></div>
-              <div class="timeline-sidebar-content">
-                <div class="fw-semibold fs-12 mb-1">
-                  <i class="ti ti-map-pin me-1 text-success"></i>{{item.event}}
-                </div>
-                <div class="d-flex flex-column gap-1 mb-1">
-                  <span *ngIf="item.startDate" class="fs-11 text-muted">
-                    <i class="ti ti-calendar-plus me-1"></i>Start: <strong>{{item.startDate}}</strong>
-                  </span>
-                  <span *ngIf="item.endDate" class="fs-11 text-muted">
-                    <i class="ti ti-calendar-check me-1"></i>End: <strong>{{item.endDate}}</strong>
-                  </span>
-                  <span *ngIf="!item.startDate && !item.endDate && item.date !== '-'" class="fs-11 text-muted">
-                    <i class="ti ti-calendar me-1"></i>{{item.date}}
-                  </span>
-                </div>
-                <span *ngIf="item.description" class="d-block fs-11 text-muted mb-1">{{item.description}}</span>
-                <span *ngIf="item.user && item.user !== '-'" class="fs-11 text-muted">
-                  <i class="ti ti-user me-1"></i>{{item.user}}
-                </span>
-                <div class="mt-1">
-                  <span class="badge fs-10 text-uppercase"
+                  <span *ngIf="item.description" class="vv-tl-desc">{{ item.description }}</span>
+                  <span class="badge vv-tl-status-badge"
                     [ngClass]="{
-                      'bg-info-transparent': (item.status || '').toLowerCase() === 'in-progress',
-                      'bg-warning-transparent': (item.status || '').toLowerCase() === 'pending',
-                      'bg-danger-transparent': (item.status || '').toLowerCase() === 'delayed',
-                      'bg-success-transparent': !['in-progress','pending','delayed'].includes((item.status || '').toLowerCase())
-                    }">{{item.status || 'Completed'}}</span>
+                      'bg-info-transparent text-info':       (item.status || '').toLowerCase() === 'in-progress',
+                      'bg-warning-transparent text-warning': (item.status || '').toLowerCase() === 'pending',
+                      'bg-danger-transparent text-danger':   (item.status || '').toLowerCase() === 'delayed',
+                      'bg-success-transparent text-success': !['in-progress','pending','delayed'].includes((item.status || '').toLowerCase())
+                    }">{{ item.status || 'Completed' }}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div><!-- /col-xl-4 right -->
 
-  </div>
+    </div><!-- /row -->
 
-  <!-- Ticket Gallery — full width row -->
-  <div class="row mt-0" *ngIf="vehicle && vehicle.tickets?.length">
-    <div class="col-12">
-      <div id="ticket-carousel" class="card custom-card section-card">
-        <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-          <div class="card-title">
-            <i class="ti ti-photo me-2 text-primary"></i>Ticket Gallery
-            <span class="badge bg-primary-transparent ms-2">{{carouselFilteredTickets.length}}</span>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- TICKET CAROUSEL (full width)                                        -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="row mt-3" *ngIf="vehicle.tickets?.length">
+      <div class="col-12">
+        <div id="vv-gallery" class="vv-card">
+          <div class="vv-card-header">
+            <div class="vv-card-icon vv-card-icon--primary">
+              <i class="ti ti-photo"></i>
+            </div>
+            <div>
+              <h6 class="vv-card-title">Ticket Gallery
+                <span class="badge bg-primary-transparent text-primary ms-2">{{ carouselFilteredTickets.length }}</span>
+              </h6>
+              <p class="vv-card-subtitle">Visual overview of inspection tickets</p>
+            </div>
+            <!-- Filter chips -->
+            <div class="vv-gallery-filters ms-auto">
+              <button class="vv-filter-chip" [class.vv-filter-chip--active]="ticketCarouselLocation === 'all'" (click)="setCarouselFilter('all')">All</button>
+              <button *ngFor="let loc of carouselLocations" class="vv-filter-chip" [class.vv-filter-chip--active]="ticketCarouselLocation === loc" (click)="setCarouselFilter(loc)">{{ loc }}</button>
+            </div>
           </div>
-          <div class="d-flex flex-wrap gap-1 align-items-center">
-            <button class="btn btn-sm py-1 px-2"
-              [ngClass]="ticketCarouselLocation === 'all' ? 'btn-primary' : 'btn-light border'"
-              (click)="setCarouselFilter('all')">All</button>
-            <button *ngFor="let loc of carouselLocations" class="btn btn-sm py-1 px-2"
-              [ngClass]="ticketCarouselLocation === loc ? 'btn-primary' : 'btn-light border'"
-              (click)="setCarouselFilter(loc)">{{loc}}</button>
-          </div>
-        </div>
-        <div class="card-body p-3">
-          <div *ngIf="carouselFilteredTickets.length === 0" class="text-center text-muted py-4">
-            No tickets for this location.
-          </div>
-          <div class="ticket-carousel-wrapper" *ngIf="carouselFilteredTickets.length > 0">
-            <button class="carousel-nav-btn carousel-nav-prev" (click)="carouselPrev()" [disabled]="carouselOffset === 0">
-              <i class="ti ti-chevron-left"></i>
-            </button>
-            <div class="ticket-carousel-viewport">
-              <div class="ticket-carousel-track"
-                [style.transform]="'translateX(-' + (carouselOffset * 292) + 'px)'">
-                <div *ngFor="let ticket of carouselFilteredTickets" class="ticket-carousel-card">
-                  <div class="tcc-image"
-                    [style.backgroundImage]="'url(' + (vehicle.images.front || '') + ')'">
-                    <span class="tcc-status-badge" [ngClass]="getTicketStatusClass(ticket.status)">
-                      {{ticket.status | titlecase}}
-                    </span>
-                    <span *ngIf="ticket.safetyCritical" class="tcc-safety-badge" title="Safety Critical">
-                      <i class="ti ti-shield-exclamation"></i>
-                    </span>
-                    <span *ngIf="ticket.hasImages" class="tcc-img-badge" title="Has Images">
-                      <i class="ti ti-photo"></i>
-                    </span>
-                    <div class="tcc-overlay">
-                      <div class="tcc-overlay-content">
-                        <div class="tcc-ticket-id"><code>#{{ticket.id}}</code></div>
-                        <div class="tcc-row"><span class="tcc-lbl">Location</span><span class="tcc-val">{{ticket.defectLocation || '-'}}</span></div>
-                        <div class="tcc-row"><span class="tcc-lbl">Station</span><span class="tcc-val">{{ticket.station || '-'}}</span></div>
-                        <div class="tcc-row"><span class="tcc-lbl">Assigned To</span><span class="tcc-val">{{ticket.assignedTo}}</span></div>
-                        <div class="tcc-row"><span class="tcc-lbl">Assigned By</span><span class="tcc-val">{{ticket.assignedBy}}</span></div>
-                        <p class="tcc-desc">{{ticket.description}}</p>
-                        <div class="d-flex gap-1 flex-wrap">
-                          <span *ngIf="ticket.safetyCritical" class="badge bg-danger">Safety</span>
-                          <span *ngIf="ticket.repeater" class="badge bg-warning text-dark">Repeater</span>
-                          <span *ngIf="ticket.hasImages" class="badge bg-info"><i class="ti ti-photo me-1"></i>Images</span>
+          <div class="vv-card-body">
+            <div class="vv-empty-state" *ngIf="carouselFilteredTickets.length === 0">
+              <i class="ti ti-photo"></i>
+              <p>No tickets for this location.</p>
+            </div>
+            <div class="ticket-carousel-wrapper" *ngIf="carouselFilteredTickets.length > 0">
+              <button class="carousel-nav-btn carousel-nav-prev" (click)="carouselPrev()" [disabled]="carouselOffset === 0">
+                <i class="ti ti-chevron-left"></i>
+              </button>
+              <div class="ticket-carousel-viewport">
+                <div class="ticket-carousel-track"
+                  [style.transform]="'translateX(-' + (carouselOffset * 292) + 'px)'">
+                  <div *ngFor="let ticket of carouselFilteredTickets" class="ticket-carousel-card">
+                    <div class="tcc-image" [style.backgroundImage]="'url(' + ticket.imageUrl + ')'">
+                      <span class="tcc-status-badge" [ngClass]="getTicketStatusClass(ticket.status)">{{ ticket.status | titlecase }}</span>
+                      <span *ngIf="ticket.safetyCritical" class="tcc-safety-badge" title="Safety Critical"><i class="ti ti-shield-x"></i></span>
+                      <div class="tcc-overlay">
+                        <div class="tcc-overlay-content">
+                          <div class="tcc-ticket-id"><code>#{{ ticket.id }}</code></div>
+                          <div class="tcc-row"><span class="tcc-lbl">Location</span><span class="tcc-val">{{ ticket.defectLocation || '-' }}</span></div>
+                          <div class="tcc-row"><span class="tcc-lbl">Station</span><span class="tcc-val">{{ ticket.station || '-' }}</span></div>
+                          <div class="tcc-row"><span class="tcc-lbl">Assigned To</span><span class="tcc-val">{{ ticket.assignedTo }}</span></div>
+                          <p class="tcc-desc">{{ ticket.description }}</p>
+                          <div class="d-flex gap-1 flex-wrap">
+                            <span *ngIf="ticket.safetyCritical" class="badge bg-danger">Safety</span>
+                            <span *ngIf="ticket.repeater" class="badge bg-warning text-dark">Repeater</span>
+                            <span *ngIf="ticket.hasImages" class="badge bg-info"><i class="ti ti-photo me-1"></i>Images</span>
+                          </div>
+                          <div class="tcc-date">{{ ticket.createdDate | date:'mediumDate' }}</div>
                         </div>
-                        <div class="tcc-date">{{ticket.createdDate | date:'mediumDate'}}</div>
                       </div>
                     </div>
-                  </div>
-                  <div class="tcc-footer">
-                    <span class="tcc-title">{{ticket.description}}</span>
-                    <span class="tcc-loc">{{ticket.defectLocation || '-'}}</span>
+                    <div class="tcc-footer">
+                      <span class="tcc-title">{{ ticket.description }}</span>
+                      <span class="tcc-loc">{{ ticket.defectLocation || '-' }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
+              <button class="carousel-nav-btn carousel-nav-next" (click)="carouselNext()" [disabled]="carouselOffset >= maxCarouselOffset">
+                <i class="ti ti-chevron-right"></i>
+              </button>
             </div>
-            <button class="carousel-nav-btn carousel-nav-next" (click)="carouselNext()" [disabled]="carouselOffset >= maxCarouselOffset">
-              <i class="ti ti-chevron-right"></i>
-            </button>
-          </div>
-          <div class="tcc-dots" *ngIf="carouselFilteredTickets.length > carouselVisibleCount">
-            <span *ngFor="let dot of carouselDots; let i = index" class="tcc-dot"
-              [class.active]="i === carouselOffset"
-              (click)="carouselOffset = i"></span>
+            <div class="tcc-dots" *ngIf="carouselFilteredTickets.length > carouselVisibleCount">
+              <span *ngFor="let dot of carouselDots; let i = index" class="tcc-dot" [class.active]="i === carouselOffset" (click)="carouselOffset = i"></span>
+            </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- INSPECTOR DETAIL MODAL                                              -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="vv-modal-backdrop" *ngIf="inspectorModalVisible" (click)="closeInspectorModal()"></div>
+    <div class="vv-modal" *ngIf="inspectorModalVisible && selectedInspector">
+      <div class="vv-modal-header">
+        <div class="vv-modal-avatar">{{ selectedInspector.inspectorName.charAt(0).toUpperCase() }}</div>
+        <div class="vv-modal-title-group">
+          <h5 class="vv-modal-title">{{ selectedInspector.inspectorName }}</h5>
+          <span class="badge bg-primary-transparent text-primary">{{ selectedInspector.projectName }}</span>
+        </div>
+        <button class="vv-modal-close" (click)="closeInspectorModal()">
+          <i class="ti ti-x"></i>
+        </button>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="vv-modal-summary">
+        <div class="vv-modal-stats-row">
+          <div class="vv-modal-stat vv-modal-stat--danger">
+            <span class="vv-modal-stat-num">{{ inspectorModalTickets.length }}</span>
+            <span class="vv-modal-stat-lbl">Tickets</span>
+          </div>
+          <div class="vv-modal-stat vv-modal-stat--warning">
+            <span class="vv-modal-stat-num">{{ inspectorModalSnags.length }}</span>
+            <span class="vv-modal-stat-lbl">Snags</span>
+          </div>
+          <div class="vv-modal-stat vv-modal-stat--danger">
+            <span class="vv-modal-stat-num">{{ inspectorSafetyCriticalCount }}</span>
+            <span class="vv-modal-stat-lbl">Safety Critical</span>
+          </div>
+          <div class="vv-modal-stat vv-modal-stat--info">
+            <span class="vv-modal-stat-num">{{ inspectorRepeaterCount }}</span>
+            <span class="vv-modal-stat-lbl">Repeaters</span>
+          </div>
+        </div>
+        <div class="vv-modal-stat vv-modal-stat--assignment">
+          <span class="vv-modal-stat-lbl">Assignment ID</span>
+          <span class="vv-modal-stat-num vv-modal-stat-assignment-id">#{{ selectedInspector.assigmentId }}</span>
+        </div>
+      </div>
+
+    </div><!-- /vv-modal -->
+
+  </ng-container>
+
+  <!-- Unavailable state -->
+  <div class="vv-loading" *ngIf="!isLoading && !vehicle && !errorMessage">
+    <i class="ti ti-bus-off fs-32 text-muted"></i>
+    <p class="text-muted mt-2 mb-0">Vehicle details are unavailable.</p>
   </div>
 
-  <div class="card custom-card" *ngIf="!isLoading && !vehicle && !errorMessage">
-    <div class="card-body text-center py-5 text-muted">
-      Vehicle details are unavailable.
-    </div>
-  </div>
 </div>

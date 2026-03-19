@@ -2,120 +2,192 @@
   <app-page-header [title]="title" [title1]="['Home']" [activeitem]="'Dashboard'"></app-page-header>
 
   <div class="dashboard-content">
-    <div class="welcome-section mb-5">
-      <div class="welcome-card">
-        <div class="welcome-content">
-          <div class="welcome-text">
-            <h2 class="welcome-title">Welcome {{ welcomeUserName }}</h2>
-            <p class="welcome-subtitle" *ngIf="isAdminRole; else clientSubTitle">
-              Fleet-wide operations and inspection analytics overview
-            </p>
-            <ng-template #clientSubTitle>
-              <p class="welcome-subtitle">Client ID: {{ clientProfile.clientId }} | Vehicle: {{ clientProfile.vehicle }}</p>
-            </ng-template>
-          </div>
-          <div class="welcome-image" style="position: relative; width: 150px; height: 150px;">
-            <img *ngIf="clientProfile.logoUrl" [src]="clientProfile.logoUrl" alt="Client logo" class="welcome-logo-image" width="150" height="150" style="object-fit: contain;" />
-            <div *ngIf="!clientProfile.logoUrl" class="welcome-no-image" aria-label="No image available" title="No image available">
-              <i class="ti ti-photo-off"></i>
-            </div>
-            <p class="welcome-logo-name" *ngIf="!isAdminRole && customerLogoName">{{ customerLogoName }}</p>
-          </div>
+
+    <!-- ═══ Welcome Banner ══════════════════════════════════════════════════ -->
+    <div class="welcome-section mb-4">
+      <div class="welcome-banner">
+
+        <!-- Background animation layer -->
+        <div class="wb-anim" aria-hidden="true">
+          <!-- Scrolling dashed route lines -->
+          <div class="wb-road wb-road--1"></div>
+          <div class="wb-road wb-road--2"></div>
+          <div class="wb-road wb-road--3"></div>
+          <!-- Bus dots travelling along routes -->
+          <div class="wb-bus-dot wb-bus-dot--1"></div>
+          <div class="wb-bus-dot wb-bus-dot--2"></div>
+          <div class="wb-bus-dot wb-bus-dot--3"></div>
+          <!-- GPS location ping rings -->
+          <div class="wb-ping wb-ping--1"></div>
+          <div class="wb-ping wb-ping--2"></div>
+          <div class="wb-ping wb-ping--3"></div>
         </div>
+
+        <!-- Main row: text + logo -->
+        <div class="wb-main-row">
+
+          <!-- Left: text + controls -->
+          <div class="wb-left">
+            <div class="wb-eyebrow">
+              <span class="wb-role-badge">
+                <i class="ti ti-shield-check" *ngIf="isAdminRole"></i>
+                <i class="ti ti-building" *ngIf="!isAdminRole"></i>
+                {{ isAdminRole ? 'Admin Dashboard' : 'Client Dashboard' }}
+              </span>
+              </div>
+
+            <div class="wb-heading">
+              <p class="wb-greeting">Welcome back,</p>
+              <h1 class="wb-name">{{ welcomeUserName }}</h1>
+            </div>
+
+            <p class="wb-subtitle" *ngIf="isAdminRole">
+              Fleet-wide operations &nbsp;·&nbsp; Inspection analytics &nbsp;·&nbsp; Live reporting
+            </p>
+            <p class="wb-subtitle" *ngIf="!isAdminRole">
+              {{ clientProfile.clientId }} &nbsp;·&nbsp; {{ clientProfile.vehicle }}
+            </p>
+
+            <div class="wb-controls">
+              <div class="form-check form-switch wb-switch mb-0" *ngIf="isAdminRole">
+                <input class="form-check-input" type="checkbox" id="includeClosedProjectsToggle"
+                       [(ngModel)]="includeClosedProjects" (ngModelChange)="toggleAdminOpenClosed()" />
+                <label class="form-check-label" for="includeClosedProjectsToggle">Include Closed Projects</label>
+              </div>
+              <button class="wb-reset-btn" (click)="resetDashboardLayout()">
+                <i class="ti ti-refresh me-1"></i>Reset Layout
+              </button>
+            </div>
+          </div>
+
+          <!-- Right: logo / user avatar -->
+          <div class="wb-right">
+            <div class="wb-logo-ring">
+              <!-- Admin: show user profile picture if available, else bus icon -->
+              <ng-container *ngIf="isAdminRole">
+                <img *ngIf="userPicture" [src]="userPicture" alt="Profile" class="wb-logo-img" />
+                <div *ngIf="!userPicture" class="wb-logo-placeholder">
+                  <i class="ti ti-user"></i>
+                </div>
+              </ng-container>
+              <!-- Client: show client logo -->
+              <ng-container *ngIf="!isAdminRole">
+                <img *ngIf="clientProfile.logoUrl" [src]="clientProfile.logoUrl" alt="Client logo" class="wb-logo-img" />
+                <div *ngIf="!clientProfile.logoUrl" class="wb-logo-placeholder">
+                  <i class="ti ti-bus"></i>
+                </div>
+              </ng-container>
+            </div>
+            <p class="wb-logo-name" *ngIf="!isAdminRole && customerLogoName">{{ customerLogoName }}</p>
+          </div>
+
+        </div><!-- /wb-main-row -->
+
+        <!-- Stats strip -->
+        <div class="wb-stats" *ngIf="statCards.length">
+          <div class="wb-stat"
+               *ngFor="let card of statCards; let i = index"
+               [style.--wbs-delay]="(i * 0.1) + 's'"
+               [ngClass]="getStatIconClass(card.trendClass)">
+
+            <div class="wbs-icon-wrap">
+              <i [class]="card.iconClass"></i>
+            </div>
+
+            <div class="wbs-body">
+              <span class="wbs-value">{{ card.value | number }}</span>
+              <span class="wbs-label">{{ card.label }}</span>
+            </div>
+
+            <div class="wbs-trend" [ngClass]="card.trendClass">
+              <i class="ti"
+                 [ngClass]="card.trendClass.includes('danger') ? 'ti-trending-down' :
+                            card.trendClass.includes('warning') ? 'ti-trending-down' : 'ti-trending-up'">
+              </i>
+              <span>{{ card.trend }}</span>
+            </div>
+
+          </div>
+        </div><!-- /wb-stats -->
+
       </div>
     </div>
 
-    <div class="filter-section mb-4">
-      <div class="row g-3 align-items-end">
-        <div class="col-12 col-md-6 col-lg-3" *ngIf="isAdminRole">
-          <label for="clientFilter" class="form-label fw-500 mb-2">Filter by Client</label>
-          <select id="clientFilter" class="form-select form-select-sm" [(ngModel)]="selectedClient" (ngModelChange)="onAdminClientChange($event)">
+    <!-- ═══ Filter Bar ═══════════════════════════════════════════════════════ -->
+    <div class="filter-bar mb-4">
+      <div class="fb-prefix">
+        <i class="ti ti-adjustments-alt"></i>
+        <span>Filters</span>
+      </div>
+      <div class="fb-fields">
+        <div class="fb-field" *ngIf="isAdminRole">
+          <label for="clientFilter" class="fb-label">Client</label>
+          <select id="clientFilter" class="form-select form-select-sm"
+                  [(ngModel)]="selectedClient" (ngModelChange)="onAdminClientChange($event)">
             <option *ngFor="let client of clients" [value]="client.id">{{ client.name }}</option>
           </select>
         </div>
-        <div class="col-12 col-md-6" [ngClass]="isAdminRole ? 'col-lg-3' : 'col-lg-4'">
-          <label for="projectFilter" class="form-label fw-500 mb-2">Filter by Project</label>
-          <select id="projectFilter" class="form-select form-select-sm" [(ngModel)]="selectedProject" (ngModelChange)="onProjectChange($event)">
+        <div class="fb-field">
+          <label for="projectFilter" class="fb-label">Project</label>
+          <select id="projectFilter" class="form-select form-select-sm"
+                  [(ngModel)]="selectedProject" (ngModelChange)="onProjectChange($event)">
             <option *ngFor="let project of projects" [value]="project.id">{{ project.name }}</option>
           </select>
         </div>
-        <div class="col-12 col-md-6" [ngClass]="isAdminRole ? 'col-lg-3' : 'col-lg-4'">
-          <label for="vehicleFilter" class="form-label fw-500 mb-2">Filter by Vehicle</label>
-          <select id="vehicleFilter" class="form-select form-select-sm" [(ngModel)]="selectedVehicle" (ngModelChange)="onVehicleChange($event)">
+        <div class="fb-field">
+          <label for="vehicleFilter" class="fb-label">Vehicle</label>
+          <select id="vehicleFilter" class="form-select form-select-sm"
+                  [(ngModel)]="selectedVehicle" (ngModelChange)="onVehicleChange($event)">
             <option *ngFor="let vehicle of vehicles" [value]="vehicle.id">{{ vehicle.name }}</option>
           </select>
         </div>
-        <div class="col-12" [ngClass]="isAdminRole ? 'col-lg-3' : 'col-lg-4'">
-          <div class="d-flex align-items-center justify-content-lg-end gap-3 h-100">
-            <div class="form-check form-switch mb-0">
-              <input class="form-check-input" type="checkbox" id="includeClosedProjectsToggle" [(ngModel)]="includeClosedProjects" (ngModelChange)="toggleAdminOpenClosed()" />
-              <label class="form-check-label" for="includeClosedProjectsToggle">Include Closed Projects</label>
-            </div>
-            <button class="btn btn-sm btn-outline-success" (click)="resetDashboardLayout()">
-              <i class="fas fa-undo me-1"></i> Reset
-            </button>
-          </div>
-        </div>
       </div>
     </div>
 
-    <div class="summary-stats-section mb-5">
-      <div class="row g-3 stats-row">
-        <div class="col-12" [ngClass]="isAdminRole ? 'col-sm-6 col-lg-3' : 'col-sm-6 col-lg-6'" *ngFor="let card of statCards">
-          <div class="stat-card-v2" [ngClass]="getStatIconClass(card.trendClass)">
-            <div class="scv2-glow"></div>
-            <div class="scv2-top-row">
-              <div class="scv2-icon-wrap">
-                <i [class]="card.iconClass"></i>
-              </div>
-            </div>
-            <div class="scv2-value">{{ card.value | number }}</div>
-            <div class="scv2-label">{{ card.label }}</div>
-            <div class="scv2-subtitle">{{ card.subtitle }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
 
+    <!-- ═══ Widget Grid ═══════════════════════════════════════════════════════ -->
     <div class="charts-grid" [class.compact-mode]="showFilters && selectedProject !== 'all'">
       <div class="widgets-row" cdkDropList (cdkDropListDropped)="onWidgetDrop($event)">
         <ng-container *ngFor="let widget of widgets; trackBy: trackByWidgetId">
           <div
             [hidden]="!isWidgetVisible(widget)"
+            [id]="'wc-' + widget.id"
             [ngClass]="(showFilters && selectedProject !== 'all') ? 'widget-container compact-widget' : 'widget-container'"
             [style.gridColumn]="'span ' + getWidgetGridSpan(widget)"
             cdkDrag
             [cdkDragData]="widget"
           >
-            <div class="data-card widget-card" [style.height.px]="getWidgetCardHeight(widget)">
-              <div class="widget-drag-handle" cdkDragHandle>
-                <i class="fas fa-grip-vertical"></i>
-              </div>
-
-              <div class="widget-delete-btn">
-                <button class="control-btn fullscreen-btn" (click)="toggleFullscreen(widget.id)" title="Toggle fullscreen">
-                  <i class="fas" [ngClass]="fullscreenWidgetId === widget.id ? 'fa-compress' : 'fa-expand'"></i>
-                </button>
-                <button class="control-btn delete-btn" (click)="deleteWidget(widget.id)" title="Remove widget">
-                  <i class="fas fa-trash-alt"></i>
-                </button>
+            <div class="card custom-card data-card widget-card" [style.height.px]="getWidgetCardHeight(widget)">
+              <div class="card-header">
+                <div class="widget-header-left">
+                  <div class="widget-drag-handle" cdkDragHandle>
+                    <i class="ti ti-grip-vertical"></i>
+                  </div>
+                  <div>
+                    <h5 class="card-title mb-1">{{ widget.title }}</h5>
+                    <p class="card-subtitle">{{ widget.subtitle }}</p>
+                  </div>
+                </div>
+                <div class="widget-header-actions">
+                  <button class="control-btn fullscreen-btn" (click)="toggleFullscreen(widget.id)" title="Toggle fullscreen">
+                    <i class="ti" [ngClass]="fullscreenWidgetId === widget.id ? 'ti-arrows-minimize' : 'ti-arrows-maximize'"></i>
+                  </button>
+                  <button class="control-btn delete-btn" (click)="deleteWidget(widget.id)" title="Remove widget">
+                    <i class="ti ti-x"></i>
+                  </button>
+                </div>
               </div>
 
               <div class="resize-handle resize-handle-corner" (mousedown)="onResizeStart($event, widget.id, 'corner')" title="Drag to resize">
-                <i class="fas fa-grip-lines"></i>
+                <i class="ti ti-resize"></i>
               </div>
               <div class="resize-handle resize-handle-right" (mousedown)="onResizeStart($event, widget.id, 'right')" title="Drag to resize width"></div>
               <div class="resize-handle resize-handle-bottom" (mousedown)="onResizeStart($event, widget.id, 'bottom')" title="Drag to resize height"></div>
 
-              <div class="card-header">
-                <h5 class="card-title mb-1">{{ widget.title }}</h5>
-                <p class="card-subtitle">{{ widget.subtitle }}</p>
-              </div>
-
-              <div class="card-body" style="position: relative;">
+              <div class="card-body">
                 <div *ngIf="widget.loading" class="widget-loading-overlay">
                   <div class="widget-spinner">
-                    <span class="spinner-border spinner-border-sm text-success" role="status"></span>
+                    <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
                     <span class="widget-loading-text">Loading...</span>
                   </div>
                 </div>
@@ -182,7 +254,6 @@
                           Reset map filters
                         </button>
                       </div>
-
                       <div class="dashboard-map-widget__filter-buttons">
                         <button
                           type="button"
@@ -192,7 +263,6 @@
                         >
                           All Manufacturers
                         </button>
-
                         <button
                           *ngFor="let manufacturer of dashboardMapManufacturerOptions; trackBy: trackByFilterOptionId"
                           type="button"
@@ -211,7 +281,6 @@
                       <i class="ti ti-alert-circle"></i>
                       <span>{{ dashboardMapError }}</span>
                     </div>
-
                     <div *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount === 0" class="dashboard-map-state dashboard-map-state--empty">
                       <i class="ti ti-map-off"></i>
                       <div>
@@ -219,7 +288,6 @@
                         <p class="mb-0">Change the client, project, status, or manufacturer filters to widen the view.</p>
                       </div>
                     </div>
-
                     <app-map-stage
                       *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount > 0"
                       [mode]="dashboardMapMode"
@@ -259,8 +327,8 @@
                     </table>
                   </div>
                   <div class="activity-footer">
-                    <button (click)="openActivitiesModal()" class="btn btn-sm btn-light w-100">
-                      View All Activities <i class="fe fe-arrow-right ms-1"></i>
+                    <button (click)="openActivitiesModal()" class="btn btn-sm btn-primary-light w-100">
+                      <i class="ti ti-list me-1"></i>View All Activities
                     </button>
                   </div>
                 </div>
@@ -268,7 +336,7 @@
 
               <div class="widget-drag-preview" *cdkDragPreview>
                 <div class="preview-content">
-                  <i class="fas fa-grip-vertical me-2"></i>
+                  <i class="ti ti-grip-vertical me-2"></i>
                   {{ widget.title }}
                 </div>
               </div>
@@ -278,23 +346,25 @@
       </div>
     </div>
 
+    <!-- Empty state -->
     <div *ngIf="widgets.length === 0" class="empty-state">
       <div class="empty-state-content">
-        <i class="fas fa-inbox fa-4x mb-3 text-muted"></i>
+        <i class="ti ti-inbox fs-1 mb-3 text-muted d-block"></i>
         <h4>No Widgets Available</h4>
-        <p class="text-muted">All widgets have been removed. Click the button below to restore them.</p>
+        <p class="text-muted">All widgets have been removed. Click below to restore them.</p>
         <button class="btn btn-primary mt-3" (click)="restoreAllWidgets()">
-          <i class="fas fa-undo me-2"></i> Restore All Widgets
+          <i class="ti ti-refresh me-2"></i>Restore All Widgets
         </button>
       </div>
     </div>
 
+    <!-- ═══ Fullscreen overlay ════════════════════════════════════════════════ -->
     <div *ngIf="fullscreenWidgetId" class="fullscreen-overlay" (click)="toggleFullscreen(fullscreenWidgetId); $event.stopPropagation()">
       <div class="fullscreen-container" (click)="$event.stopPropagation()">
         <div class="fullscreen-header" *ngIf="fullscreenWidget">
           <h3>{{ fullscreenWidget.title }}</h3>
           <button class="btn btn-sm btn-light" (click)="toggleFullscreen(fullscreenWidgetId)" title="Exit fullscreen">
-            <i class="fas fa-times"></i>
+            <i class="ti ti-x"></i>
           </button>
         </div>
 
@@ -303,104 +373,55 @@
 
           <div *ngIf="fullscreenWidget.id === 'widget-map'" class="dashboard-map-widget dashboard-map-widget--fullscreen">
             <div class="dashboard-map-widget__summary" [class.dashboard-map-widget__summary--client]="!isAdminRole">
-              <div class="dashboard-map-widget__pill">
-                <span>Projects</span>
-                <strong>{{ dashboardMapProjectCount }}</strong>
-              </div>
-              <div *ngIf="isAdminRole" class="dashboard-map-widget__pill">
-                <span>Clients</span>
-                <strong>{{ dashboardMapClientCount }}</strong>
-              </div>
-              <div class="dashboard-map-widget__pill">
-                <span>Manufacturers</span>
-                <strong>{{ dashboardMapManufacturerCount }}</strong>
-              </div>
-              <div class="dashboard-map-widget__pill">
-                <span>Sites</span>
-                <strong>{{ dashboardMapLocationCount }}</strong>
-              </div>
+              <div class="dashboard-map-widget__pill"><span>Projects</span><strong>{{ dashboardMapProjectCount }}</strong></div>
+              <div *ngIf="isAdminRole" class="dashboard-map-widget__pill"><span>Clients</span><strong>{{ dashboardMapClientCount }}</strong></div>
+              <div class="dashboard-map-widget__pill"><span>Manufacturers</span><strong>{{ dashboardMapManufacturerCount }}</strong></div>
+              <div class="dashboard-map-widget__pill"><span>Sites</span><strong>{{ dashboardMapLocationCount }}</strong></div>
             </div>
-
             <div class="dashboard-map-widget__filters">
               <div class="dashboard-map-widget__filter-group">
                 <span class="dashboard-map-widget__filter-label">Project Status</span>
                 <div class="dashboard-map-widget__filter-buttons">
-                  <button
-                    *ngFor="let status of dashboardMapStatusOptions; trackBy: trackByFilterOptionId"
-                    type="button"
+                  <button *ngFor="let status of dashboardMapStatusOptions; trackBy: trackByFilterOptionId" type="button"
                     class="dashboard-map-widget__filter-button"
                     [class.dashboard-map-widget__filter-button--active]="dashboardMapSelectedStatus === status.id"
-                    (click)="setDashboardMapStatus(status.id)"
-                  >
-                    {{ status.label }}
-                  </button>
+                    (click)="setDashboardMapStatus(status.id)">{{ status.label }}</button>
                 </div>
               </div>
-
               <div class="dashboard-map-widget__filter-group">
                 <div class="dashboard-map-widget__filter-header">
                   <span class="dashboard-map-widget__filter-label">Manufacturers</span>
-                  <button
-                    *ngIf="hasDashboardMapFilters"
-                    type="button"
-                    class="dashboard-map-widget__reset-button"
-                    (click)="resetDashboardMapFilters()"
-                  >
-                    Reset map filters
-                  </button>
+                  <button *ngIf="hasDashboardMapFilters" type="button" class="dashboard-map-widget__reset-button" (click)="resetDashboardMapFilters()">Reset map filters</button>
                 </div>
-
                 <div class="dashboard-map-widget__filter-buttons">
-                  <button
-                    type="button"
-                    class="dashboard-map-widget__filter-button"
+                  <button type="button" class="dashboard-map-widget__filter-button"
                     [class.dashboard-map-widget__filter-button--active]="dashboardMapSelectedManufacturerIds.length === 0"
-                    (click)="clearDashboardMapManufacturers()"
-                  >
-                    All Manufacturers
-                  </button>
-
-                  <button
-                    *ngFor="let manufacturer of dashboardMapManufacturerOptions; trackBy: trackByFilterOptionId"
-                    type="button"
+                    (click)="clearDashboardMapManufacturers()">All Manufacturers</button>
+                  <button *ngFor="let manufacturer of dashboardMapManufacturerOptions; trackBy: trackByFilterOptionId" type="button"
                     class="dashboard-map-widget__filter-button"
                     [class.dashboard-map-widget__filter-button--active]="isDashboardMapManufacturerSelected(manufacturer.id)"
-                    (click)="toggleDashboardMapManufacturer(manufacturer.id)"
-                  >
-                    {{ manufacturer.label }}
-                  </button>
+                    (click)="toggleDashboardMapManufacturer(manufacturer.id)">{{ manufacturer.label }}</button>
                 </div>
               </div>
             </div>
-
             <div class="dashboard-map-stage-shell dashboard-map-stage-shell--widget dashboard-map-stage-shell--fullscreen">
               <div *ngIf="!dashboardMapLoading && dashboardMapError" class="dashboard-map-state dashboard-map-state--error">
-                <i class="ti ti-alert-circle"></i>
-                <span>{{ dashboardMapError }}</span>
+                <i class="ti ti-alert-circle"></i><span>{{ dashboardMapError }}</span>
               </div>
-
               <div *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount === 0" class="dashboard-map-state dashboard-map-state--empty">
                 <i class="ti ti-map-off"></i>
-                <div>
-                  <strong>No mapped projects for the current dashboard filters.</strong>
+                <div><strong>No mapped projects for the current dashboard filters.</strong>
                   <p class="mb-0">Change the client, project, status, or manufacturer filters to widen the view.</p>
                 </div>
               </div>
-
               <app-map-stage
                 *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount > 0"
-                [mode]="dashboardMapMode"
-                [projects]="dashboardMapProjects"
-                [clients]="dashboardMapClients"
-                [manufacturers]="dashboardMapManufacturers"
-                [locations]="dashboardMapLocations"
-                [isDark]="dashboardMapIsDark"
-                [surface]="'widget'"
+                [mode]="dashboardMapMode" [projects]="dashboardMapProjects" [clients]="dashboardMapClients"
+                [manufacturers]="dashboardMapManufacturers" [locations]="dashboardMapLocations"
+                [isDark]="dashboardMapIsDark" [surface]="'widget'"
                 [viewedProject]="dashboardMapViewedProject"
-                [selectedEntity]="dashboardMapSelectedEntity"
-                [focusedEntity]="dashboardMapSelectedEntity"
-                (selectEntity)="onDashboardMapSelect($event)"
-              ></app-map-stage>
+                [selectedEntity]="dashboardMapSelectedEntity" [focusedEntity]="dashboardMapSelectedEntity"
+                (selectEntity)="onDashboardMapSelect($event)"></app-map-stage>
             </div>
           </div>
 
@@ -415,12 +436,12 @@
                   </tr>
                 </thead>
                 <tbody>
-                        <tr *ngFor="let ticket of allClientTickets; trackBy: trackByIndex">
-                          <td>{{ userIdToUsername[ticket.assignBy] || ticket.assignBy }}</td>
-                          <td>{{ userIdToUsername[ticket.assignTo] || ticket.assignTo }}</td>
-                          <td>{{ ticket.ticketsGenerated }}</td>
-                          <td>{{ ticket.hoursWorked }}</td>
-                        </tr>
+                  <tr *ngFor="let ticket of allClientTickets; trackBy: trackByIndex">
+                    <td>{{ userIdToUsername[ticket.assignBy] || ticket.assignBy }}</td>
+                    <td>{{ userIdToUsername[ticket.assignTo] || ticket.assignTo }}</td>
+                    <td>{{ ticket.ticketsGenerated }}</td>
+                    <td>{{ ticket.hoursWorked }}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -429,18 +450,19 @@
       </div>
     </div>
 
+    <!-- ═══ Activities modal ════════════════════════════════════════════════ -->
     <div *ngIf="showActivitiesModal" class="activities-modal-overlay" (click)="closeActivitiesModal()">
       <div class="activities-modal-container" (click)="$event.stopPropagation()">
         <div class="activities-modal-header">
-          <h2>All Activities</h2>
+          <h5 class="mb-0 fw-bold">All Activities</h5>
           <button class="btn btn-sm btn-light" (click)="closeActivitiesModal()" title="Close">
-            <i class="fas fa-times"></i>
+            <i class="ti ti-x"></i>
           </button>
         </div>
         <div class="activities-modal-body">
           <div class="table-responsive">
-            <table class="table table-bordered table-hover">
-              <thead>
+            <table class="table table-bordered table-hover align-middle">
+              <thead class="table-light">
                 <tr>
                   <th>Last Sync</th>
                   <th>Tickets Generated</th>
@@ -460,5 +482,6 @@
         </div>
       </div>
     </div>
+
   </div>
 </div>

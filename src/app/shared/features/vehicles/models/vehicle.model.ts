@@ -21,6 +21,17 @@ export interface Vehicle {
 }
 
 /**
+ * Vehicle assignment (inspector assigned to a vehicle in a project)
+ */
+export interface VehicleAssignment {
+  assigmentId: number;
+  projectId: number;
+  projectName: string;
+  inspectorId: number;
+  inspectorName: string;
+}
+
+/**
  * Detailed Vehicle Model
  * Extended vehicle information for detail view
  */
@@ -32,8 +43,10 @@ export interface VehicleDetail {
   make: string;
   model: string;
   vin: string;
+  plate: string;
   mileageType: string;
   propulsion: string;
+  active: boolean;
   status: VehicleStatus;
   imageUrl: string;
   inspectionDate?: string;
@@ -42,6 +55,7 @@ export interface VehicleDetail {
   color: string;
   licensePlate: string;
   inspector: Inspector;
+  assignments: VehicleAssignment[];
   shippingDetail: ShippingDetail;
   media: MediaFiles;
   images: VehicleImages;
@@ -123,6 +137,7 @@ export interface Ticket {
   safetyCritical: boolean;
   repeater: boolean;
   hasImages: boolean;
+  imageUrl?: string;
   assignedBy: string;
   assignedTo: string;
   station: string;

@@ -14,6 +14,8 @@ import {
 import { buildPaginationItems, PAGINATION_ELLIPSIS } from '../../utils/pagination.utils';
 import { UserManagementService } from '../../services/user-management.service';
 import { map, Observable } from 'rxjs';
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { TicketImageModalComponent } from './ticket-image-modal.component';
 
 interface TicketRow {
   id: string | number;
@@ -43,6 +45,7 @@ interface TicketRow {
   snagId?: number;
   repeater: boolean;
   hasImages?: boolean;
+  imageUrl?: string;
   project?: string;
   vehicle?: string;
   defectType?: string;
@@ -121,7 +124,18 @@ export class TicketsComponent implements OnInit {
     private clientService: ClientService,
     private clientDashboardService: ClientDashboardService,
     private userManagementService: UserManagementService,
+    private modalService: NgbModal
   ) {}
+
+  openImageModal(imageUrl: string): void {
+    const modalRef = this.modalService.open(TicketImageModalComponent, {
+      centered: true,
+      size: 'lg',
+      backdrop: 'static',
+      windowClass: 'ticket-image-modal-window'
+    });
+    modalRef.componentInstance.imageUrl = imageUrl;
+  }
 
   ngOnInit(): void {
     this.initialProjectIdFromRoute = this.normalizeRouteProjectId(
@@ -438,6 +452,10 @@ export class TicketsComponent implements OnInit {
         ? String(mappedClientFromTicket).trim()
         : '');
 
+    let imageUrl = undefined;
+    if (Array.isArray(item.images) && item.images.length > 0) {
+      imageUrl = item.images[0].imageUrl || item.images[0].fileName;
+    }
     return {
       id: this.getFirstDefinedValue(item, ['id', 'ticketId', 'ticketID', 'ticketNumber']) ?? '-',
       ticketNumber: this.getFirstDefinedValue(item, ['ticketNumber', 'ticketNo', 'uniqueId']),
@@ -466,6 +484,7 @@ export class TicketsComponent implements OnInit {
       snagId: this.getFirstDefinedValue(item, ['snagId']),
       repeater: Boolean(this.getFirstDefinedValue(item, ['repeater', 'repeated', 'isRepeater']) ?? false),
       hasImages: Boolean(this.getFirstDefinedValue(item, ['hasImages']) ?? ((this.getFirstDefinedValue(item, ['imageCount']) ?? 0) > 0)),
+      imageUrl: imageUrl,
       project: mappedProject.name,
       vehicle: mappedVehicle.name,
       defectType:

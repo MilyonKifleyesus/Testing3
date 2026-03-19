@@ -216,7 +216,6 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
   }
 
   private handleResize(): void {
-    // Debounce resize events
     if (this.resizeTimeout) {
       clearTimeout(this.resizeTimeout);
     }
@@ -225,16 +224,14 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
         return;
       }
       this.updateChartSize();
-    }, 100);
+    }, 200);
   }
 
   private updateChartSize(): void {
-    // Get container dimensions
     const container = this.elementRef.nativeElement;
     const width = container.offsetWidth;
     const height = container.offsetHeight;
 
-    // Update chart options with new dimensions
     if (this.isDestroyed || !this.renderChart || !this.chartOptions || width <= 0 || height <= 0) {
       return;
     }
@@ -247,16 +244,25 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
       return;
     }
 
-    if (Math.abs(width - this.lastWidth) < 2 && Math.abs(height - this.lastHeight) < 2) {
+    const widthDelta = Math.abs(width - this.lastWidth);
+    const heightDelta = Math.abs(height - this.lastHeight);
+
+    if (widthDelta < 2 && heightDelta < 2) {
       return;
     }
 
     this.lastWidth = width;
     this.lastHeight = height;
-
     this.cdr.markForCheck();
 
     if (!this.chartInstance) {
+      this.renderApexChart();
+      return;
+    }
+
+    // For significant size changes (e.g. responsive breakpoint or widget resize),
+    // do a full re-render so circular charts reflow their geometry correctly.
+    if (widthDelta > 20 || heightDelta > 20) {
       this.renderApexChart();
       return;
     }

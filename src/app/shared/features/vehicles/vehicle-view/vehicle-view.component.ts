@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { NgApexchartsModule } from 'ng-apexcharts';
 import { 
@@ -17,11 +18,11 @@ import {
 } from 'ng-apexcharts';
 import { AuthService } from '../../../services/auth.service';
 import { resolveProjectManagementContext } from '../../project-management/project-management-context';
-import { VehicleDetail, GalleryImage, TimelineEvent, Snag, Defect } from '../models/vehicle.model';
+import { VehicleDetail, VehicleAssignment, GalleryImage, TimelineEvent, Snag, Defect, Ticket } from '../models/vehicle.model';
 import { VehicleUtilService } from '../services/vehicle-util.service';
 import { ClientDashboardService } from '../../../services/client-dashboard.service';
 import { UserManagementService } from '../../../services/user-management.service';
-import { catchError, firstValueFrom, map, of, switchMap, take, forkJoin } from 'rxjs';
+import { catchError, firstValueFrom, map, of, take } from 'rxjs';
 import { extractArrayFromApiResponse, getFirstDefinedValue, toOptionalText, toText } from '../../../utils/api-data.utils';
 import { buildPaginationItems, PAGINATION_ELLIPSIS } from '../../../utils/pagination.utils';
 
@@ -61,7 +62,7 @@ export type ChartOptions = {
 @Component({
   selector: 'app-vehicle-view',
   standalone: true,
-  imports: [CommonModule, RouterModule, NgApexchartsModule],
+  imports: [CommonModule, FormsModule, RouterModule, NgApexchartsModule],
   templateUrl: './vehicle-view.component.html',
   styleUrl: './vehicle-view.component.scss'
 })
@@ -80,6 +81,11 @@ export class VehicleViewComponent implements OnInit {
   
   /** Currently selected image in gallery */
   selectedImage: string = '';
+
+  /** Profile picture of the currently logged-in user (for windshield). */
+  get userProfilePicture(): string {
+    return this.authService.currentUserValue?.picture || '';
+  }
   
   /** Gallery images collection */
   galleryImages: GalleryImage[] = [];
@@ -89,7 +95,38 @@ export class VehicleViewComponent implements OnInit {
 
   isLoading: boolean = false;
   errorMessage: string = '';
-  timelineVisible: boolean = true;
+  timelineVisible: boolean = false;
+
+  // Inspector detail modal
+  inspectorModalVisible = false;
+  selectedInspector: VehicleAssignment | null = null;
+  inspectorModalTickets: Ticket[] = [];
+  inspectorModalSnags: Snag[] = [];
+
+  get inspectorSafetyCriticalCount(): number {
+    return this.inspectorModalTickets.filter((t) => t.safetyCritical).length;
+  }
+
+  get inspectorRepeaterCount(): number {
+    return this.inspectorModalTickets.filter((t) => t.repeater).length;
+  }
+
+  openInspectorModal(assignment: VehicleAssignment): void {
+    this.selectedInspector = assignment;
+    const name = assignment.inspectorName;
+    this.inspectorModalTickets = (this.vehicle?.tickets ?? []).filter(
+      (t) => t.assignedTo === name || t.assignedBy === name,
+    );
+    this.inspectorModalSnags = (this.vehicle?.snags ?? []).filter(
+      (s) => s.inspector === name,
+    );
+    this.inspectorModalVisible = true;
+  }
+
+  closeInspectorModal(): void {
+    this.inspectorModalVisible = false;
+    this.selectedInspector = null;
+  }
 
   private readonly defaultVehicleImage = 'assets/images/vehicles/yrt40.jpeg';
   private readonly defaultAvatar = 'assets/images/faces/4.jpg';
@@ -126,6 +163,41 @@ export class VehicleViewComponent implements OnInit {
   snagSortCol: string = '';
   snagSortDir: 'asc' | 'desc' = 'asc';
 
+  // Inspector filters
+  ticketInspectorFilter: string = 'all';
+  snagInspectorFilter: string = 'all';
+
+  get inspectorNames(): string[] {
+    if (!this.vehicle) return [];
+    const names = new Set<string>();
+    this.vehicle.assignments.forEach(a => names.add(a.inspectorName));
+    return Array.from(names).sort();
+  }
+
+  get filteredTicketCount(): number {
+    if (!this.vehicle) return 0;
+    if (this.ticketInspectorFilter === 'all') return this.vehicle.tickets.length;
+    return this.vehicle.tickets.filter(t =>
+      t.assignedTo === this.ticketInspectorFilter || t.assignedBy === this.ticketInspectorFilter
+    ).length;
+  }
+
+  get filteredSnagCount(): number {
+    if (!this.vehicle) return 0;
+    if (this.snagInspectorFilter === 'all') return this.vehicle.snags.length;
+    return this.vehicle.snags.filter(s => s.inspector === this.snagInspectorFilter).length;
+  }
+
+  onTicketInspectorFilterChange(): void {
+    this.currentPage = 1;
+    this.updatePagination();
+  }
+
+  onSnagInspectorFilterChange(): void {
+    this.snagCurrentPage = 1;
+    this.updateSnagPagination();
+  }
+
   public PAGINATION_ELLIPSIS = PAGINATION_ELLIPSIS;
 
   /** userId → display name, populated once on load */
@@ -139,7 +211,7 @@ export class VehicleViewComponent implements OnInit {
   get carouselLocations(): string[] {
     if (!this.vehicle?.tickets) return [];
     const locs = new Set<string>();
-    this.vehicle.tickets.forEach((t: any) => {
+    this.vehicle.tickets.filter((t: any) => t.imageUrl).forEach((t: any) => {
       if (t.defectLocation && t.defectLocation !== '-') locs.add(t.defectLocation);
     });
     return Array.from(locs).sort();
@@ -147,8 +219,9 @@ export class VehicleViewComponent implements OnInit {
 
   get carouselFilteredTickets(): any[] {
     if (!this.vehicle?.tickets) return [];
-    if (this.ticketCarouselLocation === 'all') return this.vehicle.tickets;
-    return this.vehicle.tickets.filter((t: any) => t.defectLocation === this.ticketCarouselLocation);
+    const withImages = this.vehicle.tickets.filter((t: any) => t.imageUrl);
+    if (this.ticketCarouselLocation === 'all') return withImages;
+    return withImages.filter((t: any) => t.defectLocation === this.ticketCarouselLocation);
   }
 
   get maxCarouselOffset(): number {
@@ -202,19 +275,35 @@ export class VehicleViewComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
-    this.findVehicleInProjects()
+    this.clientDashboardService.getVehicleById(this.vehicleId)
       .pipe(
+        catchError(() => of(null)),
         take(1),
       )
-      .subscribe((item) => {
-        if (!item) {
+      .subscribe((raw) => {
+        if (!raw) {
           this.vehicle = null;
           this.timeline = [];
           this.galleryImages = [];
           this.selectedImage = '';
           this.isLoading = false;
-          this.errorMessage = this.errorMessage || 'Vehicle not found.';
+          this.errorMessage = 'Vehicle not found.';
           return;
+        }
+
+        // Unwrap common API response envelopes: { data: {...} }, { items: [...] }, etc.
+        let item: any = raw;
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+          // If response has a 'data' key that is a non-array object, use it
+          if (raw.data && typeof raw.data === 'object' && !Array.isArray(raw.data)) {
+            item = raw.data;
+          } else if (Array.isArray(raw.items) && raw.items.length > 0) {
+            item = raw.items[0];
+          } else if (Array.isArray(raw.data) && raw.data.length > 0) {
+            item = raw.data[0];
+          }
+        } else if (Array.isArray(raw) && raw.length > 0) {
+          item = raw[0];
         }
 
         this.vehicle = this.mapVehicleDetail(item);
@@ -222,11 +311,15 @@ export class VehicleViewComponent implements OnInit {
         this.updatePagination();
         this.isLoading = false;
 
-        // Load users first (cached), then data in parallel so names are resolved
+        // Derive projectId from the first assignment for downstream API calls
+        const projectId = this.vehicle.assignments[0]?.projectId || undefined;
+
+        // Tickets, snags, and station trackers load in parallel.
+        // loadUsers() is still called to resolve user IDs in tickets/snags.
         this.loadUsers().then(() => {
-          this.loadVehicleTickets();
-          this.loadVehicleSnags();
-          this.loadStationTrackers();
+          this.loadVehicleTickets(projectId);
+          this.loadVehicleSnags(projectId);
+          this.loadStationTrackers(projectId);
         });
       });
   }
@@ -237,10 +330,15 @@ export class VehicleViewComponent implements OnInit {
       this.paginationItems = [];
       return;
     }
+    const filtered = this.ticketInspectorFilter === 'all'
+      ? this.vehicle.tickets
+      : this.vehicle.tickets.filter(t =>
+          t.assignedTo === this.ticketInspectorFilter || t.assignedBy === this.ticketInspectorFilter
+        );
+    this.totalPages = Math.max(1, Math.ceil(filtered.length / this.pageSize));
+    if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
     const start = (this.currentPage - 1) * this.pageSize;
-    const end = start + this.pageSize;
-    this.paginatedTickets = this.vehicle.tickets.slice(start, end);
-    this.totalPages = Math.ceil(this.vehicle.tickets.length / this.pageSize);
+    this.paginatedTickets = filtered.slice(start, start + this.pageSize);
     this.paginationItems = buildPaginationItems(this.totalPages, this.currentPage);
   }
 
@@ -257,10 +355,14 @@ export class VehicleViewComponent implements OnInit {
   }
 
   updateSnagPagination(): void {
-    const snags = this.vehicle?.snags ?? [];
-    this.snagTotalPages = Math.max(1, Math.ceil(snags.length / this.snagPageSize));
+    const allSnags = this.vehicle?.snags ?? [];
+    const filtered = this.snagInspectorFilter === 'all'
+      ? allSnags
+      : allSnags.filter(s => s.inspector === this.snagInspectorFilter);
+    this.snagTotalPages = Math.max(1, Math.ceil(filtered.length / this.snagPageSize));
+    if (this.snagCurrentPage > this.snagTotalPages) this.snagCurrentPage = this.snagTotalPages;
     const start = (this.snagCurrentPage - 1) * this.snagPageSize;
-    this.paginatedSnags = snags.slice(start, start + this.snagPageSize);
+    this.paginatedSnags = filtered.slice(start, start + this.snagPageSize);
     this.snagPaginationItems = buildPaginationItems(this.snagTotalPages, this.snagCurrentPage);
   }
 
@@ -329,9 +431,9 @@ export class VehicleViewComponent implements OnInit {
     return str;
   }
 
-  private loadVehicleTickets(): void {
+  private loadVehicleTickets(projectId?: number): void {
     this.clientDashboardService
-      .getTickets({ vehicleId: this.vehicleId, page: 1, pageSize: 5000 })
+      .getTickets({ vehicleId: this.vehicleId, pageSize: 5000, ...(projectId ? { projectId } : {}) })
       .pipe(
         map((response) => extractArrayFromApiResponse(response)),
         catchError(() => of([] as any[])),
@@ -347,10 +449,11 @@ export class VehicleViewComponent implements OnInit {
       });
   }
 
-  private loadStationTrackers(): void {
+  private loadStationTrackers(projectId?: number): void {
     this.clientDashboardService
       .getStationTrackers({
         vehicleId: this.vehicleId,
+        ...(projectId ? { projectId } : {}),
         pageNumber: 1,
         pageSize: 100,
         orderBy: 'id',
@@ -366,9 +469,9 @@ export class VehicleViewComponent implements OnInit {
       });
   }
 
-  private loadVehicleSnags(): void {
+  private loadVehicleSnags(projectId?: number): void {
     this.clientDashboardService
-      .getSnags({ vehicleId: this.vehicleId, pageSize: 5000 })
+      .getSnags({ vehicleId: this.vehicleId, ...(projectId ? { projectId } : {}), pageSize: 5000 })
       .pipe(
         map((response) => extractArrayFromApiResponse(response)),
         catchError((error) => {
@@ -422,131 +525,78 @@ export class VehicleViewComponent implements OnInit {
     }));
   }
 
-  /**
-   * Fallback: fetch vehicle with full data (make/model/propulsion) via project vehicles endpoint.
-   * 1. Load flat /Vehicles list to get clientId
-   * 2. Load projects for that clientId
-   * 3. Search through project vehicles to find the matching vehicle
-   */
-  private findVehicleInProjects() {
-    return this.clientDashboardService.getVehicles({ page: 1, pageSize: 10000 }).pipe(
-      map((response) => extractArrayFromApiResponse(response)),
-      map((vehicles) => vehicles.find((v) => {
-        const id = Number(getFirstDefinedValue(v, ['id', 'vehicleId', 'vehicleID', 'VehicleId']) ?? 0);
-        return Number.isFinite(id) && id === this.vehicleId;
-      }) ?? null),
-      switchMap((minimalItem) => {
-        if (!minimalItem) return of(null);
-        const clientId = Number(getFirstDefinedValue(minimalItem, ['clientId', 'ClientId', 'clientID']) ?? 0);
-        if (!clientId) return of(minimalItem);
-
-        return forkJoin({
-          projects: this.clientDashboardService.getProjects({ clientId, pageSize: 500 }).pipe(
-            map((response) => extractArrayFromApiResponse(response)),
-            catchError(() => of([] as any[])),
-          ),
-          clientInfo: this.clientDashboardService.getClientById(clientId).pipe(
-            catchError(() => of(null)),
-          ),
-        }).pipe(
-          switchMap(({ projects, clientInfo }) => {
-            const clientName: string = String(
-              getFirstDefinedValue(clientInfo, ['customerName', 'name', 'clientName', 'companyName']) ?? '-'
-            );
-
-            if (!projects.length) return of({ ...minimalItem, clientName });
-
-            const projectIds = projects
-              .map((p: any) => Number(getFirstDefinedValue(p, ['id', 'projectId', 'ProjectId']) ?? 0))
-              .filter((id: number) => id > 0);
-
-            if (!projectIds.length) return of({ ...minimalItem, clientName });
-
-            // Search project vehicles sequentially until found
-            const searchNext = (index: number): any => {
-              if (index >= projectIds.length) return of({ ...minimalItem, clientName });
-              const projectItem = projects[index];
-              return this.clientDashboardService.getProjectVehicles(projectIds[index], { clientId, pageSize: 5000 }).pipe(
-                map((response) => extractArrayFromApiResponse(response)),
-                switchMap((vehicles) => {
-                  const found = vehicles.find((v: any) => {
-                    const id = Number(getFirstDefinedValue(v, ['id', 'vehicleId', 'vehicleID', 'VehicleId']) ?? 0);
-                    return Number.isFinite(id) && id === this.vehicleId;
-                  });
-                  if (found) {
-                    const projectName = getFirstDefinedValue(projectItem, ['projectName', 'name', 'ProjectName', 'Name']);
-                    return of({ ...minimalItem, ...found, projectName, clientName });
-                  }
-                  return searchNext(index + 1);
-                }),
-                catchError(() => searchNext(index + 1)),
-              );
-            };
-
-            return searchNext(0);
-          }),
-          catchError(() => of(minimalItem)),
-        );
-      }),
-      catchError(() => of(null)),
-    );
-  }
 
   private mapVehicleDetail(item: any): VehicleDetail {
-    const fleetNumber = toText(
-      getFirstDefinedValue(item, ['fleetNumber', 'vehicleNumber', 'unitNumber', 'FleetNumber', 'VehicleNumber']),
-      `Vehicle-${this.vehicleId}`,
-    );
-    const inspectionDate = toText(
-      getFirstDefinedValue(item, ['inspectionDate', 'updatedDate', 'createdDate', 'lastInspectionDate']),
-      '-',
-    );
+    // New API: GET /api/Vehicles/{id} — flat object with an `assignments` array
+    // Try multiple possible field names for the assignments array
+    const rawList = item.assignments ?? item.vehicleAssignments ?? item.Assignments;
+    const rawAssignments: any[] = Array.isArray(rawList) ? rawList : [];
+    const assignments: VehicleAssignment[] = rawAssignments.map((a: any) => ({
+      assigmentId:  Number(a.assigmentId ?? a.assignmentId ?? a.id ?? 0),
+      projectId:    Number(a.projectId ?? a.ProjectId ?? 0),
+      projectName:  toText(getFirstDefinedValue(a, ['projectName', 'ProjectName', 'project']), '-'),
+      inspectorId:  Number(a.inspectorId ?? a.InspectorId ?? a.userId ?? 0),
+      inspectorName: toText(getFirstDefinedValue(a, ['inspectorName', 'InspectorName', 'userName', 'name']), '-'),
+    }));
+
+    // Derive project name from first assignment (they may all share the same project)
+    const uniqueProjects = [...new Set(assignments.map((a) => a.projectName).filter((n) => n && n !== '-'))];
+    const projectName = uniqueProjects.join(', ') || undefined;
+
+    // Primary inspector = first assignment; all names shown in template via assignments[]
+    const primaryInspector = assignments[0];
+
+    const modifiedDate = toText(item.modifiedDate, '-');
+    const active = item.active !== false; // default true if missing
 
     return {
       id: this.vehicleId,
-      client: toText(getFirstDefinedValue(item, ['clientName', 'ClientName', 'client', 'customerName']), '-'),
-      project: toOptionalText(getFirstDefinedValue(item, ['projectName', 'ProjectName', 'project'])),
-      fleetNumber,
-      make: toText(getFirstDefinedValue(item, ['make', 'Make', 'manufacturer', 'makeName']), '-'),
-      model: toText(getFirstDefinedValue(item, ['model', 'Model', 'modelValue', 'vehicleModel']), '-'),
-      vin: toText(getFirstDefinedValue(item, ['vin', 'VIN']), '-'),
-      mileageType: toText(getFirstDefinedValue(item, ['mileageType', 'distanceUnit']), 'miles'),
-      propulsion: toText(getFirstDefinedValue(item, ['propulsionTypeName', 'PropulsionTypeName', 'propulsion', 'Propulsion', 'fuelType', 'FuelType']), '-'),
-      status: 'completed',
-      imageUrl: toText(getFirstDefinedValue(item, ['imageUrl', 'photo', 'vehicleImage']), this.defaultVehicleImage),
-      inspectionDate,
-      frameNumber: toText(getFirstDefinedValue(item, ['frameNumber', 'frameNo']), '-'),
-      year: Number(getFirstDefinedValue(item, ['year', 'modelYear']) ?? new Date().getFullYear()),
-      color: toText(getFirstDefinedValue(item, ['color', 'vehicleColor']), '-'),
-      licensePlate: toText(getFirstDefinedValue(item, ['licensePlate', 'plateNumber']), '-'),
+      client:       toText(getFirstDefinedValue(item, ['clientName', 'client', 'ClientName', 'clientTitle']), '-'),
+      project:      projectName,
+      fleetNumber:  toText(getFirstDefinedValue(item, ['fleetNumber', 'fleet_number', 'FleetNumber', 'busNumber']), `Vehicle-${this.vehicleId}`),
+      make:         toText(getFirstDefinedValue(item, ['make', 'Make', 'manufacturer', 'vehicleMake']), '-'),
+      model:        toText(getFirstDefinedValue(item, ['model', 'Model', 'vehicleModel']), '-'),
+      vin:          toText(getFirstDefinedValue(item, ['vin', 'VIN', 'Vin', 'vehicleIdentificationNumber']), '-'),
+      plate:        toText(getFirstDefinedValue(item, ['plate', 'licensePlate', 'LicensePlate', 'plateNumber']), '-'),
+      mileageType:  'miles',
+      propulsion:   toText(getFirstDefinedValue(item, ['propulsionTypeName', 'propulsion', 'fuelType', 'PropulsionType']), '-'),
+      active,
+      status:       active ? 'in-progress' : 'completed',
+      imageUrl:     toText(getFirstDefinedValue(item, ['imageUrl', 'photo', 'image', 'ImageUrl']), this.defaultVehicleImage),
+      inspectionDate: modifiedDate,
+      frameNumber:  toText(getFirstDefinedValue(item, ['frameNumber', 'frame_number', 'FrameNumber']), '-'),
+      year:         Number(getFirstDefinedValue(item, ['year', 'Year', 'modelYear', 'vehicleYear']) ?? new Date().getFullYear()),
+      color:        toText(getFirstDefinedValue(item, ['color', 'Color', 'colour', 'vehicleColor']), '-'),
+      licensePlate: toText(getFirstDefinedValue(item, ['plate', 'licensePlate', 'LicensePlate']), '-'),
       inspector: {
-        name: toText(getFirstDefinedValue(item, ['inspector', 'inspectorName', 'assignedInspector']), '-'),
-        email: toText(getFirstDefinedValue(item, ['inspectorEmail', 'email']), '-'),
-        avatar: toText(getFirstDefinedValue(item, ['inspectorAvatar', 'avatar']), this.defaultAvatar),
+        name:   primaryInspector ? primaryInspector.inspectorName : '-',
+        email:  toText(getFirstDefinedValue(item, ['inspectorEmail', 'email']), '-'),
+        avatar: this.defaultAvatar,
       },
+      assignments,
       shippingDetail: {
-        frontCurb: toText(getFirstDefinedValue(item, ['frontCurb', 'shippingAddress', 'shipFrom']), '-'),
-        backStreet: toText(getFirstDefinedValue(item, ['backStreet', 'deliveryAddress', 'shipTo']), '-'),
+        frontCurb:  toText(getFirstDefinedValue(item, ['frontCurb', 'shippingAddress']), '-'),
+        backStreet: toText(getFirstDefinedValue(item, ['backStreet', 'deliveryAddress']), '-'),
       },
       media: {
-        interiorVideo: toText(getFirstDefinedValue(item, ['interiorVideo']), ''),
-        exteriorVideo: toText(getFirstDefinedValue(item, ['exteriorVideo']), ''),
+        interiorVideo: toText(item.interiorVideo, ''),
+        exteriorVideo: toText(item.exteriorVideo, ''),
       },
       images: {
-        front: toText(getFirstDefinedValue(item, ['images.front', 'frontImage', 'photo']), this.defaultVehicleImage),
-        back: toText(getFirstDefinedValue(item, ['images.back', 'rearImage', 'photo']), this.defaultVehicleImage),
-        left: toText(getFirstDefinedValue(item, ['images.left', 'leftImage', 'photo']), this.defaultVehicleImage),
-        right: toText(getFirstDefinedValue(item, ['images.right', 'rightImage', 'photo']), this.defaultVehicleImage),
-        interior: toText(getFirstDefinedValue(item, ['images.interior', 'interiorImage', 'photo']), this.defaultVehicleImage),
+        front:    toText(getFirstDefinedValue(item, ['frontImage', 'imageUrl']), this.defaultVehicleImage),
+        back:     toText(getFirstDefinedValue(item, ['rearImage',  'imageUrl']), this.defaultVehicleImage),
+        left:     toText(getFirstDefinedValue(item, ['leftImage',  'imageUrl']), this.defaultVehicleImage),
+        right:    toText(getFirstDefinedValue(item, ['rightImage', 'imageUrl']), this.defaultVehicleImage),
+        interior: toText(getFirstDefinedValue(item, ['interiorImage', 'imageUrl']), this.defaultVehicleImage),
       },
       inspectionData: {
-        date: inspectionDate,
-        duration: toText(getFirstDefinedValue(item, ['inspectionDuration', 'duration']), '-'),
-        mileage: Number(getFirstDefinedValue(item, ['mileage', 'odometer']) ?? 0),
+        date:     modifiedDate,
+        duration: '-',
+        mileage:  Number(getFirstDefinedValue(item, ['mileage', 'odometer']) ?? 0),
       },
-      defects: [],
-      tickets: [],
-      snags: [],
+      defects:  [],
+      tickets:  [],
+      snags:    [],
       timeline: [],
     };
   }
@@ -569,6 +619,12 @@ export class VehicleViewComponent implements OnInit {
       safetyCritical: Boolean(getFirstDefinedValue(ticket, ['safetyCritical', 'isSafetyCritical']) ?? false),
       repeater: Boolean(getFirstDefinedValue(ticket, ['repeated', 'repeater', 'isRepeater']) ?? false),
       hasImages: Boolean(getFirstDefinedValue(ticket, ['hasImages', 'hasImage']) ?? (Number(getFirstDefinedValue(ticket, ['imageCount']) ?? 0) > 0)),
+      imageUrl: (() => {
+        if (Array.isArray(ticket.images) && ticket.images.length > 0) {
+          return ticket.images[0].imageUrl || ticket.images[0].fileName || undefined;
+        }
+        return getFirstDefinedValue(ticket, ['imageUrl', 'photo', 'image']) || undefined;
+      })(),
       assignedBy: this.resolveUserName(getFirstDefinedValue(ticket, ['assignedBy', 'assignedByName', 'assignedById'])),
       assignedTo: this.resolveUserName(getFirstDefinedValue(ticket, ['assignedTo', 'assignedToName', 'assignedToId'])),
     };

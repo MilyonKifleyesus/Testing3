@@ -51,7 +51,7 @@ export function buildAdminStatCards(
       value: totalProjects,
       trend: '55% Higher',
       trendClass: 'text-success',
-      iconClass: 'fas fa-project-diagram',
+      iconClass: 'ti ti-layout-grid',
     },
     {
       label: 'Total Vehicles',
@@ -59,7 +59,7 @@ export function buildAdminStatCards(
       value: totalVehiclesCount ?? statsSource.totalVehicles,
       trend: '5% Increased',
       trendClass: 'text-info',
-      iconClass: 'fas fa-bus',
+      iconClass: 'ti ti-bus',
     },
     {
       label: 'Critical Issues',
@@ -67,7 +67,7 @@ export function buildAdminStatCards(
       value: statsSource.criticalDefects,
       trend: '12% Decreased',
       trendClass: 'text-danger',
-      iconClass: 'fas fa-exclamation-triangle',
+      iconClass: 'ti ti-alert-triangle',
     },
     {
       label: 'Repeated Issues',
@@ -75,7 +75,7 @@ export function buildAdminStatCards(
       value: statsSource.repeatedDefects,
       trend: '8% Increased',
       trendClass: 'text-warning',
-      iconClass: 'fas fa-sync-alt',
+      iconClass: 'ti ti-refresh',
     },
   ];
 }
@@ -92,7 +92,7 @@ export function buildClientStatCards(
       value: currentProjectStats.totalTickets,
       trend: `${currentProjectStats.ticketsChangePercentage}% ${currentProjectStats.ticketsStatus === 'increased' ? 'Higher' : 'Lower'}`,
       trendClass: currentProjectStats.ticketsStatus === 'increased' ? 'text-success' : 'text-danger',
-      iconClass: 'fas fa-ticket-alt',
+      iconClass: 'ti ti-ticket',
     },
     {
       label: showFilters && selectedProject !== 'all' ? `${currentProjectStats.projectName} Assets` : 'Total Assets',
@@ -100,7 +100,7 @@ export function buildClientStatCards(
       value: currentProjectStats.totalAssets,
       trend: `${currentProjectStats.assetsChangePercentage}% ${currentProjectStats.assetsStatus === 'increased' ? 'Higher' : 'Lower'}`,
       trendClass: currentProjectStats.assetsStatus === 'increased' ? 'text-success' : 'text-danger',
-      iconClass: 'fas fa-box',
+      iconClass: 'ti ti-package',
     },
   ];
 }

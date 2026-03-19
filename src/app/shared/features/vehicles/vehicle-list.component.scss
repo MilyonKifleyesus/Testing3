@@ -9,18 +9,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(var(--body-bg-rgb, 255, 255, 255), 0.75);
   backdrop-filter: blur(2px);
   z-index: 2;
 }
 
+// Sortable column header
+.sort-col {
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background-color: rgba(var(--primary-rgb), 0.04);
+  }
+}
+
+// Image column width
+.vehicle-img-col {
+  width: 80px;
+}
+
 .vehicle-row {
-  transition: all 0.3s ease;
-  
+  transition: background-color 0.15s ease;
+
   &:hover {
     background-color: rgba(var(--primary-rgb), 0.05);
-    transform: translateY(-2px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -31,92 +44,51 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: var(--default-border-radius, 8px);
   border: 1px solid var(--default-border);
-  
+
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s ease;
+    transition: transform 0.2s ease;
   }
-  
+
   &:hover img {
-    transform: scale(1.1);
+    transform: scale(1.08);
   }
 }
 
-// Badge styling
+// Badge sizing
 .badge {
   font-weight: 500;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.75rem;
-  
+  padding: 0.35rem 0.65rem;
+
   i {
-    font-size: 0.875rem;
     vertical-align: middle;
   }
 }
 
-// Button group
+// Button group hover lift
 .btn-group {
   .btn {
+    transition: box-shadow 0.15s ease;
+
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      box-shadow: var(--box-shadow-sm);
     }
   }
 }
 
-// Table improvements
-.table {
-  th {
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.5px;
-    color: var(--text-muted);
-    background-color: rgba(var(--primary-rgb), 0.02);
-    padding: 0.4rem 0.6rem;
-  }
-
-  td {
-    vertical-align: middle;
-    padding: 0.25rem 0.6rem;
-  }
-}
-
-// Avatar
-.avatar {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  flex-shrink: 0;
-  
-  .avatar-title {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 0.875rem;
-    line-height: 1;
-    border-radius: 50%;
-  }
-}
-
-// Code styling
+// VIN code chip
 code {
-  font-size: 0.85rem;
-  padding: 0.25rem 0.5rem;
+  font-size: 0.82rem;
+  padding: 0.2rem 0.45rem;
   background-color: rgba(var(--dark-rgb), 0.05);
   border-radius: 4px;
-  font-family: 'Courier New', monospace;
 }
 
-// Filter section
+// Input group accent
 .input-group {
   .input-group-text {
     background-color: rgba(var(--primary-rgb), 0.05);
@@ -124,4 +96,3 @@ code {
     color: var(--primary);
   }
 }
-

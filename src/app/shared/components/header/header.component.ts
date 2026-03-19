@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, HostListener, OnInit, Renderer2, inject} from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, Renderer2, inject} from '@angular/core';
 import { Subscription } from 'rxjs';
 import { LayoutService } from '../../services/layout.service';
 import { Menu, NavService } from '../../services/nav.service';
@@ -21,7 +21,7 @@ interface Item {
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.scss']
 })
-export class HeaderComponent implements OnInit {
+export class HeaderComponent implements OnInit, OnDestroy {
     openGamePopup() {
       try {
         console.log('Opening game modal with GameModalWrapperComponent');
@@ -59,8 +59,10 @@ export class HeaderComponent implements OnInit {
     }
   profile = {
     name: 'User',
-    role: 'Admin'
+    role: 'Admin',
+    picture: '',
   };
+  private userSub?: Subscription;
   Selection=[
     {label:'Choose one',value:1},
     {label:'T-Projects...',value:2},
@@ -303,16 +305,24 @@ collapse: any;
   public text!: string;
   public SearchResultEmpty:boolean = false;
   ngOnInit(): void {
-    this.applyProfileFromAuthUser();
-
     this.navServices.items.subscribe((menuItems) => {
       this.items = menuItems;
     });
-    
+    this.userSub = this.authService.currentUser$.subscribe((user) => {
+      this.applyProfileFromAuthUser(user);
+      // If the user has no picture yet (e.g. page refresh), fetch it now
+      if (user?.userId && !user.picture) {
+        this.authService.fetchAndStorePicture(user.userId);
+      }
+      this.cdr.detectChanges();
+    });
   }
 
-  private applyProfileFromAuthUser(): void {
-    const user = this.authService.currentUserValue;
+  ngOnDestroy(): void {
+    this.userSub?.unsubscribe();
+  }
+
+  private applyProfileFromAuthUser(user = this.authService.currentUserValue): void {
     if (!user) {
       return;
     }
@@ -325,6 +335,7 @@ collapse: any;
     this.profile = {
       name: String(user.username ?? '').trim() || this.profile.name,
       role: roleLabel,
+      picture: user.picture || '',
     };
   }
     Search(searchText: string) {

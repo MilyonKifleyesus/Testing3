@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, finalize, Observable, tap } from 'rxjs';
+import { BehaviorSubject, catchError, finalize, Observable, of, Subject, tap } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { LoginRequest, LoginResponse } from '../models/auth.models';
@@ -14,6 +14,7 @@ export interface CurrentUser {
   type: number;
   clientId: number;
   isGeneralAdmin: boolean;
+  picture?: string;
 }
 
 const LS_TOKEN = 'bp_access_token';
@@ -26,6 +27,10 @@ export class AuthService {
     this.readUser(),
   );
   currentUser$ = this.currentUserSubject.asObservable();
+
+  /** Emits once on logout — used by the interceptor to cancel in-flight requests. */
+  private logoutSubject = new Subject<void>();
+  readonly logout$ = this.logoutSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -51,10 +56,13 @@ export class AuthService {
             clientId: res.clientId,
             isGeneralAdmin: res.isGeneralAdmin,
           };
-          const serializedUser = JSON.stringify(this.normalizeUser(user));
+          const normalized = this.normalizeUser(user);
+          const serializedUser = JSON.stringify(normalized);
           localStorage.setItem(LS_USER, serializedUser);
           localStorage.removeItem(LS_USER_LEGACY);
-          this.currentUserSubject.next(this.normalizeUser(user));
+          this.currentUserSubject.next(normalized);
+          // Fetch profile picture in the background and update the stored user
+          this.fetchAndStorePicture(normalized.userId);
         }),
         finalize(() => {
           this.showLoader = false;
@@ -84,11 +92,12 @@ export class AuthService {
   }
 
   logout(): void {
+    this.logoutSubject.next();           // cancel all in-flight HTTP requests
     localStorage.removeItem(LS_TOKEN);
     localStorage.removeItem(LS_USER);
     localStorage.removeItem(LS_USER_LEGACY);
     this.currentUserSubject.next(null);
-    this.router.navigate(['/custom/sign-in']);
+    this.router.navigateByUrl('/custom/sign-in', { replaceUrl: true });
   }
 
   get accessToken(): string | null {
@@ -175,6 +184,23 @@ export class AuthService {
     }
   }
 
+  /** Fetch the user's profile picture from the API and update the stored CurrentUser. */
+  fetchAndStorePicture(userId: number): void {
+    if (!userId) return;
+    this.http.get<any>(`${environment.apiBaseUrl}/Users/${userId}`).pipe(
+      catchError(() => of(null)),
+    ).subscribe((data) => {
+      const pictureUrl: string | undefined =
+        typeof data?.picture === 'string' && data.picture ? data.picture : undefined;
+      const current = this.currentUserSubject.value;
+      if (current && pictureUrl && current.picture !== pictureUrl) {
+        const updated: CurrentUser = { ...current, picture: pictureUrl };
+        this.currentUserSubject.next(updated);
+        localStorage.setItem(LS_USER, JSON.stringify(updated));
+      }
+    });
+  }
+
   private normalizeUser(value: any): CurrentUser {
     // Defensive normalization for all fields
     let role = value?.role;
@@ -193,6 +219,7 @@ export class AuthService {
       type: Number(value?.type ?? 0),
       clientId: Number(value?.clientId ?? 0),
       isGeneralAdmin: Boolean(value?.isGeneralAdmin),
+      picture: value?.picture ? String(value.picture) : undefined,
     };
   }
 }

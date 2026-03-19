@@ -268,23 +268,23 @@
 
             <ng-container *ngIf="!isLoading && !loadError">
               <div class="table-responsive">
-                <table class="table text-nowrap table-hover border table-bordered mb-0">
-                  <thead>
+                <table class="table text-nowrap table-hover border table-bordered align-middle mb-0">
+                  <thead class="table-light">
                     <tr>
-                      <th scope="col" (click)="sortTable('id')" style="cursor:pointer;width:6%">
+                      <th scope="col" (click)="sortTable('id')" class="sort-col" style="width:6%">
                         ID <span *ngIf="sortColumn === 'id'">{{ sortIcon('id') }}</span>
                       </th>
-                      <th scope="col" (click)="sortTable('fullName')" style="cursor:pointer;width:20%">
+                      <th scope="col" (click)="sortTable('fullName')" class="sort-col" style="width:20%">
                         Inspector <span *ngIf="sortColumn === 'fullName'">{{ sortIcon('fullName') }}</span>
                       </th>
-                      <th scope="col" (click)="sortTable('busesInspected')" style="cursor:pointer;width:10%">
+                      <th scope="col" (click)="sortTable('busesInspected')" class="sort-col" style="width:10%">
                         Inspected <span *ngIf="sortColumn === 'busesInspected'">{{ sortIcon('busesInspected') }}</span>
                       </th>
                       <th scope="col" style="width:14%">Test Coverage</th>
-                      <th scope="col" (click)="sortTable('rating')" style="cursor:pointer;width:9%">
+                      <th scope="col" (click)="sortTable('rating')" class="sort-col" style="width:9%">
                         Rating <span *ngIf="sortColumn === 'rating'">{{ sortIcon('rating') }}</span>
                       </th>
-                      <th scope="col" (click)="sortTable('status')" style="cursor:pointer;width:9%">
+                      <th scope="col" (click)="sortTable('status')" class="sort-col" style="width:9%">
                         Status <span *ngIf="sortColumn === 'status'">{{ sortIcon('status') }}</span>
                       </th>
                       <th scope="col" style="width:8%">Actions</th>
@@ -405,7 +405,7 @@
                       </a>
                     </li>
                     <li class="page-item" [class.disabled]="currentPage === totalPages">
-                      <a class="page-link text-primary" href="javascript:void(0);" (click)="nextPage()">Next</a>
+                      <a class="page-link" href="javascript:void(0);" (click)="nextPage()">Next</a>
                     </li>
                   </ul>
                 </nav>

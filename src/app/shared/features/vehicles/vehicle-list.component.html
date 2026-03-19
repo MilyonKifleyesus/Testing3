@@ -90,19 +90,19 @@
 
           <ng-container *ngIf="!isLoadingVehicles">
             <div class="table-responsive">
-              <table class="table text-nowrap table-hover border table-bordered">
-              <thead>
+              <table class="table text-nowrap table-hover border table-bordered align-middle">
+              <thead class="table-light">
                 <tr>
-                  <th scope="col" class="text-center" style="width: 80px;">
+                  <th scope="col" class="text-center vehicle-img-col">
                     <i class="ti ti-photo"></i>
                   </th>
-                  <th scope="col" (click)="sortVehicles('client')" style="cursor:pointer">Client <span *ngIf="sortColumn === 'client'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-<th scope="col" (click)="sortVehicles('fleetNumber')" style="cursor:pointer">Fleet Number <span *ngIf="sortColumn === 'fleetNumber'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                  <th scope="col" (click)="sortVehicles('make')" style="cursor:pointer">Make <span *ngIf="sortColumn === 'make'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                  <th scope="col" (click)="sortVehicles('model')" style="cursor:pointer">Model <span *ngIf="sortColumn === 'model'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                  <th scope="col" (click)="sortVehicles('vin')" style="cursor:pointer">VIN <span *ngIf="sortColumn === 'vin'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                  <th scope="col" (click)="sortVehicles('mileageType')" style="cursor:pointer">Mileage Type <span *ngIf="sortColumn === 'mileageType'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                  <th scope="col" (click)="sortVehicles('propulsion')" style="cursor:pointer">Propulsion <span *ngIf="sortColumn === 'propulsion'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('client')" class="sort-col">Client <span *ngIf="sortColumn === 'client'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('fleetNumber')" class="sort-col">Fleet Number <span *ngIf="sortColumn === 'fleetNumber'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('make')" class="sort-col">Make <span *ngIf="sortColumn === 'make'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('model')" class="sort-col">Model <span *ngIf="sortColumn === 'model'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('vin')" class="sort-col">VIN <span *ngIf="sortColumn === 'vin'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('mileageType')" class="sort-col">Mileage Type <span *ngIf="sortColumn === 'mileageType'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                  <th scope="col" (click)="sortVehicles('propulsion')" class="sort-col">Propulsion <span *ngIf="sortColumn === 'propulsion'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                   <th scope="col" class="text-center">Action</th>
                 </tr>
               </thead>
@@ -199,7 +199,7 @@
                       (click)="isPaginationNumber(page) && changePage(page)">{{ page === paginationEllipsis ? '...' : page }}</a>
                   </li>
                   <li class="page-item" [class.disabled]="currentPage === totalPages || filteredVehicles.length === 0">
-                    <a class="page-link text-primary" href="javascript:void(0);" (click)="nextPage()">Next</a>
+                    <a class="page-link" href="javascript:void(0);" (click)="nextPage()">Next</a>
                   </li>
                 </ul>
               </nav>

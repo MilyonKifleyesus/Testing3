@@ -11,42 +11,78 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(var(--body-bg-rgb, 255, 255, 255), 0.75);
   backdrop-filter: blur(2px);
   z-index: 2;
 }
 
+// Search wrapper width constraint
+.search-wrapper {
+  max-width: 280px;
+}
+
+// Sortable column header
+.sort-col {
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background-color: rgba(var(--primary-rgb), 0.04);
+  }
+}
+
+// Checkbox column width
+.chk-col {
+  width: 48px;
+}
+
+// Truncated description column
+.desc-col {
+  max-width: 200px;
+}
+
 .table-responsive {
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   max-width: 100%;
-  
-  // Custom scrollbar styling
+  max-height: 600px;
+
+  // Scrollbar using theme-aware variables
   &::-webkit-scrollbar {
-    height: 8px;
+    width: 5px;
+    height: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: var(--default-border);
     border-radius: 4px;
   }
-  
+
   &::-webkit-scrollbar-thumb {
-    background: #888;
+    background: var(--text-muted);
     border-radius: 4px;
-    
+
     &:hover {
-      background: #555;
+      background: var(--default-text-color);
     }
   }
 }
 
-.dropdown-menu {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+// Sticky table header — sticks to the top of the scroll container
+.sticky-thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--custom-white) !important;
+  box-shadow: 0 1px 0 var(--default-border);
 }
 
-.form-select-sm {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.875rem;
+.dropdown-menu {
+  box-shadow: var(--box-shadow);
+  min-width: 200px;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
 }
