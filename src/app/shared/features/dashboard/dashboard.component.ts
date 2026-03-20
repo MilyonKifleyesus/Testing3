@@ -75,6 +75,7 @@ import { FleetMapApiService } from '../fleet-map/services/fleet-map-api.service'
 import { getProjectStatusDisplayLabel } from '../fleet-map/utils/fleet-map-status';
 import { AppStateService } from '../../services/app-state.service';
 import { UserManagementService } from '../../services/user-management.service';
+import { extractArrayFromApiResponse } from '../../utils/api-data.utils';
 
 type DashboardMapStatusFilter = 'all' | ApiProject['status'];
 
@@ -202,6 +203,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private ticketsDashboardRequestVersion = 0;
   // Labels shown in the left column of widget-15 (vehicle list)
   vehicleStationLabels: string[] = [];
+  vehicleStationMergeByType = false;
+  vehicleStationPage = 1;
+  readonly vehicleStationPageSize = 500;
+  vehicleStationHasNextPage = false;
 
   private readonly mouseMoveHandler = (event: MouseEvent) => this.onMouseMove(event);
   private readonly mouseUpHandler = () => this.ngZone.run(() => this.onMouseUp());
@@ -225,10 +230,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       } else {
         this.dashboardStateService.snapshot = null;
         this.applyRole(this.authService.userRole);
-        // Restore filter state from URL query params (applyRole resets to 'all', so apply after)
-        const qp = this.route.snapshot.queryParams;
-        if (qp['projectId']) this.selectedProject = qp['projectId'];
-        if (qp['vehicleId']) this.selectedVehicle = qp['vehicleId'];
+        // On hard refresh, always start from default filters.
+        // Keep URL in sync with defaults instead of restoring query params.
+        this.updateQueryParams();
         this.fetchAllClientVehiclesAndTickets();
         this.loadDashboardMapData();
       }
@@ -438,6 +442,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   onProjectChange(projectId: string): void {
     this.selectedProject = projectId;
     this.selectedVehicle = 'all';
+    this.resetVehicleStationTrackingPaging();
     this.updateQueryParams();
     this.updateDashboardMapView();
     this.updateProjectStatusChart(this.projects);
@@ -515,6 +520,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   onVehicleChange(vehicleId: string): void {
     this.selectedVehicle = vehicleId;
+    this.resetVehicleStationTrackingPaging();
     this.updateQueryParams();
     if (this.isAdminRole) {
       this.setAdminStatCards();
@@ -622,16 +628,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   isWidgetVisible(widget: DashboardWidget): boolean {
+    if (widget.id === 'widget-15' && this.selectedProject === 'all') {
+      return false;
+    }
+
     // Admins always see all widgets
     if (this.isAdminRole) return true;
 
     // Hide fleet map and recent activities widgets for non-admin users
     if (widget.id === 'widget-map' || widget.id === 'widget-14') return false;
-
-    // If both filters are set to 'all', hide the Vehicle Station Tracking widget (widget-15)
-    if (this.selectedProject === 'all' && this.selectedVehicle === 'all' && widget.id === 'widget-15') {
-      return false;
-    }
 
     // Preserve existing compact-mode behavior: when filters aren't shown or project is 'all', show widgets
     if (!this.showFilters || this.selectedProject === 'all') return true;
@@ -681,6 +686,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
   toggleFullscreen(widgetId: string): void {
     this.fullscreenWidgetId = getNextFullscreenWidgetId(this.fullscreenWidgetId, widgetId);
     document.body.style.overflow = this.fullscreenWidgetId ? 'hidden' : 'auto';
+  }
+
+  toggleVehicleStationMergeByType(): void {
+    this.vehicleStationMergeByType = !this.vehicleStationMergeByType;
+    this.refreshVehicleStationTrackingWidget();
+  }
+
+  get hasVehicleStationPreviousPage(): boolean {
+    return this.vehicleStationPage > 1;
+  }
+
+  previousVehicleStationTrackingPage(): void {
+    if (!this.hasVehicleStationPreviousPage) {
+      return;
+    }
+    this.vehicleStationPage -= 1;
+    this.refreshVehicleStationTrackingWidget();
+  }
+
+  nextVehicleStationTrackingPage(): void {
+    if (!this.vehicleStationHasNextPage) {
+      return;
+    }
+    this.vehicleStationPage += 1;
+    this.refreshVehicleStationTrackingWidget();
+  }
+
+  private resetVehicleStationTrackingPaging(): void {
+    this.vehicleStationPage = 1;
+    this.vehicleStationHasNextPage = false;
   }
 
   get fullscreenWidget(): DashboardWidget | undefined {
@@ -1532,31 +1567,58 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     const projectIdParam = this.selectedProject !== 'all' ? this.selectedProject : undefined;
     const vehicleIdParam = this.selectedVehicle !== 'all' ? this.selectedVehicle : undefined;
+    const isProjectScoped = !!projectIdParam;
 
     // set loading flag for widget-15
     this.widgets = this.widgets.map((w) => (w.id === 'widget-15' ? { ...w, loading: true } : w));
 
-    // Fetch a lighter page to keep widget responsive on large fleets.
-    const stationTrackerPageSize = vehicleIdParam ? 500 : 350;
+    const stationTrackerPageSize = this.vehicleStationPageSize;
     this.dashboardProjectsService.getStationTrackers({
       projectId: projectIdParam,
       vehicleId: vehicleIdParam,
+      page: this.vehicleStationPage,
       pageSize: stationTrackerPageSize,
+      orderBy: 'id',
+      orderDirection: 'desc',
     }).subscribe({
       next: (items) => {
         if (requestVersion !== this.vehicleStationRequestVersion) return;
 
+        const stationTrackerItems = Array.isArray(items) ? items : [];
+        this.vehicleStationHasNextPage = stationTrackerItems.length >= stationTrackerPageSize;
+
+        // If user navigates past the final page, step back one page automatically.
+        if (this.vehicleStationPage > 1 && stationTrackerItems.length === 0) {
+          this.vehicleStationPage -= 1;
+          this.vehicleStationHasNextPage = false;
+          this.refreshVehicleStationTrackingWidget();
+          return;
+        }
+
         // group by vehicleId
         const grouped = new Map<string, any[]>();
-        for (const it of Array.isArray(items) ? items : []) {
+        for (const it of stationTrackerItems) {
           const vid = String(it?.vehicleId ?? it?.vehicleID ?? it?.vehicle_id ?? 'unknown');
           if (!grouped.has(vid)) grouped.set(vid, []);
           grouped.get(vid)!.push(it);
         }
 
         const palette = ['#1b5e20', '#2e7d32', '#388e3c', '#4caf50', '#66bb6a', '#81c784', '#50c878', '#83bc96'];
+        const minVisibleDurationMs = 6 * 60 * 60 * 1000;
         const seriesData: any[] = [];
         let colorIndex = 0;
+        const stationTypeColorMap: Record<string, string> = {
+          production: '#8fa89a',
+          final: '#b7e4c7',
+          shipped: '#1b5e20',
+          client: '#2f855a',
+          none: '#a3b86c',
+        };
+
+        const getStationTypeColor = (stationTypeName: string): string => {
+          const key = String(stationTypeName ?? '').trim().toLowerCase();
+          return stationTypeColorMap[key] ?? palette[(colorIndex++) % palette.length];
+        };
 
         // Determine the authoritative list of vehicles to display on the Y axis.
         // Prefer the currently-loaded vehicle options when project-scoped; fall
@@ -1565,6 +1627,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         if (vehicleIdParam) {
           vehicleIdsToShow = [String(vehicleIdParam)];
+        } else if (isProjectScoped) {
+          // For a selected project, keep only vehicles that actually have
+          // tracker records so the timeline auto-fits that project's data.
+          vehicleIdsToShow = Array.from(grouped.keys());
         } else if (Array.isArray(this.vehicles) && this.vehicles.length > 1) {
           vehicleIdsToShow = (this.vehicles || [])
             .map((v: any) => String(v?.id ?? ''))
@@ -1591,30 +1657,165 @@ export class DashboardComponent implements OnInit, OnDestroy {
         // Prepare left-column labels (exposed to template) based on ordered ids
         this.vehicleStationLabels = vehicleIdsToShow.map(getVehicleLabel);
 
+        const parseIsoToMs = (value: unknown): number | null => {
+          if (value == null) {
+            return null;
+          }
+          const ms = new Date(String(value)).getTime();
+          return Number.isFinite(ms) ? ms : null;
+        };
+
+        // Build a safe timeline range from API timestamps without falling back to "now",
+        // which can make merged bars look artificially longer.
+        const buildTimelineRange = (rec: any): {
+          startMs: number;
+          endMs: number;
+          startIso: string | null;
+          endIso: string | null;
+        } | null => {
+          const rawStartIso = rec?.startDate ?? rec?.dateStarted ?? null;
+          const rawEndIso = rec?.endDate ?? rec?.dateEnded ?? null;
+          const parsedStartMs = parseIsoToMs(rawStartIso);
+          const parsedEndMs = parseIsoToMs(rawEndIso);
+
+          if (parsedStartMs === null && parsedEndMs === null) {
+            return null;
+          }
+
+          const resolvedStartMs = parsedStartMs ?? parsedEndMs!;
+          const resolvedEndMs = parsedEndMs ?? parsedStartMs!;
+
+          return {
+            startMs: Math.min(resolvedStartMs, resolvedEndMs),
+            endMs: Math.max(resolvedStartMs, resolvedEndMs),
+            startIso: parsedStartMs !== null ? String(rawStartIso) : (rawEndIso != null ? String(rawEndIso) : null),
+            endIso: parsedEndMs !== null ? String(rawEndIso) : (rawStartIso != null ? String(rawStartIso) : null),
+          };
+        };
+
+        let timelineMinMs = Number.POSITIVE_INFINITY;
+        let timelineMaxMs = Number.NEGATIVE_INFINITY;
+
         for (const vid of vehicleIdsToShow) {
           const records = grouped.get(vid) ?? [];
           const vehicleLabel = getVehicleLabel(vid);
 
           if (!records.length) {
-            // Add a tiny transparent placeholder so the vehicle appears on the Y axis
-            const now = Date.now();
-            seriesData.push({ x: vehicleLabel, y: [now, now + 1], fillColor: 'rgba(0,0,0,0)', meta: { stationId: null, stationNumber: '', stationName: '', raw: null, label: '' } });
+            // Do not add a time placeholder here because it distorts x-axis range.
+            continue;
+          }
+
+          if (this.vehicleStationMergeByType) {
+            const mergedByType = new Map<string, {
+              stationTypeName: string;
+              startMs: number;
+              endMs: number;
+              startDate: string | null;
+              endDate: string | null;
+              recordCount: number;
+            }>();
+
+            for (const rec of records) {
+              const timeline = buildTimelineRange(rec);
+              if (!timeline) {
+                continue;
+              }
+              const startMs = timeline.startMs;
+              const endMs = timeline.endMs;
+              timelineMinMs = Math.min(timelineMinMs, startMs, endMs);
+              timelineMaxMs = Math.max(timelineMaxMs, startMs, endMs);
+
+              const stationTypeName = String(rec?.stationTypeName ?? rec?.station_type_name ?? '').trim() || 'Unspecified';
+              const existing = mergedByType.get(stationTypeName);
+
+              if (!existing) {
+                mergedByType.set(stationTypeName, {
+                  stationTypeName,
+                  startMs,
+                  endMs,
+                  startDate: timeline.startIso,
+                  endDate: timeline.endIso,
+                  recordCount: 1,
+                });
+                continue;
+              }
+
+              existing.recordCount += 1;
+              if (startMs < existing.startMs) {
+                existing.startMs = startMs;
+                existing.startDate = timeline.startIso;
+              }
+              if (endMs > existing.endMs) {
+                existing.endMs = endMs;
+                existing.endDate = timeline.endIso;
+              }
+            }
+
+            Array.from(mergedByType.values())
+              .sort((left, right) => left.startMs - right.startMs)
+              .forEach((item) => {
+                const color = getStationTypeColor(item.stationTypeName);
+                const renderEndMs = (item.endMs - item.startMs) >= minVisibleDurationMs
+                  ? item.endMs
+                  : item.startMs + minVisibleDurationMs;
+                timelineMaxMs = Math.max(timelineMaxMs, renderEndMs);
+                seriesData.push({
+                  x: vehicleLabel,
+                  y: [item.startMs, renderEndMs],
+                  fillColor: color,
+                  meta: {
+                    stationId: null,
+                    stationNumber: '',
+                    stationName: `Merged timeline (${item.recordCount} entries)`,
+                    stationTypeName: item.stationTypeName,
+                    raw: null,
+                    label: item.stationTypeName,
+                    startDate: item.startDate,
+                    endDate: item.endDate,
+                    mergedCount: item.recordCount,
+                    isMergedByType: true,
+                  },
+                });
+              });
             continue;
           }
 
           for (const rec of records) {
-            const startDateIso = rec?.startDate ?? rec?.dateStarted ?? null;
-            const endDateIso = rec?.endDate ?? rec?.dateEnded ?? null;
-            const startMs = startDateIso ? new Date(startDateIso).getTime() : Date.now();
-            const endMs = endDateIso ? new Date(endDateIso).getTime() : (startMs + 60 * 60 * 1000);
+            const timeline = buildTimelineRange(rec);
+            if (!timeline) {
+              continue;
+            }
+            const startMs = timeline.startMs;
+            const endMs = timeline.endMs;
+            timelineMinMs = Math.min(timelineMinMs, startMs, endMs);
+            const renderEndMs = (endMs - startMs) >= minVisibleDurationMs
+              ? endMs
+              : startMs + minVisibleDurationMs;
+            timelineMaxMs = Math.max(timelineMaxMs, startMs, endMs, renderEndMs);
             const stationId = rec?.stationId ?? rec?.stationID ?? rec?.station_id ?? null;
             const stationNumber = String(rec?.stationNumber ?? rec?.stationNo ?? '').trim();
             const stationName = String(rec?.stationName ?? '').trim();
+            const stationTypeName = String(rec?.stationTypeName ?? rec?.station_type_name ?? '').trim();
             const label = stationNumber || stationName || (stationId ? `Station ${stationId}` : String(rec?.description ?? ''));
             const color = palette[(colorIndex++) % palette.length];
-            seriesData.push({ x: vehicleLabel, y: [startMs, endMs], fillColor: color, meta: { stationId, stationNumber, stationName, raw: rec, label, startDate: startDateIso, endDate: endDateIso } });
+            seriesData.push({ x: vehicleLabel, y: [startMs, renderEndMs], fillColor: color, meta: { stationId, stationNumber, stationName, stationTypeName, raw: rec, label, startDate: timeline.startIso, endDate: timeline.endIso } });
           }
         }
+
+        if (!seriesData.length) {
+          // Keep chart stable in no-data cases without introducing synthetic date ranges.
+          this.vehicleStationLabels = ['No Timeline Data'];
+          const now = Date.now();
+          seriesData.push({ x: 'No Timeline Data', y: [now, now + 1], fillColor: 'rgba(0,0,0,0)', meta: { stationId: null, stationNumber: '', stationName: '', raw: null, label: '' } });
+          timelineMinMs = now;
+          timelineMaxMs = now + 1;
+        }
+
+        const hasTimeline = Number.isFinite(timelineMinMs) && Number.isFinite(timelineMaxMs) && timelineMaxMs >= timelineMinMs;
+        const timeSpan = hasTimeline ? Math.max(timelineMaxMs - timelineMinMs, 24 * 60 * 60 * 1000) : 24 * 60 * 60 * 1000;
+        const timelinePadding = Math.max(Math.round(timeSpan * 0.08), 6 * 60 * 60 * 1000);
+        const xaxisMin = hasTimeline ? (timelineMinMs - timelinePadding) : undefined;
+        const xaxisMax = hasTimeline ? (timelineMaxMs + timelinePadding) : undefined;
 
         const template = (busPulseData as any).vehicleStationTrackingChart ?? {};
 
@@ -1635,6 +1836,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         const calculatedWidth = Math.min(Math.max(minWidth, (vehicleIdsToShow.length * perVehicleWidth) + 800), maxWidth);
 
         const axisTitleColor = template?.yaxis?.title?.style?.color ?? '#1b5e20';
+        const groupedHoverFilter = this.vehicleStationMergeByType
+          ? { ...(template?.states?.hover?.filter ?? {}), type: 'darken', value: 0.35 }
+          : (template?.states?.hover?.filter ?? {});
 
         const chartOptions = {
           ...(template ?? {}),
@@ -1656,6 +1860,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
           xaxis: {
             ...(template?.xaxis ?? {}),
             type: 'datetime',
+            min: xaxisMin,
+            max: xaxisMax,
             tickAmount: 6,
             title: template?.xaxis?.title ?? {
               text: 'Date',
@@ -1704,9 +1910,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
               const vehicle = String(point?.x ?? '').trim() || 'Vehicle';
               const stationNumber = String(meta?.stationNumber ?? '').trim();
               const stationName = String(meta?.stationName ?? '').trim();
+              const stationTypeName = String(meta?.stationTypeName ?? meta?.raw?.stationTypeName ?? '').trim();
               const stationValue = stationName || stationNumber || String(meta?.label ?? 'Station').trim();
               const stationLine = stationValue ? `<div><strong>Station Name:</strong> ${stationValue}</div>` : '';
               const stationNumberLine = stationNumber ? `<div><strong>Station Number:</strong> ${stationNumber}</div>` : '';
+              const stationTypeLine = stationTypeName ? `<div><strong>Station Type:</strong> ${stationTypeName}</div>` : '';
 
               const fmtDateOnly = (iso?: string | null) => {
                 if (!iso) return '';
@@ -1727,9 +1935,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
                   `<div><strong>Vehicle:</strong> ${vehicle}</div>` +
                   stationLine +
                   stationNumberLine +
+                  stationTypeLine +
                   startLine +
                   endLine +
                   `</div>`;
+            },
+          },
+          states: {
+            ...(template?.states ?? {}),
+            hover: {
+              ...(template?.states?.hover ?? {}),
+              filter: groupedHoverFilter,
             },
           },
           series: [{ ...(template?.series?.[0] ?? {}), data: seriesData }],
@@ -1744,6 +1960,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       error: () => {
         if (requestVersion !== this.vehicleStationRequestVersion) return;
+        this.vehicleStationHasNextPage = false;
         this.widgets = this.widgets.map((w) => (w.id === 'widget-15' ? { ...w, chartOptions: (busPulseData as any).vehicleStationTrackingChart, loading: false } : w));
         try { this.toastService.show('Failed to load Vehicle Station Tracking data', { classname: 'bg-warning text-dark', autohide: true }); } catch { }
         this.cdr.markForCheck();
@@ -2774,11 +2991,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
     // Fetch all tickets
     this.clientDashboardService.getTickets({ clientId, page: 1, pageSize: 1000 }).subscribe({
-      next: (tickets: any[]) => {
-        this.allClientTickets = tickets || [];
+      next: (response: unknown) => {
+        const tickets = extractArrayFromApiResponse(response);
+        this.allClientTickets = tickets;
         // Collect all unique assignBy and assignTo IDs
         const userIds = Array.from(new Set(
-          tickets.flatMap(t => [t.assignBy, t.assignTo]).filter(id => typeof id === 'number' && id > 0)
+          tickets
+            .flatMap((t: any) => [Number(t?.assignBy), Number(t?.assignTo)])
+            .filter((id) => Number.isFinite(id) && id > 0)
         ));
         if (userIds.length) {
           // Batch fetch user details

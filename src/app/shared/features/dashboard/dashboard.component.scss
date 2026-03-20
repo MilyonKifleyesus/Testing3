@@ -1116,6 +1116,20 @@
   }
 }
 
+.vehicle-station-page-btn {
+  min-width: 2rem;
+
+  &:disabled,
+  &.disabled {
+    color: #8c949c !important;
+    border-color: #c7cdd3 !important;
+    background-color: #eef1f4 !important;
+    opacity: 1 !important;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
 // ── Resize handles ────────────────────────────────────────────────────────────
 
 .resize-handle {

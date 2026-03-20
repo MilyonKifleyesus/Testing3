@@ -819,6 +819,7 @@ export class DashboardProjectsService {
     orderBy?: string;
     orderDirection?: 'asc' | 'desc';
     page?: number;
+    pageNumber?: number;
     pageSize?: number;
   } = {}): Observable<any[]> {
     // Do not enforce a client-side cap here; respect whatever `pageSize`
@@ -827,12 +828,14 @@ export class DashboardProjectsService {
     // (including returning all matching records if supported).
     const pageSizeProvided = params.pageSize !== undefined && params.pageSize !== null;
 
+    const effectivePage = params.pageNumber ?? params.page;
+
     const cacheKey = JSON.stringify({
       projectId: params.projectId ?? null,
       vehicleId: params.vehicleId ?? null,
       orderBy: params.orderBy ?? null,
       orderDirection: params.orderDirection ?? null,
-      page: params.page ?? null,
+      page: effectivePage ?? null,
       pageSize: pageSizeProvided ? params.pageSize : null,
     });
 
@@ -841,7 +844,10 @@ export class DashboardProjectsService {
     if (params.vehicleId !== undefined && params.vehicleId !== null) httpParams = httpParams.set('vehicleId', String(params.vehicleId));
     if (params.orderBy) httpParams = httpParams.set('orderBy', params.orderBy);
     if (params.orderDirection) httpParams = httpParams.set('orderDirection', params.orderDirection);
-    if (params.page !== undefined && params.page !== null) httpParams = httpParams.set('page', String(params.page));
+    if (effectivePage !== undefined && effectivePage !== null) {
+      httpParams = httpParams.set('page', String(effectivePage));
+      httpParams = httpParams.set('pageNumber', String(effectivePage));
+    }
     if (pageSizeProvided) httpParams = httpParams.set('pageSize', String(params.pageSize));
 
     return this.getCachedObservable(this.stationTrackersCache, cacheKey, () =>

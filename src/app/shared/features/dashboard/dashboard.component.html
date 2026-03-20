@@ -169,6 +169,42 @@
                   </div>
                 </div>
                 <div class="widget-header-actions">
+                  <ng-container *ngIf="widget.id === 'widget-15'">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="previousVehicleStationTrackingPage()"
+                      [disabled]="widget.loading || !hasVehicleStationPreviousPage"
+                      title="Previous page"
+                      aria-label="Previous page"
+                    >
+                      <i class="ti ti-chevron-left"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="nextVehicleStationTrackingPage()"
+                      [disabled]="widget.loading || !vehicleStationHasNextPage"
+                      title="Next page"
+                      aria-label="Next page"
+                    >
+                      <i class="ti ti-chevron-right"></i>
+                    </button>
+                    <span
+                      class="small text-muted"
+                      title="Showing timeline record set {{ vehicleStationPage }}. Data is split into sets so the chart loads faster and stays responsive."
+                    >
+                      Record Set {{ vehicleStationPage }} ({{ vehicleStationPageSize }} timelines per set)
+                    </span>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success"
+                      (click)="toggleVehicleStationMergeByType()"
+                    >
+                      {{ vehicleStationMergeByType ? 'Show Detailed Timelines' : 'Merge By Station Type' }}
+                    </button>
+                  </ng-container>
+
                   <button class="control-btn fullscreen-btn" (click)="toggleFullscreen(widget.id)" title="Toggle fullscreen">
                     <i class="ti" [ngClass]="fullscreenWidgetId === widget.id ? 'ti-arrows-minimize' : 'ti-arrows-maximize'"></i>
                   </button>
@@ -184,7 +220,7 @@
               <div class="resize-handle resize-handle-right" (mousedown)="onResizeStart($event, widget.id, 'right')" title="Drag to resize width"></div>
               <div class="resize-handle resize-handle-bottom" (mousedown)="onResizeStart($event, widget.id, 'bottom')" title="Drag to resize height"></div>
 
-              <div class="card-body">
+              <div class="card-body" style="position: relative;">
                 <div *ngIf="widget.loading" class="widget-loading-overlay">
                   <div class="widget-spinner">
                     <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
@@ -363,9 +399,47 @@
       <div class="fullscreen-container" (click)="$event.stopPropagation()">
         <div class="fullscreen-header" *ngIf="fullscreenWidget">
           <h3>{{ fullscreenWidget.title }}</h3>
-          <button class="btn btn-sm btn-light" (click)="toggleFullscreen(fullscreenWidgetId)" title="Exit fullscreen">
-            <i class="ti ti-x"></i>
-          </button>
+          <div class="d-flex align-items-center gap-2">
+            <ng-container *ngIf="fullscreenWidget.id === 'widget-15'">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="previousVehicleStationTrackingPage()"
+                [disabled]="fullscreenWidget.loading || !hasVehicleStationPreviousPage"
+                title="Previous page"
+                aria-label="Previous page"
+              >
+                <i class="ti ti-chevron-left"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="nextVehicleStationTrackingPage()"
+                [disabled]="fullscreenWidget.loading || !vehicleStationHasNextPage"
+                title="Next page"
+                aria-label="Next page"
+              >
+                <i class="ti ti-chevron-right"></i>
+              </button>
+              <span
+                class="small text-muted"
+                title="Showing timeline record set {{ vehicleStationPage }}. Data is split into sets so the chart loads faster and stays responsive."
+              >
+                Record Set {{ vehicleStationPage }} ({{ vehicleStationPageSize }} timelines per set)
+              </span>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success"
+                (click)="toggleVehicleStationMergeByType()"
+              >
+                {{ vehicleStationMergeByType ? 'Show Detailed Timelines' : 'Merge By Station Type' }}
+              </button>
+            </ng-container>
+
+            <button class="btn btn-sm btn-light" (click)="toggleFullscreen(fullscreenWidgetId)" title="Exit fullscreen">
+              <i class="ti ti-x"></i>
+            </button>
+          </div>
         </div>
 
         <div class="fullscreen-content" *ngIf="fullscreenWidget">
