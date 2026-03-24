@@ -821,12 +821,19 @@ export class DashboardProjectsService {
     page?: number;
     pageNumber?: number;
     pageSize?: number;
+    fields?: string[] | string;
   } = {}): Observable<any[]> {
     // Do not enforce a client-side cap here; respect whatever `pageSize`
     // the caller provides. If `pageSize` is omitted we won't include it
     // in the HTTP params so the backend can decide the default behaviour
     // (including returning all matching records if supported).
     const pageSizeProvided = params.pageSize !== undefined && params.pageSize !== null;
+    const normalizedFields = Array.isArray(params.fields)
+      ? params.fields.map((field) => String(field ?? '').trim()).filter((field) => !!field)
+      : String(params.fields ?? '').trim()
+        .split(',')
+        .map((field) => field.trim())
+        .filter((field) => !!field);
 
     const effectivePage = params.pageNumber ?? params.page;
 
@@ -837,6 +844,7 @@ export class DashboardProjectsService {
       orderDirection: params.orderDirection ?? null,
       page: effectivePage ?? null,
       pageSize: pageSizeProvided ? params.pageSize : null,
+      fields: normalizedFields.length ? normalizedFields.join(',') : null,
     });
 
     let httpParams = new HttpParams();
@@ -849,6 +857,7 @@ export class DashboardProjectsService {
       httpParams = httpParams.set('pageNumber', String(effectivePage));
     }
     if (pageSizeProvided) httpParams = httpParams.set('pageSize', String(params.pageSize));
+    if (normalizedFields.length) httpParams = httpParams.set('fields', normalizedFields.join(','));
 
     return this.getCachedObservable(this.stationTrackersCache, cacheKey, () =>
       this.http.get<unknown>(`${this.apiBaseUrl}/StationTrackers`, { params: httpParams }).pipe(

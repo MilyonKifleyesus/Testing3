@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+﻿import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Inject, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
@@ -201,6 +201,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private propulsionRequestVersion = 0;
   private vehicleStationRequestVersion = 0;
   private stationTypeHeatmapRequestVersion = 0;
+  private stationTimeComparisonRequestVersion = 0;
   private ticketsDashboardRequestVersion = 0;
   // Labels shown in the left column of widget-15 (vehicle list)
   vehicleStationLabels: string[] = [];
@@ -211,6 +212,59 @@ export class DashboardComponent implements OnInit, OnDestroy {
   stationTypeHeatmapPage = 1;
   readonly stationTypeHeatmapPageSize = 500;
   stationTypeHeatmapHasNextPage = false;
+  stationTimeComparisonPage = 1;
+  readonly stationTimeComparisonPageSize = 500;
+  stationTimeComparisonHasNextPage = false;
+  private readonly stationTrackerFieldsForStationTypeHeatmap = [
+    'stationTypeName',
+    'station_type_name',
+    'stationType',
+    'vehicleId',
+    'vehicleID',
+    'vehicle_id',
+  ];
+  private readonly stationTrackerFieldsForStationTimeComparison = [
+    'stationTypeName',
+    'station_type_name',
+    'stationType',
+    'vehicleId',
+    'vehicleID',
+    'vehicle_id',
+    'VehicleId',
+    'VehicleID',
+    'vehicle',
+    'startDate',
+    'dateStarted',
+    'date_start',
+    'start_date',
+    'startedDate',
+    'started_at',
+    'endDate',
+    'dateEnded',
+    'date_end',
+    'end_date',
+    'completedDate',
+    'dateCompleted',
+    'ended_at',
+  ];
+  private readonly stationTrackerFieldsForVehicleStationTracking = [
+    'vehicleId',
+    'vehicleID',
+    'vehicle_id',
+    'startDate',
+    'dateStarted',
+    'endDate',
+    'dateEnded',
+    'stationTypeName',
+    'station_type_name',
+    'stationId',
+    'stationID',
+    'station_id',
+    'stationNumber',
+    'stationNo',
+    'stationName',
+    'description',
+  ];
 
   private readonly stationTypeColorMap: Record<string, string> = {
     production: '#8fa89a',
@@ -260,12 +314,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.userPicture = newPicture;
         this.cdr.markForCheck();
       }
-      // Skip full re-init if role hasn't changed — covers the immediate BehaviorSubject emit on subscribe
+      // Skip full re-init if role hasn't changed â€” covers the immediate BehaviorSubject emit on subscribe
       if (this.isRoleMatch(user?.role ?? null)) {
         this.cdr.markForCheck();
         return;
       }
-      // Role changed — invalidate cache and re-initialize
+      // Role changed â€” invalidate cache and re-initialize
       this.dataInitialized = false;
       this.dashboardStateService.snapshot = null;
       try {
@@ -292,7 +346,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.saveLayoutToStorage();
     // Persist dashboard state for next navigation (cleared on browser refresh).
-    // Only save when widgets actually have chart data — skip if data never finished loading.
+    // Only save when widgets actually have chart data â€” skip if data never finished loading.
     const hasData = this.widgets.some(w => w.chartOptions);
     if (this.dataInitialized && hasData) {
       this.dashboardStateService.snapshot = {
@@ -321,6 +375,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         selectedVehicle: this.selectedVehicle,
         selectedClient: this.selectedClient,
         currentProjectStats: this.currentProjectStats,
+        stationTypeHeatmapPage: this.stationTypeHeatmapPage,
+        stationTypeHeatmapHasNextPage: this.stationTypeHeatmapHasNextPage,
+        stationTimeComparisonPage: this.stationTimeComparisonPage,
+        stationTimeComparisonHasNextPage: this.stationTimeComparisonHasNextPage,
       } satisfies DashboardSnapshot;
     }
     this.userSubscription?.unsubscribe();
@@ -347,7 +405,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /** Restores full dashboard state from a cached snapshot without any API fetches. */
   private restoreFromSnapshot(snapshot: DashboardSnapshot): void {
     this.role = snapshot.role;
-    this.widgets = snapshot.widgets.map(w => ({ ...w }));
+    // Dashboard snapshot may be captured during in-flight loads; always clear stale loading flags.
+    this.widgets = snapshot.widgets.map(w => ({ ...w, loading: false }));
     this.statCards = [...snapshot.statCards];
     this.projects = [...snapshot.projects];
     this.vehicles = [...snapshot.vehicles];
@@ -371,6 +430,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedVehicle = snapshot.selectedVehicle;
     this.selectedClient = snapshot.selectedClient;
     this.currentProjectStats = snapshot.currentProjectStats;
+    this.stationTypeHeatmapPage = Number.isFinite(snapshot.stationTypeHeatmapPage)
+      ? Math.max(1, Math.round(snapshot.stationTypeHeatmapPage))
+      : 1;
+    this.stationTypeHeatmapHasNextPage = !!snapshot.stationTypeHeatmapHasNextPage;
+    this.stationTimeComparisonPage = Number.isFinite(snapshot.stationTimeComparisonPage)
+      ? Math.max(1, Math.round(snapshot.stationTimeComparisonPage))
+      : 1;
+    this.stationTimeComparisonHasNextPage = !!snapshot.stationTimeComparisonHasNextPage;
     this.title = this.isAdminRole ? 'BusPulse Fleet Dashboard' : 'BusPulse Client Dashboard';
     this.dashboardMapLoading = false;
     this.updateDashboardMapView();
@@ -457,6 +524,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedVehicle = 'all';
     this.resetVehicleStationTrackingPaging();
     this.resetStationTypeHeatmapPaging();
+    this.resetStationTimeComparisonPaging();
     this.updateQueryParams();
     this.updateDashboardMapView();
     this.updateProjectStatusChart(this.projects);
@@ -470,7 +538,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     if (this.selectedProject === 'all') {
-      this.refreshProjectsByStationTypeWidgetFromFilters();
+      const projectOptions = this.getVisibleProjectOptionsForStationTypeHeatmap();
+      this.widgets = this.widgets.map((widget) => {
+        if (widget.id === 'widget-11' || widget.id === 'widget-12') {
+          return { ...widget, loading: true };
+        }
+        return widget;
+      });
+      this.refreshSharedStationComparisonWidgets(projectOptions);
     }
 
     // refresh vehicle station tracking when project changes
@@ -528,6 +603,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedVehicle = 'all';
     this.totalVehiclesCount = null;
     this.resetStationTypeHeatmapPaging();
+    this.resetStationTimeComparisonPaging();
     this.projects = [{ id: 'all', name: 'All Projects' }];
     this.vehicles = [{ id: 'all', name: 'All Vehicles' }];
 
@@ -541,6 +617,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   onVehicleChange(vehicleId: string): void {
     this.selectedVehicle = vehicleId;
     this.resetVehicleStationTrackingPaging();
+    this.resetStationTimeComparisonPaging();
     this.updateQueryParams();
     if (this.isAdminRole) {
       this.setAdminStatCards();
@@ -553,7 +630,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     if (this.selectedProject === 'all') {
-      this.refreshProjectsByStationTypeWidgetFromFilters();
+      if (this.selectedVehicle === 'all') {
+        this.widgets = this.widgets.map((widget) => {
+          if (widget.id === 'widget-11' || widget.id === 'widget-12') {
+            return { ...widget, loading: true };
+          }
+          return widget;
+        });
+        this.refreshSharedStationComparisonWidgets(this.getVisibleProjectOptionsForStationTypeHeatmap());
+      } else {
+        this.refreshProjectsByStationTypeWidgetFromFilters();
+      }
     }
 
     this.refreshVehicleStationTrackingWidget();
@@ -645,7 +732,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.saveLayoutToStorage();
     // After CDK drop animation completes (~300ms), force chart components to
     // re-read their container dimensions by creating new chartOptions references.
-    // This triggers ngOnChanges → updateChartOptionsInPlace with correct sizes.
+    // This triggers ngOnChanges â†’ updateChartOptionsInPlace with correct sizes.
     setTimeout(() => {
       this.widgets.forEach(w => { if (w.chartOptions) w.chartOptions = { ...w.chartOptions }; });
       this.cdr.markForCheck();
@@ -658,6 +745,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     if (widget.id === 'widget-11' && this.selectedProject !== 'all') {
+      return false;
+    }
+
+    if (widget.id === 'widget-12' && (this.selectedProject !== 'all' || this.selectedVehicle !== 'all')) {
       return false;
     }
 
@@ -730,6 +821,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.stationTypeHeatmapPage > 1;
   }
 
+  get hasStationTimeComparisonPreviousPage(): boolean {
+    return this.stationTimeComparisonPage > 1;
+  }
+
   previousVehicleStationTrackingPage(): void {
     if (!this.hasVehicleStationPreviousPage) {
       return;
@@ -764,6 +859,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.refreshProjectsByStationTypeWidget(this.getVisibleProjectOptionsForStationTypeHeatmap());
   }
 
+  previousStationTimeComparisonPage(): void {
+    if (!this.hasStationTimeComparisonPreviousPage) {
+      return;
+    }
+
+    this.stationTimeComparisonPage -= 1;
+    this.refreshAverageStationTimeComparisonWidget(this.getVisibleProjectOptionsForStationTypeHeatmap());
+  }
+
+  nextStationTimeComparisonPage(): void {
+    if (!this.stationTimeComparisonHasNextPage) {
+      return;
+    }
+
+    this.stationTimeComparisonPage += 1;
+    this.refreshAverageStationTimeComparisonWidget(this.getVisibleProjectOptionsForStationTypeHeatmap());
+  }
+
   private resetVehicleStationTrackingPaging(): void {
     this.vehicleStationPage = 1;
     this.vehicleStationHasNextPage = false;
@@ -772,6 +885,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private resetStationTypeHeatmapPaging(): void {
     this.stationTypeHeatmapPage = 1;
     this.stationTypeHeatmapHasNextPage = false;
+  }
+
+  private resetStationTimeComparisonPaging(): void {
+    this.stationTimeComparisonPage = 1;
+    this.stationTimeComparisonHasNextPage = false;
+  }
+
+  private getVisibleProjectOptionsForStationTypeHeatmap(): Array<{ id: string; name: string }> {
+    const visibleProjects = this.projects.filter((project) => String(project.id ?? '').toLowerCase() !== 'all');
+
+    if (this.selectedProject !== 'all') {
+      return visibleProjects.filter((project) => String(project.id) === String(this.selectedProject));
+    }
+
+    return visibleProjects;
   }
 
   get fullscreenWidget(): DashboardWidget | undefined {
@@ -1488,7 +1616,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     if (!projectNames.length) {
       this.stationTypeHeatmapHasNextPage = false;
+      this.stationTimeComparisonHasNextPage = false;
       this.refreshProjectsByStationTypeWidget([]);
+      this.refreshAverageStationTimeComparisonWidget([]);
       return;
     }
 
@@ -1504,7 +1634,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
 
     const widget10ProjectNames = projectNames.slice(0, 12);
-    const widget12ProjectNames = projectNames.slice(0, 12);
     const widget13ProjectNames = projectNames.slice(0, 10);
     const widget15VehicleNames = (Array.isArray(this.vehicles) && this.vehicles.filter(v => String(v?.id ?? '').toLowerCase() !== 'all').map((v: any) => String(v.name ?? v.id)).slice(0, 10)) || widget13ProjectNames;
 
@@ -1522,22 +1651,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
           }))
         : [],
     };
-
-    const templateWidget12 = busPulseData.stationTimeComparisonChart as any;
-    const widget12Options = {
-      ...templateWidget12,
-      yaxis: {
-        ...(templateWidget12?.yaxis ?? {}),
-        categories: widget12ProjectNames,
-      },
-      series: Array.isArray(templateWidget12?.series)
-        ? templateWidget12.series.map((seriesItem: any) => ({
-            ...seriesItem,
-            data: fitSeriesData(seriesItem?.data, widget12ProjectNames.length),
-          }))
-        : [],
-    };
-
     const templateWidget13 = busPulseData.projectTimelineChart as any;
     const templateTimelineData = Array.isArray(templateWidget13?.series?.[0]?.data)
       ? templateWidget13.series[0].data
@@ -1572,13 +1685,112 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.widgets = this.widgets.map((widget) => {
       if (widget.id === 'widget-10') return { ...widget, chartOptions: widget10Options, loading: false };
       if (widget.id === 'widget-11') return { ...widget, loading: true };
-      if (widget.id === 'widget-12') return { ...widget, chartOptions: widget12Options, loading: false };
+      if (widget.id === 'widget-12') return { ...widget, loading: true };
       if (widget.id === 'widget-13') return { ...widget, chartOptions: widget13Options, loading: false };
       if (widget.id === 'widget-15') return { ...widget, chartOptions: widget15Options, loading: false };
       return widget;
     });
 
+    if (this.selectedProject === 'all' && this.selectedVehicle === 'all') {
+      this.refreshSharedStationComparisonWidgets(projectOptions);
+      return;
+    }
+
     this.refreshProjectsByStationTypeWidget(projectOptions);
+  }
+
+  private refreshSharedStationComparisonWidgets(projects: Array<{ id: string; name: string }>): void {
+    if (!projects.length) {
+      this.refreshProjectsByStationTypeWidget([]);
+      this.refreshAverageStationTimeComparisonWidget([]);
+      return;
+    }
+
+    const isSamePaging = this.stationTypeHeatmapPage === this.stationTimeComparisonPage
+      && this.stationTypeHeatmapPageSize === this.stationTimeComparisonPageSize;
+
+    if (!isSamePaging) {
+      this.refreshProjectsByStationTypeWidget(projects);
+      this.refreshAverageStationTimeComparisonWidget(projects);
+      return;
+    }
+
+    const heatmapRequestVersion = ++this.stationTypeHeatmapRequestVersion;
+    const timeComparisonRequestVersion = ++this.stationTimeComparisonRequestVersion;
+    const pageNumber = this.stationTypeHeatmapPage;
+    const pageSize = this.stationTypeHeatmapPageSize;
+    const sharedProjectionFields = this.getStationComparisonSharedProjectionFields();
+
+    void (async () => {
+      const projectResults = await this.fetchStationTrackerSetsForProjects(
+        projects,
+        (projectId) => this.fetchStationTrackerSetPage(projectId, pageNumber, pageSize, sharedProjectionFields),
+      );
+
+      const heatmapRequestStillCurrent = heatmapRequestVersion === this.stationTypeHeatmapRequestVersion;
+      const timeRequestStillCurrent = timeComparisonRequestVersion === this.stationTimeComparisonRequestVersion;
+      if (!heatmapRequestStillCurrent && !timeRequestStillCurrent) {
+        return;
+      }
+
+      const recordsByProjectId = new Map<string, any[]>(
+        projectResults.map((entry) => [entry.projectId, Array.isArray(entry.items) ? entry.items : []]),
+      );
+      const hasNextPage = projectResults.some((entry) => entry.hasNext);
+
+      if (heatmapRequestStillCurrent) {
+        this.stationTypeHeatmapHasNextPage = hasNextPage;
+        const heatmapOptions = this.buildProjectsByStationTypeHeatmapOptions(projects, recordsByProjectId);
+        this.widgets = this.widgets.map((widget) => (
+          widget.id === 'widget-11'
+            ? { ...widget, chartOptions: heatmapOptions, loading: false }
+            : widget
+        ));
+      }
+
+      if (timeRequestStillCurrent) {
+        this.stationTimeComparisonHasNextPage = hasNextPage;
+        const timeComparisonOptions = this.buildAverageStationTimeComparisonOptions(projects, recordsByProjectId);
+        this.widgets = this.widgets.map((widget) => (
+          widget.id === 'widget-12'
+            ? { ...widget, chartOptions: timeComparisonOptions, loading: false }
+            : widget
+        ));
+      }
+
+      this.cdr.markForCheck();
+    })().catch(() => {
+      const heatmapRequestStillCurrent = heatmapRequestVersion === this.stationTypeHeatmapRequestVersion;
+      const timeRequestStillCurrent = timeComparisonRequestVersion === this.stationTimeComparisonRequestVersion;
+      if (!heatmapRequestStillCurrent && !timeRequestStillCurrent) {
+        return;
+      }
+
+      if (heatmapRequestStillCurrent) {
+        const fallbackOptions = this.buildProjectsByStationTypeHeatmapOptions(projects, new Map());
+        this.stationTypeHeatmapHasNextPage = false;
+        this.widgets = this.widgets.map((widget) => (
+          widget.id === 'widget-11'
+            ? { ...widget, chartOptions: fallbackOptions, loading: false }
+            : widget
+        ));
+      }
+
+      if (timeRequestStillCurrent) {
+        const fallbackOptions = this.buildAverageStationTimeComparisonOptions(projects, new Map());
+        this.stationTimeComparisonHasNextPage = false;
+        this.widgets = this.widgets.map((widget) => (
+          widget.id === 'widget-12'
+            ? { ...widget, chartOptions: fallbackOptions, loading: false }
+            : widget
+        ));
+      }
+
+      try {
+        this.toastService.show('Failed to load shared station comparison data', { classname: 'bg-warning text-dark', autohide: true });
+      } catch { }
+      this.cdr.markForCheck();
+    });
   }
 
   private refreshProjectsByStationTypeWidget(projects: Array<{ id: string; name: string }>): void {
@@ -1600,21 +1812,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const pageNumber = this.stationTypeHeatmapPage;
 
     void (async () => {
-      const projectResults: Array<{ projectId: string; items: any[]; hasNext: boolean }> = [];
-
-      for (const project of projects) {
-        if (requestVersion !== this.stationTypeHeatmapRequestVersion) {
-          return;
-        }
-
-        const setResult = await this.fetchStationTrackerSetForProject(
-          project.id,
-          pageNumber,
-          pageSize,
-          requestVersion,
-        );
-        projectResults.push({ projectId: project.id, items: setResult.items, hasNext: setResult.hasNext });
-      }
+      const projectResults = await this.fetchStationTrackerSetsForProjects(
+        projects,
+        (projectId) => this.fetchStationTrackerSetForProject(projectId, pageNumber, pageSize, requestVersion),
+      );
 
       if (requestVersion !== this.stationTypeHeatmapRequestVersion) {
         return;
@@ -1662,6 +1863,342 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.refreshProjectsByStationTypeWidget(this.getVisibleProjectOptionsForStationTypeHeatmap());
   }
 
+  private refreshAverageStationTimeComparisonWidgetFromFilters(): void {
+    if (this.selectedProject !== 'all' || this.selectedVehicle !== 'all') {
+      this.stationTimeComparisonHasNextPage = false;
+      this.widgets = this.widgets.map((widget) => (
+        widget.id === 'widget-12'
+          ? { ...widget, loading: false }
+          : widget
+      ));
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-12'
+        ? { ...widget, loading: true }
+        : widget
+    ));
+
+      this.refreshAverageStationTimeComparisonWidget(this.getVisibleProjectOptionsForStationTypeHeatmap());
+  }
+
+  private refreshAverageStationTimeComparisonWidget(projects: Array<{ id: string; name: string }>): void {
+    const requestVersion = ++this.stationTimeComparisonRequestVersion;
+
+    if (!projects.length) {
+      const fallbackOptions = this.buildAverageStationTimeComparisonOptions([], new Map());
+      this.stationTimeComparisonHasNextPage = false;
+      this.widgets = this.widgets.map((widget) => (
+        widget.id === 'widget-12'
+          ? { ...widget, chartOptions: fallbackOptions, loading: false }
+          : widget
+      ));
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const pageSize = this.stationTimeComparisonPageSize;
+    const pageNumber = this.stationTimeComparisonPage;
+
+    void (async () => {
+      const projectResults = await this.fetchStationTrackerSetsForProjects(
+        projects,
+        (projectId) => this.fetchStationTrackerSetForStationTimeComparison(projectId, pageNumber, pageSize, requestVersion),
+      );
+
+      if (requestVersion !== this.stationTimeComparisonRequestVersion) {
+        return;
+      }
+
+      const recordsByProjectId = new Map<string, any[]>(
+        projectResults.map((entry) => [entry.projectId, Array.isArray(entry.items) ? entry.items : []]),
+      );
+      this.stationTimeComparisonHasNextPage = projectResults.some((entry) => entry.hasNext);
+
+      const chartOptions = this.buildAverageStationTimeComparisonOptions(projects, recordsByProjectId);
+      this.widgets = this.widgets.map((widget) => (
+        widget.id === 'widget-12'
+          ? { ...widget, chartOptions, loading: false }
+          : widget
+      ));
+      this.cdr.markForCheck();
+    })().catch(() => {
+      if (requestVersion !== this.stationTimeComparisonRequestVersion) {
+        return;
+      }
+
+      const fallbackOptions = this.buildAverageStationTimeComparisonOptions(projects, new Map());
+      this.stationTimeComparisonHasNextPage = false;
+      this.widgets = this.widgets.map((widget) => (
+        widget.id === 'widget-12'
+          ? { ...widget, chartOptions: fallbackOptions, loading: false }
+          : widget
+      ));
+      try {
+        this.toastService.show('Failed to load average station time comparison data', { classname: 'bg-warning text-dark', autohide: true });
+      } catch { }
+      this.cdr.markForCheck();
+    });
+  }
+
+  private async fetchStationTrackerSetForStationTimeComparison(
+    projectId: string,
+    pageNumber: number,
+    pageSize: number,
+    requestVersion: number,
+  ): Promise<{ items: any[]; hasNext: boolean }> {
+    if (requestVersion !== this.stationTimeComparisonRequestVersion) {
+      return { items: [], hasNext: false };
+    }
+
+    return this.fetchStationTrackerSetPage(
+      projectId,
+      pageNumber,
+      pageSize,
+      this.stationTrackerFieldsForStationTimeComparison,
+    );
+  }
+
+  private buildAverageStationTimeComparisonOptions(
+    projects: Array<{ id: string; name: string }>,
+    recordsByProjectId: Map<string, any[]>,
+  ): unknown {
+    const template = busPulseData.stationTimeComparisonChart as any;
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const minVisibleDurationDays = 0.35;
+    const minVisibleNoDurationDays = 0.5;
+    const preferredStationTypeOrder = ['Client', 'Production', 'Shipped', 'Final', 'None', 'Unspecified'];
+    const stationTypeSet = new Set<string>();
+    const valuesByProjectId = new Map<string, Map<string, number>>();
+    const vehicleCountsByProjectId = new Map<string, Map<string, number>>();
+    const recordCountsByProjectId = new Map<string, Map<string, number>>();
+    const boundsByProjectId = new Map<string, Map<string, { earliestStartMs: number | null; latestEndMs: number | null }>>();
+
+    const parseDate = (value: unknown): number | null => {
+      if (value == null) return null;
+      const ms = new Date(String(value)).getTime();
+      return Number.isFinite(ms) ? ms : null;
+    };
+
+    const getFirstValidDateMs = (record: any, keys: string[]): number | null => {
+      for (const key of keys) {
+        const parsed = parseDate(record?.[key]);
+        if (parsed !== null) {
+          return parsed;
+        }
+      }
+      return null;
+    };
+
+    const startDateKeys = ['startDate', 'dateStarted', 'date_start', 'start_date', 'startedDate', 'started_at'];
+    const endDateKeys = ['endDate', 'dateEnded', 'date_end', 'end_date', 'completedDate', 'dateCompleted', 'ended_at'];
+
+    projects.forEach((project) => {
+      const records = recordsByProjectId.get(project.id) ?? [];
+      const perTypeTotalDays = new Map<string, number>();
+      const perTypeVehiclesWithDuration = new Map<string, Set<string>>();
+      const perTypeRecordCount = new Map<string, number>();
+      const perTypeBounds = new Map<string, { earliestStartMs: number | null; latestEndMs: number | null }>();
+
+      records.forEach((record, recordIndex) => {
+        const stationType = this.normalizeStationTypeName(
+          record?.stationTypeName ?? record?.station_type_name ?? record?.stationType,
+        );
+        // Keep station type visible at project-level even when timeline fields are partially missing.
+        stationTypeSet.add(stationType);
+        perTypeRecordCount.set(stationType, (perTypeRecordCount.get(stationType) ?? 0) + 1);
+
+        const startMs = getFirstValidDateMs(record, startDateKeys);
+        const endMs = getFirstValidDateMs(record, endDateKeys);
+
+        const nextBounds = perTypeBounds.get(stationType) ?? { earliestStartMs: null, latestEndMs: null };
+        if (startMs !== null) {
+          nextBounds.earliestStartMs = nextBounds.earliestStartMs === null
+            ? startMs
+            : Math.min(nextBounds.earliestStartMs, startMs);
+        }
+        if (endMs !== null) {
+          nextBounds.latestEndMs = nextBounds.latestEndMs === null
+            ? endMs
+            : Math.max(nextBounds.latestEndMs, endMs);
+        }
+        perTypeBounds.set(stationType, nextBounds);
+
+        if (startMs === null || endMs === null) {
+          return;
+        }
+
+        // Use date-only math (ignore time-of-day) and enforce a 1-day minimum for valid pairs.
+        const startDateOnly = new Date(startMs);
+        const endDateOnly = new Date(endMs);
+        const startDayMs = new Date(startDateOnly.getFullYear(), startDateOnly.getMonth(), startDateOnly.getDate()).getTime();
+        const endDayMs = new Date(endDateOnly.getFullYear(), endDateOnly.getMonth(), endDateOnly.getDate()).getTime();
+        const durationDays = Math.max(1, Math.abs(endDayMs - startDayMs) / msPerDay);
+        const vehicleId = String(
+          record?.vehicleId ?? record?.vehicleID ?? record?.vehicle_id ?? record?.VehicleId ?? record?.VehicleID ?? record?.vehicle ?? '',
+        ).trim() || `record-${recordIndex}`;
+        perTypeTotalDays.set(stationType, (perTypeTotalDays.get(stationType) ?? 0) + durationDays);
+        if (!perTypeVehiclesWithDuration.has(stationType)) {
+          perTypeVehiclesWithDuration.set(stationType, new Set<string>());
+        }
+        perTypeVehiclesWithDuration.get(stationType)?.add(vehicleId);
+      });
+
+      const perTypeTotal = new Map<string, number>();
+      const perTypeVehicleCount = new Map<string, number>();
+
+      perTypeTotalDays.forEach((totalDays, stationType) => {
+        const safeTotalDays = Number.isFinite(totalDays) && totalDays >= 0 ? totalDays : 0;
+        perTypeTotal.set(stationType, safeTotalDays);
+        perTypeVehicleCount.set(stationType, perTypeVehiclesWithDuration.get(stationType)?.size ?? 0);
+      });
+
+      valuesByProjectId.set(project.id, perTypeTotal);
+      vehicleCountsByProjectId.set(project.id, perTypeVehicleCount);
+      recordCountsByProjectId.set(project.id, perTypeRecordCount);
+      boundsByProjectId.set(project.id, perTypeBounds);
+    });
+
+    const orderedStationTypes = preferredStationTypeOrder.filter((name) => stationTypeSet.has(name));
+    const extraStationTypes = Array.from(stationTypeSet)
+      .filter((name) => !preferredStationTypeOrder.includes(name))
+      .sort((a, b) => a.localeCompare(b));
+    const stationTypes = [...orderedStationTypes, ...extraStationTypes];
+    const safeStationTypes = stationTypes.length ? stationTypes : ['Unspecified'];
+    const safeProjects = projects.length ? projects : [{ id: 'no-project-data', name: 'No Project Data' }];
+
+    const formatDateOnly = (epochMs: number | null): string => {
+      if (epochMs === null || !Number.isFinite(epochMs)) {
+        return 'N/A';
+      }
+
+      try {
+        return new Date(epochMs).toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: '2-digit',
+        });
+      } catch {
+        return 'N/A';
+      }
+    };
+
+    const formatTotalDurationDays = (value: number): string => {
+      if (!Number.isFinite(value) || value < 0) {
+        return '0';
+      }
+
+      // Keep useful precision but avoid forcing trailing .00.
+      return Number(value.toFixed(2)).toString();
+    };
+
+    const series = safeStationTypes.map((stationType) => ({
+      name: stationType,
+      data: safeProjects.map((project) => {
+        const valueFromDurations = valuesByProjectId.get(project.id)?.get(stationType);
+        const hasValidDuration = typeof valueFromDurations === 'number' && Number.isFinite(valueFromDurations);
+        const value = hasValidDuration ? Math.max(0, Number(valueFromDurations)) : 0;
+        const rawRecordCount = Number(recordCountsByProjectId.get(project.id)?.get(stationType) ?? 0);
+        const recordCount = Number.isFinite(rawRecordCount) ? Math.max(0, Math.round(rawRecordCount)) : 0;
+        const renderedValue = hasValidDuration
+          ? (recordCount > 0 && value <= 0
+            ? minVisibleDurationDays
+            : (value > 0 && value < minVisibleDurationDays ? minVisibleDurationDays : value))
+          : (recordCount > 0 ? minVisibleNoDurationDays : 0);
+        const vehicleCountRaw = Number(vehicleCountsByProjectId.get(project.id)?.get(stationType) ?? 0);
+        const vehicleCount = Number.isFinite(vehicleCountRaw) ? Math.max(0, Math.round(vehicleCountRaw)) : 0;
+        const bounds = boundsByProjectId.get(project.id)?.get(stationType) ?? { earliestStartMs: null, latestEndMs: null };
+
+        return {
+          // For horizontal bars, `x` is the category label rendered on Y-axis.
+          x: project.name,
+          y: renderedValue,
+          metaProjectName: project.name,
+          metaTotalDurationDays: hasValidDuration ? value : null,
+          metaHasValidDuration: hasValidDuration,
+          metaRecordCount: recordCount,
+          metaVehicleCount: vehicleCount,
+          metaEarliestStart: formatDateOnly(bounds.earliestStartMs),
+          metaLatestEnd: formatDateOnly(bounds.latestEndMs),
+        };
+      }),
+    }));
+
+    return {
+      ...template,
+      colors: safeStationTypes.map((stationType) => this.resolveStationTypeColor(stationType)),
+      xaxis: {
+        ...(template?.xaxis ?? {}),
+        type: 'numeric',
+        title: {
+          ...(template?.xaxis?.title ?? {}),
+          text: 'Time (days)',
+        },
+        labels: {
+          ...(template?.xaxis?.labels ?? {}),
+          formatter: (value: number) => {
+            const numeric = Number(value ?? 0);
+            return Number.isFinite(numeric) ? numeric.toFixed(1) : '0.0';
+          },
+        },
+      },
+      yaxis: {
+        ...(template?.yaxis ?? {}),
+        title: {
+          ...(template?.yaxis?.title ?? {}),
+          text: 'Projects',
+        },
+      },
+      tooltip: {
+        ...(template?.tooltip ?? {}),
+        fixed: {
+          ...(template?.tooltip?.fixed ?? {}),
+          enabled: false,
+          position: 'topRight',
+          offsetX: 0,
+          offsetY: 0,
+        },
+        followCursor: true,
+        intersect: true,
+        shared: false,
+        custom: ({ seriesIndex, dataPointIndex, w }: any) => {
+          const point = w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex];
+          const stationType = String(w?.config?.series?.[seriesIndex]?.name ?? 'Station Type').trim() || 'Station Type';
+          const projectName = String(point?.metaProjectName ?? point?.x ?? 'Project').trim() || 'Project';
+          const hasValidDuration = point?.metaHasValidDuration !== false;
+          const rawDuration = Number(point?.metaTotalDurationDays ?? point?.y ?? 0);
+          const totalDuration = Number.isFinite(rawDuration) ? Math.max(0, rawDuration) : 0;
+          const rawVehicleCount = Number(point?.metaVehicleCount ?? 0);
+          const vehicleCount = Number.isFinite(rawVehicleCount) ? Math.max(0, Math.round(rawVehicleCount)) : 0;
+          const earliestStart = String(point?.metaEarliestStart ?? 'N/A');
+          const latestEnd = String(point?.metaLatestEnd ?? 'N/A');
+          const averageRoundedUp = vehicleCount > 0
+            ? Math.ceil(totalDuration / vehicleCount)
+            : null;
+          const durationLine = hasValidDuration
+            ? `<div><strong>Total Duration (All vehicles):</strong> ${formatTotalDurationDays(totalDuration)} days</div>`
+            : `<div><strong>Total Duration (All vehicles):</strong> N/A</div>`;
+          const averageLine = hasValidDuration && averageRoundedUp !== null
+            ? `<div><strong>Average Duration (rounded up):</strong> ${averageRoundedUp} days</div>`
+            : `<div><strong>Average Duration (rounded up):</strong> N/A</div>`;
+
+          return `<div class="apexcharts-tooltip-rangebar" style="padding:8px 10px;">` +
+            `<div><strong>Project:</strong> ${projectName}</div>` +
+            `<div><strong>Station Type:</strong> ${stationType}</div>` +
+            `<div><strong>Earliest Start (across all vehicles):</strong> ${earliestStart}</div>` +
+            `<div><strong>Latest End (across all vehicles):</strong> ${latestEnd}</div>` +
+            durationLine +
+            averageLine +
+            `<div><strong>Unique Vehicles:</strong> ${vehicleCount}</div>` +
+            `</div>`;
+        },
+      },
+      series,
+    };
+  }
+
   private async fetchStationTrackerSetForProject(
     projectId: string,
     pageNumber: number,
@@ -1672,12 +2209,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return { items: [], hasNext: false };
     }
 
+    return this.fetchStationTrackerSetPage(
+      projectId,
+      pageNumber,
+      pageSize,
+      this.stationTrackerFieldsForStationTypeHeatmap,
+    );
+  }
+
+  private async fetchStationTrackerSetPage(
+    projectId: string,
+    pageNumber: number,
+    pageSize: number,
+    projectionFields?: string[],
+  ): Promise<{ items: any[]; hasNext: boolean }> {
     const pageItems = await firstValueFrom(this.dashboardProjectsService.getStationTrackers({
       projectId,
       page: pageNumber,
       pageSize,
       orderBy: 'id',
       orderDirection: 'desc',
+      fields: projectionFields,
     }));
 
     const normalizedPageItems = Array.isArray(pageItems) ? pageItems : [];
@@ -1687,11 +2239,48 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
   }
 
+  private async fetchStationTrackerSetsForProjects(
+    projects: Array<{ id: string; name: string }>,
+    fetchSetForProject: (projectId: string) => Promise<{ items: any[]; hasNext: boolean }>,
+  ): Promise<Array<{ projectId: string; items: any[]; hasNext: boolean }>> {
+    const maxConcurrentRequests = 3;
+    const projectResults: Array<{ projectId: string; items: any[]; hasNext: boolean }> = [];
+
+    for (let start = 0; start < projects.length; start += maxConcurrentRequests) {
+      const batch = projects.slice(start, start + maxConcurrentRequests);
+      const batchResults = await Promise.all(batch.map(async (project) => {
+        const setResult = await fetchSetForProject(project.id);
+        return {
+          projectId: project.id,
+          items: setResult.items,
+          hasNext: setResult.hasNext,
+        };
+      }));
+
+      projectResults.push(...batchResults);
+
+      // Yield to the browser between batches so chart rendering and input stay responsive.
+      if (start + maxConcurrentRequests < projects.length) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    return projectResults;
+  }
+
+  private getStationComparisonSharedProjectionFields(): string[] {
+    return Array.from(new Set([
+      ...this.stationTrackerFieldsForStationTypeHeatmap,
+      ...this.stationTrackerFieldsForStationTimeComparison,
+    ]));
+  }
+
   private buildProjectsByStationTypeHeatmapOptions(
     projects: Array<{ id: string; name: string }>,
     recordsByProjectId: Map<string, any[]>,
   ): unknown {
     const template = busPulseData.projectsByStationHeatmap as any;
+    const preferredStationTypeOrder = ['Client', 'Production', 'Shipped', 'Final', 'None', 'Unspecified'];
     const yAxisLabelColorRaw = template?.yaxis?.labels?.style?.colors;
     const xAxisLabelColorRaw = template?.xaxis?.labels?.style?.colors;
     const yAxisLabelColor = Array.isArray(yAxisLabelColorRaw) ? yAxisLabelColorRaw[0] : yAxisLabelColorRaw;
@@ -1728,7 +2317,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       });
     });
 
-    const stationTypes = Array.from(stationTypeSet).sort((left, right) => left.localeCompare(right));
+    const orderedStationTypes = preferredStationTypeOrder.filter((name) => stationTypeSet.has(name));
+    const extraStationTypes = Array.from(stationTypeSet)
+      .filter((name) => !preferredStationTypeOrder.includes(name))
+      .sort((a, b) => a.localeCompare(b));
+    const stationTypes = [...orderedStationTypes, ...extraStationTypes];
     const heatmapCategories = stationTypes.length ? stationTypes : ['No Data'];
     const maxDisplayCount = projects.reduce((maxValue, project) => {
       const projectCounts = countsByProject.get(project.id) ?? new Map<string, number>();
@@ -1927,6 +2520,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private refreshVehicleStationTrackingWidget(): void {
+    const hasVehicleStationWidget = this.widgets.some((widget) => widget.id === 'widget-15');
+    if (!hasVehicleStationWidget) {
+      this.vehicleStationHasNextPage = false;
+      return;
+    }
+
+    // Widget-15 is hidden when All Projects is selected, so skip heavy timeline fetches.
+    if (this.selectedProject === 'all') {
+      this.vehicleStationHasNextPage = false;
+      this.widgets = this.widgets.map((w) => (w.id === 'widget-15' ? { ...w, loading: false } : w));
+      this.cdr.markForCheck();
+      return;
+    }
+
     const requestVersion = ++this.vehicleStationRequestVersion;
 
     const projectIdParam = this.selectedProject !== 'all' ? this.selectedProject : undefined;
@@ -1944,6 +2551,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       pageSize: stationTrackerPageSize,
       orderBy: 'id',
       orderDirection: 'desc',
+      fields: this.stationTrackerFieldsForVehicleStationTracking,
     }).subscribe({
       next: (items) => {
         if (requestVersion !== this.vehicleStationRequestVersion) return;
@@ -3219,16 +3827,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .filter((projectId) => !!projectId && projectId.toLowerCase() !== 'all');
   }
 
-  private getVisibleProjectOptionsForStationTypeHeatmap(): Array<{ id: string; name: string }> {
-    return this.projects
-      .filter((project) => String(project.id ?? '').trim().toLowerCase() !== 'all')
-      .map((project) => ({
-        id: String(project.id ?? '').trim(),
-        name: String(project.name ?? '').trim(),
-      }))
-      .filter((project) => !!project.id && !!project.name);
-  }
-
   private normalizeTicketsByStatusShape(input: any): Array<{ name: string; value: number }> {
     // Accepts multiple shapes and returns an array of { name, value }.
     if (!input && input !== 0) return [];
@@ -3382,3 +3980,4 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 }
+

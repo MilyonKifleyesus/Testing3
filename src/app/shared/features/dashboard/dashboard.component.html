@@ -1,9 +1,9 @@
-<div class="dashboard-wrapper">
+﻿<div class="dashboard-wrapper">
   <app-page-header [title]="title" [title1]="['Home']" [activeitem]="'Dashboard'"></app-page-header>
 
   <div class="dashboard-content">
 
-    <!-- ═══ Welcome Banner ══════════════════════════════════════════════════ -->
+    <!-- â•â•â• Welcome Banner â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
     <div class="welcome-section mb-4">
       <div class="welcome-banner">
 
@@ -42,10 +42,10 @@
             </div>
 
             <p class="wb-subtitle" *ngIf="isAdminRole">
-              Fleet-wide operations &nbsp;·&nbsp; Inspection analytics &nbsp;·&nbsp; Live reporting
+              Fleet-wide operations &nbsp;Â·&nbsp; Inspection analytics &nbsp;Â·&nbsp; Live reporting
             </p>
             <p class="wb-subtitle" *ngIf="!isAdminRole">
-              {{ clientProfile.clientId }} &nbsp;·&nbsp; {{ clientProfile.vehicle }}
+              {{ clientProfile.clientId }} &nbsp;Â·&nbsp; {{ clientProfile.vehicle }}
             </p>
 
             <div class="wb-controls">
@@ -113,7 +113,7 @@
       </div>
     </div>
 
-    <!-- ═══ Filter Bar ═══════════════════════════════════════════════════════ -->
+    <!-- â•â•â• Filter Bar â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
     <div class="filter-bar mb-4">
       <div class="fb-prefix">
         <i class="ti ti-adjustments-alt"></i>
@@ -145,7 +145,7 @@
     </div>
 
 
-    <!-- ═══ Widget Grid ═══════════════════════════════════════════════════════ -->
+    <!-- â•â•â• Widget Grid â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
     <div class="charts-grid" [class.compact-mode]="showFilters && selectedProject !== 'all'">
       <div class="widgets-row" cdkDropList (cdkDropListDropped)="onWidgetDrop($event)">
         <ng-container *ngFor="let widget of widgets; trackBy: trackByWidgetId">
@@ -198,6 +198,34 @@
                     </span>
                   </ng-container>
 
+                  <ng-container *ngIf="widget.id === 'widget-12'">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="previousStationTimeComparisonPage()"
+                      [disabled]="widget.loading || !hasStationTimeComparisonPreviousPage"
+                      title="Previous page"
+                      aria-label="Previous page"
+                    >
+                      <i class="ti ti-chevron-left"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="nextStationTimeComparisonPage()"
+                      [disabled]="widget.loading || !stationTimeComparisonHasNextPage"
+                      title="Next page"
+                      aria-label="Next page"
+                    >
+                      <i class="ti ti-chevron-right"></i>
+                    </button>
+                    <span
+                      class="small text-muted"
+                      title="Showing average station time record set {{ stationTimeComparisonPage }}. Data is split into sets so the chart loads faster and stays responsive."
+                    >
+                      Record Set {{ stationTimeComparisonPage }} ({{ stationTimeComparisonPageSize }} timelines per set)
+                    </span>
+                  </ng-container>
                   <ng-container *ngIf="widget.id === 'widget-15'">
                     <button
                       type="button"
@@ -423,7 +451,7 @@
       </div>
     </div>
 
-    <!-- ═══ Fullscreen overlay ════════════════════════════════════════════════ -->
+    <!-- â•â•â• Fullscreen overlay â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
     <div *ngIf="fullscreenWidgetId" class="fullscreen-overlay" (click)="toggleFullscreen(fullscreenWidgetId); $event.stopPropagation()">
       <div class="fullscreen-container" (click)="$event.stopPropagation()">
         <div class="fullscreen-header" *ngIf="fullscreenWidget">
@@ -458,6 +486,34 @@
               </span>
             </ng-container>
 
+            <ng-container *ngIf="fullscreenWidget.id === 'widget-12'">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="previousStationTimeComparisonPage()"
+                [disabled]="fullscreenWidget.loading || !hasStationTimeComparisonPreviousPage"
+                title="Previous page"
+                aria-label="Previous page"
+              >
+                <i class="ti ti-chevron-left"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="nextStationTimeComparisonPage()"
+                [disabled]="fullscreenWidget.loading || !stationTimeComparisonHasNextPage"
+                title="Next page"
+                aria-label="Next page"
+              >
+                <i class="ti ti-chevron-right"></i>
+              </button>
+              <span
+                class="small text-muted"
+                title="Showing average station time record set {{ stationTimeComparisonPage }}. Data is split into sets so the chart loads faster and stays responsive."
+              >
+                Record Set {{ stationTimeComparisonPage }} ({{ stationTimeComparisonPageSize }} timelines per set)
+              </span>
+            </ng-container>
             <ng-container *ngIf="fullscreenWidget.id === 'widget-15'">
               <button
                 type="button"
@@ -582,7 +638,7 @@
       </div>
     </div>
 
-    <!-- ═══ Activities modal ════════════════════════════════════════════════ -->
+
     <div *ngIf="showActivitiesModal" class="activities-modal-overlay" (click)="closeActivitiesModal()">
       <div class="activities-modal-container" (click)="$event.stopPropagation()">
         <div class="activities-modal-header">

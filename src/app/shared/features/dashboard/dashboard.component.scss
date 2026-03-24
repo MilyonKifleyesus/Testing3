@@ -1003,7 +1003,9 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    // Keep Apex tooltips visible and hoverable near card edges.
+    // Widget-15 keeps its own scrolling container (`.widget-chart-scroll`).
+    overflow: visible;
     min-height: 0;
     position: relative;
 
@@ -1013,11 +1015,20 @@
       height: 100%;
 
       ::ng-deep {
+        .apexcharts-canvas {
+          overflow: visible !important;
+        }
+
         .apexcharts-canvas,
         .apexcharts-svg,
         svg {
           width: 100% !important;
           height: 100% !important;
+        }
+
+        .apexcharts-tooltip {
+          z-index: 30 !important;
+          pointer-events: none;
         }
       }
     }
@@ -1222,9 +1233,26 @@ body.is-resizing {
 .widget-container {
   position: relative;
   grid-column: span 4;
+  z-index: 1;
   transition: transform 300ms ease;
 
   &.cdk-drag-animating { transition: transform 300ms ease; }
+}
+
+.widget-container:hover,
+.widget-container:focus-within {
+  z-index: 40;
+}
+
+.widget-card {
+  overflow: visible !important;
+}
+
+:host ::ng-deep .apexcharts-tooltip,
+:host ::ng-deep .apexcharts-xaxistooltip,
+:host ::ng-deep .apexcharts-yaxistooltip {
+  z-index: 2147483647 !important;
+  pointer-events: none !important;
 }
 
 // ── Drag preview / placeholder ────────────────────────────────────────────────
