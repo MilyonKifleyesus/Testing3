@@ -47,13 +47,15 @@ export class ProjectViewComponent implements OnInit {
   };
 
   tabs = [
-    { key: 'project', label: 'Project' },
-    { key: 'vehicles', label: 'Vehicles' },
+    { key: 'general', label: 'General Project' },
     { key: 'inspection-categories', label: 'Inspection Categories' },
     { key: 'inspection-tasks', label: 'Inspection Tasks' },
-    { key: 'files', label: 'Files' }
+    { key: 'vehicles', label: 'Vehicles' },
+    { key: 'station-tracker', label: 'Station Tracker' },
+    { key: 'files', label: 'Files' },
+    { key: 'users', label: 'Users' },
   ];
-  activeTab = 'project';
+  activeTab = 'general';
 
   vehicleViewMode: 'grid' | 'table' = 'grid';
   projectVehicles: ProjectVehicle[] = [];

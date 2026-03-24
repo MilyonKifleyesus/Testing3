@@ -67,17 +67,17 @@ export class UserViewComponent implements OnInit {
 
       this.user = {
         id: user.id,
-        name: user.name !== 'N/A' ? user.name : user.username,
-        username: user.username,
-        email: user.email,
+        name: user.name !== 'N/A' ? user.name : user.userName,
+        username: user.userName,
+        email: user.email ?? '',
         role: user.role,
-        clientId: user.clientId,
-        client: user.client || undefined,
-        manufacturer: user.manufacturer || undefined,
-        status: typeof user.isActive === 'boolean' ? (user.isActive ? 'active' : 'inactive') : (user.status === 'inactive' || user.status === 'suspended' ? user.status : 'active'),
-        createdDate: user.createdDate || user.updatedAt || '—',
-        updatedAt: user.updatedAt || undefined,
-        lastLogin: user.updatedAt || undefined,
+        clientId: String(user.clientId),
+        client: user.clientName || undefined,
+        manufacturer: user.manufacturerName || undefined,
+        status: !user.deleted ? 'active' : 'inactive',
+        createdDate: user.lastUpdate || '—',
+        updatedAt: user.lastUpdate || undefined,
+        lastLogin: user.lastUpdate || undefined,
         permissions: [],
       };
     });

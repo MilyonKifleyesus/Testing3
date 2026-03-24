@@ -28,11 +28,11 @@ function mapUserToCard(user: UserListItem): InspectorCard {
     id: user.id,
     name: user.name,
     fullName: user.name,
-    username: user.username,
-    email: user.email,
+    username: user.userName,
+    email: user.email ?? '',
     role: user.role,
-    client: user.client,
-    isActive: user.isActive ?? true,
+    client: user.clientName,
+    isActive: !user.deleted,
     statsLoading: true,
     stats: null,
   };
@@ -112,7 +112,7 @@ export class InspectorListComponent implements OnInit {
   ngOnInit(): void {
     if (InspectorListComponent.listCache) {
       this.inspectors = InspectorListComponent.listCache;
-      this.applyFilter();
+      this.filteredInspectors = [...this.inspectors];
       this.loadStatsForAll();
     } else {
       this.loadInspectors();
@@ -124,18 +124,20 @@ export class InspectorListComponent implements OnInit {
     this.loadError = false;
 
     this.userMgmt
-      .getUsers({ page: 1, pageSize: 200, role: 'Inspector', clientId: '', manufacturerId: '' })
-      .pipe(catchError(() => of({ items: [], totalCount: 0 })))
+      .getUsers({ page: 1, pageSize: 200, role: 'Inspector', clientId: '0', manufacturerId: '0', sortBy: 'name', sortDirection: 'asc', search: this.searchQuery.trim() })
+      .pipe(catchError(() => {
+        this.loadError = true;
+        return of({ items: [], totalCount: 0 });
+      }))
       .subscribe((result) => {
         this.isLoading = false;
-        if (!result.items.length && result.totalCount === 0) {
-          this.loadError = true;
-          return;
-        }
         this.inspectors = result.items.map((u) => mapUserToCard(u));
-        InspectorListComponent.listCache = this.inspectors;
-        this.applyFilter();
-        this.loadStatsForAll();
+        if (!this.searchQuery.trim() && !this.loadError) {
+          InspectorListComponent.listCache = this.inspectors;
+        }
+        this.filteredInspectors = [...this.inspectors];
+        this.currentPage = 1;
+        if (!this.loadError) this.loadStatsForAll();
       });
   }
 
@@ -183,27 +185,17 @@ export class InspectorListComponent implements OnInit {
 
   // ── Search ───────────────────────────────────────────────────────────────────
 
-  filterInspectors(): void {
-    this.applyFilter();
+  searchInspectors(): void {
+    this.userMgmt.clearUsersCache();
+    InspectorListComponent.listCache = null;
+    this.loadInspectors();
   }
 
   clearSearch(): void {
     this.searchQuery = '';
-    this.applyFilter();
-  }
-
-  private applyFilter(): void {
-    const q = this.searchQuery.toLowerCase().trim();
-    this.filteredInspectors = q
-      ? this.inspectors.filter(
-          (i) =>
-            i.fullName.toLowerCase().includes(q) ||
-            i.username.toLowerCase().includes(q) ||
-            i.email.toLowerCase().includes(q) ||
-            i.client.toLowerCase().includes(q),
-        )
-      : [...this.inspectors];
-    this.currentPage = 1;
+    this.userMgmt.clearUsersCache();
+    InspectorListComponent.listCache = null;
+    this.loadInspectors();
   }
 
   // ── Flip Cards ───────────────────────────────────────────────────────────────

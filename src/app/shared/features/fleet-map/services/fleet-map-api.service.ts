@@ -377,20 +377,25 @@ export class FleetMapApiService {
   }
 
   fetchClients(): Observable<ApiClient[]> {
-    return this.fetchAllPages<RawClient>('Clients').pipe(
-      map((rows) => rows.map(mapClient).filter((item): item is ApiClient => item !== null)),
+    const params = new HttpParams().set('locationId', '0');
+    return this.http.get<unknown>(`${this.apiBaseUrl}/Clients`, { params }).pipe(
+      timeout(30_000),
+      map((raw) => parsePagedResponse<RawClient>(raw).items.map(mapClient).filter((item): item is ApiClient => item !== null)),
     );
   }
 
   fetchManufacturers(): Observable<ApiManufacturer[]> {
-    return this.fetchAllPages<RawManufacturer>('Manufacturers').pipe(
-      map((rows) => rows.map(mapManufacturer).filter((item): item is ApiManufacturer => item !== null)),
+    const params = new HttpParams().set('locationId', '0');
+    return this.http.get<unknown>(`${this.apiBaseUrl}/Manufacturers`, { params }).pipe(
+      timeout(30_000),
+      map((raw) => parsePagedResponse<RawManufacturer>(raw).items.map(mapManufacturer).filter((item): item is ApiManufacturer => item !== null)),
     );
   }
 
   fetchLocations(): Observable<ApiLocation[]> {
-    return this.fetchAllPages<RawLocation>('Locations').pipe(
-      map((rows) => rows.map(mapLocation).filter((item): item is ApiLocation => item !== null)),
+    return this.http.get<unknown>(`${this.apiBaseUrl}/Locations`).pipe(
+      timeout(30_000),
+      map((raw) => parsePagedResponse<RawLocation>(raw).items.map(mapLocation).filter((item): item is ApiLocation => item !== null)),
     );
   }
 

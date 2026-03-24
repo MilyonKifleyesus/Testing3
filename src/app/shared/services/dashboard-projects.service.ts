@@ -7,6 +7,7 @@ import { extractArrayFromApiResponse, getFirstDefinedValue, toOptionalText, toTe
 export interface DashboardProjectOption {
   id: string;
   name: string;
+  clientId?: string;
   status?: string;
   isClosed?: boolean;
 }
@@ -43,15 +44,15 @@ export class DashboardProjectsService {
     string,
     { expiresAt: number; observable: Observable<DashboardProjectOption[]> }
   >();
-  private readonly allVehiclesCache = new Map<
-    string,
-    { expiresAt: number; observable: Observable<DashboardVehicleOptionsResult> }
-  >();
   private readonly projectVehiclesCache = new Map<
     string,
     { expiresAt: number; observable: Observable<DashboardVehicleOptionsResult> }
   >();
   private readonly stationTrackersCache = new Map<
+    string,
+    { expiresAt: number; observable: Observable<any[]> }
+  >();
+  private readonly rawVehiclesCache = new Map<
     string,
     { expiresAt: number; observable: Observable<any[]> }
   >();
@@ -77,34 +78,19 @@ export class DashboardProjectsService {
       pageSize,
     } = params;
 
-    let httpParams = new HttpParams();
-    if (clientId !== undefined && clientId !== null) {
-      httpParams = httpParams.set('clientId', String(clientId));
-    }
-    if (projectTypeId !== undefined && projectTypeId !== null) {
-      httpParams = httpParams.set('projectTypeId', String(projectTypeId));
-    }
-    if (locationId !== undefined && locationId !== null) {
-      httpParams = httpParams.set('locationId', String(locationId));
-    }
-    if (includeClosed !== undefined && includeClosed !== null) {
-      httpParams = httpParams.set('includeClosed', String(includeClosed));
-    }
-    if (page !== undefined && page !== null) {
-      httpParams = httpParams.set('page', String(page));
-    }
-    if (pageSize !== undefined && pageSize !== null) {
-      httpParams = httpParams.set('pageSize', String(pageSize));
-    }
+    // Send 0 for filter IDs to mean "all" (matches API convention). No page/pageSize — API returns all.
+    const httpParams = new HttpParams()
+      .set('clientId', String(clientId ?? 0))
+      .set('projectTypeId', String(projectTypeId ?? 0))
+      .set('locationId', String(locationId ?? 0))
+      .set('includeClosed', String(includeClosed ?? false));
 
     const cacheKey = JSON.stringify({
       includeAllOption,
-      clientId: clientId ?? null,
-      projectTypeId: projectTypeId ?? null,
-      locationId: locationId ?? null,
-      includeClosed: includeClosed ?? null,
-      page: page ?? null,
-      pageSize: pageSize ?? null,
+      clientId: clientId ?? 0,
+      projectTypeId: projectTypeId ?? 0,
+      locationId: locationId ?? 0,
+      includeClosed: includeClosed ?? false,
     });
 
     return this.getCachedObservable(this.projectsCache, cacheKey, () =>
@@ -143,6 +129,14 @@ export class DashboardProjectsService {
                   item?.State ??
                   '',
                 ).trim() || undefined,
+                clientId: String(
+                  item?.clientId ??
+                  item?.ClientId ??
+                  item?.clientID ??
+                  item?.ClientID ??
+                  item?.client_id ??
+                  '',
+                ) || undefined,
                 isClosed: this.inferProjectClosedState(item),
               }))
               .filter((project: DashboardProjectOption) => project.id);
@@ -209,8 +203,6 @@ export class DashboardProjectsService {
         clientId,
         userId,
         includeClosed,
-        page,
-        pageSize,
       });
     }
 
@@ -446,13 +438,9 @@ export class DashboardProjectsService {
       );
     }
 
-    let httpParams = new HttpParams().set('pageSize', '10000');
-    if (clientId !== undefined && clientId !== null) {
-      httpParams = httpParams.set('clientId', String(clientId));
-    }
-    if (includeClosed !== undefined && includeClosed !== null) {
-      httpParams = httpParams.set('includeClosed', String(includeClosed));
-    }
+    const httpParams = new HttpParams()
+      .set('clientId', String(clientId ?? 0))
+      .set('includeClosed', String(includeClosed ?? false));
     return this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams }).pipe(
       map((response) => extractArrayFromApiResponse(response)),
       catchError(() => of([] as any[])),
@@ -493,8 +481,6 @@ export class DashboardProjectsService {
       : this.getProjectOptions({
         clientId,
         includeClosed,
-        page: 1,
-        pageSize: 10000,
         includeAllOption: false,
       }).pipe(
         map((projects) => Array.from(new Set(
@@ -504,49 +490,15 @@ export class DashboardProjectsService {
         ))),
       );
 
-    const flatVehicles$ = (): Observable<any[]> => {
-      let httpParams = new HttpParams().set('pageSize', '10000');
-      if (clientId !== undefined && clientId !== null) httpParams = httpParams.set('clientId', String(clientId));
-      if (userId !== undefined && userId !== null) httpParams = httpParams.set('userId', String(userId));
-      if (includeClosed !== undefined && includeClosed !== null) httpParams = httpParams.set('includeClosed', String(includeClosed));
-      return this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams }).pipe(
-        map((response) => this.extractItems(response)),
-        catchError(() => of([] as any[])),
-      );
-    };
+    const flatVehicles$ = () => this.getRawVehiclesCached({ clientId, userId, includeClosed });
 
     return projectIds$.pipe(
-      switchMap((resolvedProjectIds) => {
-        if (!resolvedProjectIds.length) {
-          return flatVehicles$().pipe(
-            map((vehicles) => ({ resolvedProjectIds, vehicles })),
-          );
-        }
-
-        return forkJoin(
-          resolvedProjectIds.map((projectId) =>
-            this.getProjectVehiclesRaw(projectId, {
-              clientId,
-              userId,
-              includeClosed,
-              page,
-              pageSize,
-            }),
-          ),
-        ).pipe(
-          map((responses) => responses.flat()),
-          switchMap((vehicles) => {
-            if (vehicles.length > 0) {
-              return of({ resolvedProjectIds, vehicles });
-            }
-            // Per-project calls returned nothing — fall back to flat /Vehicles endpoint
-            return flatVehicles$().pipe(
-              map((v) => ({ resolvedProjectIds, vehicles: v })),
-            );
-          }),
-          catchError(() => flatVehicles$().pipe(map((vehicles) => ({ resolvedProjectIds, vehicles })))),
-        );
-      }),
+      switchMap((resolvedProjectIds) =>
+        // Use a single flat /Vehicles call for chart data instead of one request per project.
+        flatVehicles$().pipe(
+          map((vehicles) => ({ resolvedProjectIds, vehicles })),
+        ),
+      ),
       map(({ resolvedProjectIds, vehicles }) => {
         const filteredVehicles = this.filterVehiclesByProjectIds(vehicles, resolvedProjectIds);
         const seenVehicleKeys = new Set<string>();
@@ -694,82 +646,42 @@ export class DashboardProjectsService {
     clientId?: number;
     userId?: number;
     includeClosed?: boolean;
-    page?: number;
-    pageSize?: number;
     includeAllOption?: boolean;
   } = {}): Observable<DashboardVehicleOptionsResult> {
-    const {
-      includeAllOption = true,
-      clientId,
-      userId,
-      includeClosed,
-      page,
-      pageSize,
-    } = params;
+    const { includeAllOption = true, clientId, userId, includeClosed } = params;
 
-    let httpParams = new HttpParams();
-    if (clientId !== undefined && clientId !== null) {
-      httpParams = httpParams.set('clientId', String(clientId));
-    }
-    if (userId !== undefined && userId !== null) {
-      httpParams = httpParams.set('userId', String(userId));
-    }
-    if (includeClosed !== undefined && includeClosed !== null) {
-      httpParams = httpParams.set('includeClosed', String(includeClosed));
-    }
-    if (page !== undefined && page !== null) {
-      httpParams = httpParams.set('page', String(page));
-    }
-    if (pageSize !== undefined && pageSize !== null) {
-      httpParams = httpParams.set('pageSize', String(pageSize));
-    }
+    // Re-use the shared raw vehicles cache so this call and the chart calls
+    // share a single HTTP request rather than making two identical ones.
+    return this.getRawVehiclesCached({ clientId, userId, includeClosed }).pipe(
+      map((items: any[]) => {
+        const mapped: DashboardVehicleOption[] = items
+          .map((item: any) => ({
+            id: String(
+              item?.id ??
+              item?.vehicleId ??
+              item?.vehicleID ??
+              item?.VehicleId ??
+              item?.VehicleID ??
+              item?.vehicle_id ??
+              item?.Vehicle_Id ??
+              '',
+            ),
+            name:
+              item?.name ??
+              item?.vehicleName ??
+              item?.VehicleName ??
+              item?.fleetNumber ??
+              item?.fleet_number ??
+              item?.displayName ??
+              `Vehicle ${item?.id ?? item?.vehicleId ?? ''}`,
+          }))
+          .filter((vehicle: DashboardVehicleOption) => vehicle.id);
 
-    const cacheKey = JSON.stringify({
-      includeAllOption,
-      clientId: clientId ?? null,
-      userId: userId ?? null,
-      includeClosed: includeClosed ?? null,
-      page: page ?? null,
-      pageSize: pageSize ?? null,
-    });
-
-    return this.getCachedObservable(this.allVehiclesCache, cacheKey, () =>
-      this.http
-        .get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams })
-        .pipe(
-          map((response: any) => {
-            const items = this.extractItems(response);
-            const mapped: DashboardVehicleOption[] = items
-              .map((item: any) => ({
-                id: String(
-                  item?.id ??
-                  item?.vehicleId ??
-                  item?.vehicleID ??
-                  item?.VehicleId ??
-                  item?.VehicleID ??
-                  item?.vehicle_id ??
-                  item?.Vehicle_Id ??
-                  '',
-                ),
-                name:
-                  item?.name ??
-                  item?.vehicleName ??
-                  item?.VehicleName ??
-                  item?.fleetNumber ??
-                  item?.fleet_number ??
-                  item?.displayName ??
-                  `Vehicle ${item?.id ?? item?.vehicleId ?? ''}`,
-              }))
-              .filter((vehicle: DashboardVehicleOption) => vehicle.id);
-
-            const totalCount = this.extractTotalCount(response, mapped.length);
-
-            return {
-              options: includeAllOption ? [{ id: 'all', name: 'All Vehicles' }, ...mapped] : mapped,
-              totalCount,
-            };
-          }),
-        ),
+        return {
+          options: includeAllOption ? [{ id: 'all', name: 'All Vehicles' }, ...mapped] : mapped,
+          totalCount: mapped.length,
+        };
+      }),
     );
   }
 
@@ -1003,6 +915,21 @@ export class DashboardProjectsService {
     }
 
     return [];
+  }
+
+  private getRawVehiclesCached(params: { clientId?: number; userId?: number; includeClosed?: boolean }): Observable<any[]> {
+    const { clientId, userId, includeClosed } = params;
+    const cacheKey = JSON.stringify({ clientId: clientId ?? 0, userId: userId ?? null, includeClosed: includeClosed ?? false });
+    return this.getCachedObservable(this.rawVehiclesCache, cacheKey, () => {
+      let httpParams = new HttpParams()
+        .set('clientId', String(clientId ?? 0))
+        .set('includeClosed', String(includeClosed ?? false));
+      if (userId !== undefined && userId !== null) httpParams = httpParams.set('userId', String(userId));
+      return this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams }).pipe(
+        map((response) => this.extractItems(response)),
+        catchError(() => of([] as any[])),
+      );
+    });
   }
 
   private getProjectVehiclesRaw(

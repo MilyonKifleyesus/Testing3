@@ -99,13 +99,13 @@ export class UserEditComponent implements OnInit {
       this.user = {
         id: user.id,
         name: user.name,
-        username: user.username,
-        email: user.email,
+        username: user.userName,
+        email: user.email ?? '',
         phone: '',
         role: user.role,
-        client: user.client || '',
-        manufacturer: user.manufacturer || '',
-        status: user.status || 'active',
+        client: user.clientName || '',
+        manufacturer: user.manufacturerName || '',
+        status: !user.deleted ? 'active' : 'inactive',
         address: '',
       };
     });

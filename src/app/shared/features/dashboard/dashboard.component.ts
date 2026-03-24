@@ -548,6 +548,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.refreshSharedStationComparisonWidgets(projectOptions);
     }
 
+
     // refresh vehicle station tracking when project changes
     this.refreshVehicleStationTrackingWidget();
   }
@@ -960,9 +961,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.role = (normalizedRole === 'admin' || normalizedRole === 'superadmin') ? 'admin' : (isClientByRoleType ? 'client' : 'client');
     this.showFilters = !this.isAdminRole;
     this.includeClosedProjects = false;
-    if (!this.isAdminRole) {
-      this.fetchAllClientVehiclesAndTickets();
-    }
 
     // Defensive: always fallback to username/email/User
     let welcomeName = 'User';
@@ -991,12 +989,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loadProjects();
     this.updateDashboardMapView();
 
-    if (this.isAdminRole) {
-      this.setAdminStatCards();
-      return;
-    }
-
-    this.refreshClientView();
   }
 
   private loadProjects(): void {
@@ -1005,10 +997,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     ++this.vehiclesRequestVersion;
 
     this.dashboardProjectsService.getProjectOptions({
-      clientId: effectiveClientId,
+      clientId: effectiveClientId ?? 0,
       includeClosed: this.includeClosedProjects,
-      page: 1,
-      pageSize: 10000,
     }).subscribe({
       next: (items) => {
         if (requestVersion !== this.projectsRequestVersion) return;
@@ -1026,6 +1016,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.updateProjectScopedComparisonWidgets();
         this.fetchAllVehiclesForSelectedProjects();
 
+        this.syncMapProjectsFromLoaded();
+        if (!this.dashboardMapDataLoaded) {
+          this.loadDashboardMapData();
+        }
         this.updateDashboardMapView();
         this.loadVehicles(this.selectedProject);
         if (this.isAdminRole) {
@@ -1046,11 +1040,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.fetchAllVehiclesForSelectedProjects();
         this.updateDashboardMapView();
         this.loadVehicles(this.selectedProject);
-        if (this.isAdminRole) {
-          this.setAdminStatCards();
-        } else {
-          this.refreshClientView();
-        }
         this.toastService.show('Failed to load projects: ' + (err?.message || 'Unknown error'), { classname: 'bg-danger text-light', autohide: true });
         this.cdr.markForCheck();
       },
@@ -1058,47 +1047,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadVehicles(projectId: string): void {
-    const currentUser = this.authService.currentUserValue;
     const effectiveClientId = this.getEffectiveClientId();
     const requestVersion = ++this.vehiclesRequestVersion;
 
     let vehicleRequest$: Observable<{ options: DashboardVehicleOption[]; totalCount: number }>;
 
     if (projectId === 'all') {
-      const visibleProjectIds = this.projects
-        .map((project) => String(project.id ?? ''))
-        .filter((id) => id && id.toLowerCase() !== 'all');
-
-      vehicleRequest$ = forkJoin({
-        scoped: this.dashboardProjectsService.getVehicleOptionsByProjectsResult(
-          visibleProjectIds,
-          {
-            clientId: effectiveClientId,
-            userId: currentUser?.userId ?? undefined,
-            includeClosed: this.includeClosedProjects,
-          },
-        ),
-        authoritative: this.dashboardProjectsService.getAllVehicleOptionsResult({
-          clientId: effectiveClientId,
-          userId: currentUser?.userId ?? undefined,
-          includeClosed: this.includeClosedProjects,
-        }),
-      }).pipe(
-        map(({ scoped, authoritative }) => ({
-          options: (authoritative?.options && authoritative.options.length)
-            ? authoritative.options
-            : scoped.options,
-          totalCount: this.includeClosedProjects
-            ? (Number(authoritative.totalCount ?? 0) > 0
-                ? authoritative.totalCount
-                : scoped.totalCount)
-            : scoped.totalCount,
-        })),
-      );
+      // Use the single flat /Vehicles call — avoids one HTTP request per project.
+      vehicleRequest$ = this.dashboardProjectsService.getAllVehicleOptionsResult({
+        clientId: effectiveClientId,
+        includeClosed: this.includeClosedProjects,
+      });
     } else {
       vehicleRequest$ = this.dashboardProjectsService.getVehicleOptionsByProjectResult(projectId, {
         clientId: effectiveClientId,
-        userId: currentUser?.userId ?? undefined,
         includeClosed: undefined,
       });
     }
@@ -1171,20 +1133,43 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Populate allMapProjects from the already-loaded project dropdown data, avoiding a second Projects API call. */
+  private syncMapProjectsFromLoaded(): void {
+    this.allMapProjects = this.projects
+      .filter((p) => p.id !== 'all')
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        clientId: p.clientId ?? '',
+        lat: null,
+        lng: null,
+        locationId: null,
+        locationIds: [],
+        type: '',
+        typeId: null,
+        status: (p.isClosed || String(p.status ?? '').toLowerCase() === 'inactive') ? 'inactive' : 'active',
+      } as import('../fleet-map/models/fleet-map.models').ApiProject));
+  }
+
   private loadDashboardMapData(): void {
     this.dashboardMapLoading = true;
     this.dashboardMapError = '';
     this.updateDashboardMapWidgetState();
 
     forkJoin({
-      projects: this.fleetMapApiService.fetchProjects(),
-      clients: this.fleetMapApiService.fetchClients(),
+      clients: this.clientService.getClients(),
       manufacturers: this.fleetMapApiService.fetchManufacturers(),
       locations: this.fleetMapApiService.fetchLocations(),
     }).subscribe({
-      next: ({ projects, clients, manufacturers, locations }) => {
-        this.allMapProjects = projects;
-        this.allMapClients = clients;
+      next: ({ clients, manufacturers, locations }) => {
+        this.allMapClients = clients.map((c) => ({
+          id: c.id,
+          name: c.name,
+          logoUrl: c.logoUrl,
+          lat: c.coordinates?.latitude ?? null,
+          lng: c.coordinates?.longitude ?? null,
+          locationIds: (c.locationIds ?? []).map(String),
+        }));
         this.allMapManufacturers = manufacturers;
         this.allMapLocations = locations;
         this.dashboardMapDataLoaded = true;

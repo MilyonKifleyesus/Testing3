@@ -25,7 +25,7 @@ export class ClientDashboardService {
     return this.http.get<any>(`${this.apiBaseUrl}/projects/${projectId}/vehicles`, { params: httpParams });
   }
 
-  getTickets(params: { clientId?: number; projectId?: number; userId?: number; vehicleId?: number; page?: number; pageSize?: number } = {}): Observable<any> {
+  getTickets(params: { clientId?: number; projectId?: number; userId?: number; vehicleId?: number; page?: number; pageSize?: number; orderBy?: string; orderDirection?: string } = {}): Observable<any> {
     const httpParams = this.buildParams(params);
     return this.http.get<any>(`${this.apiBaseUrl}/Tickets`, { params: httpParams });
   }
@@ -35,7 +35,7 @@ export class ClientDashboardService {
     return this.http.get<any>(`${this.apiBaseUrl}/tickets/dashboard`, { params: httpParams });
   }
 
-  getVehicles(params: { clientId?: number; page?: number; pageSize?: number } = {}): Observable<any> {
+  getVehicles(params: { clientId?: number; projectId?: number; page?: number; pageSize?: number } = {}): Observable<any> {
     const httpParams = this.buildParams(params);
     return this.http.get<any>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams });
   }

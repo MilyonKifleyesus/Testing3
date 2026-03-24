@@ -1165,6 +1165,7 @@
   }
 }
 
+
 // ── Resize handles ────────────────────────────────────────────────────────────
 
 .resize-handle {
@@ -1630,14 +1631,39 @@ body.is-resizing {
     margin: 0 -1.75rem;
   }
 
+  // Stat cards: allow trend to wrap below so it never overlaps the value
   .wb-stat {
     padding: 0.85rem 1rem;
     min-width: 140px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .wbs-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    i { font-size: 1.05rem; }
+  }
+
+  .wbs-value {
+    font-size: 1.25rem;
+  }
+
+  // Trend wraps to its own row, indented past the icon
+  .wbs-trend {
+    flex-basis: 100%;
+    margin-left: calc(36px + 0.5rem);
+    font-size: 0.6rem;
+    padding: 0.15rem 0.4rem;
+    animation: none; // prevent re-layout jank on wrap
   }
 
   .wb-right {
     align-self: center;
   }
+
 
   .wb-logo-ring {
     width: 110px;
@@ -1682,16 +1708,32 @@ body.is-resizing {
     border-radius: 14px;
   }
 
-  .wb-main-row { padding-bottom: 1rem; }
+  // Stack main row: text above, logo below
+  .wb-main-row {
+    flex-direction: column;
+    align-items: flex-start;
+    padding-bottom: 1rem;
+    gap: 1rem;
+  }
+
+  .wb-right {
+    align-self: flex-start;
+  }
 
   .wb-stats {
     margin: 0 -1rem;
     flex-wrap: wrap;
   }
 
-  .wb-stat { min-width: 50%; }
+  // 2-column grid for stat cards
+  .wb-stat {
+    min-width: calc(50% - 0.5px);
+    flex: 0 0 calc(50% - 0.5px);
+  }
 
   .wbs-trend { display: none; }
+
+  .wbs-value { font-size: 1.15rem; }
 
   .wb-name { font-size: 1.5rem; }
 

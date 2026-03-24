@@ -18,6 +18,7 @@ export interface ApiProjectLike {
   manufacturerLocationId?: string | number | null;
   factory_id?: number | string | null;
   locations?: unknown;
+  totalAssets?: number | string | null;
   closed?: boolean | null;
   status?: string | null;
   lastUpdate?: string | null;
@@ -43,6 +44,7 @@ export interface NormalizedProject {
   locationId: number | null;
   manufacturerLocationId: string | null;
   locations: Array<{ id: number; latitude: number; longitude: number }>;
+  totalAssets: number | null;
   closed: boolean | null;
   status: string | null;
   lastUpdate: string | null;
@@ -98,6 +100,7 @@ export function adaptApiProject(api: ApiProjectLike): NormalizedProject | null {
     manufacturerLocationId:
       fallbackManufacturerLocationId != null ? String(fallbackManufacturerLocationId) : null,
     locations,
+    totalAssets: parseNullableNumber(api.totalAssets),
     closed: typeof api.closed === 'boolean' ? api.closed : null,
     status,
     lastUpdate: api.lastUpdate ?? null,

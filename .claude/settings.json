@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find c:UsersadityDesktopbuspulse4BusPulseV2/src/app/@spk -type f -name *radial* -o -name *circle*)",
+      "Bash(find c:UsersadityDesktopbuspulse4BusPulseV2/src/app -name *inspector*modal* -o -name *modal*inspector*)",
+      "Bash(grep -r \"ti-tag\\\\|ti-receipt\\\\|ti-file-invoice\\\\|ti-ticket\" c:/Users/adity/Desktop/buspulse4/BusPulseV2/node_modules/@tabler/icons-webfont/dist/ --include=*.css -l)",
+      "Bash(find c:/Users/adity/Desktop/buspulse4/BusPulseV2/node_modules/@tabler -name *.css)",
+      "Bash(find c:/Users/adity/Desktop/buspulse4/BusPulseV2 -path */tabler* -name *.css)",
+      "Bash(find c:/Users/adity/Desktop/buspulse4/BusPulseV2/src/assets -name *.css)"
+    ]
+  }
+}
