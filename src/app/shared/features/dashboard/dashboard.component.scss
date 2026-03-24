@@ -1119,6 +1119,30 @@
 .vehicle-station-page-btn {
   min-width: 2rem;
 
+  // Keep default outline appearance after click/focus; only show solid green on real hover.
+  &.btn-outline-success:not(:disabled):not(.disabled) {
+    color: #198754;
+    border-color: #198754;
+    background-color: transparent;
+  }
+
+  &.btn-outline-success:not(:disabled):not(.disabled):hover {
+    color: #fff;
+    border-color: #198754;
+    background-color: #198754;
+  }
+
+  &.btn-outline-success:not(:disabled):not(.disabled):focus,
+  &.btn-outline-success:not(:disabled):not(.disabled):focus-visible,
+  &.btn-outline-success:not(:disabled):not(.disabled):active,
+  &.btn-outline-success:not(:disabled):not(.disabled).active,
+  .show > &.btn-outline-success.dropdown-toggle {
+    color: #198754;
+    border-color: #198754;
+    background-color: transparent;
+    box-shadow: none;
+  }
+
   &:disabled,
   &.disabled {
     color: #8c949c !important;

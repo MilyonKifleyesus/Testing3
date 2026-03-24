@@ -18,9 +18,9 @@ const SINGLE_GREEN_MEDIUM = ['#388e3c'];
 const TICKETS_STATUS_GREEN_COLORS = ['#609764', '#95c097', '#cfead0', '#e0ece2', '#66bb6a', '#81c784', '#d1f2d6'];
 const TICKETS_STATUS_BAR_COLOR = PRIMARY_GREEN_COLORS_6;
 const PROJECTS_BY_STATION_HEATMAP_RANGES = [
-  { from: 1, to: 2, color: '#cfead0', name: 'Low' },
-  { from: 2, to: 3, color: '#609764', name: 'Medium' },
-  { from: 3, to: 4, color: '#1b5e20', name: 'High' }
+  { from: 0, to: 5, color: '#cfead0', name: 'Low' },
+  { from: 6, to: 20, color: '#609764', name: 'Medium' },
+  { from: 21, to: 999999, color: '#1b5e20', name: 'High' }
 ];
 
 /**
@@ -351,38 +351,38 @@ export const projectsByAreaStackedChart = {
 };
 
 /**
- * 10. Comparison of Projects by Station (Color Range Heatmap)
+ * 10. Comparison of Projects by Station Type (Color Range Heatmap)
  */
 export const projectsByStationHeatmap = {
   series: [
     {
       name: 'Project 1',
       data: [
-        { x: 'Station A', y: 2.4 },
-        { x: 'Station B', y: 3.2 },
-        { x: 'Station C', y: 2.7 },
-        { x: 'Station D', y: 3.8 },
-        { x: 'Station E', y: 2.1 }
+        { x: 'Production', y: 18 },
+        { x: 'Final', y: 6 },
+        { x: 'Shipped', y: 2 },
+        { x: 'Client', y: 1 },
+        { x: 'Unspecified', y: 0 }
       ]
     },
     {
       name: 'Project 2',
       data: [
-        { x: 'Station A', y: 3.1 },
-        { x: 'Station B', y: 2.9 },
-        { x: 'Station C', y: 3.5 },
-        { x: 'Station D', y: 2.6 },
-        { x: 'Station E', y: 3.3 }
+        { x: 'Production', y: 12 },
+        { x: 'Final', y: 9 },
+        { x: 'Shipped', y: 3 },
+        { x: 'Client', y: 0 },
+        { x: 'Unspecified', y: 1 }
       ]
     },
     {
       name: 'Project 3',
       data: [
-        { x: 'Station A', y: 2.8 },
-        { x: 'Station B', y: 3.4 },
-        { x: 'Station C', y: 2.2 },
-        { x: 'Station D', y: 3.1 },
-        { x: 'Station E', y: 2.9 }
+        { x: 'Production', y: 21 },
+        { x: 'Final', y: 4 },
+        { x: 'Shipped', y: 5 },
+        { x: 'Client', y: 2 },
+        { x: 'Unspecified', y: 0 }
       ]
     }
   ],

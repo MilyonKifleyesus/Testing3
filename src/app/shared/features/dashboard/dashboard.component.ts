@@ -7,7 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { NgApexchartsModule } from 'ng-apexcharts';
-import { forkJoin, map, Observable, Subscription } from 'rxjs';
+import { firstValueFrom, forkJoin, map, Observable, Subscription } from 'rxjs';
 import { SpkApexChartsComponent } from '../../../@spk/reusable-charts/spk-apex-charts/spk-apex-charts.component';
 import { SharedModule } from '../../shared.module';
 import * as busPulseData from '../../data/bus-pulse-dashboard';
@@ -200,6 +200,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private makeModelRequestVersion = 0;
   private propulsionRequestVersion = 0;
   private vehicleStationRequestVersion = 0;
+  private stationTypeHeatmapRequestVersion = 0;
   private ticketsDashboardRequestVersion = 0;
   // Labels shown in the left column of widget-15 (vehicle list)
   vehicleStationLabels: string[] = [];
@@ -207,6 +208,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   vehicleStationPage = 1;
   readonly vehicleStationPageSize = 500;
   vehicleStationHasNextPage = false;
+  stationTypeHeatmapPage = 1;
+  readonly stationTypeHeatmapPageSize = 500;
+  stationTypeHeatmapHasNextPage = false;
+
+  private readonly stationTypeColorMap: Record<string, string> = {
+    production: '#8fa89a',
+    final: '#b7e4c7',
+    shipped: '#1b5e20',
+    client: '#2f855a',
+    none: '#a3b86c',
+    unspecified: '#a3b86c',
+  };
 
   private readonly mouseMoveHandler = (event: MouseEvent) => this.onMouseMove(event);
   private readonly mouseUpHandler = () => this.ngZone.run(() => this.onMouseUp());
@@ -443,6 +456,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedProject = projectId;
     this.selectedVehicle = 'all';
     this.resetVehicleStationTrackingPaging();
+    this.resetStationTypeHeatmapPaging();
     this.updateQueryParams();
     this.updateDashboardMapView();
     this.updateProjectStatusChart(this.projects);
@@ -454,6 +468,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.fetchAllClientVehiclesAndTickets();
       this.refreshClientView();
     }
+
+    if (this.selectedProject === 'all') {
+      this.refreshProjectsByStationTypeWidgetFromFilters();
+    }
+
     // refresh vehicle station tracking when project changes
     this.refreshVehicleStationTrackingWidget();
   }
@@ -508,6 +527,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedProject = 'all';
     this.selectedVehicle = 'all';
     this.totalVehiclesCount = null;
+    this.resetStationTypeHeatmapPaging();
     this.projects = [{ id: 'all', name: 'All Projects' }];
     this.vehicles = [{ id: 'all', name: 'All Vehicles' }];
 
@@ -531,6 +551,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.fetchAllClientVehiclesAndTickets();
       this.refreshClientView();
     }
+
+    if (this.selectedProject === 'all') {
+      this.refreshProjectsByStationTypeWidgetFromFilters();
+    }
+
     this.refreshVehicleStationTrackingWidget();
   }
 
@@ -632,6 +657,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return false;
     }
 
+    if (widget.id === 'widget-11' && this.selectedProject !== 'all') {
+      return false;
+    }
+
     // Admins always see all widgets
     if (this.isAdminRole) return true;
 
@@ -697,6 +726,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.vehicleStationPage > 1;
   }
 
+  get hasStationTypeHeatmapPreviousPage(): boolean {
+    return this.stationTypeHeatmapPage > 1;
+  }
+
   previousVehicleStationTrackingPage(): void {
     if (!this.hasVehicleStationPreviousPage) {
       return;
@@ -713,9 +746,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.refreshVehicleStationTrackingWidget();
   }
 
+  previousStationTypeHeatmapPage(): void {
+    if (!this.hasStationTypeHeatmapPreviousPage) {
+      return;
+    }
+
+    this.stationTypeHeatmapPage -= 1;
+    this.refreshProjectsByStationTypeWidget(this.getVisibleProjectOptionsForStationTypeHeatmap());
+  }
+
+  nextStationTypeHeatmapPage(): void {
+    if (!this.stationTypeHeatmapHasNextPage) {
+      return;
+    }
+
+    this.stationTypeHeatmapPage += 1;
+    this.refreshProjectsByStationTypeWidget(this.getVisibleProjectOptionsForStationTypeHeatmap());
+  }
+
   private resetVehicleStationTrackingPaging(): void {
     this.vehicleStationPage = 1;
     this.vehicleStationHasNextPage = false;
+  }
+
+  private resetStationTypeHeatmapPaging(): void {
+    this.stationTypeHeatmapPage = 1;
+    this.stationTypeHeatmapHasNextPage = false;
   }
 
   get fullscreenWidget(): DashboardWidget | undefined {
@@ -1426,12 +1482,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private updateProjectScopedComparisonWidgets(): void {
     if (!this.widgets.length) return;
 
-    const projectNames = this.projects
-      .filter((project) => String(project.id ?? '').toLowerCase() !== 'all')
-      .map((project) => String(project.name ?? '').trim())
-      .filter((name) => !!name);
+    const projectOptions = this.getVisibleProjectOptionsForStationTypeHeatmap();
+
+    const projectNames = projectOptions.map((project) => project.name);
 
     if (!projectNames.length) {
+      this.stationTypeHeatmapHasNextPage = false;
+      this.refreshProjectsByStationTypeWidget([]);
       return;
     }
 
@@ -1464,16 +1521,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
             data: fitSeriesData(seriesItem?.data, widget10ProjectNames.length),
           }))
         : [],
-    };
-
-    const templateWidget11 = busPulseData.projectsByStationHeatmap as any;
-    const templateHeatmapSeries = Array.isArray(templateWidget11?.series) ? templateWidget11.series : [];
-    const widget11Options = {
-      ...templateWidget11,
-      series: widget10ProjectNames.map((projectName, index) => ({
-        ...(templateHeatmapSeries[index % Math.max(templateHeatmapSeries.length, 1)] ?? {}),
-        name: projectName,
-      })),
     };
 
     const templateWidget12 = busPulseData.stationTimeComparisonChart as any;
@@ -1524,12 +1571,329 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.widgets = this.widgets.map((widget) => {
       if (widget.id === 'widget-10') return { ...widget, chartOptions: widget10Options, loading: false };
-      if (widget.id === 'widget-11') return { ...widget, chartOptions: widget11Options, loading: false };
+      if (widget.id === 'widget-11') return { ...widget, loading: true };
       if (widget.id === 'widget-12') return { ...widget, chartOptions: widget12Options, loading: false };
       if (widget.id === 'widget-13') return { ...widget, chartOptions: widget13Options, loading: false };
       if (widget.id === 'widget-15') return { ...widget, chartOptions: widget15Options, loading: false };
       return widget;
     });
+
+    this.refreshProjectsByStationTypeWidget(projectOptions);
+  }
+
+  private refreshProjectsByStationTypeWidget(projects: Array<{ id: string; name: string }>): void {
+    const requestVersion = ++this.stationTypeHeatmapRequestVersion;
+
+    if (!projects.length) {
+      const fallbackOptions = this.buildProjectsByStationTypeHeatmapOptions([], new Map());
+      this.stationTypeHeatmapHasNextPage = false;
+      this.widgets = this.widgets.map((widget) => (
+        widget.id === 'widget-11'
+          ? { ...widget, chartOptions: fallbackOptions, loading: false }
+          : widget
+      ));
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const pageSize = this.stationTypeHeatmapPageSize;
+    const pageNumber = this.stationTypeHeatmapPage;
+
+    void (async () => {
+      const projectResults: Array<{ projectId: string; items: any[]; hasNext: boolean }> = [];
+
+      for (const project of projects) {
+        if (requestVersion !== this.stationTypeHeatmapRequestVersion) {
+          return;
+        }
+
+        const setResult = await this.fetchStationTrackerSetForProject(
+          project.id,
+          pageNumber,
+          pageSize,
+          requestVersion,
+        );
+        projectResults.push({ projectId: project.id, items: setResult.items, hasNext: setResult.hasNext });
+      }
+
+      if (requestVersion !== this.stationTypeHeatmapRequestVersion) {
+        return;
+      }
+
+      const recordsByProjectId = new Map<string, any[]>(
+        projectResults.map((entry) => [entry.projectId, Array.isArray(entry.items) ? entry.items : []]),
+      );
+      this.stationTypeHeatmapHasNextPage = projectResults.some((entry) => entry.hasNext);
+
+      const chartOptions = this.buildProjectsByStationTypeHeatmapOptions(projects, recordsByProjectId);
+      this.widgets = this.widgets.map((widget) => (
+        widget.id === 'widget-11'
+          ? { ...widget, chartOptions, loading: false }
+          : widget
+      ));
+      this.cdr.markForCheck();
+    })().catch(() => {
+      if (requestVersion !== this.stationTypeHeatmapRequestVersion) {
+        return;
+      }
+
+      const fallbackOptions = this.buildProjectsByStationTypeHeatmapOptions(projects, new Map());
+      this.stationTypeHeatmapHasNextPage = false;
+      this.widgets = this.widgets.map((widget) => (
+        widget.id === 'widget-11'
+          ? { ...widget, chartOptions: fallbackOptions, loading: false }
+          : widget
+      ));
+      try {
+        this.toastService.show('Failed to load station type comparison data', { classname: 'bg-warning text-dark', autohide: true });
+      } catch { }
+      this.cdr.markForCheck();
+    });
+  }
+
+  private refreshProjectsByStationTypeWidgetFromFilters(): void {
+    // Re-run widget-11 loading and paging state after filter changes that return to All Projects.
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-11'
+        ? { ...widget, loading: true }
+        : widget
+    ));
+
+    this.refreshProjectsByStationTypeWidget(this.getVisibleProjectOptionsForStationTypeHeatmap());
+  }
+
+  private async fetchStationTrackerSetForProject(
+    projectId: string,
+    pageNumber: number,
+    pageSize: number,
+    requestVersion: number,
+  ): Promise<{ items: any[]; hasNext: boolean }> {
+    if (requestVersion !== this.stationTypeHeatmapRequestVersion) {
+      return { items: [], hasNext: false };
+    }
+
+    const pageItems = await firstValueFrom(this.dashboardProjectsService.getStationTrackers({
+      projectId,
+      page: pageNumber,
+      pageSize,
+      orderBy: 'id',
+      orderDirection: 'desc',
+    }));
+
+    const normalizedPageItems = Array.isArray(pageItems) ? pageItems : [];
+    return {
+      items: normalizedPageItems,
+      hasNext: normalizedPageItems.length >= pageSize,
+    };
+  }
+
+  private buildProjectsByStationTypeHeatmapOptions(
+    projects: Array<{ id: string; name: string }>,
+    recordsByProjectId: Map<string, any[]>,
+  ): unknown {
+    const template = busPulseData.projectsByStationHeatmap as any;
+    const yAxisLabelColorRaw = template?.yaxis?.labels?.style?.colors;
+    const xAxisLabelColorRaw = template?.xaxis?.labels?.style?.colors;
+    const yAxisLabelColor = Array.isArray(yAxisLabelColorRaw) ? yAxisLabelColorRaw[0] : yAxisLabelColorRaw;
+    const xAxisLabelColor = Array.isArray(xAxisLabelColorRaw) ? xAxisLabelColorRaw[0] : xAxisLabelColorRaw;
+    const heatmapCountLabelColor = String(yAxisLabelColor ?? xAxisLabelColor ?? '#5b7e2f');
+    const countsByProject = new Map<string, Map<string, number>>();
+    const vehiclesByProject = new Map<string, Map<string, Set<string>>>();
+    const stationTypeSet = new Set<string>();
+
+    projects.forEach((project) => {
+      const nextCounts = new Map<string, number>();
+      const nextVehicles = new Map<string, Set<string>>();
+      countsByProject.set(project.id, nextCounts);
+      vehiclesByProject.set(project.id, nextVehicles);
+
+      const records = recordsByProjectId.get(project.id) ?? [];
+      records.forEach((record) => {
+        const stationTypeName = this.normalizeStationTypeName(
+          record?.stationTypeName ?? record?.station_type_name ?? record?.stationType,
+        );
+        const vehicleId = String(
+          record?.vehicleId ?? record?.vehicleID ?? record?.vehicle_id ?? '',
+        ).trim();
+
+        stationTypeSet.add(stationTypeName);
+        nextCounts.set(stationTypeName, (nextCounts.get(stationTypeName) ?? 0) + 1);
+
+        if (!nextVehicles.has(stationTypeName)) {
+          nextVehicles.set(stationTypeName, new Set<string>());
+        }
+        if (vehicleId) {
+          nextVehicles.get(stationTypeName)?.add(vehicleId);
+        }
+      });
+    });
+
+    const stationTypes = Array.from(stationTypeSet).sort((left, right) => left.localeCompare(right));
+    const heatmapCategories = stationTypes.length ? stationTypes : ['No Data'];
+    const maxDisplayCount = projects.reduce((maxValue, project) => {
+      const projectCounts = countsByProject.get(project.id) ?? new Map<string, number>();
+      const projectMax = heatmapCategories.reduce((innerMax, stationType) => {
+        const nextValue = Number(projectCounts.get(stationType) ?? 0);
+        return Number.isFinite(nextValue) ? Math.max(innerMax, nextValue) : innerMax;
+      }, 0);
+      return Math.max(maxValue, projectMax);
+    }, 0);
+
+    let pointColorKey = 1;
+    const pointColorRanges: Array<{ from: number; to: number; color: string; name: string }> = [];
+
+    const series = projects.map((project) => {
+      const projectCounts = countsByProject.get(project.id) ?? new Map<string, number>();
+      return {
+        name: project.name,
+        data: heatmapCategories.map((stationType) => {
+          const count = Number(projectCounts.get(stationType) ?? 0);
+          const projectVehicles = vehiclesByProject.get(project.id) ?? new Map<string, Set<string>>();
+          const vehicleCount = projectVehicles.get(stationType)?.size ?? 0;
+          const baseColor = this.resolveStationTypeColor(stationType);
+          const colorStrength = this.resolveStationTypeCellStrength(count, maxDisplayCount);
+          const encodedColorValue = pointColorKey++;
+
+          pointColorRanges.push({
+            from: encodedColorValue,
+            to: encodedColorValue,
+            // Use opaque shades (not alpha) so low/high counts are visibly different in Apex heatmap.
+            color: this.blendHexWithWhite(baseColor, colorStrength),
+            name: stationType,
+          });
+
+          return {
+            x: stationType,
+            // Encode y as a per-cell key so colorScale can apply per-point opacity.
+            y: encodedColorValue,
+            metaCount: Number.isFinite(count) ? count : 0,
+            metaVehicleCount: Number.isFinite(vehicleCount) ? vehicleCount : 0,
+          };
+        }),
+      };
+    });
+
+    return {
+      ...template,
+      colors: heatmapCategories.map((stationType) => this.resolveStationTypeColor(stationType)),
+      xaxis: {
+        ...(template?.xaxis ?? {}),
+        categories: heatmapCategories,
+        title: {
+          ...(template?.xaxis?.title ?? {}),
+          text: 'Station Type',
+        },
+      },
+      yaxis: {
+        ...(template?.yaxis ?? {}),
+        title: {
+          ...(template?.yaxis?.title ?? {}),
+          text: 'Projects',
+        },
+      },
+      plotOptions: {
+        ...(template?.plotOptions ?? {}),
+        heatmap: {
+          ...(template?.plotOptions?.heatmap ?? {}),
+          shadeIntensity: 0,
+          enableShades: false,
+          distributed: false,
+          useFillColorAsStroke: true,
+          colorScale: {
+            ...(template?.plotOptions?.heatmap?.colorScale ?? {}),
+            inverse: false,
+            ranges: pointColorRanges,
+          },
+        },
+      },
+      fill: {
+        ...(template?.fill ?? {}),
+        opacity: 1,
+      },
+      dataLabels: {
+        ...(template?.dataLabels ?? {}),
+        enabled: true,
+        formatter: (_value: number, opts: any) => {
+          const point = opts?.w?.config?.series?.[opts?.seriesIndex]?.data?.[opts?.dataPointIndex];
+          const rawCount = Number(point?.metaCount ?? 0);
+          return Number.isFinite(rawCount) ? String(rawCount) : '0';
+        },
+        style: {
+          ...(template?.dataLabels?.style ?? {}),
+          colors: [heatmapCountLabelColor],
+        },
+      },
+      tooltip: {
+        ...(template?.tooltip ?? {}),
+        custom: ({ seriesIndex, dataPointIndex, w }: any) => {
+          const point = w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex];
+          const projectName = String(w?.config?.series?.[seriesIndex]?.name ?? 'Project').trim() || 'Project';
+          const stationType = String(point?.x ?? 'Station Type').trim() || 'Station Type';
+          const rawCount = Number(point?.metaCount ?? 0);
+          const rawVehicleCount = Number(point?.metaVehicleCount ?? 0);
+          const count = Number.isFinite(rawCount) ? rawCount : 0;
+          const vehicleCount = Number.isFinite(rawVehicleCount) ? rawVehicleCount : 0;
+
+          return `<div class="apexcharts-tooltip-rangebar" style="padding:8px 10px;">` +
+            `<div><strong>Project:</strong> ${projectName}</div>` +
+            `<div><strong>Station Type:</strong> ${stationType}</div>` +
+            `<div><strong>Number of Station Tracker Records:</strong> ${count}</div>` +
+            `<div><strong>Unique Vehicles in This Station Type:</strong> ${vehicleCount}</div>` +
+            `</div>`;
+        },
+      },
+      legend: {
+        ...(template?.legend ?? {}),
+        show: true,
+        customLegendItems: heatmapCategories,
+        markers: {
+          ...(template?.legend?.markers ?? {}),
+          fillColors: heatmapCategories.map((stationType) => this.resolveStationTypeColor(stationType)),
+        },
+      },
+      series,
+    };
+  }
+
+  private normalizeStationTypeName(value: unknown): string {
+    const stationTypeName = String(value ?? '').trim();
+    return stationTypeName || 'Unspecified';
+  }
+
+  private resolveStationTypeColor(stationTypeName: string): string {
+    const key = String(stationTypeName ?? '').trim().toLowerCase();
+    return this.stationTypeColorMap[key] ?? '#95c097';
+  }
+
+  private resolveStationTypeCellStrength(count: number, maxCount: number): number {
+    const safeCount = Number.isFinite(count) ? Math.max(0, count) : 0;
+    const safeMax = Number.isFinite(maxCount) ? Math.max(0, maxCount) : 0;
+    const minStrength = 0.3;
+
+    if (safeMax <= 0) {
+      return minStrength;
+    }
+
+    const normalized = Math.min(1, safeCount / safeMax);
+    return minStrength + (0.7 * normalized);
+  }
+
+  private blendHexWithWhite(hexColor: string, strength: number): string {
+    const normalizedHex = String(hexColor ?? '').trim().replace('#', '');
+    const safeStrength = Math.max(0, Math.min(1, Number.isFinite(strength) ? strength : 1));
+
+    if (!/^[0-9a-fA-F]{6}$/.test(normalizedHex)) {
+      return '#95c097';
+    }
+
+    const r = Number.parseInt(normalizedHex.slice(0, 2), 16);
+    const g = Number.parseInt(normalizedHex.slice(2, 4), 16);
+    const b = Number.parseInt(normalizedHex.slice(4, 6), 16);
+
+    const blend = (channel: number): number => Math.round(255 - ((255 - channel) * safeStrength));
+    const toHex = (channel: number): string => blend(channel).toString(16).padStart(2, '0');
+
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   }
 
 
@@ -1607,17 +1971,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         const minVisibleDurationMs = 6 * 60 * 60 * 1000;
         const seriesData: any[] = [];
         let colorIndex = 0;
-        const stationTypeColorMap: Record<string, string> = {
-          production: '#8fa89a',
-          final: '#b7e4c7',
-          shipped: '#1b5e20',
-          client: '#2f855a',
-          none: '#a3b86c',
-        };
-
         const getStationTypeColor = (stationTypeName: string): string => {
-          const key = String(stationTypeName ?? '').trim().toLowerCase();
-          return stationTypeColorMap[key] ?? palette[(colorIndex++) % palette.length];
+          const fromMap = this.resolveStationTypeColor(stationTypeName);
+          return fromMap || palette[(colorIndex++) % palette.length];
         };
 
         // Determine the authoritative list of vehicles to display on the Y axis.
@@ -2861,6 +3217,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.projects
       .map((project) => String(project.id ?? '').trim())
       .filter((projectId) => !!projectId && projectId.toLowerCase() !== 'all');
+  }
+
+  private getVisibleProjectOptionsForStationTypeHeatmap(): Array<{ id: string; name: string }> {
+    return this.projects
+      .filter((project) => String(project.id ?? '').trim().toLowerCase() !== 'all')
+      .map((project) => ({
+        id: String(project.id ?? '').trim(),
+        name: String(project.name ?? '').trim(),
+      }))
+      .filter((project) => !!project.id && !!project.name);
   }
 
   private normalizeTicketsByStatusShape(input: any): Array<{ name: string; value: number }> {

@@ -169,6 +169,35 @@
                   </div>
                 </div>
                 <div class="widget-header-actions">
+                  <ng-container *ngIf="widget.id === 'widget-11'">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="previousStationTypeHeatmapPage()"
+                      [disabled]="widget.loading || !hasStationTypeHeatmapPreviousPage"
+                      title="Previous page"
+                      aria-label="Previous page"
+                    >
+                      <i class="ti ti-chevron-left"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="nextStationTypeHeatmapPage()"
+                      [disabled]="widget.loading || !stationTypeHeatmapHasNextPage"
+                      title="Next page"
+                      aria-label="Next page"
+                    >
+                      <i class="ti ti-chevron-right"></i>
+                    </button>
+                    <span
+                      class="small text-muted"
+                      title="Showing station type record set {{ stationTypeHeatmapPage }}. Data is split into sets so the chart loads faster and stays responsive."
+                    >
+                      Record Set {{ stationTypeHeatmapPage }} ({{ stationTypeHeatmapPageSize }} timelines per set)
+                    </span>
+                  </ng-container>
+
                   <ng-container *ngIf="widget.id === 'widget-15'">
                     <button
                       type="button"
@@ -400,6 +429,35 @@
         <div class="fullscreen-header" *ngIf="fullscreenWidget">
           <h3>{{ fullscreenWidget.title }}</h3>
           <div class="d-flex align-items-center gap-2">
+            <ng-container *ngIf="fullscreenWidget.id === 'widget-11'">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="previousStationTypeHeatmapPage()"
+                [disabled]="fullscreenWidget.loading || !hasStationTypeHeatmapPreviousPage"
+                title="Previous page"
+                aria-label="Previous page"
+              >
+                <i class="ti ti-chevron-left"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="nextStationTypeHeatmapPage()"
+                [disabled]="fullscreenWidget.loading || !stationTypeHeatmapHasNextPage"
+                title="Next page"
+                aria-label="Next page"
+              >
+                <i class="ti ti-chevron-right"></i>
+              </button>
+              <span
+                class="small text-muted"
+                title="Showing station type record set {{ stationTypeHeatmapPage }}. Data is split into sets so the chart loads faster and stays responsive."
+              >
+                Record Set {{ stationTypeHeatmapPage }} ({{ stationTypeHeatmapPageSize }} timelines per set)
+              </span>
+            </ng-container>
+
             <ng-container *ngIf="fullscreenWidget.id === 'widget-15'">
               <button
                 type="button"
