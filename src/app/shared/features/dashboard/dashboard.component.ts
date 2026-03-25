@@ -1953,10 +1953,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const template = busPulseData.stationTimeComparisonChart as any;
     const msPerDay = 24 * 60 * 60 * 1000;
     const minVisibleDurationDays = 0.35;
-    const minVisibleNoDurationDays = 0.5;
     const preferredStationTypeOrder = ['Client', 'Production', 'Shipped', 'Final', 'None', 'Unspecified'];
     const stationTypeSet = new Set<string>();
-    const valuesByProjectId = new Map<string, Map<string, number>>();
+    const totalDurationsByProjectId = new Map<string, Map<string, number>>();
+    const averageDurationsByProjectId = new Map<string, Map<string, number>>();
     const vehicleCountsByProjectId = new Map<string, Map<string, number>>();
     const recordCountsByProjectId = new Map<string, Map<string, number>>();
     const boundsByProjectId = new Map<string, Map<string, { earliestStartMs: number | null; latestEndMs: number | null }>>();
@@ -1988,33 +1988,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
       const perTypeBounds = new Map<string, { earliestStartMs: number | null; latestEndMs: number | null }>();
 
       records.forEach((record, recordIndex) => {
-        const stationType = this.normalizeStationTypeName(
-          record?.stationTypeName ?? record?.station_type_name ?? record?.stationType,
-        );
-        // Keep station type visible at project-level even when timeline fields are partially missing.
-        stationTypeSet.add(stationType);
-        perTypeRecordCount.set(stationType, (perTypeRecordCount.get(stationType) ?? 0) + 1);
-
         const startMs = getFirstValidDateMs(record, startDateKeys);
         const endMs = getFirstValidDateMs(record, endDateKeys);
 
-        const nextBounds = perTypeBounds.get(stationType) ?? { earliestStartMs: null, latestEndMs: null };
-        if (startMs !== null) {
-          nextBounds.earliestStartMs = nextBounds.earliestStartMs === null
-            ? startMs
-            : Math.min(nextBounds.earliestStartMs, startMs);
-        }
-        if (endMs !== null) {
-          nextBounds.latestEndMs = nextBounds.latestEndMs === null
-            ? endMs
-            : Math.max(nextBounds.latestEndMs, endMs);
-        }
-        perTypeBounds.set(stationType, nextBounds);
-
+        // Ignore records with incomplete timeline data.
         if (startMs === null || endMs === null) {
           return;
         }
 
+        const stationType = this.normalizeStationTypeName(
+          record?.stationTypeName ?? record?.station_type_name ?? record?.stationType,
+        );
+        stationTypeSet.add(stationType);
+        perTypeRecordCount.set(stationType, (perTypeRecordCount.get(stationType) ?? 0) + 1);
+
+        const nextBounds = perTypeBounds.get(stationType) ?? { earliestStartMs: null, latestEndMs: null };
+        nextBounds.earliestStartMs = nextBounds.earliestStartMs === null
+          ? startMs
+          : Math.min(nextBounds.earliestStartMs, startMs);
+        nextBounds.latestEndMs = nextBounds.latestEndMs === null
+          ? endMs
+          : Math.max(nextBounds.latestEndMs, endMs);
+        perTypeBounds.set(stationType, nextBounds);
         // Use date-only math (ignore time-of-day) and enforce a 1-day minimum for valid pairs.
         const startDateOnly = new Date(startMs);
         const endDateOnly = new Date(endMs);
@@ -2032,15 +2027,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
       });
 
       const perTypeTotal = new Map<string, number>();
+      const perTypeAverage = new Map<string, number>();
       const perTypeVehicleCount = new Map<string, number>();
 
       perTypeTotalDays.forEach((totalDays, stationType) => {
         const safeTotalDays = Number.isFinite(totalDays) && totalDays >= 0 ? totalDays : 0;
+        const uniqueVehicleCount = perTypeVehiclesWithDuration.get(stationType)?.size ?? 0;
+        const averagePerVehicle = uniqueVehicleCount > 0 ? (safeTotalDays / uniqueVehicleCount) : 0;
         perTypeTotal.set(stationType, safeTotalDays);
-        perTypeVehicleCount.set(stationType, perTypeVehiclesWithDuration.get(stationType)?.size ?? 0);
+        perTypeAverage.set(stationType, averagePerVehicle);
+        perTypeVehicleCount.set(stationType, uniqueVehicleCount);
       });
 
-      valuesByProjectId.set(project.id, perTypeTotal);
+      totalDurationsByProjectId.set(project.id, perTypeTotal);
+      averageDurationsByProjectId.set(project.id, perTypeAverage);
       vehicleCountsByProjectId.set(project.id, perTypeVehicleCount);
       recordCountsByProjectId.set(project.id, perTypeRecordCount);
       boundsByProjectId.set(project.id, perTypeBounds);
@@ -2053,6 +2053,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const stationTypes = [...orderedStationTypes, ...extraStationTypes];
     const safeStationTypes = stationTypes.length ? stationTypes : ['Unspecified'];
     const safeProjects = projects.length ? projects : [{ id: 'no-project-data', name: 'No Project Data' }];
+    const comparisonRowHeightPx = 28;
+    const comparisonMinHeightPx = 760;
+    const comparisonMaxHeightPx = 3200;
+    const comparisonBaseHeightPx = 180;
+    const comparisonMinWidthPx = 1600;
+    const comparisonMaxWidthPx = 4200;
+    const comparisonBaseWidthPx = 1100;
+    const comparisonPerProjectWidthPx = 16;
+    const calculatedComparisonHeight = Math.min(
+      comparisonMaxHeightPx,
+      Math.max(comparisonMinHeightPx, comparisonBaseHeightPx + (safeProjects.length * comparisonRowHeightPx)),
+    );
+    const calculatedComparisonWidth = Math.min(
+      comparisonMaxWidthPx,
+      Math.max(comparisonMinWidthPx, comparisonBaseWidthPx + (safeProjects.length * comparisonPerProjectWidthPx)),
+    );
 
     const formatDateOnly = (epochMs: number | null): string => {
       if (epochMs === null || !Number.isFinite(epochMs)) {
@@ -2082,16 +2098,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const series = safeStationTypes.map((stationType) => ({
       name: stationType,
       data: safeProjects.map((project) => {
-        const valueFromDurations = valuesByProjectId.get(project.id)?.get(stationType);
-        const hasValidDuration = typeof valueFromDurations === 'number' && Number.isFinite(valueFromDurations);
-        const value = hasValidDuration ? Math.max(0, Number(valueFromDurations)) : 0;
+        const totalDurationRaw = totalDurationsByProjectId.get(project.id)?.get(stationType);
+        const averageDurationRaw = averageDurationsByProjectId.get(project.id)?.get(stationType);
+        const hasValidDuration = typeof averageDurationRaw === 'number' && Number.isFinite(averageDurationRaw);
+        const totalDuration = Number.isFinite(Number(totalDurationRaw)) ? Math.max(0, Number(totalDurationRaw)) : 0;
+        const averageDuration = hasValidDuration ? Math.max(0, Number(averageDurationRaw)) : 0;
         const rawRecordCount = Number(recordCountsByProjectId.get(project.id)?.get(stationType) ?? 0);
         const recordCount = Number.isFinite(rawRecordCount) ? Math.max(0, Math.round(rawRecordCount)) : 0;
         const renderedValue = hasValidDuration
-          ? (recordCount > 0 && value <= 0
-            ? minVisibleDurationDays
-            : (value > 0 && value < minVisibleDurationDays ? minVisibleDurationDays : value))
-          : (recordCount > 0 ? minVisibleNoDurationDays : 0);
+          ? (averageDuration > 0 && averageDuration < minVisibleDurationDays ? minVisibleDurationDays : averageDuration)
+          : 0;
         const vehicleCountRaw = Number(vehicleCountsByProjectId.get(project.id)?.get(stationType) ?? 0);
         const vehicleCount = Number.isFinite(vehicleCountRaw) ? Math.max(0, Math.round(vehicleCountRaw)) : 0;
         const bounds = boundsByProjectId.get(project.id)?.get(stationType) ?? { earliestStartMs: null, latestEndMs: null };
@@ -2101,7 +2117,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
           x: project.name,
           y: renderedValue,
           metaProjectName: project.name,
-          metaTotalDurationDays: hasValidDuration ? value : null,
+          metaTotalDurationDays: hasValidDuration ? totalDuration : null,
+          metaAverageDurationDays: hasValidDuration ? averageDuration : null,
           metaHasValidDuration: hasValidDuration,
           metaRecordCount: recordCount,
           metaVehicleCount: vehicleCount,
@@ -2113,16 +2130,49 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     return {
       ...template,
+      chart: {
+        ...(template?.chart ?? {}),
+        height: calculatedComparisonHeight,
+        width: calculatedComparisonWidth,
+        toolbar: {
+          ...(template?.chart?.toolbar ?? {}),
+          show: false,
+        },
+      },
+      plotOptions: {
+        ...(template?.plotOptions ?? {}),
+        bar: {
+          ...(template?.plotOptions?.bar ?? {}),
+          barHeight: template?.plotOptions?.bar?.barHeight ?? '68%',
+        },
+      },
+      grid: {
+        ...(template?.grid ?? {}),
+        padding: {
+          ...(template?.grid?.padding ?? {}),
+          left: 18,
+          right: 20,
+          bottom: 24,
+        },
+      },
       colors: safeStationTypes.map((stationType) => this.resolveStationTypeColor(stationType)),
       xaxis: {
         ...(template?.xaxis ?? {}),
         type: 'numeric',
+        tickAmount: 8,
         title: {
           ...(template?.xaxis?.title ?? {}),
-          text: 'Time (days)',
+          text: 'Average Duration per Vehicle (days)',
+          offsetY: 10,
         },
         labels: {
           ...(template?.xaxis?.labels ?? {}),
+          rotate: 0,
+          trim: false,
+          style: {
+            ...(template?.xaxis?.labels?.style ?? {}),
+            fontSize: '11px',
+          },
           formatter: (value: number) => {
             const numeric = Number(value ?? 0);
             return Number.isFinite(numeric) ? numeric.toFixed(1) : '0.0';
@@ -2134,6 +2184,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
         title: {
           ...(template?.yaxis?.title ?? {}),
           text: 'Projects',
+        },
+        labels: {
+          ...(template?.yaxis?.labels ?? {}),
+          minWidth: 220,
+          maxWidth: 280,
+          align: 'left',
+          trim: true,
+          offsetX: 0,
+          style: {
+            ...(template?.yaxis?.labels?.style ?? {}),
+            fontSize: '12px',
+            fontWeight: 500,
+          },
         },
       },
       tooltip: {
@@ -2153,23 +2216,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
           const stationType = String(w?.config?.series?.[seriesIndex]?.name ?? 'Station Type').trim() || 'Station Type';
           const projectName = String(point?.metaProjectName ?? point?.x ?? 'Project').trim() || 'Project';
           const hasValidDuration = point?.metaHasValidDuration !== false;
-          const rawDuration = Number(point?.metaTotalDurationDays ?? point?.y ?? 0);
-          const totalDuration = Number.isFinite(rawDuration) ? Math.max(0, rawDuration) : 0;
+          const rawTotalDuration = Number(point?.metaTotalDurationDays ?? 0);
+          const totalDuration = Number.isFinite(rawTotalDuration) ? Math.max(0, rawTotalDuration) : 0;
+          const rawAverageDuration = Number(point?.metaAverageDurationDays ?? 0);
+          const averageDuration = Number.isFinite(rawAverageDuration) ? Math.max(0, rawAverageDuration) : 0;
+          const averageDurationRoundedUp = Math.ceil(averageDuration);
           const rawVehicleCount = Number(point?.metaVehicleCount ?? 0);
           const vehicleCount = Number.isFinite(rawVehicleCount) ? Math.max(0, Math.round(rawVehicleCount)) : 0;
           const earliestStart = String(point?.metaEarliestStart ?? 'N/A');
           const latestEnd = String(point?.metaLatestEnd ?? 'N/A');
-          const averageRoundedUp = vehicleCount > 0
-            ? Math.ceil(totalDuration / vehicleCount)
-            : null;
           const durationLine = hasValidDuration
             ? `<div><strong>Total Duration (All vehicles):</strong> ${formatTotalDurationDays(totalDuration)} days</div>`
             : `<div><strong>Total Duration (All vehicles):</strong> N/A</div>`;
-          const averageLine = hasValidDuration && averageRoundedUp !== null
-            ? `<div><strong>Average Duration (rounded up):</strong> ${averageRoundedUp} days</div>`
-            : `<div><strong>Average Duration (rounded up):</strong> N/A</div>`;
+          const averageLine = hasValidDuration && vehicleCount > 0
+            ? `<div><strong>Average Duration per Vehicle:</strong> ${averageDurationRoundedUp} days</div>`
+            : `<div><strong>Average Duration per Vehicle:</strong> N/A</div>`;
 
-          return `<div class="apexcharts-tooltip-rangebar" style="padding:8px 10px;">` +
+          return `<div class="apexcharts-tooltip-rangebar" style="padding:8px 10px; margin-top:10px; margin-left:6px;">` +
             `<div><strong>Project:</strong> ${projectName}</div>` +
             `<div><strong>Station Type:</strong> ${stationType}</div>` +
             `<div><strong>Earliest Start (across all vehicles):</strong> ${earliestStart}</div>` +
@@ -2180,6 +2243,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
             `</div>`;
         },
       },
+      // Expose host sizing so scroll wrappers can keep labels readable with large project sets.
+      __calculatedHostHeight: calculatedComparisonHeight,
+      __calculatedHostWidth: calculatedComparisonWidth,
       series,
     };
   }
@@ -2308,6 +2374,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .sort((a, b) => a.localeCompare(b));
     const stationTypes = [...orderedStationTypes, ...extraStationTypes];
     const heatmapCategories = stationTypes.length ? stationTypes : ['No Data'];
+    const safeProjects = projects.length ? projects : [{ id: 'no-project-data', name: 'No Project Data' }];
+    const heatmapRowHeightPx = 28;
+    const heatmapMinHeightPx = 760;
+    const heatmapMaxHeightPx = 3200;
+    const heatmapBaseHeightPx = 180;
+    const heatmapMinWidthPx = 1600;
+    const heatmapMaxWidthPx = 4200;
+    const heatmapBaseWidthPx = 1100;
+    const heatmapPerProjectWidthPx = 14;
+    const calculatedHeatmapHeight = Math.min(
+      heatmapMaxHeightPx,
+      Math.max(heatmapMinHeightPx, heatmapBaseHeightPx + (safeProjects.length * heatmapRowHeightPx)),
+    );
+    const calculatedHeatmapWidth = Math.min(
+      heatmapMaxWidthPx,
+      Math.max(heatmapMinWidthPx, heatmapBaseWidthPx + (safeProjects.length * heatmapPerProjectWidthPx)),
+    );
     const maxDisplayCount = projects.reduce((maxValue, project) => {
       const projectCounts = countsByProject.get(project.id) ?? new Map<string, number>();
       const projectMax = heatmapCategories.reduce((innerMax, stationType) => {
@@ -2353,6 +2436,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     return {
       ...template,
+      chart: {
+        ...(template?.chart ?? {}),
+        height: calculatedHeatmapHeight,
+        width: calculatedHeatmapWidth,
+        toolbar: {
+          ...(template?.chart?.toolbar ?? {}),
+          show: false,
+        },
+      },
+      grid: {
+        ...(template?.grid ?? {}),
+        padding: {
+          ...(template?.grid?.padding ?? {}),
+          left: 18,
+          right: 20,
+          bottom: 24,
+        },
+      },
       colors: heatmapCategories.map((stationType) => this.resolveStationTypeColor(stationType)),
       xaxis: {
         ...(template?.xaxis ?? {}),
@@ -2360,6 +2461,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
         title: {
           ...(template?.xaxis?.title ?? {}),
           text: 'Station Type',
+          offsetY: 10,
+        },
+        labels: {
+          ...(template?.xaxis?.labels ?? {}),
+          rotate: 0,
+          trim: false,
+          style: {
+            ...(template?.xaxis?.labels?.style ?? {}),
+            fontSize: '11px',
+          },
         },
       },
       yaxis: {
@@ -2367,6 +2478,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
         title: {
           ...(template?.yaxis?.title ?? {}),
           text: 'Projects',
+        },
+        labels: {
+          ...(template?.yaxis?.labels ?? {}),
+          minWidth: 220,
+          maxWidth: 280,
+          align: 'left',
+          trim: true,
+          style: {
+            ...(template?.yaxis?.labels?.style ?? {}),
+            fontSize: '12px',
+            fontWeight: 500,
+          },
         },
       },
       plotOptions: {
@@ -2429,6 +2552,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
           fillColors: heatmapCategories.map((stationType) => this.resolveStationTypeColor(stationType)),
         },
       },
+      // Expose host sizing so scroll wrappers can keep labels readable with large project sets.
+      __calculatedHostHeight: calculatedHeatmapHeight,
+      __calculatedHostWidth: calculatedHeatmapWidth,
       series,
     };
   }

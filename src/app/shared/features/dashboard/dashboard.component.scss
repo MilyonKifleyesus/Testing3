@@ -956,8 +956,15 @@
       0 1px 4px rgba(var(--dark-rgb), 0.04);
   }
 
+  &.widget-card {
+    // Prevent clipping of Apex tooltip near top/edges.
+    overflow: visible;
+  }
+
   // Card header
   .card-header {
+    position: relative;
+    z-index: 1;
     padding: 0.75rem 1rem;
     border-bottom: none;
     border-left: none;
@@ -1004,10 +1011,11 @@
     display: flex;
     flex-direction: column;
     // Keep Apex tooltips visible and hoverable near card edges.
-    // Widget-15 keeps its own scrolling container (`.widget-chart-scroll`).
+    // Widgets 12 and 15 keep their own scrolling containers (`.widget-chart-scroll`).
     overflow: visible;
     min-height: 0;
     position: relative;
+    z-index: 5;
 
     spk-apex-charts {
       display: flex;
@@ -1019,6 +1027,11 @@
           overflow: visible !important;
         }
 
+        .apexcharts-inner,
+        .apexcharts-graphical,
+        .apexcharts-plot-series {
+          overflow: visible !important;
+        }
         .apexcharts-canvas,
         .apexcharts-svg,
         svg {
@@ -1027,7 +1040,7 @@
         }
 
         .apexcharts-tooltip {
-          z-index: 30 !important;
+          z-index: 9999 !important;
           pointer-events: none;
         }
       }
@@ -1061,6 +1074,22 @@
   .widget-chart-scroll spk-apex-charts {
     min-width: 1200px;
     min-height: 600px;
+    display: block;
+  }
+
+  // Extended canvas for "Average Type of Time Comparison by Project" (widget-12)
+  // to keep dense project labels readable with both horizontal and vertical scrolling.
+  .widget-chart-scroll--comparison spk-apex-charts {
+    min-width: 1600px;
+    min-height: 760px;
+    display: block;
+  }
+
+  // Extended canvas for "Projects Comparison by Station Type" (widget-11)
+  // so dense project lists remain readable with both horizontal and vertical scrolling.
+  .widget-chart-scroll--station-heatmap spk-apex-charts {
+    min-width: 1600px;
+    min-height: 760px;
     display: block;
   }
 

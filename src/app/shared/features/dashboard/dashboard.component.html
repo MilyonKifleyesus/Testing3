@@ -286,17 +286,22 @@
                   </div>
                 </div>
 
-                <ng-container *ngIf="widget.id === 'widget-15'">
-                  <div class="widget-chart-scroll" [class.widget-content-blur]="widget.loading">
+                <ng-container *ngIf="widget.id === 'widget-15' || widget.id === 'widget-12' || widget.id === 'widget-11'">
+                  <div
+                    class="widget-chart-scroll"
+                    [class.widget-chart-scroll--comparison]="widget.id === 'widget-12'"
+                    [class.widget-chart-scroll--station-heatmap]="widget.id === 'widget-11'"
+                    [class.widget-content-blur]="widget.loading"
+                  >
                     <spk-apex-charts
                       *ngIf="widget.chartOptions"
                       [chartOptions]="widget.chartOptions"
-                      [style.height.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostHeight || widget.chartOptions.chart?.height)) || 600"
-                      [style.min-width.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostWidth || widget.chartOptions.chart?.width)) || 1200">
+                      [style.height.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostHeight || widget.chartOptions.chart?.height)) || (widget.id === 'widget-12' ? 760 : (widget.id === 'widget-11' ? 760 : 600))"
+                      [style.min-width.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostWidth || widget.chartOptions.chart?.width)) || (widget.id === 'widget-12' ? 1600 : (widget.id === 'widget-11' ? 1600 : 1200))">
                     </spk-apex-charts>
                   </div>
                 </ng-container>
-                <ng-container *ngIf="widget.id !== 'widget-15'">
+                <ng-container *ngIf="widget.id !== 'widget-15' && widget.id !== 'widget-12' && widget.id !== 'widget-11'">
                   <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions" [class.widget-content-blur]="widget.loading"></spk-apex-charts>
                 </ng-container>
 
@@ -558,7 +563,23 @@
         </div>
 
         <div class="fullscreen-content" *ngIf="fullscreenWidget">
-          <spk-apex-charts *ngIf="fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions"></spk-apex-charts>
+          <ng-container *ngIf="fullscreenWidget.id === 'widget-15' || fullscreenWidget.id === 'widget-12' || fullscreenWidget.id === 'widget-11'; else fullscreenDefaultChart">
+            <div
+              class="widget-chart-scroll"
+              [class.widget-chart-scroll--comparison]="fullscreenWidget.id === 'widget-12'"
+              [class.widget-chart-scroll--station-heatmap]="fullscreenWidget.id === 'widget-11'"
+            >
+              <spk-apex-charts
+                *ngIf="fullscreenWidget.chartOptions"
+                [chartOptions]="fullscreenWidget.chartOptions"
+                [style.height.px]="(fullscreenWidget.chartOptions && (fullscreenWidget.chartOptions.__calculatedHostHeight || fullscreenWidget.chartOptions.chart?.height)) || (fullscreenWidget.id === 'widget-12' ? 760 : (fullscreenWidget.id === 'widget-11' ? 760 : 600))"
+                [style.min-width.px]="(fullscreenWidget.chartOptions && (fullscreenWidget.chartOptions.__calculatedHostWidth || fullscreenWidget.chartOptions.chart?.width)) || (fullscreenWidget.id === 'widget-12' ? 1600 : (fullscreenWidget.id === 'widget-11' ? 1600 : 1200))"
+              ></spk-apex-charts>
+            </div>
+          </ng-container>
+          <ng-template #fullscreenDefaultChart>
+            <spk-apex-charts *ngIf="fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions"></spk-apex-charts>
+          </ng-template>
 
           <div *ngIf="fullscreenWidget.id === 'widget-map'" class="dashboard-map-widget dashboard-map-widget--fullscreen">
             <div class="dashboard-map-widget__summary" [class.dashboard-map-widget__summary--client]="!isAdminRole">
