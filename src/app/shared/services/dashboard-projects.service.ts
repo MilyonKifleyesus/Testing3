@@ -1,15 +1,17 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, catchError, forkJoin, map, of, shareReplay, switchMap } from 'rxjs';
+import { Observable, catchError, firstValueFrom, forkJoin, from, map, of, shareReplay, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { extractArrayFromApiResponse, getFirstDefinedValue, toOptionalText, toText } from '../utils/api-data.utils';
+import { aggregateTicketCreationActivity, DashboardTicketActivityResult } from '../features/dashboard/dashboard-ticket-activity.utils';
+import { parsePagedResponse } from './adapters/paged-response.adapter';
 
 export interface DashboardProjectOption {
   id: string;
   name: string;
-  clientId?: string;
   status?: string;
   isClosed?: boolean;
+  projectTypeId?: number;
 }
 
 export interface DashboardVehicleOption {
@@ -27,22 +29,68 @@ export interface DashboardVehicleMakeModelDatum {
   count: number;
 }
 
+export interface ProjectsByAreaEntry {
+  name: string;
+  data: number[];
+}
+
+export interface ProjectsByAreaPayload {
+  projectNames: string[];
+  areas: ProjectsByAreaEntry[];
+}
+
 export interface DashboardTicketsDashboardResult {
   totalTickets?: number;
   repeatedTickets?: number;
   safetyCriticalTickets?: number;
   repeatedPercent?: number;
   safetyCriticalPercent?: number;
+  projectsByArea?: ProjectsByAreaPayload;
   [key: string]: unknown;
+}
+
+export interface DashboardTicketActivityQuery {
+  projectId?: number | string;
+  vehicleId?: number | string;
+  userId?: number;
+  clientId?: number | string;
+  includeClosed?: boolean;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface DashboardStationTrackerQuery {
+  projectId?: string | number;
+  vehicleId?: string | number;
+  orderBy?: string;
+  orderDirection?: 'asc' | 'desc';
+  pageNumber?: number;
+  pageSize?: number;
+  startDate?: string;
+  endDate?: string;
+  refresh?: boolean;
+}
+
+export interface DashboardStationTrackersPageResult {
+  items: any[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  hasMore: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
 export class DashboardProjectsService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
   private readonly cacheTtlMs = 30000;
+  private readonly ticketActivitySourceCacheTtlMs = 5 * 60 * 1000;
   private readonly projectsCache = new Map<
     string,
     { expiresAt: number; observable: Observable<DashboardProjectOption[]> }
+  >();
+  private readonly allVehiclesCache = new Map<
+    string,
+    { expiresAt: number; observable: Observable<DashboardVehicleOptionsResult> }
   >();
   private readonly projectVehiclesCache = new Map<
     string,
@@ -52,9 +100,21 @@ export class DashboardProjectsService {
     string,
     { expiresAt: number; observable: Observable<any[]> }
   >();
-  private readonly rawVehiclesCache = new Map<
+  private readonly stationTrackersPageCache = new Map<
+    string,
+    { expiresAt: number; observable: Observable<DashboardStationTrackersPageResult> }
+  >();
+  private readonly ticketsDashboardCache = new Map<
+    string,
+    { expiresAt: number; observable: Observable<DashboardTicketsDashboardResult> }
+  >();
+  private readonly ticketActivitySourceCache = new Map<
     string,
     { expiresAt: number; observable: Observable<any[]> }
+  >();
+  private readonly ticketActivityCache = new Map<
+    string,
+    { expiresAt: number; observable: Observable<DashboardTicketActivityResult> }
   >();
 
   constructor(private http: HttpClient) {}
@@ -78,19 +138,34 @@ export class DashboardProjectsService {
       pageSize,
     } = params;
 
-    // Send 0 for filter IDs to mean "all" (matches API convention). No page/pageSize — API returns all.
-    const httpParams = new HttpParams()
-      .set('clientId', String(clientId ?? 0))
-      .set('projectTypeId', String(projectTypeId ?? 0))
-      .set('locationId', String(locationId ?? 0))
-      .set('includeClosed', String(includeClosed ?? false));
+    let httpParams = new HttpParams();
+    if (clientId !== undefined && clientId !== null) {
+      httpParams = httpParams.set('clientId', String(clientId));
+    }
+    if (projectTypeId !== undefined && projectTypeId !== null) {
+      httpParams = httpParams.set('projectTypeId', String(projectTypeId));
+    }
+    if (locationId !== undefined && locationId !== null) {
+      httpParams = httpParams.set('locationId', String(locationId));
+    }
+    if (includeClosed !== undefined && includeClosed !== null) {
+      httpParams = httpParams.set('includeClosed', String(includeClosed));
+    }
+    if (page !== undefined && page !== null) {
+      httpParams = httpParams.set('page', String(page));
+    }
+    if (pageSize !== undefined && pageSize !== null) {
+      httpParams = httpParams.set('pageSize', String(pageSize));
+    }
 
     const cacheKey = JSON.stringify({
       includeAllOption,
-      clientId: clientId ?? 0,
-      projectTypeId: projectTypeId ?? 0,
-      locationId: locationId ?? 0,
-      includeClosed: includeClosed ?? false,
+      clientId: clientId ?? null,
+      projectTypeId: projectTypeId ?? null,
+      locationId: locationId ?? null,
+      includeClosed: includeClosed ?? null,
+      page: page ?? null,
+      pageSize: pageSize ?? null,
     });
 
     return this.getCachedObservable(this.projectsCache, cacheKey, () =>
@@ -129,15 +204,14 @@ export class DashboardProjectsService {
                   item?.State ??
                   '',
                 ).trim() || undefined,
-                clientId: String(
-                  item?.clientId ??
-                  item?.ClientId ??
-                  item?.clientID ??
-                  item?.ClientID ??
-                  item?.client_id ??
-                  '',
-                ) || undefined,
                 isClosed: this.inferProjectClosedState(item),
+                projectTypeId: Number(
+                  item?.projectTypeId ??
+                  item?.ProjectTypeId ??
+                  item?.projectType_id ??
+                  item?.ProjectType_Id ??
+                  0,
+                ) || undefined,
               }))
               .filter((project: DashboardProjectOption) => project.id);
 
@@ -203,6 +277,8 @@ export class DashboardProjectsService {
         clientId,
         userId,
         includeClosed,
+        page,
+        pageSize,
       });
     }
 
@@ -244,7 +320,9 @@ export class DashboardProjectsService {
 
     return this.getCachedObservable(this.projectVehiclesCache, cacheKey, () =>
       this.http
-        .get<unknown>(`${this.apiBaseUrl}/projects/${encodedProjectId}/vehicles`)
+        .get<unknown>(`${this.apiBaseUrl}/projects/${encodedProjectId}/vehicles`, {
+          params: httpParams,
+        })
         .pipe(
           catchError(() =>
             this.http.get<unknown>(`${this.apiBaseUrl}/Projects/${encodedProjectId}/vehicles`, {
@@ -409,44 +487,6 @@ export class DashboardProjectsService {
     );
   }
 
-  getAllVehiclesForProjects(params: {
-    projectIds?: string[];
-    clientId?: number;
-    includeClosed?: boolean;
-  } = {}): Observable<any[]> {
-    const { projectIds, clientId, includeClosed } = params;
-    const normalizedProjectIds = Array.from(new Set(
-      (projectIds ?? [])
-        .map((id) => this.normalizeProjectId(id))
-        .filter((id) => !!id),
-    ));
-
-    if (normalizedProjectIds.length >= 1) {
-      return forkJoin(
-        normalizedProjectIds.map((projectId) => {
-          const encodedId = encodeURIComponent(projectId);
-          return this.http
-            .get<unknown>(`${this.apiBaseUrl}/projects/${encodedId}/vehicles`)
-            .pipe(
-              map((response) => extractArrayFromApiResponse(response)),
-              catchError(() => of([] as any[])),
-            );
-        }),
-      ).pipe(
-        map((arrays) => arrays.flat()),
-        catchError(() => of([] as any[])),
-      );
-    }
-
-    const httpParams = new HttpParams()
-      .set('clientId', String(clientId ?? 0))
-      .set('includeClosed', String(includeClosed ?? false));
-    return this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams }).pipe(
-      map((response) => extractArrayFromApiResponse(response)),
-      catchError(() => of([] as any[])),
-    );
-  }
-
   private getVehiclesDistributionData(
     params: {
       projectIds?: string[];
@@ -481,6 +521,8 @@ export class DashboardProjectsService {
       : this.getProjectOptions({
         clientId,
         includeClosed,
+        page: 1,
+        pageSize: 10000,
         includeAllOption: false,
       }).pipe(
         map((projects) => Array.from(new Set(
@@ -490,15 +532,29 @@ export class DashboardProjectsService {
         ))),
       );
 
-    const flatVehicles$ = () => this.getRawVehiclesCached({ clientId, userId, includeClosed });
-
     return projectIds$.pipe(
-      switchMap((resolvedProjectIds) =>
-        // Use a single flat /Vehicles call for chart data instead of one request per project.
-        flatVehicles$().pipe(
-          map((vehicles) => ({ resolvedProjectIds, vehicles })),
-        ),
-      ),
+      switchMap((resolvedProjectIds) => {
+        if (!resolvedProjectIds.length) {
+          return of({ resolvedProjectIds, vehicles: [] as any[] });
+        }
+
+        return forkJoin(
+          resolvedProjectIds.map((projectId) =>
+            this.getProjectVehiclesRaw(projectId, {
+              clientId,
+              userId,
+              includeClosed,
+              page,
+              pageSize,
+            }),
+          ),
+        ).pipe(
+          map((responses) => ({
+            resolvedProjectIds,
+            vehicles: responses.flat(),
+          })),
+        );
+      }),
       map(({ resolvedProjectIds, vehicles }) => {
         const filteredVehicles = this.filterVehiclesByProjectIds(vehicles, resolvedProjectIds);
         const seenVehicleKeys = new Set<string>();
@@ -567,6 +623,48 @@ export class DashboardProjectsService {
           { label: 'Others', count: othersCount },
         ];
       }),
+    );
+  }
+
+  getAllVehiclesForProjects(params: {
+    projectIds?: string[];
+    clientId?: number;
+    includeClosed?: boolean;
+  } = {}): Observable<any[]> {
+    const { projectIds, clientId, includeClosed } = params;
+    const normalizedProjectIds = Array.from(new Set(
+      (projectIds ?? [])
+        .map((id) => this.normalizeProjectId(id))
+        .filter((id) => !!id),
+    ));
+
+    if (normalizedProjectIds.length >= 1) {
+      return forkJoin(
+        normalizedProjectIds.map((projectId) => {
+          const encodedId = encodeURIComponent(projectId);
+          return this.http
+            .get<unknown>(`${this.apiBaseUrl}/projects/${encodedId}/vehicles`)
+            .pipe(
+              map((response) => extractArrayFromApiResponse(response)),
+              catchError(() => of([] as any[])),
+            );
+        }),
+      ).pipe(
+        map((arrays) => arrays.flat()),
+        catchError(() => of([] as any[])),
+      );
+    }
+
+    let httpParams = new HttpParams().set('pageSize', '10000');
+    if (clientId !== undefined && clientId !== null) {
+      httpParams = httpParams.set('clientId', String(clientId));
+    }
+    if (includeClosed !== undefined && includeClosed !== null) {
+      httpParams = httpParams.set('includeClosed', String(includeClosed));
+    }
+    return this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams }).pipe(
+      map((response) => extractArrayFromApiResponse(response)),
+      catchError(() => of([] as any[])),
     );
   }
 
@@ -646,42 +744,82 @@ export class DashboardProjectsService {
     clientId?: number;
     userId?: number;
     includeClosed?: boolean;
+    page?: number;
+    pageSize?: number;
     includeAllOption?: boolean;
   } = {}): Observable<DashboardVehicleOptionsResult> {
-    const { includeAllOption = true, clientId, userId, includeClosed } = params;
+    const {
+      includeAllOption = true,
+      clientId,
+      userId,
+      includeClosed,
+      page,
+      pageSize,
+    } = params;
 
-    // Re-use the shared raw vehicles cache so this call and the chart calls
-    // share a single HTTP request rather than making two identical ones.
-    return this.getRawVehiclesCached({ clientId, userId, includeClosed }).pipe(
-      map((items: any[]) => {
-        const mapped: DashboardVehicleOption[] = items
-          .map((item: any) => ({
-            id: String(
-              item?.id ??
-              item?.vehicleId ??
-              item?.vehicleID ??
-              item?.VehicleId ??
-              item?.VehicleID ??
-              item?.vehicle_id ??
-              item?.Vehicle_Id ??
-              '',
-            ),
-            name:
-              item?.name ??
-              item?.vehicleName ??
-              item?.VehicleName ??
-              item?.fleetNumber ??
-              item?.fleet_number ??
-              item?.displayName ??
-              `Vehicle ${item?.id ?? item?.vehicleId ?? ''}`,
-          }))
-          .filter((vehicle: DashboardVehicleOption) => vehicle.id);
+    let httpParams = new HttpParams();
+    if (clientId !== undefined && clientId !== null) {
+      httpParams = httpParams.set('clientId', String(clientId));
+    }
+    if (userId !== undefined && userId !== null) {
+      httpParams = httpParams.set('userId', String(userId));
+    }
+    if (includeClosed !== undefined && includeClosed !== null) {
+      httpParams = httpParams.set('includeClosed', String(includeClosed));
+    }
+    if (page !== undefined && page !== null) {
+      httpParams = httpParams.set('page', String(page));
+    }
+    if (pageSize !== undefined && pageSize !== null) {
+      httpParams = httpParams.set('pageSize', String(pageSize));
+    }
 
-        return {
-          options: includeAllOption ? [{ id: 'all', name: 'All Vehicles' }, ...mapped] : mapped,
-          totalCount: mapped.length,
-        };
-      }),
+    const cacheKey = JSON.stringify({
+      includeAllOption,
+      clientId: clientId ?? null,
+      userId: userId ?? null,
+      includeClosed: includeClosed ?? null,
+      page: page ?? null,
+      pageSize: pageSize ?? null,
+    });
+
+    return this.getCachedObservable(this.allVehiclesCache, cacheKey, () =>
+      this.http
+        .get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams })
+        .pipe(
+          map((response: any) => {
+            const items = this.extractItems(response);
+            const mapped: DashboardVehicleOption[] = items
+              .map((item: any) => ({
+                id: String(
+                  item?.id ??
+                  item?.vehicleId ??
+                  item?.vehicleID ??
+                  item?.VehicleId ??
+                  item?.VehicleID ??
+                  item?.vehicle_id ??
+                  item?.Vehicle_Id ??
+                  '',
+                ),
+                name:
+                  item?.name ??
+                  item?.vehicleName ??
+                  item?.VehicleName ??
+                  item?.fleetNumber ??
+                  item?.fleet_number ??
+                  item?.displayName ??
+                  `Vehicle ${item?.id ?? item?.vehicleId ?? ''}`,
+              }))
+              .filter((vehicle: DashboardVehicleOption) => vehicle.id);
+
+            const totalCount = this.extractTotalCount(response, mapped.length);
+
+            return {
+              options: includeAllOption ? [{ id: 'all', name: 'All Vehicles' }, ...mapped] : mapped,
+              totalCount,
+            };
+          }),
+        ),
     );
   }
 
@@ -716,9 +854,110 @@ export class DashboardProjectsService {
     }
 
     const httpParams = this.buildHttpParams(normalizedParams);
-    return this.http.get<DashboardTicketsDashboardResult>(`${this.apiBaseUrl}/tickets/dashboard`, {
-      params: httpParams,
+    const cacheKey = JSON.stringify({
+      projectId: normalizedParams['projectId'] ?? null,
+      vehicleId: normalizedParams['vehicleId'] ?? null,
+      userId: params.userId ?? null,
+      clientId: normalizedParams['clientId'] ?? null,
+      includeClosed: params.includeClosed ?? null,
     });
+
+    return this.getCachedObservable(this.ticketsDashboardCache, cacheKey, () =>
+      this.http.get<DashboardTicketsDashboardResult>(`${this.apiBaseUrl}/tickets/dashboard`, {
+        params: httpParams,
+      }),
+    );
+  }
+
+  getTicketCreationActivity(params: DashboardTicketActivityQuery = {}): Observable<DashboardTicketActivityResult> {
+    const normalizedParams: Record<string, string | number | boolean | null | undefined> = { ...params };
+
+    if (normalizedParams['projectId'] !== undefined && normalizedParams['projectId'] !== null) {
+      const asString = String(normalizedParams['projectId'] ?? '').trim();
+      const normalizedProject = this.normalizeProjectId(asString);
+      if (normalizedProject) {
+        normalizedParams['projectId'] = normalizedProject;
+      }
+    }
+
+    if (normalizedParams['vehicleId'] !== undefined && normalizedParams['vehicleId'] !== null) {
+      const asString = String(normalizedParams['vehicleId'] ?? '').trim();
+      const parsed = Number(asString);
+      normalizedParams['vehicleId'] = Number.isFinite(parsed) ? parsed : asString;
+    }
+
+    const sourceCacheKey = JSON.stringify({
+      projectId: normalizedParams['projectId'] ?? null,
+      vehicleId: normalizedParams['vehicleId'] ?? null,
+      userId: normalizedParams['userId'] ?? null,
+      clientId: normalizedParams['clientId'] ?? null,
+      includeClosed: normalizedParams['includeClosed'] ?? null,
+    });
+
+    const cacheKey = JSON.stringify({
+      projectId: normalizedParams['projectId'] ?? null,
+      vehicleId: normalizedParams['vehicleId'] ?? null,
+      userId: normalizedParams['userId'] ?? null,
+      clientId: normalizedParams['clientId'] ?? null,
+      includeClosed: normalizedParams['includeClosed'] ?? null,
+      startDate: normalizedParams['startDate'] ?? null,
+      endDate: normalizedParams['endDate'] ?? null,
+    });
+
+    const source$ = this.getCachedObservable(this.ticketActivitySourceCache, sourceCacheKey, () => {
+      const pageSize = Math.max(10000, Number(environment.apiPagedFetchPageSize ?? 10000) || 10000);
+      const maxPages = Math.max(1, Number(environment.apiPagedFetchMaxPages ?? 200) || 200);
+      const fetchPage = (page: number) => {
+        const httpParams = this.buildHttpParams({
+          projectId: normalizedParams['projectId'],
+          vehicleId: normalizedParams['vehicleId'],
+          userId: normalizedParams['userId'],
+          clientId: normalizedParams['clientId'],
+          includeClosed: normalizedParams['includeClosed'],
+          page,
+          pageSize,
+        });
+
+        return this.http.get<unknown>(`${this.apiBaseUrl}/Tickets`, { params: httpParams }).pipe(
+          catchError(() => this.http.get<unknown>(`${this.apiBaseUrl}/tickets`, { params: httpParams })),
+          catchError(() => of({ items: [], total: 0, page, pageSize })),
+          map((response) => parsePagedResponse<any>(response)),
+        );
+      };
+
+      return fetchPage(1).pipe(
+        switchMap((firstPage) => {
+          const totalPages = Math.min(
+            maxPages,
+            Math.max(1, Math.ceil((firstPage.total || firstPage.items.length || 0) / pageSize)),
+          );
+
+          if (totalPages <= 1) {
+            return of(firstPage);
+          }
+
+          const remainingPages = Array.from({ length: totalPages - 1 }, (_, index) => index + 2);
+          return forkJoin(remainingPages.map((page) => fetchPage(page))).pipe(
+            map((otherPages) => ({
+              items: [firstPage, ...otherPages].flatMap((result) => result.items),
+              total: firstPage.total,
+              page: 1,
+              pageSize,
+            })),
+          );
+        }),
+        map((response) => response.items),
+      );
+    }, this.ticketActivitySourceCacheTtlMs);
+
+    return this.getCachedObservable(this.ticketActivityCache, cacheKey, () =>
+      source$.pipe(
+        map((items) => aggregateTicketCreationActivity(items, {
+          startDate: toOptionalText(normalizedParams['startDate']),
+          endDate: toOptionalText(normalizedParams['endDate']),
+        })),
+      ),
+    );
   }
 
   /**
@@ -731,32 +970,25 @@ export class DashboardProjectsService {
     orderBy?: string;
     orderDirection?: 'asc' | 'desc';
     page?: number;
-    pageNumber?: number;
     pageSize?: number;
-    fields?: string[] | string;
+    startDate?: string;
+    endDate?: string;
   } = {}): Observable<any[]> {
     // Do not enforce a client-side cap here; respect whatever `pageSize`
     // the caller provides. If `pageSize` is omitted we won't include it
     // in the HTTP params so the backend can decide the default behaviour
     // (including returning all matching records if supported).
     const pageSizeProvided = params.pageSize !== undefined && params.pageSize !== null;
-    const normalizedFields = Array.isArray(params.fields)
-      ? params.fields.map((field) => String(field ?? '').trim()).filter((field) => !!field)
-      : String(params.fields ?? '').trim()
-        .split(',')
-        .map((field) => field.trim())
-        .filter((field) => !!field);
-
-    const effectivePage = params.pageNumber ?? params.page;
 
     const cacheKey = JSON.stringify({
       projectId: params.projectId ?? null,
       vehicleId: params.vehicleId ?? null,
       orderBy: params.orderBy ?? null,
       orderDirection: params.orderDirection ?? null,
-      page: effectivePage ?? null,
+      page: params.page ?? null,
       pageSize: pageSizeProvided ? params.pageSize : null,
-      fields: normalizedFields.length ? normalizedFields.join(',') : null,
+      startDate: params.startDate ?? null,
+      endDate: params.endDate ?? null,
     });
 
     let httpParams = new HttpParams();
@@ -764,12 +996,10 @@ export class DashboardProjectsService {
     if (params.vehicleId !== undefined && params.vehicleId !== null) httpParams = httpParams.set('vehicleId', String(params.vehicleId));
     if (params.orderBy) httpParams = httpParams.set('orderBy', params.orderBy);
     if (params.orderDirection) httpParams = httpParams.set('orderDirection', params.orderDirection);
-    if (effectivePage !== undefined && effectivePage !== null) {
-      httpParams = httpParams.set('page', String(effectivePage));
-      httpParams = httpParams.set('pageNumber', String(effectivePage));
-    }
+    if (params.page !== undefined && params.page !== null) httpParams = httpParams.set('page', String(params.page));
     if (pageSizeProvided) httpParams = httpParams.set('pageSize', String(params.pageSize));
-    if (normalizedFields.length) httpParams = httpParams.set('fields', normalizedFields.join(','));
+    if (params.startDate) httpParams = httpParams.set('startDate', params.startDate);
+    if (params.endDate) httpParams = httpParams.set('endDate', params.endDate);
 
     return this.getCachedObservable(this.stationTrackersCache, cacheKey, () =>
       this.http.get<unknown>(`${this.apiBaseUrl}/StationTrackers`, { params: httpParams }).pipe(
@@ -784,10 +1014,73 @@ export class DashboardProjectsService {
     this.projectsCache.clear();
   }
 
+  clearStationTrackersCache(): void {
+    this.stationTrackersCache.clear();
+    this.stationTrackersPageCache.clear();
+  }
+
+  getStationTrackersPage(params: DashboardStationTrackerQuery = {}): Observable<DashboardStationTrackersPageResult> {
+    const pageNumber = Math.max(1, Number(params.pageNumber ?? 1) || 1);
+    const pageSize = Math.max(1, Number(params.pageSize ?? 250) || 250);
+    const cacheKey = JSON.stringify({
+      projectId: params.projectId ?? null,
+      vehicleId: params.vehicleId ?? null,
+      orderBy: params.orderBy ?? null,
+      orderDirection: params.orderDirection ?? null,
+      pageNumber,
+      pageSize,
+      startDate: params.startDate ?? null,
+      endDate: params.endDate ?? null,
+    });
+
+    if (params.refresh) {
+      this.stationTrackersPageCache.delete(cacheKey);
+    }
+
+    const httpParams = this.buildStationTrackerParams({
+      ...params,
+      pageNumber,
+      pageSize,
+    });
+
+    return this.getCachedObservable(this.stationTrackersPageCache, cacheKey, () =>
+      this.fetchStationTrackersResponse(httpParams).pipe(
+        map((response: any) => {
+          const items = this.extractItems(response);
+          const totalCount = this.extractTotalCount(response, items.length);
+          const responsePageNumber = this.extractPageNumber(response, pageNumber);
+          const responsePageSize = this.extractPageSize(response, pageSize);
+          const reachedKnownTotal = totalCount > 0 && (responsePageNumber * responsePageSize) >= totalCount;
+          const hasMore = items.length > 0 && !reachedKnownTotal && items.length >= responsePageSize;
+
+          return {
+            items,
+            totalCount,
+            pageNumber: responsePageNumber,
+            pageSize: responsePageSize,
+            hasMore,
+          };
+        }),
+        catchError(() => of({
+          items: [],
+          totalCount: 0,
+          pageNumber,
+          pageSize,
+          hasMore: false,
+        })),
+      ),
+    );
+  }
+
+  getAllStationTrackers(params: DashboardStationTrackerQuery = {}): Observable<any[]> {
+    return from(this.fetchAllStationTrackers(params));
+  }
+
   private getCachedObservable<T>(
     cache: Map<string, { expiresAt: number; observable: Observable<T> }>,
     key: string,
     factory: () => Observable<T>,
+    ttlMs: number = this.cacheTtlMs,
   ): Observable<T> {
     this.evictExpiredEntries(cache);
 
@@ -799,7 +1092,7 @@ export class DashboardProjectsService {
     }
 
     const observable = factory().pipe(shareReplay({ bufferSize: 1, refCount: false }));
-    cache.set(key, { expiresAt: now + this.cacheTtlMs, observable });
+    cache.set(key, { expiresAt: now + ttlMs, observable });
 
     return observable;
   }
@@ -814,6 +1107,72 @@ export class DashboardProjectsService {
       }
     });
     return httpParams;
+  }
+
+  private buildStationTrackerParams(params: DashboardStationTrackerQuery): HttpParams {
+    let httpParams = new HttpParams();
+
+    if (params.projectId !== undefined && params.projectId !== null) {
+      httpParams = httpParams.set('projectId', String(params.projectId));
+    }
+    if (params.vehicleId !== undefined && params.vehicleId !== null) {
+      httpParams = httpParams.set('vehicleId', String(params.vehicleId));
+    }
+    if (params.orderBy) {
+      httpParams = httpParams.set('orderBy', params.orderBy);
+    }
+    if (params.orderDirection) {
+      httpParams = httpParams.set('orderDirection', params.orderDirection);
+    }
+    if (params.pageNumber !== undefined && params.pageNumber !== null) {
+      httpParams = httpParams.set('pageNumber', String(params.pageNumber));
+    }
+    if (params.pageSize !== undefined && params.pageSize !== null) {
+      httpParams = httpParams.set('pageSize', String(params.pageSize));
+    }
+    if (params.startDate) {
+      httpParams = httpParams.set('startDate', params.startDate);
+    }
+    if (params.endDate) {
+      httpParams = httpParams.set('endDate', params.endDate);
+    }
+
+    return httpParams;
+  }
+
+  private fetchStationTrackersResponse(httpParams: HttpParams): Observable<unknown> {
+    return this.http.get<unknown>(`${this.apiBaseUrl}/StationTrackers`, { params: httpParams }).pipe(
+      catchError(() =>
+        this.http.get<unknown>(`${this.apiBaseUrl}/stationtrackers`, { params: httpParams }),
+      ),
+    );
+  }
+
+  private async fetchAllStationTrackers(params: DashboardStationTrackerQuery): Promise<any[]> {
+    const pageSize = Math.max(1, Number(params.pageSize ?? 250) || 250);
+    const allItems: any[] = [];
+    const maxPages = Math.max(1, Number(environment.apiPagedFetchMaxPages ?? 200) || 200);
+
+    for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
+      const page = await firstValueFrom(this.getStationTrackersPage({
+        ...params,
+        pageNumber,
+        pageSize,
+        refresh: !!params.refresh && pageNumber === 1,
+      }));
+
+      if (!page.items.length) {
+        break;
+      }
+
+      allItems.push(...page.items);
+
+      if (!page.hasMore) {
+        break;
+      }
+    }
+
+    return allItems;
   }
 
   private evictExpiredEntries<T>(
@@ -848,10 +1207,6 @@ export class DashboardProjectsService {
       return response.data.projects;
     }
 
-    if (Array.isArray(response?.results)) {
-      return response.results;
-    }
-
     if (Array.isArray(response?.data?.results)) {
       return response.data.results;
     }
@@ -864,10 +1219,6 @@ export class DashboardProjectsService {
       return response.data.vehicles;
     }
 
-    if (Array.isArray(response?.result)) {
-      return response.result;
-    }
-
     if (Array.isArray(response?.result?.items)) {
       return response.result.items;
     }
@@ -878,10 +1229,6 @@ export class DashboardProjectsService {
 
     if (Array.isArray(response?.result?.data)) {
       return response.result.data;
-    }
-
-    if (Array.isArray(response?.result?.results)) {
-      return response.result.results;
     }
 
     if (Array.isArray(response?.projects)) {
@@ -917,22 +1264,58 @@ export class DashboardProjectsService {
     return [];
   }
 
-  private getRawVehiclesCached(params: { clientId?: number; userId?: number; includeClosed?: boolean }): Observable<any[]> {
-    const { clientId, userId, includeClosed } = params;
-    const cacheKey = JSON.stringify({ clientId: clientId ?? 0, userId: userId ?? null, includeClosed: includeClosed ?? false });
-    return this.getCachedObservable(this.rawVehiclesCache, cacheKey, () => {
-      let httpParams = new HttpParams()
-        .set('clientId', String(clientId ?? 0))
-        .set('includeClosed', String(includeClosed ?? false));
-      if (userId !== undefined && userId !== null) httpParams = httpParams.set('userId', String(userId));
-      return this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams }).pipe(
-        map((response) => this.extractItems(response)),
-        catchError(() => of([] as any[])),
-      );
-    });
+  private extractPageNumber(response: any, fallback: number): number {
+    const candidates = [
+      response?.pageNumber,
+      response?.PageNumber,
+      response?.page,
+      response?.Page,
+      response?.data?.pageNumber,
+      response?.data?.PageNumber,
+      response?.data?.page,
+      response?.result?.pageNumber,
+      response?.result?.PageNumber,
+      response?.pagination?.pageNumber,
+      response?.pagination?.PageNumber,
+      response?.data?.pagination?.pageNumber,
+      response?.data?.pagination?.PageNumber,
+    ];
+
+    for (const candidate of candidates) {
+      const value = Number(candidate);
+      if (Number.isFinite(value) && value > 0) {
+        return value;
+      }
+    }
+
+    return fallback;
   }
 
-  private getProjectVehiclesRaw(
+  private extractPageSize(response: any, fallback: number): number {
+    const candidates = [
+      response?.pageSize,
+      response?.PageSize,
+      response?.data?.pageSize,
+      response?.data?.PageSize,
+      response?.result?.pageSize,
+      response?.result?.PageSize,
+      response?.pagination?.pageSize,
+      response?.pagination?.PageSize,
+      response?.data?.pagination?.pageSize,
+      response?.data?.pagination?.PageSize,
+    ];
+
+    for (const candidate of candidates) {
+      const value = Number(candidate);
+      if (Number.isFinite(value) && value > 0) {
+        return value;
+      }
+    }
+
+    return fallback;
+  }
+
+  getProjectVehiclesRaw(
     projectId: string,
     params: {
       clientId?: number;

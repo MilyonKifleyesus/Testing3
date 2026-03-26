@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import {
   Observable,
   catchError,
@@ -311,7 +311,27 @@ export class LocationService {
   }
 
   private locationsRequest$(): Observable<unknown> {
-    return this.http.get<unknown>(`${this.apiBaseUrl}/Locations`);
+    const url = `${this.apiBaseUrl}/Locations`;
+    if (!this.useApiV2) {
+      return this.http.get<unknown>(url);
+    }
+
+    return fetchAllPages<ApiLocationLike>(
+      (page, pageSize) => {
+        const params = new HttpParams()
+          .set('page', String(page))
+          .set('pageSize', String(pageSize));
+
+        return this.http.get<unknown>(url, { params });
+      },
+      {
+        pageSize: this.pageSize,
+        maxPages: this.maxPages,
+        startPage: 1,
+      },
+    ).pipe(
+      map((result) => result.items),
+    );
   }
 
   private fetchLocations(includeZeroCoords: boolean): Observable<ApiLocation[]> {

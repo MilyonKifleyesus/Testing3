@@ -71,20 +71,15 @@
         <div class="card-header justify-content-between">
           <div class="d-flex align-items-center gap-3">
             <div class="card-title">List of Users</div>
-            <span class="badge bg-primary-transparent">{{ totalCount }} users</span>
+            <span class="badge bg-primary-transparent">{{totalCount}} users</span>
           </div>
-          <div class="d-flex gap-2">
-            <input
-              type="text"
-              class="form-control"
+          <div class="search-box">
+            <input 
+              type="text" 
+              class="form-control" 
               placeholder="Search:"
               [(ngModel)]="searchTerm"
-              (keyup.enter)="onSearchChange()">
-            <button class="btn btn-primary btn-wave px-3" (click)="onSearchChange()">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-            </button>
+              (ngModelChange)="onSearchChange()">
           </div>
         </div>
         <div class="card-body project-table-body">
@@ -104,10 +99,10 @@
                   <tr>
                     <th scope="col" (click)="onSort('id')" style="cursor:pointer">ID <span>{{ getSortIndicator('id') }}</span></th>
                     <th scope="col" (click)="onSort('name')" style="cursor:pointer">Name <span>{{ getSortIndicator('name') }}</span></th>
-                    <th scope="col" (click)="onSort('userName')" style="cursor:pointer">UserName <span>{{ getSortIndicator('userName') }}</span></th>
+                    <th scope="col" (click)="onSort('username')" style="cursor:pointer">UserName <span>{{ getSortIndicator('username') }}</span></th>
                     <th scope="col" (click)="onSort('role')" style="cursor:pointer">Role <span>{{ getSortIndicator('role') }}</span></th>
-                    <th scope="col" (click)="onSort('clientName')" style="cursor:pointer">Client <span>{{ getSortIndicator('clientName') }}</span></th>
-                    <th scope="col" (click)="onSort('manufacturerName')" style="cursor:pointer">Manufacturer <span>{{ getSortIndicator('manufacturerName') }}</span></th>
+                    <th scope="col" (click)="onSort('client')" style="cursor:pointer">Client <span>{{ getSortIndicator('client') }}</span></th>
+                    <th scope="col" (click)="onSort('manufacturer')" style="cursor:pointer">Manufacturer <span>{{ getSortIndicator('manufacturer') }}</span></th>
                     <th scope="col" class="text-center">Actions</th>
                   </tr>
                 </thead>
@@ -131,7 +126,7 @@
                       </div>
                     </td>
                     <td>
-                      <code class="text-dark">{{user.userName}}</code>
+                      <code class="text-dark">{{user.username}}</code>
                     </td>
                     <td>
                       <span class="badge" [ngClass]="getRoleClass(user.role)">
@@ -139,12 +134,12 @@
                       </span>
                     </td>
                     <td>
-                      <span *ngIf="user.clientName" class="badge bg-info-transparent">{{user.clientName}}</span>
-                      <span *ngIf="!user.clientName" class="text-muted">—</span>
+                      <span *ngIf="user.client" class="badge bg-info-transparent">{{user.client}}</span>
+                      <span *ngIf="!user.client" class="text-muted">—</span>
                     </td>
                     <td>
-                      <span *ngIf="user.manufacturerName" class="badge bg-secondary-transparent">{{user.manufacturerName}}</span>
-                      <span *ngIf="!user.manufacturerName" class="text-muted">—</span>
+                      <span *ngIf="user.manufacturer" class="badge bg-secondary-transparent">{{user.manufacturer}}</span>
+                      <span *ngIf="!user.manufacturer" class="text-muted">—</span>
                     </td>
                     <td class="text-center">
                       <spk-dropdowns
@@ -171,23 +166,23 @@
   </div>
 
   <div class="row">
-    <div class="col-xl-12" *ngIf="!isLoading">
+    <div class="col-xl-12" *ngIf="!isLoading && filteredUsers.length > 0">
       <div class="card custom-card mt-3">
         <div class="card-footer">
           <div class="d-flex align-items-center">
             <div>
-              Showing {{ pageStartItem }} to {{ pageEndItem }} of {{ totalCount }} Entries
+              Showing {{ getShowingStart() }} to {{ getShowingEnd() }} of {{ totalCount }} Entries
             </div>
             <div class="ms-auto">
-              <nav aria-label="Page navigation" class="pagination-style-4">
+              <nav aria-label="Page navigation" class="pagination-style-4" *ngIf="getTotalPages() > 1">
                 <ul class="pagination mb-0">
                   <li class="page-item" [class.disabled]="currentPage === 1">
                     <a class="page-link" href="javascript:void(0);" (click)="previousPage()">Prev</a>
                   </li>
-                  <li class="page-item" *ngFor="let pageNum of visiblePages" [class.active]="pageNum === currentPage" [class.disabled]="pageNum === paginationEllipsis">
-                    <a class="page-link" href="javascript:void(0);" (click)="pageNum !== paginationEllipsis && changePage(pageNum)">{{ pageNum === paginationEllipsis ? '...' : pageNum }}</a>
+                  <li class="page-item" *ngFor="let pageNum of getPageNumbers()" [class.active]="pageNum === currentPage" [class.disabled]="pageNum === paginationEllipsis">
+                    <a class="page-link" href="javascript:void(0);" (click)="pageNum !== paginationEllipsis && goToPage(pageNum)">{{ pageNum === paginationEllipsis ? '...' : pageNum }}</a>
                   </li>
-                  <li class="page-item" [class.disabled]="currentPage === totalPages">
+                  <li class="page-item" [class.disabled]="currentPage === getTotalPages()">
                     <a class="page-link text-primary" href="javascript:void(0);" (click)="nextPage()">next</a>
                   </li>
                 </ul>

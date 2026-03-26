@@ -43,12 +43,12 @@
                 <thead>
                   <tr>
                     <th scope="col" (click)="sortProjects('id')" style="cursor:pointer">ID <span *ngIf="sortColumn === 'id'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                    <th scope="col" (click)="sortProjects('name')" style="cursor:pointer">Project Name <span *ngIf="sortColumn === 'name'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                    <th scope="col" (click)="sortProjects('clientName')" style="cursor:pointer">Client <span *ngIf="sortColumn === 'clientName'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                    <th scope="col" (click)="sortProjects('projectTypeName')" style="cursor:pointer">Assessment Type <span *ngIf="sortColumn === 'projectTypeName'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                    <th scope="col">Location</th>
+                    <th scope="col" (click)="sortProjects('projectName')" style="cursor:pointer">Project Name <span *ngIf="sortColumn === 'projectName'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                    <th scope="col" (click)="sortProjects('client')" style="cursor:pointer">Client <span *ngIf="sortColumn === 'client'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                    <th scope="col" (click)="sortProjects('assessmentType')" style="cursor:pointer">Assessment Type <span *ngIf="sortColumn === 'assessmentType'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
+                    <th scope="col" (click)="sortProjects('location')" style="cursor:pointer">Location <span *ngIf="sortColumn === 'location'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                     <th scope="col" (click)="sortProjects('totalAssets')" style="cursor:pointer">Total Assets <span *ngIf="sortColumn === 'totalAssets'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
-                    <th scope="col">User Access</th>
+                    <th scope="col" (click)="sortProjects('userAccess')" style="cursor:pointer">User Access <span *ngIf="sortColumn === 'userAccess'">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span></th>
                     <th scope="col">Actions</th>
                   </tr>
                 </thead>
@@ -121,7 +121,7 @@
         <div class="card-footer" *ngIf="!isLoadingProjects">
           <div class="d-flex align-items-center">
             <div>
-              Showing {{ pageStartItem }} to {{ pageEndItem }} of {{ totalCount }} Entries
+              Showing {{ pageStartItem }} to {{ pageEndItem }} of {{ filteredProjects.length }} Entries
             </div>
             <div class="ms-auto">
               <nav aria-label="Page navigation" class="pagination-style-4">

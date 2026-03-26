@@ -1,23 +1,19 @@
-﻿<div class="dashboard-wrapper">
+<div class="dashboard-wrapper">
   <app-page-header [title]="title" [title1]="['Home']" [activeitem]="'Dashboard'"></app-page-header>
 
   <div class="dashboard-content">
-
-    <!-- â•â•â• Welcome Banner â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <!-- ═══ Welcome Banner ══════════════════════════════════════════════════ -->
     <div class="welcome-section mb-4">
       <div class="welcome-banner">
 
         <!-- Background animation layer -->
         <div class="wb-anim" aria-hidden="true">
-          <!-- Scrolling dashed route lines -->
           <div class="wb-road wb-road--1"></div>
           <div class="wb-road wb-road--2"></div>
           <div class="wb-road wb-road--3"></div>
-          <!-- Bus dots travelling along routes -->
           <div class="wb-bus-dot wb-bus-dot--1"></div>
           <div class="wb-bus-dot wb-bus-dot--2"></div>
           <div class="wb-bus-dot wb-bus-dot--3"></div>
-          <!-- GPS location ping rings -->
           <div class="wb-ping wb-ping--1"></div>
           <div class="wb-ping wb-ping--2"></div>
           <div class="wb-ping wb-ping--3"></div>
@@ -34,7 +30,7 @@
                 <i class="ti ti-building" *ngIf="!isAdminRole"></i>
                 {{ isAdminRole ? 'Admin Dashboard' : 'Client Dashboard' }}
               </span>
-              </div>
+            </div>
 
             <div class="wb-heading">
               <p class="wb-greeting">Welcome back,</p>
@@ -42,10 +38,10 @@
             </div>
 
             <p class="wb-subtitle" *ngIf="isAdminRole">
-              Fleet-wide operations &nbsp;Â·&nbsp; Inspection analytics &nbsp;Â·&nbsp; Live reporting
+              Fleet-wide operations &nbsp;·&nbsp; Inspection analytics &nbsp;·&nbsp; Live reporting
             </p>
             <p class="wb-subtitle" *ngIf="!isAdminRole">
-              {{ clientProfile.clientId }} &nbsp;Â·&nbsp; {{ clientProfile.vehicle }}
+              {{ clientProfile.clientId }} &nbsp;·&nbsp; {{ clientProfile.vehicle }}
             </p>
 
             <div class="wb-controls">
@@ -63,14 +59,12 @@
           <!-- Right: logo / user avatar -->
           <div class="wb-right">
             <div class="wb-logo-ring">
-              <!-- Admin: show user profile picture if available, else bus icon -->
               <ng-container *ngIf="isAdminRole">
                 <img *ngIf="userPicture" [src]="userPicture" alt="Profile" class="wb-logo-img" />
                 <div *ngIf="!userPicture" class="wb-logo-placeholder">
                   <i class="ti ti-user"></i>
                 </div>
               </ng-container>
-              <!-- Client: show client logo -->
               <ng-container *ngIf="!isAdminRole">
                 <img *ngIf="clientProfile.logoUrl" [src]="clientProfile.logoUrl" alt="Client logo" class="wb-logo-img" />
                 <div *ngIf="!clientProfile.logoUrl" class="wb-logo-placeholder">
@@ -89,16 +83,13 @@
                *ngFor="let card of statCards; let i = index"
                [style.--wbs-delay]="(i * 0.1) + 's'"
                [ngClass]="getStatIconClass(card.trendClass)">
-
             <div class="wbs-icon-wrap">
               <i [class]="card.iconClass"></i>
             </div>
-
             <div class="wbs-body">
               <span class="wbs-value">{{ card.value | number }}</span>
               <span class="wbs-label">{{ card.label }}</span>
             </div>
-
             <div class="wbs-trend" [ngClass]="card.trendClass">
               <i class="ti"
                  [ngClass]="card.trendClass.includes('danger') ? 'ti-trending-down' :
@@ -106,14 +97,13 @@
               </i>
               <span>{{ card.trend }}</span>
             </div>
-
           </div>
         </div><!-- /wb-stats -->
 
       </div>
     </div>
 
-    <!-- â•â•â• Filter Bar â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    <!-- ═══ Filter Bar ═══════════════════════════════════════════════════════ -->
     <div class="filter-bar mb-4">
       <div class="fb-prefix">
         <i class="ti ti-adjustments-alt"></i>
@@ -144,164 +134,248 @@
       </div>
     </div>
 
-
-    <!-- â•â•â• Widget Grid â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
     <div class="charts-grid" [class.compact-mode]="showFilters && selectedProject !== 'all'">
       <div class="widgets-row" cdkDropList (cdkDropListDropped)="onWidgetDrop($event)">
         <ng-container *ngFor="let widget of widgets; trackBy: trackByWidgetId">
           <div
-            [hidden]="!isWidgetVisible(widget)"
             [id]="'wc-' + widget.id"
+            [hidden]="!isWidgetVisible(widget)"
             [ngClass]="(showFilters && selectedProject !== 'all') ? 'widget-container compact-widget' : 'widget-container'"
             [style.gridColumn]="'span ' + getWidgetGridSpan(widget)"
             cdkDrag
             [cdkDragData]="widget"
           >
-            <div class="card custom-card data-card widget-card" [style.height.px]="getWidgetCardHeight(widget)">
-              <div class="card-header">
-                <div class="widget-header-left">
-                  <div class="widget-drag-handle" cdkDragHandle>
-                    <i class="ti ti-grip-vertical"></i>
-                  </div>
-                  <div>
-                    <h5 class="card-title mb-1">{{ widget.title }}</h5>
-                    <p class="card-subtitle">{{ widget.subtitle }}</p>
-                  </div>
-                </div>
-                <div class="widget-header-actions">
-                  <ng-container *ngIf="widget.id === 'widget-11'">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                      (click)="previousStationTypeHeatmapPage()"
-                      [disabled]="widget.loading || !hasStationTypeHeatmapPreviousPage"
-                      title="Previous page"
-                      aria-label="Previous page"
-                    >
-                      <i class="ti ti-chevron-left"></i>
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                      (click)="nextStationTypeHeatmapPage()"
-                      [disabled]="widget.loading || !stationTypeHeatmapHasNextPage"
-                      title="Next page"
-                      aria-label="Next page"
-                    >
-                      <i class="ti ti-chevron-right"></i>
-                    </button>
-                    <span
-                      class="small text-muted"
-                      title="Showing station type record set {{ stationTypeHeatmapPage }}. Data is split into sets so the chart loads faster and stays responsive."
-                    >
-                      Record Set {{ stationTypeHeatmapPage }} ({{ stationTypeHeatmapPageSize }} timelines per set)
-                    </span>
-                  </ng-container>
+            <div
+              class="data-card widget-card"
+              [style.height.px]="getWidgetCardHeight(widget)"
+              [attr.data-widget-id]="widget.id">
+              <div class="widget-drag-handle" cdkDragHandle>
+                <i class="fas fa-grip-vertical"></i>
+              </div>
 
-                  <ng-container *ngIf="widget.id === 'widget-12'">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                      (click)="previousStationTimeComparisonPage()"
-                      [disabled]="widget.loading || !hasStationTimeComparisonPreviousPage"
-                      title="Previous page"
-                      aria-label="Previous page"
-                    >
-                      <i class="ti ti-chevron-left"></i>
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                      (click)="nextStationTimeComparisonPage()"
-                      [disabled]="widget.loading || !stationTimeComparisonHasNextPage"
-                      title="Next page"
-                      aria-label="Next page"
-                    >
-                      <i class="ti ti-chevron-right"></i>
-                    </button>
-                    <span
-                      class="small text-muted"
-                      title="Showing average station time record set {{ stationTimeComparisonPage }}. Data is split into sets so the chart loads faster and stays responsive."
-                    >
-                      Record Set {{ stationTimeComparisonPage }} ({{ stationTimeComparisonPageSize }} timelines per set)
-                    </span>
-                  </ng-container>
-                  <ng-container *ngIf="widget.id === 'widget-15'">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                      (click)="previousVehicleStationTrackingPage()"
-                      [disabled]="widget.loading || !hasVehicleStationPreviousPage"
-                      title="Previous page"
-                      aria-label="Previous page"
-                    >
-                      <i class="ti ti-chevron-left"></i>
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                      (click)="nextVehicleStationTrackingPage()"
-                      [disabled]="widget.loading || !vehicleStationHasNextPage"
-                      title="Next page"
-                      aria-label="Next page"
-                    >
-                      <i class="ti ti-chevron-right"></i>
-                    </button>
-                    <span
-                      class="small text-muted"
-                      title="Showing timeline record set {{ vehicleStationPage }}. Data is split into sets so the chart loads faster and stays responsive."
-                    >
-                      Record Set {{ vehicleStationPage }} ({{ vehicleStationPageSize }} timelines per set)
-                    </span>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-success"
-                      (click)="toggleVehicleStationMergeByType()"
-                    >
-                      {{ vehicleStationMergeByType ? 'Show Detailed Timelines' : 'Merge By Station Type' }}
-                    </button>
-                  </ng-container>
-
-
-                  <button class="control-btn fullscreen-btn" (click)="toggleFullscreen(widget.id)" title="Toggle fullscreen">
-                    <i class="ti" [ngClass]="fullscreenWidgetId === widget.id ? 'ti-arrows-minimize' : 'ti-arrows-maximize'"></i>
-                  </button>
-                  <button class="control-btn delete-btn" (click)="deleteWidget(widget.id)" title="Remove widget">
-                    <i class="ti ti-x"></i>
-                  </button>
-                </div>
+              <div class="widget-delete-btn">
+                <button class="control-btn fullscreen-btn" (click)="toggleFullscreen(widget.id)" title="Toggle fullscreen">
+                  <i class="fas" [ngClass]="fullscreenWidgetId === widget.id ? 'fa-compress' : 'fa-expand'"></i>
+                </button>
+                <button class="control-btn delete-btn" (click)="deleteWidget(widget.id)" title="Remove widget">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
               </div>
 
               <div class="resize-handle resize-handle-corner" (mousedown)="onResizeStart($event, widget.id, 'corner')" title="Drag to resize">
-                <i class="ti ti-resize"></i>
+                <i class="fas fa-grip-lines"></i>
               </div>
               <div class="resize-handle resize-handle-right" (mousedown)="onResizeStart($event, widget.id, 'right')" title="Drag to resize width"></div>
               <div class="resize-handle resize-handle-bottom" (mousedown)="onResizeStart($event, widget.id, 'bottom')" title="Drag to resize height"></div>
 
+              <div class="card-header">
+                <h5 class="card-title mb-1">{{ widget.title }}</h5>
+                <p class="card-subtitle">{{ widget.subtitle }}</p>
+              </div>
+
               <div class="card-body" style="position: relative;">
                 <div *ngIf="widget.loading" class="widget-loading-overlay">
                   <div class="widget-spinner">
-                    <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+                    <span class="spinner-border spinner-border-sm text-success" role="status"></span>
                     <span class="widget-loading-text">Loading...</span>
                   </div>
                 </div>
 
-                <ng-container *ngIf="widget.id === 'widget-15' || widget.id === 'widget-12' || widget.id === 'widget-11'">
-                  <div
-                    class="widget-chart-scroll"
-                    [class.widget-chart-scroll--comparison]="widget.id === 'widget-12'"
-                    [class.widget-chart-scroll--station-heatmap]="widget.id === 'widget-11'"
-                    [class.widget-content-blur]="widget.loading"
-                  >
+                <ng-container *ngIf="widget.id === 'widget-16'">
+                  <div class="ticket-activity-panel">
+                    <div
+                      class="ticket-activity-filter-bar"
+                      [class.ticket-activity-filter-bar--custom-open]="ticketActivityCustomRangeOpen">
+                      <div class="ticket-activity-filter-bar__presets">
+                        <button
+                          type="button"
+                          class="btn btn-sm"
+                          [class.btn-primary]="ticketActivityRangePreset === '30d'"
+                          [class.btn-outline-secondary]="ticketActivityRangePreset !== '30d'"
+                          (click)="applyTicketActivityPreset('30d')">
+                          30D
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm"
+                          [class.btn-primary]="ticketActivityRangePreset === '90d'"
+                          [class.btn-outline-secondary]="ticketActivityRangePreset !== '90d'"
+                          (click)="applyTicketActivityPreset('90d')">
+                          90D
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm"
+                          [class.btn-primary]="ticketActivityRangePreset === '180d'"
+                          [class.btn-outline-secondary]="ticketActivityRangePreset !== '180d'"
+                          (click)="applyTicketActivityPreset('180d')">
+                          180D
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm"
+                          [class.btn-primary]="ticketActivityRangePreset === '365d'"
+                          [class.btn-outline-secondary]="ticketActivityRangePreset !== '365d'"
+                          (click)="applyTicketActivityPreset('365d')">
+                          365D
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm"
+                          [class.btn-primary]="ticketActivityRangePreset === 'all'"
+                          [class.btn-outline-secondary]="ticketActivityRangePreset !== 'all'"
+                          (click)="applyTicketActivityPreset('all')">
+                          All
+                        </button>
+                        <span class="ticket-activity-filter-bar__badge">
+                          {{ ticketActivityGranularity | titlecase }} buckets
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        class="btn btn-sm ticket-activity-filter-bar__custom-toggle"
+                        [class.btn-primary]="ticketActivityCustomRangeOpen || ticketActivityRangePreset === 'custom'"
+                        [class.btn-outline-secondary]="!(ticketActivityCustomRangeOpen || ticketActivityRangePreset === 'custom')"
+                        [attr.aria-expanded]="ticketActivityCustomRangeOpen || ticketActivityRangePreset === 'custom'"
+                        (click)="toggleTicketActivityCustomRange()">
+                        <i class="fas fa-calendar-alt me-1"></i> Custom
+                      </button>
+                      <div class="ticket-activity-filter-bar__field">
+                        <label class="form-label mb-1">From</label>
+                        <input
+                          type="date"
+                          class="form-control form-control-sm"
+                          aria-label="Created from"
+                          [(ngModel)]="ticketActivityStartDate"
+                          (ngModelChange)="onTicketActivityDateChange()" />
+                      </div>
+                      <div class="ticket-activity-filter-bar__field">
+                        <label class="form-label mb-1">To</label>
+                        <input
+                          type="date"
+                          class="form-control form-control-sm"
+                          aria-label="Created to"
+                          [(ngModel)]="ticketActivityEndDate"
+                          (ngModelChange)="onTicketActivityDateChange()" />
+                      </div>
+                      <div class="ticket-activity-filter-bar__actions">
+                        <button
+                          class="btn btn-sm btn-outline-primary"
+                          type="button"
+                          title="Date filters update automatically"
+                          (click)="applyTicketActivityDateFilter()">
+                          <i class="fas fa-calendar-alt me-1"></i> Refresh
+                        </button>
+                        <button
+                          *ngIf="ticketActivityRangePreset === 'custom' || ticketActivityRangePreset === 'all'"
+                          class="btn btn-sm btn-outline-secondary"
+                          (click)="clearTicketActivityDateFilter()">
+                          Reset
+                        </button>
+                        <div class="tca-dl-wrap">
+                          <button
+                            class="btn btn-sm btn-outline-secondary tca-dl-btn"
+                            title="Export options"
+                            (click)="toggleTicketActivityDownloadMenu($event)">
+                            <i class="fas fa-download me-1"></i> Export
+                          </button>
+                          <div class="tca-dl-menu" [class.tca-dl-menu--open]="ticketActivityDownloadMenuOpen">
+                            <div class="tca-dl-item" (click)="downloadTicketActivityPNG(); ticketActivityDownloadMenuOpen = false">
+                              <i class="fas fa-image me-1"></i> PNG image
+                            </div>
+                            <div class="tca-dl-item" (click)="downloadTicketActivityCSV(); ticketActivityDownloadMenuOpen = false">
+                              <i class="fas fa-file-csv me-1"></i> CSV
+                            </div>
+                            <div class="tca-dl-item" (click)="downloadTicketActivityExcel(); ticketActivityDownloadMenuOpen = false">
+                              <i class="fas fa-file-excel me-1"></i> Excel (.xlsx)
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <spk-ticket-activity-widget
+                      [chartOptions]="widget.chartOptions"
+                      [loading]="widget.loading ?? false"
+                      [viewModel]="ticketActivityViewModel">
+                    </spk-ticket-activity-widget>
+                  </div>
+                </ng-container>
+
+                <ng-container *ngIf="widget.id === 'widget-13'">
+                  <div class="project-timeline-panel">
+                    <div class="project-timeline-controls">
+                      <div class="project-timeline-controls__filters">
+                        <div class="project-timeline-field">
+                          <label class="form-label mb-1">Start Date</label>
+                          <input type="date" class="form-control form-control-sm" [(ngModel)]="projectTimelineStartDate" />
+                        </div>
+                        <div class="project-timeline-field">
+                          <label class="form-label mb-1">End Date</label>
+                          <input type="date" class="form-control form-control-sm" [(ngModel)]="projectTimelineEndDate" />
+                        </div>
+                        <div class="project-timeline-controls__actions">
+                          <button class="btn btn-sm btn-outline-success" (click)="applyProjectTimelineDateFilter()">
+                            <i class="fas fa-filter me-1"></i> Apply
+                          </button>
+                          <button *ngIf="projectTimelineStartDate || projectTimelineEndDate" class="btn btn-sm btn-outline-secondary" (click)="projectTimelineStartDate=''; projectTimelineEndDate=''; applyProjectTimelineDateFilter()">
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                      <div class="project-timeline-meta">
+                        <ng-container *ngIf="projectTimelineTotalCount > 0; else noProjectTimelineRows">
+                          Showing <strong>{{ projectTimelineRangeStart }}</strong> to <strong>{{ projectTimelineRangeEnd }}</strong> of <strong>{{ projectTimelineTotalCount }}</strong>
+                          <span class="ms-2">Page {{ projectTimelinePageNumber }}<ng-container *ngIf="projectTimelineLoadedPageCount > 1">-{{ projectTimelineRangeEndPage }}</ng-container> of {{ projectTimelineTotalPages }}</span>
+                        </ng-container>
+                        <ng-template #noProjectTimelineRows>No records loaded</ng-template>
+                      </div>
+                    </div>
+                    <div class="project-timeline-paging">
+                      <div class="project-timeline-page-size">
+                        <label class="form-label mb-0" for="projectTimelinePageSize">Page Size</label>
+                        <select
+                          id="projectTimelinePageSize"
+                          class="form-select form-select-sm"
+                          [ngModel]="projectTimelinePageSize"
+                          (ngModelChange)="onProjectTimelinePageSizeChange($event)"
+                        >
+                          <option *ngFor="let option of projectTimelinePageSizeOptions" [ngValue]="option">{{ option }}</option>
+                        </select>
+                      </div>
+                      <div class="project-timeline-actions">
+                        <button class="btn btn-sm btn-outline-secondary" (click)="loadPreviousProjectTimelinePage()" [disabled]="!canLoadPreviousProjectTimelinePage">
+                          <i class="fas fa-chevron-left me-1"></i> Previous
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" (click)="loadNextProjectTimelinePage()" [disabled]="!canLoadNextProjectTimelinePage">
+                          Next <i class="fas fa-chevron-right ms-1"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" (click)="loadMoreProjectTimeline()" [disabled]="!canLoadMoreProjectTimeline">
+                          <i class="fas fa-plus me-1"></i> Load More
+                        </button>
+                      </div>
+                    </div>
+                    <div class="widget-chart-scroll project-timeline-scroll" [class.widget-content-blur]="widget.loading">
+                      <spk-apex-charts
+                        *ngIf="widget.chartOptions"
+                        [chartOptions]="widget.chartOptions"
+                        [style.height.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostHeight || widget.chartOptions.chart?.height)) || 260"
+                        [style.min-width.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostWidth || widget.chartOptions.chart?.width)) || 960">
+                      </spk-apex-charts>
+                    </div>
+                  </div>
+                </ng-container>
+
+                <ng-container *ngIf="widget.id === 'widget-15'">
+                  <div class="widget-chart-scroll" [class.widget-content-blur]="widget.loading">
                     <spk-apex-charts
                       *ngIf="widget.chartOptions"
                       [chartOptions]="widget.chartOptions"
-                      [style.height.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostHeight || widget.chartOptions.chart?.height)) || (widget.id === 'widget-12' ? 760 : (widget.id === 'widget-11' ? 760 : 600))"
-                      [style.min-width.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostWidth || widget.chartOptions.chart?.width)) || (widget.id === 'widget-12' ? 1600 : (widget.id === 'widget-11' ? 1600 : 1200))">
+                      [style.height.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostHeight || widget.chartOptions.chart?.height)) || 600"
+                      [style.min-width.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostWidth || widget.chartOptions.chart?.width)) || 1200">
                     </spk-apex-charts>
                   </div>
                 </ng-container>
-                <ng-container *ngIf="widget.id !== 'widget-15' && widget.id !== 'widget-12' && widget.id !== 'widget-11'">
+                <ng-container *ngIf="widget.id !== 'widget-16' && widget.id !== 'widget-15' && widget.id !== 'widget-13' && widget.id !== 'widget-project-activities'">
                   <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions" [class.widget-content-blur]="widget.loading"></spk-apex-charts>
                 </ng-container>
 
@@ -353,6 +427,7 @@
                           Reset map filters
                         </button>
                       </div>
+
                       <div class="dashboard-map-widget__filter-buttons">
                         <button
                           type="button"
@@ -362,6 +437,7 @@
                         >
                           All Manufacturers
                         </button>
+
                         <button
                           *ngFor="let manufacturer of dashboardMapManufacturerOptions; trackBy: trackByFilterOptionId"
                           type="button"
@@ -380,6 +456,7 @@
                       <i class="ti ti-alert-circle"></i>
                       <span>{{ dashboardMapError }}</span>
                     </div>
+
                     <div *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount === 0" class="dashboard-map-state dashboard-map-state--empty">
                       <i class="ti ti-map-off"></i>
                       <div>
@@ -387,6 +464,7 @@
                         <p class="mb-0">Change the client, project, status, or manufacturer filters to widen the view.</p>
                       </div>
                     </div>
+
                     <app-map-stage
                       *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount > 0"
                       [mode]="dashboardMapMode"
@@ -404,30 +482,59 @@
                   </div>
                 </div>
 
+                <app-defect-word-cloud-widget
+                  *ngIf="widget.id === 'widget-wordcloud'"
+                  [clientId]="getEffectiveClientId()"
+                  [projectId]="selectedProject"
+                  [vehicleId]="selectedVehicle"
+                  [class.widget-content-blur]="widget.loading"
+                  style="display:block;width:100%;height:100%;">
+                </app-defect-word-cloud-widget>
+
+                <app-vehicle-activities-widget
+                  *ngIf="widget.id === 'widget-project-activities'"
+                  [rows]="projectActivitiesRows"
+                  [loading]="projectActivitiesLoading"
+                  [totalCount]="projectActivitiesTotalCount"
+                  [currentPage]="projectActivitiesCurrentPage"
+                  [pageSize]="projectActivitiesPageSize"
+                  (pageChange)="onProjectActivitiesPageChange($event)"
+                  class="project-activities-widget-host">
+                </app-vehicle-activities-widget>
+
                 <div *ngIf="widget.id === 'widget-14'" class="recent-activities-container" [class.widget-content-blur]="widget.loading">
                   <div class="table-responsive">
                     <table class="table table-bordered table-hover align-middle">
                       <thead class="table-light">
                         <tr>
-                          <th>Assign By</th>
-                          <th>Assign To</th>
+                          <th>Inspector & Last Sync</th>
                           <th>Tickets Generated</th>
                           <th>Hours Worked</th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr *ngFor="let ticket of allClientTickets; let i = index">
-                          <td>{{ userIdToUsername[ticket.assignBy] || ticket.assignBy }}</td>
-                          <td>{{ userIdToUsername[ticket.assignTo] || ticket.assignTo }}</td>
-                          <td>{{ ticket.ticketsGenerated }}</td>
-                          <td>{{ ticket.hoursWorked }}</td>
+                        <tr *ngFor="let activity of recentActivities; trackBy: trackByIndex">
+                          <td>
+                            <div class="d-flex align-items-center gap-2">
+                              <span class="badge bg-primary">{{ activity.inspector }}</span>
+                              <span>{{ activity.lastSync }}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span class="fw-bold text-success">{{ activity.ticketsGenerated }}</span>
+                            <span class="ms-2 text-muted small">tickets</span>
+                          </td>
+                          <td>
+                            <span class="fw-bold text-info">{{ activity.hoursWorked }}</span>
+                            <span class="ms-2 text-muted small">hours</span>
+                          </td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
                   <div class="activity-footer">
-                    <button (click)="openActivitiesModal()" class="btn btn-sm btn-primary-light w-100">
-                      <i class="ti ti-list me-1"></i>View All Activities
+                    <button (click)="openActivitiesModal()" class="btn btn-sm btn-light w-100">
+                      View All Activities <i class="fe fe-arrow-right ms-1"></i>
                     </button>
                   </div>
                 </div>
@@ -435,7 +542,7 @@
 
               <div class="widget-drag-preview" *cdkDragPreview>
                 <div class="preview-content">
-                  <i class="ti ti-grip-vertical me-2"></i>
+                  <i class="fas fa-grip-vertical me-2"></i>
                   {{ widget.title }}
                 </div>
               </div>
@@ -445,193 +552,230 @@
       </div>
     </div>
 
-    <!-- Empty state -->
     <div *ngIf="widgets.length === 0" class="empty-state">
       <div class="empty-state-content">
-        <i class="ti ti-inbox fs-1 mb-3 text-muted d-block"></i>
+        <i class="fas fa-inbox fa-4x mb-3 text-muted"></i>
         <h4>No Widgets Available</h4>
-        <p class="text-muted">All widgets have been removed. Click below to restore them.</p>
+        <p class="text-muted">All widgets have been removed. Click the button below to restore them.</p>
         <button class="btn btn-primary mt-3" (click)="restoreAllWidgets()">
-          <i class="ti ti-refresh me-2"></i>Restore All Widgets
+          <i class="fas fa-undo me-2"></i> Restore All Widgets
         </button>
       </div>
     </div>
 
-    <!-- â•â•â• Fullscreen overlay â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
     <div *ngIf="fullscreenWidgetId" class="fullscreen-overlay" (click)="toggleFullscreen(fullscreenWidgetId); $event.stopPropagation()">
       <div class="fullscreen-container" (click)="$event.stopPropagation()">
         <div class="fullscreen-header" *ngIf="fullscreenWidget">
           <h3>{{ fullscreenWidget.title }}</h3>
-          <div class="d-flex align-items-center gap-2">
-            <ng-container *ngIf="fullscreenWidget.id === 'widget-11'">
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                (click)="previousStationTypeHeatmapPage()"
-                [disabled]="fullscreenWidget.loading || !hasStationTypeHeatmapPreviousPage"
-                title="Previous page"
-                aria-label="Previous page"
-              >
-                <i class="ti ti-chevron-left"></i>
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                (click)="nextStationTypeHeatmapPage()"
-                [disabled]="fullscreenWidget.loading || !stationTypeHeatmapHasNextPage"
-                title="Next page"
-                aria-label="Next page"
-              >
-                <i class="ti ti-chevron-right"></i>
-              </button>
-              <span
-                class="small text-muted"
-                title="Showing station type record set {{ stationTypeHeatmapPage }}. Data is split into sets so the chart loads faster and stays responsive."
-              >
-                Record Set {{ stationTypeHeatmapPage }} ({{ stationTypeHeatmapPageSize }} timelines per set)
-              </span>
-            </ng-container>
-
-            <ng-container *ngIf="fullscreenWidget.id === 'widget-12'">
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                (click)="previousStationTimeComparisonPage()"
-                [disabled]="fullscreenWidget.loading || !hasStationTimeComparisonPreviousPage"
-                title="Previous page"
-                aria-label="Previous page"
-              >
-                <i class="ti ti-chevron-left"></i>
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                (click)="nextStationTimeComparisonPage()"
-                [disabled]="fullscreenWidget.loading || !stationTimeComparisonHasNextPage"
-                title="Next page"
-                aria-label="Next page"
-              >
-                <i class="ti ti-chevron-right"></i>
-              </button>
-              <span
-                class="small text-muted"
-                title="Showing average station time record set {{ stationTimeComparisonPage }}. Data is split into sets so the chart loads faster and stays responsive."
-              >
-                Record Set {{ stationTimeComparisonPage }} ({{ stationTimeComparisonPageSize }} timelines per set)
-              </span>
-            </ng-container>
-            <ng-container *ngIf="fullscreenWidget.id === 'widget-15'">
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                (click)="previousVehicleStationTrackingPage()"
-                [disabled]="fullscreenWidget.loading || !hasVehicleStationPreviousPage"
-                title="Previous page"
-                aria-label="Previous page"
-              >
-                <i class="ti ti-chevron-left"></i>
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                (click)="nextVehicleStationTrackingPage()"
-                [disabled]="fullscreenWidget.loading || !vehicleStationHasNextPage"
-                title="Next page"
-                aria-label="Next page"
-              >
-                <i class="ti ti-chevron-right"></i>
-              </button>
-              <span
-                class="small text-muted"
-                title="Showing timeline record set {{ vehicleStationPage }}. Data is split into sets so the chart loads faster and stays responsive."
-              >
-                Record Set {{ vehicleStationPage }} ({{ vehicleStationPageSize }} timelines per set)
-              </span>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-success"
-                (click)="toggleVehicleStationMergeByType()"
-              >
-                {{ vehicleStationMergeByType ? 'Show Detailed Timelines' : 'Merge By Station Type' }}
-              </button>
-            </ng-container>
-
-            <button class="btn btn-sm btn-light" (click)="toggleFullscreen(fullscreenWidgetId)" title="Exit fullscreen">
-              <i class="ti ti-x"></i>
-            </button>
-          </div>
+          <button class="btn btn-sm btn-light" (click)="toggleFullscreen(fullscreenWidgetId)" title="Exit fullscreen">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
 
         <div class="fullscreen-content" *ngIf="fullscreenWidget">
-          <ng-container *ngIf="fullscreenWidget.id === 'widget-15' || fullscreenWidget.id === 'widget-12' || fullscreenWidget.id === 'widget-11'; else fullscreenDefaultChart">
-            <div
-              class="widget-chart-scroll"
-              [class.widget-chart-scroll--comparison]="fullscreenWidget.id === 'widget-12'"
-              [class.widget-chart-scroll--station-heatmap]="fullscreenWidget.id === 'widget-11'"
-            >
-              <spk-apex-charts
-                *ngIf="fullscreenWidget.chartOptions"
-                [chartOptions]="fullscreenWidget.chartOptions"
-                [style.height.px]="(fullscreenWidget.chartOptions && (fullscreenWidget.chartOptions.__calculatedHostHeight || fullscreenWidget.chartOptions.chart?.height)) || (fullscreenWidget.id === 'widget-12' ? 760 : (fullscreenWidget.id === 'widget-11' ? 760 : 600))"
-                [style.min-width.px]="(fullscreenWidget.chartOptions && (fullscreenWidget.chartOptions.__calculatedHostWidth || fullscreenWidget.chartOptions.chart?.width)) || (fullscreenWidget.id === 'widget-12' ? 1600 : (fullscreenWidget.id === 'widget-11' ? 1600 : 1200))"
-              ></spk-apex-charts>
+          <div *ngIf="fullscreenWidget.id === 'widget-16'" class="ticket-activity-panel ticket-activity-panel--fullscreen">
+            <div class="ticket-activity-filter-bar ticket-activity-filter-bar--fullscreen">
+              <div class="ticket-activity-filter-bar__presets">
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  [class.btn-primary]="ticketActivityRangePreset === '30d'"
+                  [class.btn-outline-secondary]="ticketActivityRangePreset !== '30d'"
+                  (click)="applyTicketActivityPreset('30d')">
+                  30D
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  [class.btn-primary]="ticketActivityRangePreset === '90d'"
+                  [class.btn-outline-secondary]="ticketActivityRangePreset !== '90d'"
+                  (click)="applyTicketActivityPreset('90d')">
+                  90D
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  [class.btn-primary]="ticketActivityRangePreset === '180d'"
+                  [class.btn-outline-secondary]="ticketActivityRangePreset !== '180d'"
+                  (click)="applyTicketActivityPreset('180d')">
+                  180D
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  [class.btn-primary]="ticketActivityRangePreset === '365d'"
+                  [class.btn-outline-secondary]="ticketActivityRangePreset !== '365d'"
+                  (click)="applyTicketActivityPreset('365d')">
+                  365D
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  [class.btn-primary]="ticketActivityRangePreset === 'all'"
+                  [class.btn-outline-secondary]="ticketActivityRangePreset !== 'all'"
+                  (click)="applyTicketActivityPreset('all')">
+                  All
+                </button>
+                <span class="ticket-activity-filter-bar__badge">
+                  {{ ticketActivityGranularity | titlecase }} buckets
+                </span>
+              </div>
+              <div class="ticket-activity-filter-bar__field">
+                <label class="form-label mb-1">From</label>
+                <input
+                  type="date"
+                  class="form-control form-control-sm"
+                  aria-label="Created from"
+                  [(ngModel)]="ticketActivityStartDate"
+                  (ngModelChange)="onTicketActivityDateChange()" />
+              </div>
+              <div class="ticket-activity-filter-bar__field">
+                <label class="form-label mb-1">To</label>
+                <input
+                  type="date"
+                  class="form-control form-control-sm"
+                  aria-label="Created to"
+                  [(ngModel)]="ticketActivityEndDate"
+                  (ngModelChange)="onTicketActivityDateChange()" />
+              </div>
+              <div class="ticket-activity-filter-bar__actions">
+                <button
+                  class="btn btn-sm btn-outline-primary"
+                  type="button"
+                  title="Date filters update automatically"
+                  (click)="applyTicketActivityDateFilter()">
+                  <i class="fas fa-calendar-alt me-1"></i> Refresh
+                </button>
+                <button
+                  *ngIf="ticketActivityRangePreset === 'custom' || ticketActivityRangePreset === 'all'"
+                  class="btn btn-sm btn-outline-secondary"
+                  (click)="clearTicketActivityDateFilter()">
+                  Reset
+                </button>
+              </div>
             </div>
-          </ng-container>
-          <ng-template #fullscreenDefaultChart>
-            <spk-apex-charts *ngIf="fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions"></spk-apex-charts>
-          </ng-template>
+            <spk-ticket-activity-widget
+              [chartOptions]="fullscreenWidget.chartOptions"
+              [fullscreen]="true"
+              [loading]="fullscreenWidget.loading ?? false"
+              [viewModel]="ticketActivityViewModel">
+            </spk-ticket-activity-widget>
+          </div>
+
+          <div *ngIf="fullscreenWidget.id === 'widget-project-activities'" class="project-activities-fullscreen-shell">
+            <app-vehicle-activities-widget
+              [rows]="projectActivitiesRows"
+              [loading]="projectActivitiesLoading"
+              [totalCount]="projectActivitiesTotalCount"
+              [currentPage]="projectActivitiesCurrentPage"
+              [pageSize]="projectActivitiesPageSize"
+              (pageChange)="onProjectActivitiesPageChange($event)"
+              class="project-activities-widget-host">
+            </app-vehicle-activities-widget>
+          </div>
+
+          <spk-apex-charts *ngIf="fullscreenWidget.id !== 'widget-16' && fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions"></spk-apex-charts>
 
           <div *ngIf="fullscreenWidget.id === 'widget-map'" class="dashboard-map-widget dashboard-map-widget--fullscreen">
             <div class="dashboard-map-widget__summary" [class.dashboard-map-widget__summary--client]="!isAdminRole">
-              <div class="dashboard-map-widget__pill"><span>Projects</span><strong>{{ dashboardMapProjectCount }}</strong></div>
-              <div *ngIf="isAdminRole" class="dashboard-map-widget__pill"><span>Clients</span><strong>{{ dashboardMapClientCount }}</strong></div>
-              <div class="dashboard-map-widget__pill"><span>Manufacturers</span><strong>{{ dashboardMapManufacturerCount }}</strong></div>
-              <div class="dashboard-map-widget__pill"><span>Sites</span><strong>{{ dashboardMapLocationCount }}</strong></div>
+              <div class="dashboard-map-widget__pill">
+                <span>Projects</span>
+                <strong>{{ dashboardMapProjectCount }}</strong>
+              </div>
+              <div *ngIf="isAdminRole" class="dashboard-map-widget__pill">
+                <span>Clients</span>
+                <strong>{{ dashboardMapClientCount }}</strong>
+              </div>
+              <div class="dashboard-map-widget__pill">
+                <span>Manufacturers</span>
+                <strong>{{ dashboardMapManufacturerCount }}</strong>
+              </div>
+              <div class="dashboard-map-widget__pill">
+                <span>Sites</span>
+                <strong>{{ dashboardMapLocationCount }}</strong>
+              </div>
             </div>
+
             <div class="dashboard-map-widget__filters">
               <div class="dashboard-map-widget__filter-group">
                 <span class="dashboard-map-widget__filter-label">Project Status</span>
                 <div class="dashboard-map-widget__filter-buttons">
-                  <button *ngFor="let status of dashboardMapStatusOptions; trackBy: trackByFilterOptionId" type="button"
+                  <button
+                    *ngFor="let status of dashboardMapStatusOptions; trackBy: trackByFilterOptionId"
+                    type="button"
                     class="dashboard-map-widget__filter-button"
                     [class.dashboard-map-widget__filter-button--active]="dashboardMapSelectedStatus === status.id"
-                    (click)="setDashboardMapStatus(status.id)">{{ status.label }}</button>
+                    (click)="setDashboardMapStatus(status.id)"
+                  >
+                    {{ status.label }}
+                  </button>
                 </div>
               </div>
+
               <div class="dashboard-map-widget__filter-group">
                 <div class="dashboard-map-widget__filter-header">
                   <span class="dashboard-map-widget__filter-label">Manufacturers</span>
-                  <button *ngIf="hasDashboardMapFilters" type="button" class="dashboard-map-widget__reset-button" (click)="resetDashboardMapFilters()">Reset map filters</button>
+                  <button
+                    *ngIf="hasDashboardMapFilters"
+                    type="button"
+                    class="dashboard-map-widget__reset-button"
+                    (click)="resetDashboardMapFilters()"
+                  >
+                    Reset map filters
+                  </button>
                 </div>
+
                 <div class="dashboard-map-widget__filter-buttons">
-                  <button type="button" class="dashboard-map-widget__filter-button"
+                  <button
+                    type="button"
+                    class="dashboard-map-widget__filter-button"
                     [class.dashboard-map-widget__filter-button--active]="dashboardMapSelectedManufacturerIds.length === 0"
-                    (click)="clearDashboardMapManufacturers()">All Manufacturers</button>
-                  <button *ngFor="let manufacturer of dashboardMapManufacturerOptions; trackBy: trackByFilterOptionId" type="button"
+                    (click)="clearDashboardMapManufacturers()"
+                  >
+                    All Manufacturers
+                  </button>
+
+                  <button
+                    *ngFor="let manufacturer of dashboardMapManufacturerOptions; trackBy: trackByFilterOptionId"
+                    type="button"
                     class="dashboard-map-widget__filter-button"
                     [class.dashboard-map-widget__filter-button--active]="isDashboardMapManufacturerSelected(manufacturer.id)"
-                    (click)="toggleDashboardMapManufacturer(manufacturer.id)">{{ manufacturer.label }}</button>
+                    (click)="toggleDashboardMapManufacturer(manufacturer.id)"
+                  >
+                    {{ manufacturer.label }}
+                  </button>
                 </div>
               </div>
             </div>
+
             <div class="dashboard-map-stage-shell dashboard-map-stage-shell--widget dashboard-map-stage-shell--fullscreen">
               <div *ngIf="!dashboardMapLoading && dashboardMapError" class="dashboard-map-state dashboard-map-state--error">
-                <i class="ti ti-alert-circle"></i><span>{{ dashboardMapError }}</span>
+                <i class="ti ti-alert-circle"></i>
+                <span>{{ dashboardMapError }}</span>
               </div>
+
               <div *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount === 0" class="dashboard-map-state dashboard-map-state--empty">
                 <i class="ti ti-map-off"></i>
-                <div><strong>No mapped projects for the current dashboard filters.</strong>
+                <div>
+                  <strong>No mapped projects for the current dashboard filters.</strong>
                   <p class="mb-0">Change the client, project, status, or manufacturer filters to widen the view.</p>
                 </div>
               </div>
+
               <app-map-stage
                 *ngIf="!dashboardMapLoading && !dashboardMapError && dashboardMapProjectCount > 0"
-                [mode]="dashboardMapMode" [projects]="dashboardMapProjects" [clients]="dashboardMapClients"
-                [manufacturers]="dashboardMapManufacturers" [locations]="dashboardMapLocations"
-                [isDark]="dashboardMapIsDark" [surface]="'widget'"
+                [mode]="dashboardMapMode"
+                [projects]="dashboardMapProjects"
+                [clients]="dashboardMapClients"
+                [manufacturers]="dashboardMapManufacturers"
+                [locations]="dashboardMapLocations"
+                [isDark]="dashboardMapIsDark"
+                [surface]="'widget'"
                 [viewedProject]="dashboardMapViewedProject"
-                [selectedEntity]="dashboardMapSelectedEntity" [focusedEntity]="dashboardMapSelectedEntity"
-                (selectEntity)="onDashboardMapSelect($event)"></app-map-stage>
+                [selectedEntity]="dashboardMapSelectedEntity"
+                [focusedEntity]="dashboardMapSelectedEntity"
+                (selectEntity)="onDashboardMapSelect($event)"
+              ></app-map-stage>
             </div>
           </div>
 
@@ -646,11 +790,21 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let ticket of allClientTickets; trackBy: trackByIndex">
-                    <td>{{ userIdToUsername[ticket.assignBy] || ticket.assignBy }}</td>
-                    <td>{{ userIdToUsername[ticket.assignTo] || ticket.assignTo }}</td>
-                    <td>{{ ticket.ticketsGenerated }}</td>
-                    <td>{{ ticket.hoursWorked }}</td>
+                  <tr *ngFor="let activity of recentActivities; trackBy: trackByIndex">
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary">{{ activity.inspector }}</span>
+                        <span>{{ activity.lastSync }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="fw-bold text-success">{{ activity.ticketsGenerated }}</span>
+                      <span class="ms-2 text-muted small">tickets</span>
+                    </td>
+                    <td>
+                      <span class="fw-bold text-info">{{ activity.hoursWorked }}</span>
+                      <span class="ms-2 text-muted small">hours</span>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -660,19 +814,18 @@
       </div>
     </div>
 
-
     <div *ngIf="showActivitiesModal" class="activities-modal-overlay" (click)="closeActivitiesModal()">
       <div class="activities-modal-container" (click)="$event.stopPropagation()">
         <div class="activities-modal-header">
-          <h5 class="mb-0 fw-bold">All Activities</h5>
+          <h2>All Activities</h2>
           <button class="btn btn-sm btn-light" (click)="closeActivitiesModal()" title="Close">
-            <i class="ti ti-x"></i>
+            <i class="fas fa-times"></i>
           </button>
         </div>
         <div class="activities-modal-body">
           <div class="table-responsive">
-            <table class="table table-bordered table-hover align-middle">
-              <thead class="table-light">
+            <table class="table table-bordered table-hover">
+              <thead>
                 <tr>
                   <th>Last Sync</th>
                   <th>Tickets Generated</th>
@@ -682,7 +835,6 @@
               <tbody>
                 <tr *ngFor="let activity of recentActivities; trackBy: trackByIndex">
                   <td>{{ activity.lastSync }}</td>
-                  <td>{{ activity.inspector }}</td>
                   <td>{{ activity.ticketsGenerated }}</td>
                   <td>{{ activity.hoursWorked }}</td>
                 </tr>
@@ -692,6 +844,5 @@
         </div>
       </div>
     </div>
-
   </div>
 </div>

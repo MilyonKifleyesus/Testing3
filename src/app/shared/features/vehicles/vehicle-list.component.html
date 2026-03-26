@@ -63,7 +63,7 @@
 
             <!-- Vehicle Count -->
             <div class="col-md-1 d-flex align-items-end pb-1">
-              <span class="badge bg-primary-transparent fs-13">{{ totalVehicles }} vehicles</span>
+              <span class="badge bg-primary-transparent fs-13">{{ filteredVehicles.length }} vehicles</span>
             </div>
           </div>
         </div>
@@ -71,20 +71,8 @@
     </div>
   </div>
 
-  <!-- Prompt when no project selected -->
-  <div class="row" *ngIf="!hasProjectSelected">
-    <div class="col-xl-12">
-      <div class="card custom-card">
-        <div class="card-body text-center py-5 text-muted">
-          <i class="ti ti-filter fs-40 mb-3 d-block"></i>
-          <p class="fs-15 mb-0">Select a project to view vehicles.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Vehicles Grid/Table -->
-  <div class="row" *ngIf="hasProjectSelected">
+  <div class="row">
     <div class="col-xl-12">
       <div class="card custom-card">
         <div class="card-header">
@@ -192,7 +180,7 @@
         <div class="card-footer" *ngIf="!isLoadingVehicles">
           <div class="d-flex align-items-center">
             <div>
-              Showing {{ pageStartItem }} to {{ pageEndItem }} of {{ totalVehicles }} Entries
+              Showing {{ pageStartItem }} to {{ pageEndItem }} of {{ filteredVehicles.length }} Entries
             </div>
             <div class="ms-auto">
               <nav aria-label="Vehicle pagination" class="pagination-style-4">

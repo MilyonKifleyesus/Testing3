@@ -34,24 +34,4 @@ export const sharedReportsRoutes: Routes = [
     path: 'vehicle-reports/final-reports',
     loadComponent: () => import('./vehicle-final-reports/vehicle-final-reports.component').then((m) => m.VehicleFinalReportsComponent),
   },
-  {
-    path: 'administrative-reports',
-    loadComponent: () => import('./administrative-reports/administrative-reports.component').then((m) => m.AdministrativeReportsComponent),
-  },
-  {
-    path: 'administrative-reports/labour-reports',
-    loadComponent: () => import('./administrative-reports/labour-reports/labour-reports.component').then((m) => m.LabourReportsComponent),
-  },
-  {
-    path: 'administrative-reports/summary-time-logged',
-    loadComponent: () => import('./administrative-reports/summary-time-logged/summary-time-logged.component').then((m) => m.SummaryTimeLoggedComponent),
-  },
-  {
-    path: 'administrative-reports/inspector-active-assets',
-    loadComponent: () => import('./administrative-reports/inspector-active-assets/inspector-active-assets.component').then((m) => m.InspectorActiveAssetsComponent),
-  },
-  {
-    path: 'administrative-reports/vehicle-hour-report',
-    loadComponent: () => import('./administrative-reports/vehicle-hour-report/vehicle-hour-report.component').then((m) => m.VehicleHourReportComponent),
-  },
 ];

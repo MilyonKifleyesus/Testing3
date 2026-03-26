@@ -1,33 +1,50 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, map, of, shareReplay } from 'rxjs';
+import {
+  EMPTY,
+  Observable,
+  catchError,
+  concat,
+  firstValueFrom,
+  from,
+  map,
+  of,
+  shareReplay,
+  switchMap,
+  take,
+  throwError,
+  timeout,
+} from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { parsePagedResponse } from './adapters/paged-response.adapter';
 
 export interface UserListQuery {
   page: number;
   pageSize: number;
-  search?: string;
-  role?: string;
+  role: string;
   clientId: string;
   manufacturerId: string;
-  sortBy?: string;
-  sortDirection?: 'asc' | 'desc';
 }
 
 export interface UserListItem {
   id: number;
-  userName: string;
   name: string;
-  email: string | null;
+  username: string;
+  email: string;
   role: string;
-  clientId: number;
-  clientName: string;
-  manufacturerId: number;
-  manufacturerName: string;
-  deleted: boolean;
-  picture: string | null;
-  lastUpdate: string | null;
+  clientId: string;
+  client: string;
+  manufacturerId: string;
+  manufacturer: string;
+  isActive?: boolean;
+  updatedAt?: string;
+  status?: string;
+  createdDate?: string;
+  phone?: string;
+  address?: string;
+  language?: string;
+  firstName?: string;
+  lastName?: string;
+  picture?: string;
 }
 
 export interface UserListResult {
@@ -38,6 +55,27 @@ export interface UserListResult {
 export interface ManufacturerOption {
   id: string;
   name: string;
+}
+
+export interface SaveUserRequest {
+  name: string;
+  username: string;
+  email: string;
+  role: string;
+  status?: string;
+  clientId?: string | number | null;
+  manufacturerId?: string | number | null;
+  phone?: string | null;
+  address?: string | null;
+  language?: string | null;
+  picture?: string | null;
+  password?: string | null;
+  confirmPassword?: string | null;
+}
+
+export interface ChangeUserPasswordRequest {
+  password: string;
+  confirmPassword?: string;
 }
 
 export interface InspectorStatistics {
@@ -53,17 +91,48 @@ export interface InspectorStatistics {
 
 interface ApiUser {
   id?: number;
-  userName?: string;
+  userId?: number;
   name?: string;
-  email?: string | null;
+  fullName?: string;
+  username?: string;
+  userName?: string;
+  email?: string;
+  emailAddress?: string;
   role?: string;
-  clientId?: number;
+  roleName?: string;
+  clientId?: string | number;
+  ClientId?: string | number;
+  clientID?: string | number;
   clientName?: string;
-  manufacturerId?: number;
+  ClientName?: string;
+  client?: string;
+  manufacturerId?: string | number;
+  ManufacturerId?: string | number;
+  manufacturerID?: string | number;
   manufacturerName?: string;
-  deleted?: boolean;
-  picture?: string | null;
-  lastUpdate?: string | null;
+  ManufacturerName?: string;
+  manufacturer?: string;
+  status?: string;
+  createdDate?: string;
+  isActive?: boolean;
+  updatedAt?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  phoneNumber?: string;
+  mobile?: string;
+  mobileNumber?: string;
+  contactNumber?: string;
+  address?: string;
+  streetAddress?: string;
+  language?: string;
+  languageName?: string;
+  preferredLanguage?: string;
+  locale?: string;
+  picture?: string;
+  pictureUrl?: string;
+  avatar?: string;
+  avatarUrl?: string;
 }
 
 interface ApiManufacturer {
@@ -73,6 +142,20 @@ interface ApiManufacturer {
   manufacturerName?: string;
 }
 
+interface ApiUsersListResponse {
+  items?: ApiUser[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+interface UsersPageResult {
+  page: number;
+  items: UserListItem[];
+  totalCount: number;
+  pageSize: number;
+  hasExplicitTotal: boolean;
+}
 
 function mapInspectorStats(raw: unknown): InspectorStatistics {
   const obj = asObject(raw) ?? {};
@@ -88,6 +171,10 @@ function mapInspectorStats(raw: unknown): InspectorStatistics {
   };
 }
 
+function readTotal(value: unknown): number | undefined {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
 
 function asObject(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object') {
@@ -141,7 +228,102 @@ function extractCollection(raw: unknown): unknown[] {
   return [];
 }
 
+function toApiUsersListResponse(raw: unknown): ApiUsersListResponse {
+  const unwrap = (value: unknown): Record<string, unknown> | null => {
+    if (Array.isArray(value) && value.length === 1) {
+      return asObject(value[0]);
+    }
+    return asObject(value);
+  };
 
+  const root = unwrap(raw);
+  if (!root) {
+    return {};
+  }
+
+  const directItems = root['items'];
+  if (Array.isArray(directItems)) {
+    return {
+      items: directItems as ApiUser[],
+      total: readTotal(root['total']) ?? readTotal(root['Total']),
+      page: Number(root['page'] ?? 0),
+      pageSize: Number(root['pageSize'] ?? directItems.length),
+    };
+  }
+
+  const nestedData = asObject(root['data']);
+  if (nestedData && Array.isArray(nestedData['items'])) {
+    const nestedItems = nestedData['items'] as ApiUser[];
+    return {
+      items: nestedItems,
+      total:
+        readTotal(nestedData['total']) ??
+        readTotal(nestedData['Total']) ??
+        readTotal(root['total']) ??
+        readTotal(root['Total']),
+      page: Number(nestedData['page'] ?? root['page'] ?? 0),
+      pageSize: Number(nestedData['pageSize'] ?? root['pageSize'] ?? nestedItems.length),
+    };
+  }
+
+  const nestedResult = asObject(root['result']);
+  if (nestedResult && Array.isArray(nestedResult['items'])) {
+    const nestedItems = nestedResult['items'] as ApiUser[];
+    return {
+      items: nestedItems,
+      total:
+        readTotal(nestedResult['total']) ??
+        readTotal(nestedResult['Total']) ??
+        readTotal(root['total']) ??
+        readTotal(root['Total']),
+      page: Number(nestedResult['page'] ?? root['page'] ?? 0),
+      pageSize: Number(nestedResult['pageSize'] ?? root['pageSize'] ?? nestedItems.length),
+    };
+  }
+
+  return {
+    items: extractCollection(raw) as ApiUser[],
+    total: readTotal(root['total']) ?? readTotal(root['Total']),
+  };
+}
+
+function normalizeTotal(total: unknown, fallbackLength: number): number {
+  const parsed = Number(total);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallbackLength;
+}
+
+function readTotalFromHeaders(response: HttpResponse<unknown>): number | undefined {
+  const directCandidates = [
+    response.headers.get('x-total-count'),
+    response.headers.get('X-Total-Count'),
+    response.headers.get('total'),
+    response.headers.get('Total'),
+  ];
+
+  for (const candidate of directCandidates) {
+    const parsed = readTotal(candidate);
+    if (parsed !== undefined) {
+      return parsed;
+    }
+  }
+
+  const xPaginationRaw = response.headers.get('x-pagination') ?? response.headers.get('X-Pagination');
+  if (!xPaginationRaw) {
+    return undefined;
+  }
+
+  try {
+    const parsedJson = JSON.parse(xPaginationRaw) as Record<string, unknown>;
+    return (
+      readTotal(parsedJson['total']) ??
+      readTotal(parsedJson['Total']) ??
+      readTotal(parsedJson['totalCount']) ??
+      readTotal(parsedJson['TotalCount'])
+    );
+  } catch {
+    return undefined;
+  }
+}
 
 function toNonEmptyString(value: unknown, fallback = ''): string {
   const next = String(value ?? '').trim();
@@ -153,20 +335,62 @@ function toIdString(value: unknown, fallback = '0'): string {
   return next || fallback;
 }
 
+function toNullableIdString(value: unknown): string | null {
+  const next = String(value ?? '').trim();
+  return next && next !== '0' ? next : null;
+}
+
+function normalizeUserStatus(status: unknown, isActive?: boolean): string {
+  const normalizedStatus = String(status ?? '').trim().toLowerCase();
+  if (normalizedStatus) {
+    return normalizedStatus;
+  }
+
+  if (typeof isActive === 'boolean') {
+    return isActive ? 'active' : 'inactive';
+  }
+
+  return 'active';
+}
+
 function mapApiUserToUser(item: ApiUser): UserListItem {
+  const fullName = [item.firstName, item.lastName]
+    .map((part) => String(part ?? '').trim())
+    .filter((part) => part.length > 0)
+    .join(' ')
+    .trim();
+
+  const name =
+    toNonEmptyString(item.name) ||
+    toNonEmptyString(item.fullName) ||
+    fullName ||
+    toNonEmptyString(item.userName) ||
+    toNonEmptyString(item.username) ||
+    'N/A';
+
   return {
-    id: Number(item.id ?? 0),
-    userName: toNonEmptyString(item.userName, 'N/A'),
-    name: toNonEmptyString(item.name, 'N/A'),
-    email: item.email ?? null,
-    role: toNonEmptyString(item.role, 'N/A'),
-    clientId: Number(item.clientId ?? 0),
-    clientName: toNonEmptyString(item.clientName, ''),
-    manufacturerId: Number(item.manufacturerId ?? 0),
-    manufacturerName: toNonEmptyString(item.manufacturerName, ''),
-    deleted: item.deleted ?? false,
-    picture: item.picture ?? null,
-    lastUpdate: item.lastUpdate ?? null,
+    id: Number(item.id ?? item.userId ?? 0),
+    name,
+    username: toNonEmptyString(item.userName ?? item.username, 'N/A'),
+    email: toNonEmptyString(item.email ?? item.emailAddress, ''),
+    role: toNonEmptyString(item.role ?? item.roleName, 'N/A'),
+    clientId: toIdString(item.clientId ?? item.ClientId ?? item.clientID, '0'),
+    client: toNonEmptyString(item.clientName ?? item.ClientName ?? item.client, ''),
+    manufacturerId: toIdString(item.manufacturerId ?? item.ManufacturerId ?? item.manufacturerID, '0'),
+    manufacturer: toNonEmptyString(item.manufacturerName ?? item.ManufacturerName ?? item.manufacturer, ''),
+    isActive: typeof item.isActive === 'boolean' ? item.isActive : undefined,
+    updatedAt: toNonEmptyString(item.updatedAt, ''),
+    status: normalizeUserStatus(item.status, item.isActive),
+    createdDate: toNonEmptyString(item.createdDate, ''),
+    phone: toNonEmptyString(
+      item.phone ?? item.phoneNumber ?? item.mobile ?? item.mobileNumber ?? item.contactNumber,
+      '',
+    ),
+    address: toNonEmptyString(item.address ?? item.streetAddress, ''),
+    language: toNonEmptyString(item.language ?? item.languageName ?? item.preferredLanguage ?? item.locale, ''),
+    firstName: toNonEmptyString(item.firstName, ''),
+    lastName: toNonEmptyString(item.lastName, ''),
+    picture: toNonEmptyString(item.picture ?? item.pictureUrl ?? item.avatar ?? item.avatarUrl, ''),
   };
 }
 
@@ -188,22 +412,33 @@ export class UserManagementService {
   private readonly manufacturersApiUrl = `${environment.apiBaseUrl}/Manufacturers`;
   private readonly usersQueryCache = new Map<string, Observable<UserListResult>>();
   private readonly inspectorStatsCache = new Map<number, Observable<InspectorStatistics | null>>();
+  private readonly parallelPageConcurrency = 12;
+  private readonly defaultFetchPageSize = 200;
+  private readonly maxFetchPageSize = 500;
   private readonly rolesFetchPageSize = 100;
+  private readonly requestTimeoutMs = 10_000;
 
   constructor(private readonly http: HttpClient) {}
 
-  private buildUsersParams(query: UserListQuery): HttpParams {
-    let params = new HttpParams()
-      .set('page', String(query.page))
-      .set('pageSize', String(query.pageSize))
-      .set('clientId', String(query.clientId ?? '0'))
-      .set('manufacturerId', String(query.manufacturerId ?? '0'))
-      .set('SortBy', String(query.sortBy ?? 'id'))
-      .set('SortDirection', String(query.sortDirection ?? 'asc'));
+  private resolveFetchPageSize(value: unknown): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return this.defaultFetchPageSize;
+    }
 
-    const search = String(query.search ?? '').trim();
-    if (search.length > 0) {
-      params = params.set('search', search);
+    return Math.min(this.maxFetchPageSize, Math.floor(parsed));
+  }
+
+  private buildUsersParams(query: UserListQuery, page?: number, pageSize?: number): HttpParams {
+    let params = new HttpParams();
+
+    if (typeof page === 'number' && Number.isFinite(page) && page > 0) {
+      params = params.set('page', String(page));
+    }
+
+    const resolvedPageSize = this.resolveFetchPageSize(pageSize ?? query.pageSize);
+    if (resolvedPageSize > 0) {
+      params = params.set('pageSize', String(resolvedPageSize));
     }
 
     const role = String(query.role ?? '').trim();
@@ -211,9 +446,147 @@ export class UserManagementService {
       params = params.set('role', role);
     }
 
+    const clientId = String(query.clientId ?? '').trim();
+    const normalizedClientId = Number(clientId);
+    const shouldSendClientId =
+      clientId.length > 0 &&
+      clientId.toLowerCase() !== 'all' &&
+      !(Number.isFinite(normalizedClientId) && normalizedClientId <= 0);
+    if (shouldSendClientId) {
+      params = params.set('clientId', clientId);
+    }
+
+    const manufacturerId = String(query.manufacturerId ?? '').trim();
+    const normalizedManufacturerId = Number(manufacturerId);
+    const shouldSendManufacturerId =
+      manufacturerId.length > 0 &&
+      manufacturerId.toLowerCase() !== 'all' &&
+      !(Number.isFinite(normalizedManufacturerId) && normalizedManufacturerId <= 0);
+    if (shouldSendManufacturerId) {
+      params = params.set('manufacturerId', manufacturerId);
+    }
+
     return params;
   }
 
+  private fetchUsersPage(query: UserListQuery, page: number, pageSize?: number): Observable<UsersPageResult> {
+    const params = this.buildUsersParams(query, page, pageSize);
+    return this.http.get<unknown>(this.usersApiUrl, { params, observe: 'response' }).pipe(
+      map((httpResponse) => {
+        const response = toApiUsersListResponse(httpResponse.body);
+        const rows = (response.items ?? []).map((item) => mapApiUserToUser(item));
+        const headerTotal = readTotalFromHeaders(httpResponse);
+        const explicitTotal = readTotal(response.total) ?? headerTotal;
+        const totalCount = normalizeTotal(explicitTotal, rows.length);
+        const pageSize = Number(response.pageSize ?? rows.length);
+
+        return {
+          page,
+          items: rows,
+          totalCount,
+          pageSize: Number.isFinite(pageSize) && pageSize > 0 ? pageSize : Math.max(rows.length, 1),
+          hasExplicitTotal: explicitTotal !== undefined,
+        };
+      }),
+    );
+  }
+
+  private async fetchAllUsersPages(query: UserListQuery): Promise<UserListResult> {
+    const maxPages = 500;
+    const fetchPageSize = this.resolveFetchPageSize(query.pageSize || this.defaultFetchPageSize);
+    const usersById = new Map<number, UserListItem>();
+    const firstPageResult = await firstValueFrom(this.fetchUsersPage(query, 1, fetchPageSize));
+
+    const mergePage = (pageResult: UsersPageResult): number => {
+      const before = usersById.size;
+      pageResult.items.forEach((user) => usersById.set(user.id, user));
+      return usersById.size - before;
+    };
+
+    let totalHint = firstPageResult.totalCount;
+    let hasExplicitTotal = firstPageResult.hasExplicitTotal;
+    mergePage(firstPageResult);
+
+    const effectivePageSize = Math.max(
+      1,
+      firstPageResult.pageSize || firstPageResult.items.length || fetchPageSize || this.defaultFetchPageSize,
+    );
+    let totalPagesFromMeta = totalHint > 0 ? Math.ceil(totalHint / effectivePageSize) : 1;
+    totalPagesFromMeta = Math.min(maxPages, Math.max(1, totalPagesFromMeta));
+
+    if (totalPagesFromMeta > 1) {
+      for (let startPage = 2; startPage <= totalPagesFromMeta; startPage += this.parallelPageConcurrency) {
+        const endPage = Math.min(totalPagesFromMeta, startPage + this.parallelPageConcurrency - 1);
+        const pages: number[] = [];
+        for (let page = startPage; page <= endPage; page++) {
+          pages.push(page);
+        }
+
+        const batchResults = await Promise.all(
+          pages.map((page) =>
+            firstValueFrom(
+              this.fetchUsersPage(query, page, fetchPageSize).pipe(
+                catchError(() =>
+                  of({
+                    page,
+                    items: [],
+                    totalCount: totalHint,
+                    pageSize: effectivePageSize,
+                    hasExplicitTotal: false,
+                  }),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        batchResults.forEach((result) => {
+          totalHint = Math.max(totalHint, result.totalCount);
+          hasExplicitTotal = hasExplicitTotal || result.hasExplicitTotal;
+          mergePage(result);
+        });
+      }
+    }
+
+    let probePage = totalPagesFromMeta + 1;
+    let noGrowthCount = 0;
+    while (probePage <= maxPages) {
+      const pageResult = await firstValueFrom(
+        this.fetchUsersPage(query, probePage, fetchPageSize).pipe(
+          catchError(() =>
+            of({
+              page: probePage,
+              items: [],
+              totalCount: totalHint,
+              pageSize: effectivePageSize,
+              hasExplicitTotal: false,
+            }),
+          ),
+        ),
+      );
+
+      totalHint = Math.max(totalHint, pageResult.totalCount);
+      hasExplicitTotal = hasExplicitTotal || pageResult.hasExplicitTotal;
+      const added = mergePage(pageResult);
+      if (added === 0) {
+        noGrowthCount += 1;
+      } else {
+        noGrowthCount = 0;
+      }
+
+      if (pageResult.items.length === 0 || pageResult.items.length < effectivePageSize || noGrowthCount >= 2) {
+        break;
+      }
+
+      probePage += 1;
+    }
+
+    const mergedUsers = Array.from(usersById.values());
+    return {
+      items: mergedUsers,
+      totalCount: totalHint > 0 ? Math.max(totalHint, mergedUsers.length) : mergedUsers.length,
+    };
+  }
 
   clearUsersCache(): void {
     this.usersQueryCache.clear();
@@ -221,33 +594,18 @@ export class UserManagementService {
 
   getUsers(query: UserListQuery): Observable<UserListResult> {
     const cacheKey = JSON.stringify({
-      page: query.page,
-      pageSize: query.pageSize,
-      search: String(query.search ?? '').trim().toLowerCase(),
       role: String(query.role ?? '').trim().toLowerCase(),
       clientId: String(query.clientId ?? '').trim(),
       manufacturerId: String(query.manufacturerId ?? '').trim(),
-      sortBy: String(query.sortBy ?? 'id').trim().toLowerCase(),
-      sortDirection: String(query.sortDirection ?? 'asc').trim().toLowerCase(),
+      pageSize: this.resolveFetchPageSize(query.pageSize),
     });
 
     const existing = this.usersQueryCache.get(cacheKey);
-    if (existing) return existing;
+    if (existing) {
+      return existing;
+    }
 
-    const params = this.buildUsersParams(query);
-    const request$ = this.http.get<unknown>(this.usersApiUrl, { params, observe: 'response' }).pipe(
-      map((response) => {
-        const body = response.body;
-        const paged = parsePagedResponse<ApiUser>(body);
-        const items = paged.items.map((item) => mapApiUserToUser(item));
-        // The API returns the real total user count in the 'pageSize' field of the response body.
-        const totalCount = paged.pageSize ?? items.length;
-        return { items, totalCount } as UserListResult;
-      }),
-      catchError(() => of({ items: [], totalCount: 0 } as UserListResult)),
-      shareReplay(1),
-    );
-
+    const request$ = from(this.fetchAllUsersPages(query)).pipe(shareReplay(1));
     this.usersQueryCache.set(cacheKey, request$);
     return request$;
   }
@@ -266,25 +624,133 @@ export class UserManagementService {
 
   getUserById(userId: number): Observable<UserListItem | null> {
     return this.http.get<unknown>(`${this.usersApiUrl}/${userId}`).pipe(
-      map((raw) => {
-        if (Array.isArray(raw)) {
-          const first = raw[0] as ApiUser | undefined;
-          return first ? mapApiUserToUser(first) : null;
-        }
-
-        const obj = asObject(raw);
-        if (!obj) {
-          return null;
-        }
-
-        const wrapped = extractCollection(raw);
-        if (wrapped.length > 0) {
-          return mapApiUserToUser(wrapped[0] as ApiUser);
-        }
-
-        return mapApiUserToUser(obj as ApiUser);
-      }),
+      map((raw) => this.parseSingleUserResponse(raw)),
       catchError(() => of(null)),
+    );
+  }
+
+  createUser(body: SaveUserRequest): Observable<UserListItem> {
+    return this.http.post<unknown>(this.usersApiUrl, this.buildSaveUserPayload(body)).pipe(
+      timeout(this.requestTimeoutMs),
+      switchMap((raw) => {
+        const mapped = this.parseSingleUserResponse(raw);
+        if (mapped) {
+          return of(mapped);
+        }
+
+        const createdId = this.extractUserId(raw);
+        if (createdId && createdId > 0) {
+          return this.getUserById(createdId).pipe(
+            map((createdUser) => {
+              if (!createdUser) {
+                throw new Error(`User ${createdId} not found after create.`);
+              }
+              return createdUser;
+            }),
+          );
+        }
+
+        return this.getUsers({
+          page: 1,
+          pageSize: this.defaultFetchPageSize,
+          role: body.role,
+          clientId: toNullableIdString(body.clientId) ?? '0',
+          manufacturerId: toNullableIdString(body.manufacturerId) ?? '0',
+        }).pipe(
+          map((result) => {
+            const expectedEmail = String(body.email ?? '').trim().toLowerCase();
+            const expectedUsername = String(body.username ?? '').trim().toLowerCase();
+            const matchedUser = result.items.find((user) =>
+              user.email.trim().toLowerCase() === expectedEmail ||
+              user.username.trim().toLowerCase() === expectedUsername,
+            );
+
+            if (!matchedUser) {
+              throw new Error('User create succeeded but response could not be mapped.');
+            }
+
+            return matchedUser;
+          }),
+        );
+      }),
+      map((user) => {
+        this.clearUsersCache();
+        return user;
+      }),
+      catchError((error) => {
+        console.error('Failed to create user:', error);
+        return throwError(() => error);
+      }),
+    );
+  }
+
+  updateUser(userId: number, body: SaveUserRequest): Observable<UserListItem> {
+    return this.http.put<unknown>(`${this.usersApiUrl}/${userId}`, this.buildSaveUserPayload(body)).pipe(
+      timeout(this.requestTimeoutMs),
+      switchMap((raw) => {
+        const mapped = this.parseSingleUserResponse(raw);
+        if (mapped) {
+          return of(mapped);
+        }
+
+        return this.getUserById(userId).pipe(
+          map((updatedUser) => {
+            if (!updatedUser) {
+              throw new Error(`User ${userId} not found after update.`);
+            }
+            return updatedUser;
+          }),
+        );
+      }),
+      map((user) => {
+        this.clearUsersCache();
+        return user;
+      }),
+      catchError((error) => {
+        console.error(`Failed to update user id=${userId}:`, error);
+        return throwError(() => error);
+      }),
+    );
+  }
+
+  changeUserPassword(userId: number, body: ChangeUserPasswordRequest): Observable<void> {
+    const payload = {
+      password: body.password,
+      newPassword: body.password,
+      confirmPassword: body.confirmPassword ?? body.password,
+    };
+
+    const attempts = [
+      this.http.put<unknown>(`${this.usersApiUrl}/${userId}/password`, payload),
+      this.http.post<unknown>(`${this.usersApiUrl}/${userId}/password`, payload),
+      this.http.put<unknown>(`${this.usersApiUrl}/${userId}/change-password`, payload),
+      this.http.post<unknown>(`${this.usersApiUrl}/${userId}/change-password`, payload),
+      this.http.post<unknown>(`${this.usersApiUrl}/change-password`, { userId, ...payload }),
+    ];
+
+    return concat(
+      ...attempts.map((request$, index) =>
+        request$.pipe(
+          timeout(this.requestTimeoutMs),
+          catchError((error) => {
+            if (index === attempts.length - 1) {
+              return throwError(() => error);
+            }
+
+            return EMPTY;
+          }),
+        ),
+      ),
+    ).pipe(
+      take(1),
+      map(() => {
+        this.clearUsersCache();
+        return void 0;
+      }),
+      catchError((error) => {
+        console.error(`Failed to change password for user id=${userId}:`, error);
+        return throwError(() => error);
+      }),
     );
   }
 
@@ -307,5 +773,84 @@ export class UserManagementService {
       map((result) => [...new Set(result.items.map((user) => user.role).filter((role) => role.length > 0))].sort()),
       catchError(() => of(['Admin', 'Client User', 'Inspector', 'Manager', 'Viewer'])),
     );
+  }
+
+  private parseSingleUserResponse(raw: unknown): UserListItem | null {
+    if (Array.isArray(raw)) {
+      const first = raw[0] as ApiUser | undefined;
+      return first ? mapApiUserToUser(first) : null;
+    }
+
+    const obj = asObject(raw);
+    if (!obj) {
+      return null;
+    }
+
+    const wrapped = extractCollection(raw);
+    if (wrapped.length > 0) {
+      return mapApiUserToUser(wrapped[0] as ApiUser);
+    }
+
+    const nestedItem =
+      asObject(obj['item']) ??
+      asObject(obj['user']) ??
+      asObject(obj['data']) ??
+      asObject(obj['result']);
+
+    if (nestedItem) {
+      const nestedCollection = extractCollection(nestedItem);
+      if (nestedCollection.length > 0) {
+        return mapApiUserToUser(nestedCollection[0] as ApiUser);
+      }
+
+      return mapApiUserToUser(nestedItem as ApiUser);
+    }
+
+    return mapApiUserToUser(obj as ApiUser);
+  }
+
+  private extractUserId(raw: unknown): number | null {
+    const record = asObject(raw);
+    if (!record) {
+      return null;
+    }
+
+    const candidate =
+      record['id'] ??
+      record['userId'] ??
+      asObject(record['item'])?.['id'] ??
+      asObject(record['item'])?.['userId'] ??
+      asObject(record['user'])?.['id'] ??
+      asObject(record['user'])?.['userId'];
+
+    const parsed = Number(candidate);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  private buildSaveUserPayload(body: SaveUserRequest): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+      name: String(body.name ?? '').trim(),
+      username: String(body.username ?? '').trim(),
+      userName: String(body.username ?? '').trim(),
+      email: String(body.email ?? '').trim(),
+      emailAddress: String(body.email ?? '').trim(),
+      role: String(body.role ?? '').trim(),
+      status: normalizeUserStatus(body.status),
+      phone: String(body.phone ?? '').trim() || null,
+      address: String(body.address ?? '').trim() || null,
+      language: String(body.language ?? '').trim() || null,
+      picture: String(body.picture ?? '').trim() || null,
+      pictureUrl: String(body.picture ?? '').trim() || null,
+      clientId: toNullableIdString(body.clientId),
+      manufacturerId: toNullableIdString(body.manufacturerId),
+    };
+
+    const password = String(body.password ?? '').trim();
+    if (password) {
+      payload['password'] = password;
+      payload['confirmPassword'] = String(body.confirmPassword ?? body.password ?? '').trim() || password;
+    }
+
+    return payload;
   }
 }

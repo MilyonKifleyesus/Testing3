@@ -2,6 +2,34 @@ import { Component, Input, ChangeDetectorRef, ElementRef, AfterViewInit, OnDestr
 import { CommonModule } from '@angular/common';
 import ApexCharts from 'apexcharts';
 
+const RESPONSIVE_OPTIONS_KEY = '__busPulseResponsiveOptions';
+
+function isPlainObject(value: unknown): value is Record<string, any> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function mergeChartOptions(baseValue: any, overrideValue: any): any {
+  if (overrideValue === undefined) {
+    return baseValue;
+  }
+
+  if (Array.isArray(overrideValue)) {
+    return [...overrideValue];
+  }
+
+  if (!isPlainObject(baseValue) || !isPlainObject(overrideValue)) {
+    return overrideValue;
+  }
+
+  const merged: Record<string, any> = { ...baseValue };
+
+  for (const [key, value] of Object.entries(overrideValue)) {
+    merged[key] = mergeChartOptions(merged[key], value);
+  }
+
+  return merged;
+}
+
 @Component({
   selector: 'spk-apex-charts',
   standalone: true,
@@ -134,17 +162,8 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
 
     this.destroyChartInstance();
 
-    const width = this.elementRef.nativeElement.offsetWidth;
-    const height = this.elementRef.nativeElement.offsetHeight;
-
-    const chartConfig = {
-      ...this.chartOptions,
-      chart: {
-        ...(this.chartOptions?.chart ?? {}),
-        width: width > 0 ? width : this.chartOptions?.chart?.width,
-        height: height > 0 ? height : this.chartOptions?.chart?.height,
-      },
-    };
+    const { width, height } = this.getHostDimensions();
+    const chartConfig = this.resolveChartConfig(width, height);
 
     try {
       this.chartInstance = new ApexCharts(host, chartConfig);
@@ -161,17 +180,8 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
       return;
     }
 
-    const width = this.elementRef.nativeElement.offsetWidth;
-    const height = this.elementRef.nativeElement.offsetHeight;
-
-    const nextOptions = {
-      ...this.chartOptions,
-      chart: {
-        ...(this.chartOptions?.chart ?? {}),
-        width: width > 0 ? width : this.chartOptions?.chart?.width,
-        height: height > 0 ? height : this.chartOptions?.chart?.height,
-      },
-    };
+    const { width, height } = this.getHostDimensions();
+    const nextOptions = this.resolveChartConfig(width, height);
 
     if (this.updateOptionsTimeout) {
       clearTimeout(this.updateOptionsTimeout);
@@ -183,12 +193,7 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
       }
 
       try {
-        this.chartInstance.updateOptions(nextOptions, false, true);
-        if (Array.isArray(nextOptions?.series)) {
-          // Some chart types (notably radial gauges) can ignore series changes
-          // through updateOptions alone, so apply series explicitly.
-          this.chartInstance.updateSeries(nextOptions.series, true);
-        }
+        this.chartInstance.updateOptions(nextOptions, false, false, false);
         if (width > 0) {
           this.lastWidth = width;
         }
@@ -199,6 +204,13 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
         this.scheduleChartMount();
       }
     }, 0);
+  }
+
+  exportDataURI(scale = 2): Promise<{ imgURI: string } | null> {
+    if (!this.chartInstance) {
+      return Promise.resolve(null);
+    }
+    return (this.chartInstance as any).dataURI({ scale }).catch(() => null);
   }
 
   private destroyChartInstance(): void {
@@ -216,6 +228,7 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
   }
 
   private handleResize(): void {
+    // Debounce resize events
     if (this.resizeTimeout) {
       clearTimeout(this.resizeTimeout);
     }
@@ -224,13 +237,11 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
         return;
       }
       this.updateChartSize();
-    }, 200);
+    }, 100);
   }
 
   private updateChartSize(): void {
-    const container = this.elementRef.nativeElement;
-    const width = container.offsetWidth;
-    const height = container.offsetHeight;
+    const { width, height } = this.getHostDimensions();
 
     if (this.isDestroyed || !this.renderChart || !this.chartOptions || width <= 0 || height <= 0) {
       return;
@@ -244,25 +255,16 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
       return;
     }
 
-    const widthDelta = Math.abs(width - this.lastWidth);
-    const heightDelta = Math.abs(height - this.lastHeight);
-
-    if (widthDelta < 2 && heightDelta < 2) {
+    if (Math.abs(width - this.lastWidth) < 2 && Math.abs(height - this.lastHeight) < 2) {
       return;
     }
 
     this.lastWidth = width;
     this.lastHeight = height;
+
     this.cdr.markForCheck();
 
     if (!this.chartInstance) {
-      this.renderApexChart();
-      return;
-    }
-
-    // For significant size changes (e.g. responsive breakpoint or widget resize),
-    // do a full re-render so circular charts reflow their geometry correctly.
-    if (widthDelta > 20 || heightDelta > 20) {
       this.renderApexChart();
       return;
     }
@@ -274,21 +276,42 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
       if (this.isDestroyed || !this.chartInstance) {
         return;
       }
+
       try {
-        this.chartInstance.updateOptions(
-          {
-            chart: {
-              ...this.chartOptions?.chart,
-              width,
-              height,
-            },
-          },
-          false,
-          true,
-        );
+        this.chartInstance.updateOptions(this.resolveChartConfig(width, height), false, false, false);
       } catch {
         // no-op
       }
     }, 50);
+  }
+
+  private getHostDimensions(): { width: number; height: number } {
+    const container = this.elementRef.nativeElement as HTMLElement;
+    return {
+      width: container.offsetWidth,
+      height: container.offsetHeight,
+    };
+  }
+
+  private resolveChartConfig(width: number, height: number): any {
+    if (!this.chartOptions) {
+      return null;
+    }
+
+    const responsiveOptionsFactory = this.chartOptions?.[RESPONSIVE_OPTIONS_KEY];
+    const { [RESPONSIVE_OPTIONS_KEY]: _responsiveOptionsFactory, ...baseOptions } = this.chartOptions;
+    const responsiveOptions = typeof responsiveOptionsFactory === 'function'
+      ? responsiveOptionsFactory({ width, height }) ?? {}
+      : {};
+    const mergedOptions = mergeChartOptions(baseOptions, responsiveOptions);
+
+    return {
+      ...mergedOptions,
+      chart: {
+        ...(mergedOptions?.chart ?? {}),
+        width: width > 0 ? width : mergedOptions?.chart?.width,
+        height: height > 0 ? height : mergedOptions?.chart?.height,
+      },
+    };
   }
 }

@@ -1,8 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
 import { ClientDashboardService } from '../../services/client-dashboard.service';
 import { UserManagementService } from '../../services/user-management.service';
 
@@ -65,13 +63,6 @@ interface SnagRow {
                   <select class="form-select" [(ngModel)]="filters.areaId" (ngModelChange)="onFilterChange()">
                     <option value="">All Areas</option>
                     <option *ngFor="let a of areaOptions" [value]="a.id">{{a.name}}</option>
-                  </select>
-                </div>
-                <div class="col-lg-6">
-                  <label class="form-label">Inspector</label>
-                  <select class="form-select" [(ngModel)]="filters.inspectorId" (ngModelChange)="onFilterChange()">
-                    <option value="">All Inspectors</option>
-                    <option *ngFor="let ins of inspectorOptions" [value]="ins.id">{{ins.name}}</option>
                   </select>
                 </div>
                 <div class="col-lg-6 d-flex flex-column justify-content-end">
@@ -272,7 +263,6 @@ export class SnagsComponent implements OnInit, OnDestroy {
 
   projectOptions: DropdownOption[] = [];
   vehicleOptions: DropdownOption[] = [];
-  inspectorOptions: DropdownOption[] = [];
 
   // Name maps for display
   private projectMap = new Map<number | string, string>();
@@ -287,7 +277,6 @@ export class SnagsComponent implements OnInit, OnDestroy {
     projectId:    '' as string | number,
     vehicleId:    '' as string | number,
     areaId:       '' as string | number,
-    inspectorId:  '' as string | number,
     search:       '',
     includeImages: false,
   };
@@ -355,7 +344,6 @@ export class SnagsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadProjects();
-    this.loadInspectors();
     this.fetchSnags();
   }
 
@@ -366,7 +354,7 @@ export class SnagsComponent implements OnInit, OnDestroy {
   // ── Load dropdown data ───────────────────────────────────────────────────────
 
   private loadProjects(): void {
-    this.svc.getProjects({}).subscribe({
+    this.svc.getProjects({ pageSize: 10000 }).subscribe({
       next: (raw) => {
         const items = this.extractItems(raw);
         this.projectOptions = items.map((p: any) => ({
@@ -374,15 +362,6 @@ export class SnagsComponent implements OnInit, OnDestroy {
           name: p.projectName ?? p.name ?? String(p.projectId ?? p.id),
         }));
         this.projectOptions.forEach(p => this.projectMap.set(p.id, p.name));
-      },
-    });
-  }
-
-  private loadInspectors(): void {
-    this.userManagementService.getUsers({ page: 1, pageSize: 1000, role: 'inspector', clientId: '', manufacturerId: '' }).subscribe({
-      next: (result) => {
-        this.inspectorOptions = result.items.map(u => ({ id: u.id, name: u.userName || u.name || String(u.id) }));
-        result.items.forEach(u => this.userIdToName.set(u.id, u.userName || u.name || String(u.id)));
       },
     });
   }
@@ -432,11 +411,10 @@ export class SnagsComponent implements OnInit, OnDestroy {
       orderBy:       this.sortColumn,
       orderDirection: this.sortDirection,
     };
-    if (this.filters.projectId)    p['projectId']               = Number(this.filters.projectId);
-    if (this.filters.vehicleId)    p['vehicleId']               = Number(this.filters.vehicleId);
-    if (this.filters.areaId)       p['finalInspectionCategory'] = Number(this.filters.areaId);
-    if (this.filters.inspectorId)  p['userId']                  = Number(this.filters.inspectorId);
-    if (this.filters.search?.trim()) p['snagNumber']             = this.filters.search.trim();
+    if (this.filters.projectId)  p['projectId']               = Number(this.filters.projectId);
+    if (this.filters.vehicleId)  p['vehicleId']               = Number(this.filters.vehicleId);
+    if (this.filters.areaId)     p['finalInspectionCategory'] = Number(this.filters.areaId);
+    if (this.filters.search?.trim()) p['snagNumber']           = this.filters.search.trim();
     return p;
   }
 
@@ -614,13 +592,13 @@ export class SnagsComponent implements OnInit, OnDestroy {
     const uncached = userIds.filter(id => !this.userIdToName.has(id));
     if (!uncached.length) { applyNames(); return; }
 
-    forkJoin(
-      uncached.map(id => this.userManagementService.getUserById(id).pipe(catchError(() => of(null))))
-    ).subscribe(users => {
-      users.forEach((user, i) => {
-        if (user) this.userIdToName.set(uncached[i], user.userName || user.name || String(uncached[i]));
-      });
-      applyNames();
+    this.userManagementService.getUsers({ page: 1, pageSize: 10000, role: '', clientId: '', manufacturerId: '' }).subscribe({
+      next: (result) => {
+        for (const user of result.items) {
+          this.userIdToName.set(user.id, user.username || user.name || String(user.id));
+        }
+        applyNames();
+      },
     });
   }
 

@@ -36,6 +36,7 @@ export interface TimeLogUser {
   id: string;
   name: string;
   email?: string;
+  avatarUrl?: string | null;
 }
 
 /** @deprecated Use TimeLogUser */
@@ -59,6 +60,7 @@ export interface TimeLog {
 // ─── List / Filter Types ─────────────────────────────────────────────────────
 
 export interface TimeLogFilter {
+  clientId?: string;
   projectId?: string;
   vehicleId?: string;
   userId?: string;

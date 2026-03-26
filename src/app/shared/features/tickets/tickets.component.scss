@@ -21,6 +21,23 @@
   max-width: 280px;
 }
 
+.ticket-selection-summary {
+  padding: 0.45rem 0.8rem;
+  border: 1px dashed var(--default-border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: rgba(var(--light-rgb, 248, 249, 250), 0.7);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.ticket-selection-summary--active {
+  border-style: solid;
+  border-color: rgba(var(--success-rgb), 0.22);
+  color: rgb(var(--success-rgb));
+  background: rgba(var(--success-rgb), 0.1);
+}
+
 // Sortable column header
 .sort-col {
   cursor: pointer;

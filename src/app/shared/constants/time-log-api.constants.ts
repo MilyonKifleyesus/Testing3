@@ -9,6 +9,7 @@ export const TIME_LOG_API_PATHS = {
   inspectors: '/inspectors',
   users: '/users',
   userById: (id: string) => `/users/${encodeURIComponent(id)}`,
+  usersByIds: '/users/by-ids',
   legacyUserById: (id: string) => `/user/${encodeURIComponent(id)}`,
   timeLogs: '/timelogs',
   timeLogsBulk: '/timelogs/bulk',

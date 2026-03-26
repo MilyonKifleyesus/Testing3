@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { UserManagementService } from '../../../../shared/services/user-management.service';
 
@@ -44,6 +44,7 @@ export class UserViewComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private userManagementService: UserManagementService,
   ) {}
 
@@ -67,17 +68,17 @@ export class UserViewComponent implements OnInit {
 
       this.user = {
         id: user.id,
-        name: user.name !== 'N/A' ? user.name : user.userName,
-        username: user.userName,
-        email: user.email ?? '',
+        name: user.name !== 'N/A' ? user.name : user.username,
+        username: user.username,
+        email: user.email,
         role: user.role,
-        clientId: String(user.clientId),
-        client: user.clientName || undefined,
-        manufacturer: user.manufacturerName || undefined,
-        status: !user.deleted ? 'active' : 'inactive',
-        createdDate: user.lastUpdate || '—',
-        updatedAt: user.lastUpdate || undefined,
-        lastLogin: user.lastUpdate || undefined,
+        clientId: user.clientId,
+        client: user.client || undefined,
+        manufacturer: user.manufacturer || undefined,
+        status: typeof user.isActive === 'boolean' ? (user.isActive ? 'active' : 'inactive') : (user.status === 'inactive' || user.status === 'suspended' ? user.status : 'active'),
+        createdDate: user.createdDate || user.updatedAt || '—',
+        updatedAt: user.updatedAt || undefined,
+        lastLogin: user.updatedAt || undefined,
         permissions: [],
       };
     });
@@ -136,8 +137,11 @@ export class UserViewComponent implements OnInit {
   }
 
   editUser(): void {
-    // Navigate to edit page or open modal
-    console.log('Edit user:', this.userId);
+    if (!this.userId) {
+      return;
+    }
+
+    this.router.navigate(['/admin/users/edit', this.userId]);
   }
 
   suspendUser(): void {

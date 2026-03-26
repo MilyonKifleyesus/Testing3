@@ -1,4 +1,4 @@
-import { catchError, map, of, take } from 'rxjs';
+import { catchError, firstValueFrom, forkJoin, from, map, of, take } from 'rxjs';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
@@ -44,29 +44,23 @@ function normalizeId(value: unknown): string {
   styleUrl: './vehicle-list.component.scss'
 })
 export class VehicleListComponent implements OnInit {
+  private readonly projectVehiclesFetchPageSize = 500;
+  private readonly maxProjectVehiclePages = 500;
+  private readonly projectEnrichmentConcurrency = 20;
   private vehiclesRequestVersion = 0;
+  private readonly allVehiclesEnrichedCache = new Map<string, unknown[]>();
+  private readonly projectVehiclesCache = new Map<string, unknown[]>();
 
         /** Called when client filter changes */
         onClientChange(): void {
           const clientId = this.getSelectedClientIdForRequest();
           this.selectedProject = 'all';
-          this.currentPage = 1;
           this.loadProjectsForDropdown(clientId);
         }
 
         /** Called when project filter changes */
         onProjectChange(): void {
-          this.currentPage = 1;
-          this.vehicles = [];
-          this.filteredVehicles = [];
-          this.totalVehicles = 0;
-          if (this.hasProjectSelected) {
-            this.loadVehicles();
-          }
-        }
-
-        get hasProjectSelected(): boolean {
-          return !!this.selectedProject && this.selectedProject !== 'all';
+          this.loadVehicles();
         }
       projects: SelectOption[] = [];
 
@@ -98,47 +92,307 @@ export class VehicleListComponent implements OnInit {
 
         const clientId = this.getSelectedClientIdForRequest();
         const selectedProjectId = Number(String(this.selectedProject ?? '').trim());
-        const projectId =
-          this.selectedProject !== 'all' && Number.isFinite(selectedProjectId) && selectedProjectId > 0
-            ? selectedProjectId
-            : undefined;
+        const hasSelectedProject = this.selectedProject !== 'all' && Number.isFinite(selectedProjectId) && selectedProjectId > 0;
 
-        if (!projectId) {
-          this.vehicles = [];
-          this.filteredVehicles = [];
-          this.totalVehicles = 0;
-          this.isLoadingVehicles = false;
-          return;
-        }
+        const projectIds = this.projects
+          .map((project) => Number(String(project.id ?? '').trim()))
+          .filter((projectId) => Number.isFinite(projectId) && projectId > 0);
 
-        this.clientDashboardService
-          .getProjectVehicles(projectId, {
-            ...(clientId ? { clientId } : {}),
-          })
-          .pipe(
-            take(1),
-            catchError((err) => {
-              console.error('Failed to load vehicles:', err);
-              return of(null);
-            }),
-          )
-          .subscribe((response) => {
-            if (requestVersion !== this.vehiclesRequestVersion) return;
-            const items = extractArrayFromApiResponse(response);
-            this.vehicles = this.mapApiVehicles(Array.isArray(items) ? items : [], projectId);
-            this.totalVehicles = this.extractTotal(response, this.vehicles.length);
+        const vehiclesPromise = hasSelectedProject
+          ? this.getCachedProjectVehicles(selectedProjectId, clientId)
+          : this.getCachedAllVehiclesEnriched(clientId, projectIds);
+
+        from(vehiclesPromise)
+          .pipe(take(1))
+          .subscribe((items) => {
+            if (requestVersion !== this.vehiclesRequestVersion) {
+              return;
+            }
+
+            this.vehicles = this.mapApiVehicles(Array.isArray(items) ? items : [], hasSelectedProject ? selectedProjectId : undefined);
             this.filterVehicles();
+            this.totalVehicles = this.vehicles.length;
+            this.updateTicketsCard(clientId);
+            this.isLoadingVehicles = false;
+          }, () => {
+            if (requestVersion !== this.vehiclesRequestVersion) {
+              return;
+            }
+
+            this.vehicles = [];
+            this.filterVehicles();
+            this.totalVehicles = 0;
+            this.updateTicketsCard(clientId);
             this.isLoadingVehicles = false;
           });
       }
 
-      private extractTotal(response: any, fallback: number): number {
-        if (response && typeof response === 'object') {
-          const raw = response['totalCount'] ?? response['total'] ?? response['totalRecords'] ?? response['count'];
-          const num = Number(raw);
-          if (Number.isFinite(num) && num >= 0) return num;
+      private getClientScopeCacheKey(clientId?: number): string {
+        return typeof clientId === 'number' && clientId > 0 ? String(clientId) : 'all';
+      }
+
+      private getCachedProjectVehicles(projectId: number, clientId?: number): Promise<unknown[]> {
+        const cacheKey = `${this.getClientScopeCacheKey(clientId)}|${projectId}`;
+        const cached = this.projectVehiclesCache.get(cacheKey);
+        if (cached) {
+          return Promise.resolve(cached);
         }
-        return fallback;
+
+        return this.fetchAllProjectVehicles(projectId, clientId).then((items) => {
+          this.projectVehiclesCache.set(cacheKey, items);
+          return items;
+        });
+      }
+
+      private getCachedAllVehiclesEnriched(clientId: number | undefined, projectIds: number[]): Promise<unknown[]> {
+        const normalizedProjectIds = [...projectIds].sort((left, right) => left - right);
+        const cacheKey = `${this.getClientScopeCacheKey(clientId)}|${normalizedProjectIds.join(',')}`;
+        const cached = this.allVehiclesEnrichedCache.get(cacheKey);
+        if (cached) {
+          return Promise.resolve(cached);
+        }
+
+        return this.fetchAllVehiclesEnrichedByProjects(clientId, normalizedProjectIds).then((items) => {
+          this.allVehiclesEnrichedCache.set(cacheKey, items);
+          return items;
+        });
+      }
+
+      private async fetchAllVehiclesEnrichedByProjects(clientId?: number, projectIds?: number[]): Promise<unknown[]> {
+        const effectiveProjectIds = projectIds && projectIds.length > 0
+          ? projectIds
+          : this.projects
+              .map((project) => Number(String(project.id ?? '').trim()))
+              .filter((projectId) => Number.isFinite(projectId) && projectId > 0);
+
+        if (effectiveProjectIds.length === 0) {
+          return this.fetchAllVehicles(clientId);
+        }
+
+        const projectItems: unknown[] = [];
+        for (let index = 0; index < effectiveProjectIds.length; index += this.projectEnrichmentConcurrency) {
+          const batch = effectiveProjectIds.slice(index, index + this.projectEnrichmentConcurrency);
+          const batchResults = await Promise.all(
+            batch.map((projectId) => this.getCachedProjectVehicles(projectId, clientId)),
+          );
+
+          batchResults.forEach((items, batchIndex) => {
+            const projectId = batch[batchIndex];
+            if (Array.isArray(items) && items.length > 0) {
+              projectItems.push(...items.map((item) => this.ensureProjectIdOnVehicleItem(item, projectId)));
+            }
+          });
+        }
+
+        return projectItems;
+      }
+
+      private ensureProjectIdOnVehicleItem(item: unknown, projectId: number): unknown {
+        if (!item || typeof item !== 'object') {
+          return item;
+        }
+
+        const source = item as Record<string, unknown>;
+        const existingRaw =
+          source['projectId'] ??
+          source['ProjectId'] ??
+          source['projectID'] ??
+          source['project_id'];
+
+        // Only keep existing projectId if it is a valid positive number/string
+        const existingNum = Number(existingRaw);
+        if (Number.isFinite(existingNum) && existingNum > 0) {
+          return item;
+        }
+
+        return {
+          ...source,
+          projectId,
+          ProjectId: projectId,
+        };
+      }
+
+      private async fetchAllVehicles(clientId?: number): Promise<unknown[]> {
+        const items: unknown[] = [];
+        let page = 1;
+
+        while (page <= this.maxProjectVehiclePages) {
+          const pageItems = await firstValueFrom(
+            this.clientDashboardService
+              .getVehicles({
+                ...(typeof clientId === 'number' ? { clientId } : {}),
+                page,
+                pageSize: this.projectVehiclesFetchPageSize,
+              })
+              .pipe(
+                map((response) => extractArrayFromApiResponse(response)),
+                map((result) => (Array.isArray(result) ? result : [])),
+                catchError((error) => {
+                  console.error(`Failed to load vehicles page ${page}:`, error);
+                  return of([] as unknown[]);
+                }),
+              ),
+          );
+
+          if (pageItems.length === 0) {
+            break;
+          }
+
+          items.push(...pageItems);
+
+          page += 1;
+        }
+
+        return items;
+      }
+
+      private async fetchAllProjectVehicles(projectId: number, clientId?: number): Promise<unknown[]> {
+        const primaryItems = await this.fetchProjectVehiclesFromProjectApi(projectId, clientId);
+
+        // Avoid a second full crawl when the project endpoint already returned data.
+        if (primaryItems.length > 0) {
+          return primaryItems;
+        }
+
+        return this.fetchAllVehiclesByProjectFromVehiclesApi(projectId, clientId);
+      }
+
+      private async fetchProjectVehiclesFromProjectApi(projectId: number, clientId?: number): Promise<unknown[]> {
+        const items: unknown[] = [];
+        let page = 1;
+        let noGrowthCount = 0;
+        const seenVehicleIds = new Set<string>();
+
+        while (page <= this.maxProjectVehiclePages) {
+          const pageItems = await firstValueFrom(
+            this.clientDashboardService
+              .getProjectVehicles(projectId, {
+                ...(typeof clientId === 'number' ? { clientId } : {}),
+                page,
+                pageSize: this.projectVehiclesFetchPageSize,
+              })
+              .pipe(
+                map((response) => extractArrayFromApiResponse(response)),
+                map((result) => (Array.isArray(result) ? result : [])),
+                catchError((error) => {
+                  console.error(`Failed to load vehicles for project ${projectId} page ${page}:`, error);
+                  return of([] as unknown[]);
+                }),
+              ),
+          );
+
+          if (pageItems.length === 0) {
+            break;
+          }
+
+          items.push(...pageItems);
+
+          let addedCount = 0;
+          pageItems.forEach((item) => {
+            const vehicleId = String(
+              getFirstDefinedValue(item, ['id', 'vehicleId', 'vehicleID', 'VehicleId', 'VehicleID', 'assetId', 'AssetId']) ?? '',
+            ).trim();
+
+            if (!vehicleId) {
+              return;
+            }
+
+            if (!seenVehicleIds.has(vehicleId)) {
+              seenVehicleIds.add(vehicleId);
+              addedCount += 1;
+            }
+          });
+
+          if (addedCount === 0) {
+            noGrowthCount += 1;
+          } else {
+            noGrowthCount = 0;
+          }
+
+          if (noGrowthCount >= 2) {
+            break;
+          }
+
+          page += 1;
+        }
+
+        return items;
+      }
+
+      private async fetchAllVehiclesByProjectFromVehiclesApi(projectId: number, clientId?: number): Promise<unknown[]> {
+        const items: unknown[] = [];
+        let page = 1;
+        let noGrowthCount = 0;
+        const seenVehicleIds = new Set<string>();
+
+        while (page <= this.maxProjectVehiclePages) {
+          const pageItems = await firstValueFrom(
+            this.clientDashboardService
+              .getVehicles({
+                ...(typeof clientId === 'number' ? { clientId } : {}),
+                page,
+                pageSize: this.projectVehiclesFetchPageSize,
+                projectId,
+              } as any)
+              .pipe(
+                map((response) => extractArrayFromApiResponse(response)),
+                map((result) => (Array.isArray(result) ? result : [])),
+                catchError(() =>
+                  this.clientDashboardService
+                    .getVehicles({
+                      ...(typeof clientId === 'number' ? { clientId } : {}),
+                      page,
+                      pageSize: this.projectVehiclesFetchPageSize,
+                      ProjectId: projectId,
+                    } as any)
+                    .pipe(
+                      map((response) => extractArrayFromApiResponse(response)),
+                      map((result) => (Array.isArray(result) ? result : [])),
+                      catchError((error) => {
+                        console.error(`Failed to load Vehicles API fallback for project ${projectId} page ${page}:`, error);
+                        return of([] as unknown[]);
+                      }),
+                    ),
+                ),
+              ),
+          );
+
+          if (pageItems.length === 0) {
+            break;
+          }
+
+          items.push(...pageItems);
+
+          let addedCount = 0;
+          pageItems.forEach((item) => {
+            const vehicleId = String(
+              getFirstDefinedValue(item, ['id', 'vehicleId', 'vehicleID', 'VehicleId', 'VehicleID', 'assetId', 'AssetId']) ?? '',
+            ).trim();
+
+            if (!vehicleId) {
+              return;
+            }
+
+            if (!seenVehicleIds.has(vehicleId)) {
+              seenVehicleIds.add(vehicleId);
+              addedCount += 1;
+            }
+          });
+
+          if (addedCount === 0) {
+            noGrowthCount += 1;
+          } else {
+            noGrowthCount = 0;
+          }
+
+          if (noGrowthCount >= 2) {
+            break;
+          }
+
+          page += 1;
+        }
+
+        return items;
       }
 
       private mapApiVehicles(items: unknown[], forcedProjectId?: number): Vehicle[] {
@@ -255,6 +509,8 @@ export class VehicleListComponent implements OnInit {
         this.clientDashboardService
           .getProjects({
             ...(typeof effectiveClientId === 'number' ? { clientId: effectiveClientId } : {}),
+            page: 1,
+            pageSize: 5000,
           })
           .pipe(
             map((response) => extractArrayFromApiResponse(response)),
@@ -298,9 +554,7 @@ export class VehicleListComponent implements OnInit {
               this.selectedProject = 'all';
             }
 
-            if (this.hasProjectSelected) {
-              this.loadVehicles();
-            }
+            this.loadVehicles();
           });
       }
     get isAdminPortal(): boolean {
@@ -315,12 +569,13 @@ export class VehicleListComponent implements OnInit {
     }
 
     get totalPages(): number {
-      const total = Math.ceil(this.totalVehicles / this.pageSize);
+      const total = Math.ceil(this.filteredVehicles.length / this.pageSize);
       return total > 0 ? total : 1;
     }
 
     get paginatedVehicles(): Vehicle[] {
-      return this.filteredVehicles;
+      const start = (this.currentPage - 1) * this.pageSize;
+      return this.filteredVehicles.slice(start, start + this.pageSize);
     }
 
     get visiblePages(): number[] {
@@ -328,13 +583,13 @@ export class VehicleListComponent implements OnInit {
     }
 
     get pageStartItem(): number {
-      if (!this.totalVehicles) return 0;
+      if (!this.filteredVehicles.length) return 0;
       return (this.currentPage - 1) * this.pageSize + 1;
     }
 
     get pageEndItem(): number {
-      if (!this.totalVehicles) return 0;
-      return Math.min(this.currentPage * this.pageSize, this.totalVehicles);
+      if (!this.filteredVehicles.length) return 0;
+      return Math.min(this.currentPage * this.pageSize, this.filteredVehicles.length);
     }
   /** Card stats */
   totalVehicles: number = 0;
@@ -376,25 +631,75 @@ export class VehicleListComponent implements OnInit {
       }
     }
   }
+  /** Update stats cards for dashboard */
+  updateStatsCards(): void {
+    // Fetch vehicles from API for accurate count
+    const clientId = this.getSelectedClientIdForRequest();
+    if (clientId) {
+      this.clientDashboardService.getVehicles({ clientId, page: 1, pageSize: 5000 })
+        .pipe(
+          map((response) => extractArrayFromApiResponse(response)),
+          map((vehicles) => Array.isArray(vehicles) ? vehicles : []),
+          catchError((error) => {
+            console.error('Failed to load vehicles:', error);
+            return of([]);
+          }),
+          take(1),
+        )
+        .subscribe((vehicles) => {
+          this.totalVehicles = vehicles.length;
+        });
+    } else {
+      this.totalVehicles = 0;
+    }
+  }
+
+  /** Fetch tickets and update card */
+  private updateTicketsCard(clientId?: number): void {
+    // Use projectId if selected, else fetch all tickets for client
+    const projectId = this.selectedProject !== 'all' ? Number(this.selectedProject) : undefined;
+    const ticketParams: any = {
+      projectId: projectId ?? 0,
+      userId: 0,
+      vehicleId: 0,
+      page: 1,
+      pageSize: 5000,
+      ...(clientId ? { clientId } : {}),
+    };
+    if (this.ticketStatusFilter !== 'all') {
+      ticketParams.status = this.ticketStatusFilter;
+    }
+    this.clientDashboardService.getTickets(ticketParams)
+      .pipe(
+        map((response) => extractArrayFromApiResponse(response)),
+        map((tickets) => Array.isArray(tickets) ? tickets : []),
+        catchError((error) => {
+          console.error('Failed to load tickets:', error);
+          return of([]);
+        }),
+        take(1),
+      )
+      .subscribe((tickets) => {
+        this.totalTickets = tickets.length;
+      });
+  }
+
 
   nextPage(): void {
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
-      this.loadVehicles();
     }
   }
 
   previousPage(): void {
     if (this.currentPage > 1) {
       this.currentPage--;
-      this.loadVehicles();
     }
   }
 
   changePage(page: number): void {
     if (this.isPaginationNumber(page) && page >= 1 && page <= this.totalPages) {
       this.currentPage = page;
-      this.loadVehicles();
     }
   }
 
@@ -524,6 +829,7 @@ export class VehicleListComponent implements OnInit {
    * Apply filters to vehicle list
    */
   filterVehicles(): void {
+    this.currentPage = 1;
     this.filteredVehicles = this.vehicles.filter((vehicle: Vehicle) => {
       if (!vehicle) return false;
       const matchesSearch = !this.searchTerm ||

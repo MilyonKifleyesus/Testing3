@@ -34,7 +34,7 @@ interface FilterOption {
   name: string;
 }
 
-type DropdownSearchKey = 'project' | 'vehicle' | 'typeOfTime' | 'user';
+type DropdownSearchKey = 'client' | 'project' | 'vehicle' | 'typeOfTime' | 'user';
 
 @Component({
   selector: 'app-timesheet',
@@ -68,10 +68,11 @@ export class TimesheetComponent implements OnInit, OnDestroy {
   loading = false;
   error: string | null = null;
 
-  projectOptions: { id: string; name: string }[] = [];
+  projectOptions: { id: string; name: string; clientId: string; clientName?: string }[] = [];
   vehicleOptions: { id: string; name: string }[] = [];
   userOptions: TimeLogUser[] = [];
   typeOfTimeOptions = [...TIME_OF_TIME_OPTIONS];
+  clientFilterOptions: FilterOption[] = [{ id: '', name: 'All Clients' }];
   projectFilterOptions: FilterOption[] = [{ id: '', name: 'All Projects' }];
   vehicleFilterOptions: FilterOption[] = [{ id: '', name: 'All Vehicles' }];
   userFilterOptions: FilterOption[] = [{ id: '', name: 'All Users' }];
@@ -81,9 +82,11 @@ export class TimesheetComponent implements OnInit, OnDestroy {
   ];
   lookupWarning: string | null = null;
 
+  selectedClientId = '';
   filters: TimeLogFilter = {};
   searchTerm = '';
   dropdownSearch: Record<DropdownSearchKey, string> = {
+    client: '',
     project: '',
     vehicle: '',
     typeOfTime: '',
@@ -140,6 +143,8 @@ export class TimesheetComponent implements OnInit, OnDestroy {
         this.projectOptions = state.projects.map((p) => ({
           id: p.id,
           name: p.name,
+          clientId: p.clientId,
+          clientName: p.clientName,
         }));
         this.vehicleOptions = state.vehicles.map((v) => ({
           id: v.id,
@@ -190,7 +195,22 @@ export class TimesheetComponent implements OnInit, OnDestroy {
     select.itemsList.filter('');
   }
 
+  onClientFilterChange(clientId: string): void {
+    this.selectedClientId = clientId ?? '';
+    // If selected project doesn't belong to this client, clear it
+    if (this.selectedClientId && this.filters['projectId']) {
+      const project = this.projectOptions.find((p) => p.id === this.filters['projectId']);
+      if (project && project.clientId !== this.selectedClientId) {
+        this.filters['projectId'] = '';
+      }
+    }
+    this.rebuildFilterOptions();
+    this.page = 1;
+    this.refresh$.next();
+  }
+
   clearFilters(): void {
+    this.selectedClientId = '';
     this.filters = {};
     this.searchTerm = '';
     this.page = 1;
@@ -201,6 +221,7 @@ export class TimesheetComponent implements OnInit, OnDestroy {
   get hasActiveFilters(): boolean {
     return (
       !!this.searchTerm ||
+      !!this.selectedClientId ||
       Object.values(this.filters).some((v) => v != null && v !== '')
     );
   }
@@ -389,9 +410,25 @@ export class TimesheetComponent implements OnInit, OnDestroy {
   }
 
   private rebuildFilterOptions(): void {
+    // Build unique client list from projects
+    const clientMap = new Map<string, string>();
+    for (const p of this.projectOptions) {
+      if (p.clientId && !clientMap.has(p.clientId)) {
+        clientMap.set(p.clientId, p.clientName ?? p.clientId);
+      }
+    }
+    this.clientFilterOptions = [
+      { id: '', name: 'All Clients' },
+      ...Array.from(clientMap.entries()).map(([id, name]) => ({ id, name })),
+    ];
+
+    const visibleProjects = this.selectedClientId
+      ? this.projectOptions.filter((p) => p.clientId === this.selectedClientId)
+      : this.projectOptions;
+
     this.projectFilterOptions = [
       { id: '', name: 'All Projects' },
-      ...this.projectOptions.map((project) => ({
+      ...visibleProjects.map((project) => ({
         id: project.id,
         name: project.name,
       })),

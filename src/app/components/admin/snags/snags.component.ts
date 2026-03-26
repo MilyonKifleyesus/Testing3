@@ -1,8 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
 import { ClientDashboardService } from '../../../shared/services/client-dashboard.service';
 import { UserManagementService } from '../../../shared/services/user-management.service';
 
@@ -74,20 +72,14 @@ interface SnagRow {
                     <option *ngFor="let a of areaOptions" [value]="a.id">{{a.name}}</option>
                   </select>
                 </div>
-                <div class="col-lg-6">
-                  <label class="form-label">Inspector</label>
-                  <select class="form-select" [(ngModel)]="filters.inspectorId" (ngModelChange)="onFilterChange()">
-                    <option value="">All Inspectors</option>
-                    <option *ngFor="let ins of inspectorOptions" [value]="ins.id">{{ins.name}}</option>
-                  </select>
-                </div>
-                <div class="col-lg-6 d-flex align-items-center gap-3">
-                  <div class="input-group input-group-sm">
+                <div class="col-lg-6 d-flex flex-column justify-content-end">
+                  <label class="form-label">Search</label>
+                  <div class="input-group">
                     <span class="input-group-text"><i class="ti ti-search"></i></span>
-                    <input class="form-control" placeholder="Search snags..." [(ngModel)]="filters.search" (ngModelChange)="onSearchChange()">
+                    <input class="form-control" placeholder="Snag number..." [(ngModel)]="filters.search" (ngModelChange)="onSearchChange()">
                   </div>
                 </div>
-                <div class="col-lg-6 d-flex align-items-center">
+                <div class="col-12 d-flex align-items-center">
                   <input class="form-check-input me-2" type="checkbox" id="includeImages" [(ngModel)]="filters.includeImages">
                   <label class="form-check-label" for="includeImages">Include Images</label>
                 </div>
@@ -99,13 +91,34 @@ interface SnagRow {
         <!-- Highlights -->
         <div class="col-xxl-4">
           <div class="row g-3 h-100">
+            <div class="col-sm-6 col-12">
+              <div class="highlight-card bg-primary-01">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <p class="text-muted mb-1">Total Snags</p>
+                    <h3 class="mb-0">{{isLoading ? '—' : totalCount}}</h3>
+                  </div>
+                  <div class="icon-badge bg-primary"><i class="ti ti-alert-triangle"></i></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-6 col-12">
+              <div class="highlight-card bg-danger-01">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <p class="text-muted mb-1">Safety Critical</p>
+                    <h3 class="mb-0">{{safetyCriticalCount}}</h3>
+                  </div>
+                  <div class="icon-badge bg-danger"><i class="ti ti-shield-lock"></i></div>
+                </div>
+              </div>
+            </div>
             <div class="col-12">
               <div class="highlight-card bg-success-01">
                 <div class="d-flex justify-content-between align-items-center">
                   <div>
                     <p class="text-muted mb-1">Selected</p>
                     <h3 class="mb-0">{{selectedCount}}</h3>
-                    <p class="text-muted mb-0 fs-12 mt-1">Total: {{isLoading ? '—' : totalCount}}</p>
                   </div>
                   <div class="d-flex gap-2">
                     <button class="btn btn-sm btn-success" (click)="checkAll()" [disabled]="isPrintLoading">
@@ -145,13 +158,13 @@ interface SnagRow {
                     <input type="checkbox" class="form-check-input" [checked]="allSelected" (change)="toggleAll($event)">
                   </th>
                   <th (click)="onSort('id')" style="cursor:pointer">Snag # {{getSortIcon('id')}}</th>
-                  <th (click)="onSort('userId')" style="cursor:pointer">Inspector {{getSortIcon('userId')}}</th>
-                  <th (click)="onSort('projectId')" style="cursor:pointer">Project {{getSortIcon('projectId')}}</th>
-                  <th (click)="onSort('vehicleId')" style="cursor:pointer">Vehicle {{getSortIcon('vehicleId')}}</th>
-                  <th (click)="onSort('finalInspectionCategory')" style="cursor:pointer">Category {{getSortIcon('finalInspectionCategory')}}</th>
-                  <th (click)="onSort('description')" style="cursor:pointer">Description {{getSortIcon('description')}}</th>
+                  <th>Inspector</th>
+                  <th>Project</th>
+                  <th>Vehicle</th>
+                  <th>Category</th>
+                  <th>Description</th>
                   <th (click)="onSort('safetyCritical')" style="cursor:pointer">Safety {{getSortIcon('safetyCritical')}}</th>
-                  <th (click)="onSort('repeater')" style="cursor:pointer">Repeater {{getSortIcon('repeater')}}</th>
+                  <th>Repeater</th>
                   <th>Images</th>
                 </tr>
               </thead>
@@ -247,7 +260,6 @@ export class SnagsComponent implements OnInit, OnDestroy {
 
   projectOptions: DropdownOption[] = [];
   vehicleOptions: DropdownOption[] = [];
-  inspectorOptions: DropdownOption[] = [];
 
   private projectMap = new Map<number | string, string>();
   private vehicleMap = new Map<number | string, string>();
@@ -259,7 +271,6 @@ export class SnagsComponent implements OnInit, OnDestroy {
     projectId:     '' as string | number,
     vehicleId:     '' as string | number,
     areaId:        '' as string | number,
-    inspectorId:   '' as string | number,
     search:        '',
     includeImages: false,
   };
@@ -268,6 +279,7 @@ export class SnagsComponent implements OnInit, OnDestroy {
   isPrintLoading = false;
   snags: SnagRow[] = [];
   totalCount     = 0;
+  totalSafetyCriticalCount = 0;
   currentPage    = 1;
   readonly pageSize = 10;
 
@@ -281,6 +293,7 @@ export class SnagsComponent implements OnInit, OnDestroy {
     return this.filters.includeImages ? this.snags.filter(s => s.hasImages) : this.snags;
   }
 
+  get safetyCriticalCount(): number { return this.totalSafetyCriticalCount; }
   get selectedCount():       number { return this.selectedMap.size; }
 
   get allSelected(): boolean {
@@ -304,13 +317,11 @@ export class SnagsComponent implements OnInit, OnDestroy {
   }
 
   private userIdToName = new Map<number, string>();
-  private vehicleIdToFleet = new Map<number, string>();
 
   constructor(private svc: ClientDashboardService, private userManagementService: UserManagementService) {}
 
   ngOnInit(): void {
     this.loadProjects();
-    this.loadInspectors();
     this.fetchSnags();
   }
 
@@ -319,7 +330,7 @@ export class SnagsComponent implements OnInit, OnDestroy {
   }
 
   private loadProjects(): void {
-    this.svc.getProjects({}).subscribe({
+    this.svc.getProjects({ pageSize: 10000 }).subscribe({
       next: (raw) => {
         const items = this.extractItems(raw);
         this.projectOptions = items.map((p: any) => ({
@@ -327,20 +338,6 @@ export class SnagsComponent implements OnInit, OnDestroy {
           name: p.projectName ?? p.name ?? String(p.projectId ?? p.id),
         }));
         this.projectOptions.forEach(p => this.projectMap.set(p.id, p.name));
-        // Re-apply project names to already-loaded snags (race condition fix)
-        this.snags = this.snags.map(s => ({
-          ...s,
-          project: this.projectMap.get(s.projectId) ?? s.project,
-        }));
-      },
-    });
-  }
-
-  private loadInspectors(): void {
-    this.userManagementService.getUsers({ page: 1, pageSize: 1000, role: 'inspector', clientId: '', manufacturerId: '' }).subscribe({
-      next: (result) => {
-        this.inspectorOptions = result.items.map(u => ({ id: u.id, name: u.userName || u.name || String(u.id) }));
-        result.items.forEach(u => this.userIdToName.set(u.id, u.userName || u.name || String(u.id)));
       },
     });
   }
@@ -352,7 +349,7 @@ export class SnagsComponent implements OnInit, OnDestroy {
         const items = this.extractItems(raw);
         this.vehicleOptions = items.map((v: any) => ({
           id:   v.vehicleId ?? v.id,
-          name: v.fleetNumber ?? v.fleetNo ?? v.vehicleName ?? v.name ?? v.vehicleNumber ?? String(v.vehicleId ?? v.id),
+          name: v.vehicleName ?? v.name ?? v.vehicleNumber ?? String(v.vehicleId ?? v.id),
         }));
         this.vehicleOptions.forEach(v => this.vehicleMap.set(v.id, v.name));
       },
@@ -386,7 +383,6 @@ export class SnagsComponent implements OnInit, OnDestroy {
     if (this.filters.projectId)      p['projectId']               = Number(this.filters.projectId);
     if (this.filters.vehicleId)      p['vehicleId']               = Number(this.filters.vehicleId);
     if (this.filters.areaId)         p['finalInspectionCategory'] = Number(this.filters.areaId);
-    if (this.filters.inspectorId)    p['userId']                  = Number(this.filters.inspectorId);
     if (this.filters.search?.trim()) p['snagNumber']              = this.filters.search.trim();
     return p;
   }
@@ -400,10 +396,15 @@ export class SnagsComponent implements OnInit, OnDestroy {
         this.snags = items.map((item: any) => this.mapToRow(item));
         this.snags.forEach(s => { if (this.selectedMap.has(String(s.id))) s.selected = true; });
         this.resolveInspectorNames();
-        this.resolveVehicleFleetNumbers();
         this.isLoading = false;
       },
       error: () => { this.snags = []; this.totalCount = 0; this.isLoading = false; },
+    });
+    this.svc.getSnags({ ...this.buildParams(1, 1), safetyCritical: true }).subscribe({
+      next: (raw) => {
+        const { total } = this.normalizeResponse(raw);
+        this.totalSafetyCriticalCount = total;
+      },
     });
   }
 
@@ -523,38 +524,6 @@ export class SnagsComponent implements OnInit, OnDestroy {
     if (win) win.addEventListener('load', () => { win.print(); URL.revokeObjectURL(url); });
   }
 
-  private resolveVehicleFleetNumbers(): void {
-    const vehIds = Array.from(new Set(
-      this.snags.map(s => s.vehicleId).filter((id): id is number => typeof id === 'number' && id > 0)
-    ));
-    if (!vehIds.length) return;
-
-    const applyFleet = () => {
-      this.snags = this.snags.map(s => ({
-        ...s,
-        vehicle: (typeof s.vehicleId === 'number' && this.vehicleIdToFleet.has(s.vehicleId))
-          ? this.vehicleIdToFleet.get(s.vehicleId)!
-          : s.vehicle,
-      }));
-    };
-
-    const uncached = vehIds.filter(id => !this.vehicleIdToFleet.has(id));
-    if (!uncached.length) { applyFleet(); return; }
-
-    forkJoin(
-      uncached.map(id => this.svc.getVehicleById(id).pipe(catchError(() => of(null))))
-    ).subscribe(vehicles => {
-      vehicles.forEach((v, i) => {
-        if (v) {
-          const fleet = v?.fleetNumber ?? v?.fleetNo ?? v?.vehicleFleetNumber ?? v?.vehicleName ?? v?.vehicleNumber ?? String(uncached[i]);
-          this.vehicleIdToFleet.set(uncached[i], fleet);
-          this.vehicleMap.set(uncached[i], fleet);
-        }
-      });
-      applyFleet();
-    });
-  }
-
   private resolveInspectorNames(): void {
     const userIds = Array.from(new Set(
       this.snags.map(s => s.inspectorId).filter((id): id is number => typeof id === 'number' && id > 0)
@@ -573,13 +542,13 @@ export class SnagsComponent implements OnInit, OnDestroy {
     const uncached = userIds.filter(id => !this.userIdToName.has(id));
     if (!uncached.length) { applyNames(); return; }
 
-    forkJoin(
-      uncached.map(id => this.userManagementService.getUserById(id).pipe(catchError(() => of(null))))
-    ).subscribe(users => {
-      users.forEach((user, i) => {
-        if (user) this.userIdToName.set(uncached[i], user.userName || user.name || String(uncached[i]));
-      });
-      applyNames();
+    this.userManagementService.getUsers({ page: 1, pageSize: 10000, role: '', clientId: '', manufacturerId: '' }).subscribe({
+      next: (result) => {
+        for (const user of result.items) {
+          this.userIdToName.set(user.id, user.username || user.name || String(user.id));
+        }
+        applyNames();
+      },
     });
   }
 
@@ -615,7 +584,7 @@ export class SnagsComponent implements OnInit, OnDestroy {
       projectId:      projId,
       project:        this.projectMap.get(projId) ?? item?.projectName ?? String(projId ?? '—'),
       vehicleId:      vehId,
-      vehicle:        this.vehicleMap.get(vehId)  ?? item?.fleetNumber ?? item?.fleetNo ?? item?.vehicleFleetNumber ?? item?.vehicleName ?? item?.vehicleNumber ?? String(vehId ?? '—'),
+      vehicle:        this.vehicleMap.get(vehId)  ?? item?.vehicleName  ?? item?.vehicleNumber ?? String(vehId ?? '—'),
       category:       item?.finalInspectionCategoryName ?? this.areaMap.get(areaId) ?? '—',
       description:    item?.description ?? item?.snagDescription ?? '—',
       inspectorId:    typeof item?.userId === 'number' ? item.userId : undefined,

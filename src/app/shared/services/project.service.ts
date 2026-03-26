@@ -341,7 +341,6 @@ function mapApiProjectToProject(
     location,
     manufacturer,
     manufacturerLocationId,
-    totalAssets: norm.totalAssets ?? undefined,
     closed: norm.closed ?? undefined,
     lastUpdate: norm.lastUpdate ?? undefined,
     contract: norm.contract ?? undefined,
@@ -601,8 +600,24 @@ export class ProjectService {
   }
 
   private requestManufacturers$(): Observable<unknown> {
-    const params = new HttpParams().set('locationId', '0');
-    return this.http.get<unknown>(`${this.API_BASE_URL}/Manufacturers`, { params });
+    const url = `${this.API_BASE_URL}/Manufacturers`;
+    if (!this.useApiV2) {
+      return this.http.get<unknown>(url);
+    }
+
+    return fetchAllPages<ApiManufacturerLike>(
+      (page, pageSize) => {
+        const params = new HttpParams()
+          .set('page', String(page))
+          .set('pageSize', String(pageSize));
+        return this.http.get<unknown>(url, { params });
+      },
+      {
+        pageSize: this.pageSize,
+        maxPages: this.maxPages,
+        startPage: 1,
+      }
+    ).pipe(map((result) => result.items));
   }
 
   private normalizeLocationIds(input: unknown): number[] {
@@ -929,40 +944,6 @@ export class ProjectService {
 
     this.projectsApiCache.set(key, stream$);
     return stream$;
-  }
-
-  getProjectsPagedList(params: {
-    page: number;
-    pageSize: number;
-    sortBy?: string;
-    sortDirection?: 'asc' | 'desc';
-    clientId?: string | number | null;
-    includeClosed?: boolean;
-  }): Observable<{ projects: Project[]; totalCount: number }> {
-    const { page, pageSize, sortBy = 'id', sortDirection = 'asc', clientId, includeClosed = false } = params;
-
-    const httpParams = new HttpParams()
-      .set('clientId', String(clientId ?? 0))
-      .set('projectTypeId', '0')
-      .set('locationId', '0')
-      .set('includeClosed', String(includeClosed))
-      .set('page', String(page))
-      .set('pageSize', String(pageSize))
-      .set('SortBy', sortBy)
-      .set('SortDirection', sortDirection);
-
-    return this.http.get<unknown>(`${this.API_BASE_URL}/${this.PROJECTS_ROUTE}`, { params: httpParams })
-      .pipe(
-        timeout(30_000),
-        map((raw) => {
-          const paged = parsePagedResponse<ApiProject>(raw);
-          const projects = paged.items
-            .map((api) => mapApiProjectToProject(api, [], [], []))
-            .filter((p): p is Project => p != null);
-          return { projects, totalCount: paged.total };
-        }),
-        catchError(() => of({ projects: [], totalCount: 0 }))
-      );
   }
 
   getProjects(filters?: ProjectFilters): Observable<Project[]> {

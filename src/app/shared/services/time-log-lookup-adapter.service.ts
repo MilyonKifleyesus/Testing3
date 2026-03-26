@@ -21,6 +21,7 @@ import {
   TimeLogVehicle,
 } from '../models/time-log.model';
 import { normalizeId, normalizeOptionalId } from '../utils/id-normalizer.util';
+import { ClientService } from './client.service';
 
 export interface LookupState {
   ready: boolean;
@@ -52,7 +53,7 @@ export class TimeLogLookupAdapterService {
 
   readonly lookups$: Observable<LookupState> = this.stateSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private clientService: ClientService) {}
 
   refresh(reason: RefreshReason = 'manual'): void {
     const current = this.stateSubject.value;
@@ -67,13 +68,18 @@ export class TimeLogLookupAdapterService {
     forkJoin({
       projects: this.fetchProjects(),
       users: this.fetchUsers(),
+      clientNameMap: this.clientService.getClientNameMap().pipe(catchError(() => of(new Map<string, string>()))),
     })
       .pipe(
-        mergeMap(({ projects, users }) =>
-          this.fetchVehiclesWithFallback(projects).pipe(
-            map(({ vehicles, warning }) => ({ projects, users, vehicles, warning }))
-          )
-        )
+        mergeMap(({ projects, users, clientNameMap }) => {
+          const enrichedProjects = projects.map((p) => ({
+            ...p,
+            clientName: p.clientName || clientNameMap.get(p.clientId) || p.clientId,
+          }));
+          return this.fetchVehiclesWithFallback(enrichedProjects).pipe(
+            map(({ vehicles, warning }) => ({ projects: enrichedProjects, users, vehicles, warning }))
+          );
+        })
       )
       .subscribe({
         next: ({ projects, users, vehicles, warning }) => {
@@ -125,14 +131,7 @@ export class TimeLogLookupAdapterService {
       return of(ids.map((id) => this.userByIdCache.get(id)).filter((u): u is TimeLogUser => !!u));
     }
 
-    return forkJoin(
-      uncachedIds.map((id) =>
-        this.fetchUserById(id).pipe(
-          catchError(() => of(null)),
-          map((user) => ({ id, user }))
-        )
-      )
-    ).pipe(
+    return this.fetchUsersByIdsBulk(uncachedIds).pipe(
       map((results) => {
         for (const result of results) {
           this.userByIdCache.set(result.id, result.user);
@@ -182,6 +181,28 @@ export class TimeLogLookupAdapterService {
               map((legacyRaw) => this.normalizeUser(legacyRaw, userId, true)),
               catchError(() => of(null))
             )
+        )
+      );
+  }
+
+  private fetchUsersByIdsBulk(ids: string[]): Observable<Array<{ id: string; user: TimeLogUser | null }>> {
+    return this.http
+      .post<unknown>(buildApiUrl(this.baseUrl, TIME_LOG_API_PATHS.usersByIds), { ids })
+      .pipe(
+        map((raw) => {
+          const users = this.normalizeUsers(raw, true);
+          const byId = new Map(users.map((u) => [u.id, u]));
+          return ids.map((id) => ({ id, user: byId.get(id) ?? null }));
+        }),
+        catchError(() =>
+          forkJoin(
+            ids.map((id) =>
+              this.fetchUserById(id).pipe(
+                catchError(() => of(null)),
+                map((user) => ({ id, user }))
+              )
+            )
+          )
         )
       );
   }
@@ -396,7 +417,19 @@ export class TimeLogLookupAdapterService {
     );
     if (!id || !name) return null;
     if (!includeInactive && item?.isActive === false) return null;
-    return { id, name, email: item?.email } as TimeLogUser;
+    const avatarUrl =
+      item?.profileImageUrl ??
+      item?.profileImage ??
+      item?.avatarUrl ??
+      item?.avatar ??
+      item?.photoUrl ??
+      item?.photo ??
+      item?.imageUrl ??
+      item?.thumbnailUrl ??
+      item?.pictureUrl ??
+      item?.picture ??
+      null;
+    return { id, name, email: item?.email, avatarUrl: avatarUrl ?? null } as TimeLogUser;
   }
 
   private hydrateUsersNeedingNames(users: TimeLogUser[]): Observable<TimeLogUser[]> {

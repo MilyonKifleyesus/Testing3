@@ -91,6 +91,7 @@ export class TimeLogService {
       .set('pageSize', String(params.pageSize))
       .set('sortBy', this.toApiSortField(params.sortBy))
       .set('sortDirection', params.sortDirection);
+    if (params.clientId) httpParams = httpParams.set('clientId', params.clientId);
     if (params.projectId) httpParams = httpParams.set('projectId', params.projectId);
     if (params.vehicleId) httpParams = httpParams.set('vehicleId', params.vehicleId);
     if (params.userId) httpParams = httpParams.set('userId', params.userId);

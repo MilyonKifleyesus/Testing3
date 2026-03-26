@@ -355,7 +355,7 @@ export class NavService implements OnDestroy {
     {
       path: '/admin/tickets',
       title: 'Tickets',
-      icon: 'ti-tag',
+      icon: 'ti-ticket',
       type: 'link',
       active: false,
     },
@@ -507,14 +507,14 @@ export class NavService implements OnDestroy {
     {
       path: '/tickets',
       title: 'Tickets',
-      icon: 'ti-tag',
+      icon: 'ti-ticket',
       type: 'link',
       active: false,
     },
     {
       path: '/snags',
       title: 'Snags',
-      icon: 'ti-tag',
+      icon: 'ti-ticket',
       type: 'link',
       active: false,
     },

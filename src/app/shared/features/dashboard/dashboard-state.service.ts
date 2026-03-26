@@ -30,10 +30,6 @@ export interface DashboardSnapshot {
   selectedVehicle: string;
   selectedClient: string;
   currentProjectStats: any;
-  stationTypeHeatmapPage: number;
-  stationTypeHeatmapHasNextPage: boolean;
-  stationTimeComparisonPage: number;
-  stationTimeComparisonHasNextPage: boolean;
 }
 
 /**

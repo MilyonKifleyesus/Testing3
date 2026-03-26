@@ -2,9 +2,10 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subscription, combineLatest, forkJoin, map, of, catchError } from 'rxjs';
 import { AuthService } from '../../../services/auth.service';
 import { ClientService } from '../../../services/client.service';
+import { DashboardProjectsService } from '../../../services/dashboard-projects.service';
 import { ProjectService } from '../../../services/project.service';
 import { buildPaginationItems, PAGINATION_ELLIPSIS } from '../../../utils/pagination.utils';
 import { resolveProjectManagementContext } from '../project-management-context';
@@ -15,6 +16,7 @@ interface ProjectRow {
   client: string;
   assessmentType: string;
   location: string;
+  manufacturer: string;
   totalAssets: number | null;
   userAccess: string[];
   status: 'Open' | 'Closed' | 'Delayed';
@@ -28,62 +30,84 @@ interface ProjectRow {
   styleUrls: ['./project-list.component.scss']
 })
 export class ProjectListComponent implements OnInit, OnDestroy {
+    // --- Added for template compatibility ---
+    selectedClientId: string = 'all';
+    isLoadingClients = false;
+    clients: Array<{ id: string; name: string }> = [
+      { id: 'all', name: 'All Clients' }
+    ];
+    allProjects: ProjectRow[] = [];
+
+    get isClientPortal(): boolean {
+      return this.portalPrefix === '/client';
+    }
+    sortColumn: string = '';
+    sortDirection: 'asc' | 'desc' = 'asc';
+
+    onClientFilterChange(): void {
+      // Filter projects by selected client
+      if (this.selectedClientId === 'all') {
+        this.projects = [...this.allProjects];
+      } else {
+        this.projects = this.allProjects.filter(p => {
+          // Try to match by client id or client name
+          return (
+            (p.client && p.client.toLowerCase() === this.clients.find(c => c.id === this.selectedClientId)?.name.toLowerCase()) ||
+            (p.client && p.client === this.selectedClientId)
+          );
+        });
+      }
+      this.currentPage = 1;
+    }
+
+    sortProjects(column: string): void {
+      if (this.sortColumn === column) {
+        this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortColumn = column;
+        this.sortDirection = 'asc';
+      }
+      // Implement actual sorting logic
+      this.projects.sort((a: any, b: any) => {
+        let aValue = a[column];
+        let bValue = b[column];
+        // Handle null/undefined
+        if (aValue == null) aValue = '';
+        if (bValue == null) bValue = '';
+        // For arrays (like userAccess), sort by length
+        if (Array.isArray(aValue) && Array.isArray(bValue)) {
+          aValue = aValue.length;
+          bValue = bValue.length;
+        }
+        // For numbers, compare as numbers
+        if (!isNaN(Number(aValue)) && !isNaN(Number(bValue))) {
+          aValue = Number(aValue);
+          bValue = Number(bValue);
+        } else {
+          // Compare as lowercase strings
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
+        }
+        if (aValue < bValue) return this.sortDirection === 'asc' ? -1 : 1;
+        if (aValue > bValue) return this.sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+      this.currentPage = 1;
+    }
   readonly paginationEllipsis = PAGINATION_ELLIPSIS;
   readonly pageSize = 10;
 
-  isLoadingClients = false;
-  isLoadingProjects = false;
-  clients: Array<{ id: string; name: string }> = [{ id: 'all', name: 'All Clients' }];
-  selectedClientId = 'all';
-
   projects: ProjectRow[] = [];
-  totalCount = 0;
-  currentPage = 1;
-  sortColumn = 'id';
-  sortDirection: 'asc' | 'desc' = 'asc';
+  isLoadingProjects = false;
   searchTerm = '';
+  currentPage = 1;
 
   private readonly subscriptions = new Subscription();
-  private loadSub?: Subscription;
   private readonly portalPrefix: '/admin' | '/client';
   private readonly scopedClientId: string | null;
 
-  get isClientPortal(): boolean {
-    return this.portalPrefix === '/client';
-  }
-
   get canManageProjects(): boolean {
     return this.portalPrefix === '/admin';
-  }
-
-  get totalPages(): number {
-    return Math.max(1, Math.ceil(this.totalCount / this.pageSize));
-  }
-
-  get filteredProjects(): ProjectRow[] {
-    const term = this.searchTerm.trim().toLowerCase();
-    if (!term) return this.projects;
-    return this.projects.filter((p) =>
-      p.projectName.toLowerCase().includes(term) ||
-      p.client.toLowerCase().includes(term)
-    );
-  }
-
-  get paginatedProjects(): ProjectRow[] {
-    return this.filteredProjects;
-  }
-
-  get visiblePages(): number[] {
-    return buildPaginationItems(this.totalPages, this.currentPage, 5);
-  }
-
-  get pageStartItem(): number {
-    if (!this.totalCount) return 0;
-    return (this.currentPage - 1) * this.pageSize + 1;
-  }
-
-  get pageEndItem(): number {
-    return Math.min(this.currentPage * this.pageSize, this.totalCount);
   }
 
   constructor(
@@ -92,24 +116,29 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     private readonly authService: AuthService,
     private readonly projectService: ProjectService,
     private readonly clientService: ClientService,
+    private readonly dashboardProjectsService: DashboardProjectsService,
   ) {
     const context = resolveProjectManagementContext(
       this.authService.currentUserValue,
       this.route.snapshot.queryParamMap.get('clientId'),
     );
+
     this.portalPrefix = context.portalPrefix;
     this.scopedClientId = context.scopedClientId;
   }
 
   ngOnInit(): void {
-    // Load clients for the dropdown filter
+    // Fetch clients for dropdown
     this.isLoadingClients = true;
-    const clientsSub = this.clientService.getClients().subscribe({
+    this.clientService.getClients().subscribe({
       next: (items) => {
         const mapped = items
-          .map((c) => ({ id: String(c.id ?? '').trim(), name: String(c.name ?? '').trim() }))
-          .filter((c) => c.id && c.name)
-          .sort((a, b) => a.name.localeCompare(b.name));
+          .map((client) => ({
+            id: String(client.id ?? '').trim(),
+            name: String(client.name ?? '').trim(),
+          }))
+          .filter((client) => client.id && client.name)
+          .sort((left, right) => left.name.localeCompare(right.name));
         this.clients = [{ id: 'all', name: 'All Clients' }, ...mapped];
         this.isLoadingClients = false;
       },
@@ -118,81 +147,120 @@ export class ProjectListComponent implements OnInit, OnDestroy {
         this.isLoadingClients = false;
       },
     });
-    this.subscriptions.add(clientsSub);
 
-    // Pre-select scoped client for client portal
-    if (this.scopedClientId) {
-      this.selectedClientId = this.scopedClientId;
-    }
-
-    this.loadProjects();
+    // Fetch all projects (unfiltered)
+    this.isLoadingProjects = true;
+    const filters = this.scopedClientId ? { clientId: this.scopedClientId } : {};
+    const sub = combineLatest([
+      this.projectService.getProjectsWithRefresh(filters),
+      this.clientService.getClientNameMap(),
+    ]).subscribe({
+      next: ([projects]) => {
+        const uniqueProjectIds = Array.from(new Set(
+          projects
+            .map((project) => String(project.id ?? '').trim())
+            .filter((id) => id.length > 0),
+        ));
+        const assetCountRequests = uniqueProjectIds.map((projectId) =>
+          this.dashboardProjectsService
+            .getVehicleOptionsByProjectResult(projectId, {
+              includeAllOption: false,
+              page: 1,
+              pageSize: 10000,
+            })
+            .pipe(
+              map((result) => [projectId, result.totalCount] as const),
+              catchError(() => of([projectId, null] as const)),
+            ),
+        );
+        const counts$ = assetCountRequests.length
+          ? forkJoin(assetCountRequests)
+          : of([] as ReadonlyArray<readonly [string, number | null]>);
+        const countsSub = counts$.subscribe({
+          next: (pairs) => {
+            const projectAssetCountMap = new Map<string, number | null>(pairs as Array<[string, number | null]>);
+            this.allProjects = projects.map((project) => {
+              const projectId = String(project.id ?? '').trim();
+              const mappedAssetCount = projectAssetCountMap.get(projectId);
+              const fallbackAssetCount =
+                typeof project.totalAssets === 'number' && Number.isFinite(project.totalAssets)
+                  ? project.totalAssets
+                  : null;
+              return {
+                id: project.id,
+                projectName: project.projectName?.trim() ? project.projectName : '-',
+                client: this.clientService.resolveClientName(project.clientId, project.clientName ?? project.clientId ?? '-'),
+                assessmentType: project.assessmentType,
+                location: project.manufacturerLocationId ?? '-',
+                manufacturer: project.manufacturer ?? '-',
+                totalAssets: typeof mappedAssetCount === 'number' ? mappedAssetCount : fallbackAssetCount,
+                userAccess: project.userAccess ?? [],
+                status: project.status ?? 'Open',
+              };
+            });
+            // Initially show all projects or filter by scoped client
+            if (this.selectedClientId === 'all' || !this.selectedClientId) {
+              this.projects = [...this.allProjects];
+            } else {
+              this.onClientFilterChange();
+            }
+            this.currentPage = 1;
+            this.isLoadingProjects = false;
+          },
+          error: () => {
+            this.isLoadingProjects = false;
+          }
+        });
+        this.subscriptions.add(countsSub);
+      },
+      error: () => {
+        this.isLoadingProjects = false;
+      }
+    });
+    this.subscriptions.add(sub);
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
   }
 
-  private loadProjects(): void {
-    this.isLoadingProjects = true;
-    this.loadSub?.unsubscribe();
-
-    const clientId = this.selectedClientId === 'all' ? 0 : Number(this.selectedClientId) || 0;
-
-    this.loadSub = this.projectService.getProjectsPagedList({
-      page: this.currentPage,
-      pageSize: this.pageSize,
-      sortBy: this.sortColumn,
-      sortDirection: this.sortDirection,
-      clientId,
-      includeClosed: true,
-    }).subscribe({
-      next: ({ projects, totalCount }) => {
-        this.projects = projects.map((project) => ({
-          id: project.id,
-          projectName: project.projectName?.trim() ? project.projectName : '-',
-          client: this.clientService.resolveClientName(project.clientId, project.clientName ?? project.clientId ?? '-'),
-          assessmentType: project.assessmentType,
-          location: project.location ?? project.manufacturerLocationId ?? '-',
-          totalAssets: typeof project.totalAssets === 'number' && Number.isFinite(project.totalAssets)
-            ? project.totalAssets
-            : null,
-          userAccess: project.userAccess ?? [],
-          status: project.status ?? 'Open',
-        }));
-        this.totalCount = totalCount;
-        this.isLoadingProjects = false;
-      },
-      error: () => {
-        this.isLoadingProjects = false;
-      },
-    });
-    this.subscriptions.add(this.loadSub);
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredProjects.length / this.pageSize));
   }
 
-  sortProjects(column: string): void {
-    if (this.sortColumn === column) {
-      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
-    } else {
-      this.sortColumn = column;
-      this.sortDirection = 'asc';
-    }
-    this.currentPage = 1;
-    this.loadProjects();
+  get filteredProjects(): ProjectRow[] {
+    const term = this.searchTerm.trim().toLowerCase();
+    if (!term) return this.projects;
+    return this.projects.filter((project) =>
+      (project.projectName ?? '').toLowerCase().includes(term)
+    );
   }
 
-  onClientFilterChange(): void {
-    this.currentPage = 1;
-    this.loadProjects();
+  get paginatedProjects(): ProjectRow[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.filteredProjects.slice(start, start + this.pageSize);
+  }
+
+  get visiblePages(): number[] {
+    return buildPaginationItems(this.totalPages, this.currentPage, 5);
+  }
+
+  get pageStartItem(): number {
+    if (!this.filteredProjects.length) return 0;
+    return (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  get pageEndItem(): number {
+    return Math.min(this.currentPage * this.pageSize, this.filteredProjects.length);
   }
 
   onSearchTermChange(): void {
-    // Search filters the current page client-side
+    this.currentPage = 1;
   }
 
   changePage(page: number): void {
     if (page < 1 || page > this.totalPages) return;
     this.currentPage = page;
-    this.loadProjects();
   }
 
   previousPage(): void {
@@ -229,7 +297,10 @@ export class ProjectListComponent implements OnInit, OnDestroy {
     if (!this.canManageProjects) return;
     if (confirm('Are you sure you want to delete this project?')) {
       this.projects = this.projects.filter((item) => item.id !== projectId);
-      this.totalCount = Math.max(0, this.totalCount - 1);
+      if (this.currentPage > this.totalPages) {
+        this.currentPage = this.totalPages;
+      }
     }
   }
+
 }

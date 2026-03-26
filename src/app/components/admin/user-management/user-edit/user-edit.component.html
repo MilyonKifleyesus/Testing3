@@ -1,113 +1,358 @@
 <div class="main-container container-fluid px-0">
-  <!-- Page Header -->
   <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
     <div>
-      <h1 class="page-title fw-semibold fs-20 mb-0">{{ userId ? 'Edit User' : 'New User' }}</h1>
+      <h1 class="page-title fw-semibold fs-20 mb-0">{{ pageTitle }}</h1>
       <nav>
         <ol class="breadcrumb mb-0">
           <li class="breadcrumb-item"><a [routerLink]="['/admin']">Home</a></li>
           <li class="breadcrumb-item"><a [routerLink]="['/admin/users']">Users</a></li>
-          <li class="breadcrumb-item active" aria-current="page">{{ userId ? 'Edit' : 'New' }}</li>
+          <li class="breadcrumb-item active" aria-current="page">{{ isCreateMode ? 'Create' : 'Edit' }}</li>
         </ol>
       </nav>
     </div>
+    <div class="d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-light btn-wave" (click)="cancel()">
+        <i class="ti ti-arrow-left me-1"></i>Back
+      </button>
+    </div>
   </div>
 
-  <div class="row">
-    <div class="col-xl-12">
-      <div class="card custom-card">
-        <div class="card-header">
-          <h6 class="card-title mb-0">User Information</h6>
+  <div *ngIf="isLoading" class="card custom-card">
+    <div class="card-body py-5">
+      <div class="d-flex flex-column align-items-center justify-content-center">
+        <div class="spinner-border text-primary" role="status" aria-label="Loading user editor">
+          <span class="visually-hidden">Loading...</span>
         </div>
-        <div class="card-body">
-          <form>
-            <div class="row gy-4">
-              <!-- Personal Information Section -->
-              <div class="col-12">
-                <h6 class="fw-semibold mb-3">
-                  <i class="ti ti-user me-2"></i>Personal Information
-                </h6>
-              </div>
-
-              <div class="col-xl-6">
-                <label class="form-label">Full Name <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" [(ngModel)]="user.name" name="name" placeholder="Enter full name" required>
-              </div>
-
-              <div class="col-xl-6">
-                <label class="form-label">Username <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" [(ngModel)]="user.username" name="username" placeholder="Enter username" required>
-              </div>
-
-              <div class="col-xl-6">
-                <label class="form-label">Email Address <span class="text-danger">*</span></label>
-                <input type="email" class="form-control" [(ngModel)]="user.email" name="email" placeholder="Enter email address" required>
-              </div>
-
-              <div class="col-xl-6">
-                <label class="form-label">Phone Number</label>
-                <input type="tel" class="form-control" [(ngModel)]="user.phone" name="phone" placeholder="Enter phone number">
-              </div>
-
-              <div class="col-xl-12">
-                <label class="form-label">Address</label>
-                <textarea class="form-control" [(ngModel)]="user.address" name="address" rows="3" placeholder="Enter address"></textarea>
-              </div>
-
-              <!-- Account Information Section -->
-              <div class="col-12 mt-4">
-                <hr>
-                <h6 class="fw-semibold mb-3 mt-3">
-                  <i class="ti ti-shield-check me-2"></i>Account Information
-                </h6>
-              </div>
-
-              <div class="col-xl-4">
-                <label class="form-label">Role <span class="text-danger">*</span></label>
-                <select class="form-select" [(ngModel)]="user.role" name="role" required>
-                  <option *ngFor="let role of roles" [value]="role">{{ role }}</option>
-                </select>
-              </div>
-
-              <div class="col-xl-4">
-                <label class="form-label">Status <span class="text-danger">*</span></label>
-                <select class="form-select" [(ngModel)]="user.status" name="status" required>
-                  <option *ngFor="let status of statuses" [value]="status">{{ status | titlecase }}</option>
-                </select>
-              </div>
-
-              <div class="col-xl-4">
-                <label class="form-label">Client</label>
-                <select class="form-select" [(ngModel)]="user.client" name="client">
-                  <option *ngFor="let client of clients" [value]="client">{{ client || 'None' }}</option>
-                </select>
-                <small class="text-muted">For Client User role only</small>
-              </div>
-
-              <div class="col-xl-4">
-                <label class="form-label">Manufacturer</label>
-                <select class="form-select" [(ngModel)]="user.manufacturer" name="manufacturer">
-                  <option *ngFor="let manufacturer of manufacturers" [value]="manufacturer">{{ manufacturer || 'None' }}</option>
-                </select>
-                <small class="text-muted">Optional</small>
-              </div>
-
-              <!-- Actions -->
-              <div class="col-12 mt-4">
-                <hr>
-                <div class="d-flex justify-content-end gap-2 mt-3">
-                  <button type="button" class="btn btn-light" (click)="cancel()">
-                    <i class="ti ti-x me-1"></i>Cancel
-                  </button>
-                  <button type="submit" class="btn btn-primary" (click)="saveUser()">
-                    <i class="ti ti-device-floppy me-1"></i>Save User
-                  </button>
-                </div>
-              </div>
-            </div>
-          </form>
-        </div>
+        <p class="text-muted mb-0 mt-3">Loading user details...</p>
       </div>
     </div>
   </div>
+
+  <div *ngIf="!isLoading && userNotFound" class="card custom-card">
+    <div class="card-body text-center py-5">
+      <div class="avatar avatar-xl avatar-rounded bg-danger-transparent text-danger mx-auto mb-3">
+        <i class="ti ti-user-x fs-24"></i>
+      </div>
+      <h5 class="mb-1">User not found</h5>
+      <p class="text-muted mb-4">The selected user could not be loaded.</p>
+      <button type="button" class="btn btn-primary btn-wave" [routerLink]="['/admin/users/list']">
+        Return to User List
+      </button>
+    </div>
+  </div>
+
+  <ng-container *ngIf="!isLoading && !userNotFound">
+    <div class="row g-4">
+      <div class="col-12">
+        <div class="card custom-card">
+          <div class="card-header justify-content-between align-items-center">
+            <div>
+              <h6 class="card-title mb-1">Basic Info</h6>
+              <p class="card-subtitle text-muted mb-0">Update the core account details used in user management.</p>
+            </div>
+            <span class="badge bg-primary-transparent">{{ isCreateMode ? 'New Record' : 'User #' + userId }}</span>
+          </div>
+          <div class="card-body">
+            <form #basicInfoForm="ngForm" (ngSubmit)="saveBasicInfo(basicInfoForm)" novalidate>
+              <div class="row gy-4">
+                <div class="col-12">
+                  <div class="profile-picture-panel">
+                    <div class="profile-picture-preview">
+                      <ng-container *ngIf="profilePicturePreview; else profileInitialsFallback">
+                        <img [src]="profilePicturePreview" alt="Profile picture preview">
+                      </ng-container>
+                      <ng-template #profileInitialsFallback>
+                        <span>{{ profileInitials }}</span>
+                      </ng-template>
+                    </div>
+
+                    <div class="profile-picture-fields">
+                      <label class="form-label">Profile Picture</label>
+                      <input
+                        type="url"
+                        class="form-control"
+                        [(ngModel)]="model.picture"
+                        name="picture"
+                        inputmode="url"
+                        autocomplete="url"
+                        spellcheck="false"
+                        placeholder="Paste an image URL or keep the uploaded image preview">
+                      <small class="form-hint">You can paste a hosted image URL or upload an image file.</small>
+
+                      <div class="profile-picture-actions">
+                        <label class="btn btn-outline-primary btn-wave mb-0">
+                          <i class="ti ti-upload me-1"></i>Upload Image
+                          <input type="file" accept="image/*" hidden (change)="onPictureFileSelected($event)">
+                        </label>
+                        <button
+                          type="button"
+                          class="btn btn-outline-danger btn-wave"
+                          (click)="clearPicture()"
+                          [disabled]="!model.picture">
+                          <i class="ti ti-trash me-1"></i>Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-xl-6">
+                  <label class="form-label">Name <span class="text-danger">*</span></label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="model.name"
+                    name="name"
+                    #nameModel="ngModel"
+                    autocomplete="name"
+                    placeholder="Enter full name"
+                    required>
+                  <small class="text-danger" *ngIf="nameModel.invalid && (nameModel.touched || basicInfoForm.submitted)">
+                    Name is required.
+                  </small>
+                </div>
+
+                <div class="col-xl-6">
+                  <label class="form-label">UserName <span class="text-danger">*</span></label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="model.username"
+                    name="username"
+                    #usernameModel="ngModel"
+                    autocomplete="username"
+                    autocapitalize="none"
+                    spellcheck="false"
+                    placeholder="Enter username"
+                    required>
+                  <small class="text-danger" *ngIf="usernameModel.invalid && (usernameModel.touched || basicInfoForm.submitted)">
+                    Username is required.
+                  </small>
+                </div>
+
+                <div class="col-xl-6">
+                  <label class="form-label">Email <span class="text-danger">*</span></label>
+                  <input
+                    type="email"
+                    class="form-control"
+                    [(ngModel)]="model.email"
+                    name="email"
+                    #emailModel="ngModel"
+                    autocomplete="email"
+                    inputmode="email"
+                    autocapitalize="none"
+                    spellcheck="false"
+                    placeholder="Enter email"
+                    email
+                    required>
+                  <small class="text-danger" *ngIf="emailModel.invalid && (emailModel.touched || basicInfoForm.submitted)">
+                    Enter a valid email address.
+                  </small>
+                </div>
+
+                <div class="col-xl-6">
+                  <label class="form-label">Phone</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="model.phone"
+                    name="phone"
+                    autocomplete="tel"
+                    inputmode="tel"
+                    placeholder="Enter phone number">
+                </div>
+
+                <div class="col-xl-4">
+                  <label class="form-label">Role <span class="text-danger">*</span></label>
+                  <select
+                    class="form-select"
+                    [(ngModel)]="model.role"
+                    name="role"
+                    #roleModel="ngModel"
+                    required>
+                    <option *ngFor="let role of roles" [value]="role">{{ role }}</option>
+                  </select>
+                  <small class="form-hint">Choose the role used for permissions and navigation.</small>
+                  <small class="text-danger" *ngIf="roleModel.invalid && (roleModel.touched || basicInfoForm.submitted)">
+                    Role is required.
+                  </small>
+                </div>
+
+                <div class="col-xl-4">
+                  <label class="form-label">Status <span class="text-danger">*</span></label>
+                  <select
+                    class="form-select"
+                    [(ngModel)]="model.status"
+                    name="status"
+                    #statusModel="ngModel"
+                    required>
+                    <option *ngFor="let status of statuses" [value]="status">{{ status | titlecase }}</option>
+                  </select>
+                  <small class="text-danger" *ngIf="statusModel.invalid && (statusModel.touched || basicInfoForm.submitted)">
+                    Status is required.
+                  </small>
+                </div>
+
+                <div class="col-xl-4">
+                  <label class="form-label">Language</label>
+                  <select
+                    class="form-select"
+                    [(ngModel)]="model.language"
+                    name="language">
+                    <option *ngFor="let language of languageOptions" [value]="language">{{ language }}</option>
+                  </select>
+                </div>
+
+                <div class="col-xl-6">
+                  <label class="form-label">Client</label>
+                  <select
+                    class="form-select"
+                    [(ngModel)]="model.clientId"
+                    name="clientId">
+                    <option value="">None</option>
+                    <option *ngFor="let client of clients" [value]="client.id">{{ client.name }}</option>
+                  </select>
+                  <small class="form-hint" *ngIf="selectedRoleRequiresClient">This role normally expects a client assignment.</small>
+                </div>
+
+                <div class="col-xl-6">
+                  <label class="form-label">Manufacturer</label>
+                  <select
+                    class="form-select"
+                    [(ngModel)]="model.manufacturerId"
+                    name="manufacturerId">
+                    <option value="">None</option>
+                    <option *ngFor="let manufacturer of manufacturers" [value]="manufacturer.id">{{ manufacturer.name }}</option>
+                  </select>
+                </div>
+
+                <div class="col-xl-12">
+                  <label class="form-label">Address</label>
+                  <textarea
+                    class="form-control"
+                    [(ngModel)]="model.address"
+                    name="address"
+                    autocomplete="street-address"
+                    rows="3"
+                    placeholder="Enter address"></textarea>
+                </div>
+
+                <div class="col-12" *ngIf="isCreateMode">
+                  <div class="section-divider"></div>
+                  <h6 class="section-title mb-3">Password Setup</h6>
+                </div>
+
+                <div class="col-xl-6" *ngIf="isCreateMode">
+                  <label class="form-label">Password <span class="text-danger">*</span></label>
+                  <input
+                    type="password"
+                    class="form-control"
+                    [(ngModel)]="passwordModel.password"
+                    name="createPassword"
+                    #createPasswordModel="ngModel"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required>
+                  <small class="text-danger" *ngIf="createPasswordModel.invalid && (createPasswordModel.touched || basicInfoForm.submitted)">
+                    Password must be at least 8 characters.
+                  </small>
+                </div>
+
+                <div class="col-xl-6" *ngIf="isCreateMode">
+                  <label class="form-label">Repeat Password <span class="text-danger">*</span></label>
+                  <input
+                    type="password"
+                    class="form-control"
+                    [(ngModel)]="passwordModel.confirmPassword"
+                    name="createConfirmPassword"
+                    #createConfirmPasswordModel="ngModel"
+                    autocomplete="new-password"
+                    required>
+                  <small class="text-danger" *ngIf="createConfirmPasswordModel.invalid && (createConfirmPasswordModel.touched || basicInfoForm.submitted)">
+                    Repeat password is required.
+                  </small>
+                  <small class="text-danger" *ngIf="passwordModel.confirmPassword && passwordModel.password !== passwordModel.confirmPassword">
+                    Passwords must match.
+                  </small>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="btn btn-light btn-wave" (click)="cancel()">
+                  Cancel
+                </button>
+                <button type="submit" class="btn btn-primary btn-wave" [disabled]="isSavingBasicInfo">
+                  <i class="ti ti-device-floppy me-1"></i>{{ saveButtonLabel }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12" *ngIf="!isCreateMode">
+        <div class="card custom-card">
+          <div class="card-header">
+            <div>
+              <h6 class="card-title mb-1">Password</h6>
+              <p class="card-subtitle text-muted mb-0">Use this section when an admin needs to set a new password for the user.</p>
+            </div>
+          </div>
+          <div class="card-body">
+            <form #passwordForm="ngForm" (ngSubmit)="savePassword(passwordForm)" novalidate>
+              <input
+                type="text"
+                class="visually-hidden"
+                [(ngModel)]="model.username"
+                name="passwordFormUsername"
+                autocomplete="username"
+                tabindex="-1"
+                aria-hidden="true">
+              <div class="row gy-4">
+                <div class="col-xl-6">
+                  <label class="form-label">New Password <span class="text-danger">*</span></label>
+                  <input
+                    type="password"
+                    class="form-control"
+                    [(ngModel)]="passwordModel.password"
+                    name="password"
+                    #passwordField="ngModel"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required>
+                  <small class="text-danger" *ngIf="passwordField.invalid && (passwordField.touched || passwordForm.submitted)">
+                    Password must be at least 8 characters.
+                  </small>
+                </div>
+
+                <div class="col-xl-6">
+                  <label class="form-label">Repeat Password <span class="text-danger">*</span></label>
+                  <input
+                    type="password"
+                    class="form-control"
+                    [(ngModel)]="passwordModel.confirmPassword"
+                    name="confirmPassword"
+                    #confirmPasswordField="ngModel"
+                    autocomplete="new-password"
+                    required>
+                  <small class="text-danger" *ngIf="confirmPasswordField.invalid && (confirmPasswordField.touched || passwordForm.submitted)">
+                    Repeat password is required.
+                  </small>
+                  <small class="text-danger" *ngIf="passwordModel.confirmPassword && passwordModel.password !== passwordModel.confirmPassword">
+                    Passwords must match.
+                  </small>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn btn-success btn-wave" [disabled]="isSavingPassword">
+                  <i class="ti ti-lock me-1"></i>{{ passwordButtonLabel }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
 </div>

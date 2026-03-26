@@ -33,27 +33,19 @@
 
   <!-- Search Bar -->
   <div class="mb-4">
-    <div class="d-flex gap-2">
-      <div class="search-box search-box-compact flex-grow-1">
-        <input type="text"
-               class="form-control"
-               placeholder="Search by name, username, or email..."
-               [(ngModel)]="searchQuery"
-               (keyup.enter)="searchInspectors()">
-        <i class="ti ti-search search-icon-left"></i>
-        <button class="btn-clear"
-                *ngIf="searchQuery"
-                (click)="clearSearch()"
-                type="button"
-                title="Clear search">
-          <i class="ti ti-x"></i>
-        </button>
-      </div>
-      <button class="btn btn-primary"
+    <div class="search-box search-box-compact">
+      <input type="text"
+             class="form-control"
+             placeholder="Search by name, username, or ID..."
+             [(ngModel)]="searchQuery"
+             (input)="filterInspectors()">
+      <i class="ti ti-search search-icon-left"></i>
+      <button class="btn-clear"
+              *ngIf="searchQuery"
+              (click)="clearSearch()"
               type="button"
-              (click)="searchInspectors()"
-              [disabled]="isLoading">
-        <i class="ti ti-search me-1"></i>Search
+              title="Clear search">
+        <i class="ti ti-x"></i>
       </button>
     </div>
   </div>

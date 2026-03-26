@@ -65,28 +65,6 @@ import { resolveReportRouteContext } from './report-route-context';
           </div>
         </div>
 
-        <!-- Administrative Reports Card -->
-        <div class="col-xl-4 col-lg-6 col-md-6 col-sm-12">
-          <div class="card custom-card">
-            <div class="card-body">
-              <div class="d-flex align-items-center mb-3">
-                <div class="flex-grow-1">
-                  <h5 class="mb-1">Administrative Reports</h5>
-                  <p class="text-muted mb-0">Labour reports and administrative data analysis</p>
-                </div>
-                <div class="ms-3">
-                  <div class="avatar avatar-lg bg-info-transparent">
-                    <i class="ti-folder fs-4"></i>
-                  </div>
-                </div>
-              </div>
-              <a [routerLink]="[reportsPath + '/administrative-reports']" class="btn btn-info btn-sm w-100">
-                <i class="ti-eye me-2"></i>View Reports
-              </a>
-            </div>
-          </div>
-        </div>
-
         <!-- More reports coming soon -->
         <div class="col-xl-4 col-lg-6 col-md-6 col-sm-12">
           <div class="card custom-card">

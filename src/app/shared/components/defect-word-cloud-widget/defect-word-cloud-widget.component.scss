@@ -1,0 +1,336 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.defect-word-cloud-widget {
+  background: var(--card-bg, #ffffff);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+
+  .filters-section,
+  .drilldown-path,
+  .cloud-header {
+    flex: 0 0 auto;
+  }
+
+  .filters-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--input-border, #dfe4ea);
+    border-radius: 8px;
+    background: var(--form-control-bg, #fbfcfd);
+  }
+
+  .toolbar-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 10rem;
+  }
+
+  .toolbar-field--type {
+    flex: 0 1 13rem;
+  }
+
+  .toolbar-field--date {
+    flex: 0 1 10.5rem;
+  }
+
+  .toolbar-field--search {
+    flex: 1 1 18rem;
+    min-width: 16rem;
+  }
+
+  .toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-left: auto;
+
+    .btn {
+      white-space: nowrap;
+    }
+  }
+
+  .toolbar-label {
+    font-size: 0.7rem;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--default-text-color, #51606f);
+    margin: 0;
+  }
+
+  .form-select,
+  .form-control {
+    min-height: 2.5rem;
+    border: 1px solid var(--input-border, #d7dee5);
+    border-radius: 6px;
+    background-color: var(--form-control-bg, #ffffff);
+    color: var(--default-text-color);
+    box-shadow: none;
+  }
+
+  .input-group .btn,
+  .toolbar-actions .btn {
+    min-height: 2.5rem;
+  }
+
+  .drilldown-path {
+    .badge {
+      font-size: 0.78rem;
+    }
+  }
+
+  .cloud-wrapper {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .cloud-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .frequency-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.7rem;
+      color: var(--default-text-color, #58687a);
+      opacity: 0.82;
+      white-space: nowrap;
+    }
+
+    .legend-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      flex-shrink: 0;
+    }
+  }
+
+  .wc-toolbar {
+    position: relative;
+    z-index: 20;
+    flex-shrink: 0;
+  }
+
+  .wc-menu-icon {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6e8192;
+    border-radius: 4px;
+
+    svg {
+      fill: #6e8192;
+      transition: fill 0.15s ease;
+    }
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    &:hover svg {
+      fill: #333;
+    }
+  }
+
+  .wc-menu {
+    background: #fff;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 3px;
+    min-width: 130px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12);
+
+    &.wc-menu-open {
+      opacity: 1;
+      pointer-events: all;
+    }
+  }
+
+  .wc-menu-item {
+    padding: 6px 7px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    border-radius: 4px;
+
+    &:hover {
+      background: #eee;
+    }
+  }
+
+  .cloud-container {
+    position: relative;
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 22rem;
+    border: 1px solid var(--input-border, #dfe4ea);
+    border-radius: 8px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+    overflow: hidden;
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    // Tooltip styles are applied inline via D3 because Angular style
+    // encapsulation does not reach dynamically-created nodes.
+  }
+
+  .loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.82);
+    z-index: 10;
+  }
+
+  .error-message {
+    color: #dc2626;
+    text-align: center;
+    padding: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .defect-word-cloud-widget {
+    padding: 12px;
+
+    .toolbar-field,
+    .toolbar-field--type,
+    .toolbar-field--date,
+    .toolbar-field--search {
+      flex: 1 1 100%;
+      min-width: 100%;
+    }
+
+    .toolbar-actions {
+      width: 100%;
+      margin-left: 0;
+    }
+
+    .toolbar-actions .btn {
+      flex: 1 1 auto;
+    }
+
+    .cloud-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .defect-word-cloud-widget .cloud-container {
+    min-height: 18rem;
+  }
+}
+
+:host-context(html[data-theme-mode='dark']),
+:host-context(html.dark) {
+  .defect-word-cloud-widget {
+    background: var(--card-bg, rgba(37, 37, 56, 0.8));
+
+    .filters-toolbar {
+      background: rgba(255, 255, 255, 0.02);
+      border-color: var(--input-border, #313335);
+    }
+
+    .toolbar-label {
+      color: var(--default-text-color, #d0d0e2);
+    }
+
+    .form-select,
+    .form-control {
+      background-color: var(--form-control-bg, #0e0e23);
+      border-color: var(--input-border, #313335);
+      color: var(--default-text-color, #d0d0e2);
+    }
+
+    .wc-menu-icon svg {
+      fill: #f3f4f5;
+    }
+
+    .wc-menu-icon:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .wc-menu-icon:hover svg {
+      fill: #fff;
+    }
+
+    .wc-menu {
+      background: rgba(0, 0, 0, 0.86);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .wc-menu-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .frequency-legend .legend-item {
+      color: var(--default-text-color, #d0d0e2);
+    }
+
+    .frequency-legend .legend-dot {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .cloud-container {
+      border-color: var(--input-border, rgba(255, 255, 255, 0.08));
+      background: linear-gradient(180deg, rgba(14, 14, 35, 0.72) 0%, rgba(14, 14, 35, 0.58) 100%);
+    }
+
+    .loading-overlay {
+      background: rgba(14, 14, 35, 0.75);
+    }
+
+    .error-message {
+      color: #f87171;
+    }
+  }
+}

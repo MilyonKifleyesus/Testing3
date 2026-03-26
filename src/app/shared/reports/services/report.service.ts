@@ -2,6 +2,9 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { map, catchError } from 'rxjs/operators';
 import { ClientDashboardService } from '../../services/client-dashboard.service';
+import { DashboardProjectsService } from '../../services/dashboard-projects.service';
+import { ClientService } from '../../services/client.service';
+import { AuthService } from '../../services/auth.service';
 import { Observable, of, delay } from 'rxjs';
 
 // API Request/Response Interfaces
@@ -56,73 +59,12 @@ export interface Project {
   id: number;
   name: string;
   code: string;
-  clientId?: number;
 }
 
 export interface Inspector {
   id: number;
   name: string;
   email: string;
-}
-
-export interface Client {
-  id: number;
-  name: string;
-}
-
-export interface Vehicle {
-  id: number;
-  fleetNumber: string;
-  clientId: number;
-}
-
-export interface InspectorAsset {
-  clientId: number;
-  client: string;
-  projectId: number;
-  project: string;
-  inspectorId: number;
-  inspector: string;
-  vehicleId: number;
-  vehicle: string;
-  ticketsOpen: number;
-  ticketsClosed: number;
-}
-
-export interface InspectorAssetsResponse {
-  items: InspectorAsset[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
-export interface TimeLog {
-  id: number;
-  vehicleId: number;
-  userId: number;
-  projectId: number;
-  typeOfTimeId: number;
-  timeSpent: number; // hours (e.g. 1.2)
-  description: string;
-  dateStarted: string;
-  dateUpdated: string;
-}
-
-export interface LabourReportItem {
-  date: string;
-  dateText: string;
-  hours: number;
-  clientId: number;
-  client: string;
-  inspectorId: number;
-  inspector: string;
-  projectId: number;
-  project: string;
-  vehicleId: number;
-  vehicle: string;
-  typeOfTimeId: number;
-  typeOfTime: string;
-  description: string;
 }
 
 export interface ReportExportRequest {
@@ -158,6 +100,13 @@ export class ReportService {
       );
     }
 
+    private extractTotalCount(response: any, fallbackCount: number): number {
+      const total = this.toPositiveNumber(
+        this.first(response, ['totalCount', 'total', 'count', 'recordCount', 'recordsTotal']),
+      );
+      return total ?? fallbackCount;
+    }
+
     private first(source: any, keys: string[]): any {
       for (const key of keys) {
         if (key.includes('.')) {
@@ -185,13 +134,21 @@ export class ReportService {
       return text || fallback;
     }
 
-  private apiBaseUrl = '/api';
+    private toOptionalText(value: any): string | undefined {
+      const text = String(value ?? '').trim();
+      return text || undefined;
+    }
+  private apiUrl = '/api/reports'; // Backend API URL
+  private apiBaseUrl = '/api'; // Stub value, update as needed
   private projectNameById = new Map<number, string>();
   private projectClientIdByProjectId = new Map<number, number>();
 
   constructor(
     private readonly http: HttpClient,
     private readonly clientDashboardService: ClientDashboardService,
+    private readonly dashboardProjectsService: DashboardProjectsService,
+    private readonly clientService: ClientService,
+    private readonly authService: AuthService,
   ) {}
 
   // Stub for getMockTicketReports
@@ -206,16 +163,171 @@ export class ReportService {
     };
   }
 
+  // Resolve client scope from logged-in user for report pages.
+  private getScopedClientId(): string | undefined {
+    if (!this.isClientScopedRole()) {
+      return undefined;
+    }
+
+    const clientId = Number(this.authService.currentUserValue?.clientId ?? 0);
+    return Number.isFinite(clientId) && clientId > 0 ? String(clientId) : undefined;
+  }
+
+  // Client/user roles should only see their own client projects.
+  private isClientScopedRole(): boolean {
+    const role = (this.authService.currentUserValue?.role ?? '').toLowerCase().trim();
+    return role === 'client' || role === 'user' || role.includes('client');
+  }
+
+  // ...existing code...
 
   /**
    * Fetch ticket reports from backend
    * TODO: Replace with actual HttpClient call when backend is ready
    */
   getTicketReports(request: TicketReportRequest): Observable<TicketReportResponse> {
-    // Simulated API call - Replace with actual HTTP call
-    // return this.http.post<TicketReportResponse>(`${this.apiUrl}/tickets`, request);
-    
-    return of(this.getMockTicketReports(request)).pipe(delay(500));
+    const scopedClientId = this.getScopedClientId();
+    const page = request.page ?? 1;
+    const pageSize = request.pageSize ?? 10;
+    const projectId = this.toPositiveNumber(request.projectId);
+
+    return this.clientDashboardService
+      .getTickets({
+        clientId: scopedClientId ? Number(scopedClientId) : undefined,
+        projectId: projectId ?? 0,
+        userId: 0,
+        vehicleId: 0,
+        page,
+        pageSize,
+      } as any)
+      .pipe(
+        map((response: any) => {
+          const items = this.extractItems(response);
+          const mapped = items
+            .map((item: any, index: number) => this.mapApiTicketReport(item, index))
+            .filter((ticket): ticket is TicketReport => ticket !== null);
+
+          const filtered = this.applyTicketReportFilters(mapped, request);
+
+          return {
+            success: true,
+            data: filtered,
+            totalCount: this.extractTotalCount(response, filtered.length),
+            page,
+            pageSize,
+            message: response?.message ?? 'Ticket reports fetched successfully',
+          } as TicketReportResponse;
+        }),
+        catchError(() =>
+          of({
+            success: false,
+            data: [],
+            totalCount: 0,
+            page,
+            pageSize,
+            message: 'Failed to fetch ticket reports',
+          } as TicketReportResponse),
+        ),
+      );
+  }
+
+  private applyTicketReportFilters(tickets: TicketReport[], request: TicketReportRequest): TicketReport[] {
+    let filtered = [...tickets];
+
+    const projectId = this.toPositiveNumber(request.projectId);
+    if (projectId) {
+      filtered = filtered.filter((ticket) => ticket.projectId === projectId);
+    }
+
+    if (request.searchTerm) {
+      const search = request.searchTerm.toLowerCase();
+      filtered = filtered.filter((ticket) =>
+        ticket.ticketNumber.toLowerCase().includes(search) ||
+        ticket.vehicleIdentifier.toLowerCase().includes(search) ||
+        ticket.description.toLowerCase().includes(search) ||
+        ticket.defectType.toLowerCase().includes(search) ||
+        ticket.clientName.toLowerCase().includes(search),
+      );
+    }
+
+    return filtered;
+  }
+
+  private mapApiTicketReport(item: any, index: number): TicketReport | null {
+    const id = this.toPositiveNumber(this.first(item, ['id', 'ticketId', 'ticketID'])) ?? index + 1;
+    const projectId = this.toPositiveNumber(this.first(item, ['projectId', 'ProjectId', 'project.id'])) ?? 0;
+    const vehicleId = this.toPositiveNumber(this.first(item, ['vehicleId', 'VehicleId', 'vehicle.id'])) ?? 0;
+
+    const ticketClientId = this.toPositiveNumber(
+      this.first(item, ['clientId', 'ClientId', 'client.id', 'project.clientId', 'project.ClientId']),
+    ) ?? 0;
+    const projectClientId = projectId > 0 ? (this.projectClientIdByProjectId.get(projectId) ?? 0) : 0;
+    const clientId = projectClientId || ticketClientId;
+
+    const explicitClientName = this.toOptionalText(
+      this.first(item, ['clientName', 'ClientName', 'customerName', 'client.name', 'client.displayName', 'client']),
+    );
+
+    const explicitProjectName = this.toOptionalText(
+      this.first(item, ['projectName', 'ProjectName', 'project.name', 'project.title', 'project']),
+    );
+
+    const projectName = explicitProjectName && !/^\d+$/.test(explicitProjectName)
+      ? explicitProjectName
+      : (this.projectNameById.get(projectId) ?? (projectId > 0 ? `Project ${projectId}` : 'N/A'));
+
+    const fleetNumber = this.toOptionalText(
+      this.first(item, ['fleetNumber', 'FleetNumber', 'vehicleFleetNumber', 'vehicle.fleetNumber', 'vehicle.fleetNo', 'vehicle.unitNumber']),
+    );
+
+    return {
+      id,
+      ticketNumber: this.toText(this.first(item, ['ticketNumber', 'ticketNo', 'number', 'ticketCode']), `T${id}`),
+      clientId,
+      clientName: clientId > 0
+        ? this.clientService.resolveClientName(clientId, explicitClientName ?? 'N/A')
+        : (explicitClientName ?? 'N/A'),
+      projectId,
+      projectName,
+      vehicleId,
+      vehicleIdentifier: this.toText(
+        vehicleId > 0
+          ? String(vehicleId)
+          : (fleetNumber ?? this.first(item, ['vehicleNumber', 'vehicleIdentifier', 'vehicle.vehicleNumber'])),
+        vehicleId > 0 ? `Fleet ${vehicleId}` : 'N/A',
+      ),
+      safetyCritical: Boolean(this.first(item, ['safetyCritical', 'isSafetyCritical'])),
+      createdDate: this.toText(this.first(item, ['createdDate', 'createdAt', 'date']), ''),
+      defectType: this.toText(this.first(item, [
+        'defectType',
+        'defectTypeName',
+        'issueType',
+        'defectLocationName',
+      ]), '-'),
+      defectLocation: this.toText(this.first(item, ['defectLocationName', 'defectLocation', 'location', 'defect.locationName']), '-'),
+      description: this.toText(this.first(item, ['ticketDescription', 'description', 'details', 'comment']), '-'),
+      hasImages: Boolean(this.first(item, ['hasImages', 'hasAttachments', 'hasPhotos'])),
+      imageCount: this.toPositiveNumber(this.first(item, ['imageCount', 'attachmentsCount'])) ?? 0,
+      assignedById: this.toPositiveNumber(this.first(item, ['assignedById', 'ticketAssignedBy', 'createdById', 'userId'])) ?? 0,
+      assignedByName: this.toText(this.first(item, ['assignedByName', 'ticketAssignedByName', 'createdByName', 'reportedBy']), '-'),
+      assignedToId: this.toPositiveNumber(this.first(item, ['assignedToId', 'ownerId'])) ?? 0,
+      assignedToName: this.toText(this.first(item, ['assignedToName', 'ownerName', 'assigneeName']), '-'),
+      stationId: this.toPositiveNumber(this.first(item, ['stationId', 'StationId', 'station.id', 'station.stationId'])),
+      stationName: this.toOptionalText(this.first(item, [
+        'stationName',
+        'StationName',
+        'station_name',
+        'stationname',
+        'station',
+        'station.title',
+        'station.displayName',
+        'station.name',
+        'station.stationName',
+        'station.station',
+      ])),
+      status: this.toText(this.first(item, ['statusTicketName', 'ticketStatusName', 'statusName', 'status', 'ticketStatus', 'state']), 'Pending'),
+      resolvedDate: this.toOptionalText(this.first(item, ['resolvedDate', 'closedDate'])),
+    };
   }
 
   /**
@@ -223,203 +335,107 @@ export class ReportService {
    * TODO: Replace with actual HttpClient call
    */
   getProjects(): Observable<Project[]> {
-    return this.http.get<any>(`${this.apiBaseUrl}/Projects?pageSize=10000&page=1&includeClosed=true`).pipe(
+    const scopedClientId = this.getScopedClientId();
+
+    if (this.isClientScopedRole() && !scopedClientId) {
+      return of([]);
+    }
+
+    const clientIdNum = scopedClientId ? Number(scopedClientId) : undefined;
+    return this.clientDashboardService.getProjects({
+      clientId: clientIdNum,
+      includeClosed: true,
+      page: 1,
+      pageSize: 10000,
+    }).pipe(
       map((response: any) => {
-        console.log('[ReportService] /api/Projects raw response:', response);
         const items = this.extractItems(response);
+
         this.projectNameById.clear();
         this.projectClientIdByProjectId.clear();
+
         const mapped = items
           .map((item: any) => {
-            const id = Number(item.id ?? 0);
-            if (id <= 0) return null;
-            const name = String(item.name ?? '').trim();
-            if (!name) return null;
-            const clientId = item.clientId ? Number(item.clientId) : undefined;
-            if (clientId) this.projectClientIdByProjectId.set(id, clientId);
+            const id = this.toPositiveNumber(this.first(item, ['id', 'projectId', 'ProjectId']));
+            if (!id) {
+              return null;
+            }
+
+            const name = this.toOptionalText(this.first(item, ['name', 'projectName', 'ProjectName', 'title']));
+            if (!name) {
+              return null;
+            }
+
+            const clientId = this.toPositiveNumber(this.first(item, ['clientId', 'ClientId', 'client.id']));
+            if (clientId) {
+              this.projectClientIdByProjectId.set(id, clientId);
+            }
+
             this.projectNameById.set(id, name);
-            return { id, name, code: name, clientId } as Project;
+
+            return {
+              id,
+              name,
+              code: name,
+            } as Project;
           })
-          .filter((p): p is Project => p !== null);
+          .filter((project): project is Project => project !== null);
+
         return mapped;
       }),
-      catchError(() => of([])),
+      catchError(() => this.dashboardProjectsService.getProjectOptions({
+        clientId: clientIdNum,
+        includeClosed: true,
+        includeAllOption: false,
+        page: 1,
+        pageSize: 10000,
+      }).pipe(
+        map((projects) => {
+          const mapped = projects
+            .map((project) => {
+              const id = Number(project.id);
+              if (!Number.isFinite(id) || id <= 0) {
+                return null;
+              }
+
+              const name = String(project.name ?? '').trim();
+              if (!name) {
+                return null;
+              }
+
+              return {
+                id,
+                name,
+                code: name,
+              } as Project;
+            })
+            .filter((project): project is Project => project !== null);
+
+          this.projectNameById.clear();
+          this.projectClientIdByProjectId.clear();
+          mapped.forEach((project) => this.projectNameById.set(project.id, project.name));
+
+          return mapped;
+        }),
+      )),
     );
   }
-
-  /**
-   * Fetch inspector assets data for filter dropdowns (combines projects, inspectors, clients, vehicles)
-   */
-  getInspectorAssetsForFilters(): Observable<InspectorAssetsResponse> {
-    return this.http.get<InspectorAssetsResponse>(`${this.apiBaseUrl}/reports/inspector-assets`).pipe(
-      map((response: InspectorAssetsResponse) => {
-        console.log('[ReportService] /api/reports/inspector-assets response:', response);
-        return response;
-      }),
-      catchError((error) => {
-        console.error('[ReportService] Error fetching inspector assets:', error);
-        return of({
-          items: [],
-          total: 0,
-          page: 1,
-          pageSize: 0
-        });
-      })
-    );
-  }
-
-  // TODO: remove when real API is connected
-  private readonly DEMO_INSPECTORS: Inspector[] = [
-    { id: 1, name: 'Jordan Carter', email: 'jordan.carter@buspulse.com' },
-    { id: 2, name: 'Anika Singh', email: 'anika.singh@buspulse.com' },
-    { id: 3, name: 'Mei Chen', email: 'mei.chen@buspulse.com' },
-    { id: 4, name: 'Diego Alvarez', email: 'diego.alvarez@buspulse.com' },
-    { id: 5, name: 'Lena Okafor', email: 'lena.okafor@buspulse.com' },
-    { id: 6, name: 'Sanjay Patel', email: 'sanjay.patel@buspulse.com' },
-  ];
 
   /**
    * Fetch list of inspectors for filter dropdown
+   * TODO: Replace with actual HttpClient call
    */
   getInspectors(): Observable<Inspector[]> {
     return this.http.get<any>(`${this.apiBaseUrl}/Inspectors`).pipe(
-      map((response) => {
-        const items = this.extractItems(response)
-          .map((item: any) => ({
-            id: this.toPositiveNumber(this.first(item, ['id', 'inspectorId', 'userId'])) ?? 0,
-            name: this.toText(this.first(item, ['name', 'inspectorName', 'fullName']), ''),
-            email: this.toText(this.first(item, ['email', 'emailAddress']), ''),
-          }))
-          .filter((inspector: Inspector) => inspector.id > 0 && inspector.name.length > 0);
-        return items.length > 0 ? items : this.DEMO_INSPECTORS;
-      }),
-      catchError(() => of(this.DEMO_INSPECTORS)),
-    );
-  }
-
-  /**
-   * Fetch list of clients for filter dropdown
-   * Response: { items: [{ id, clientName, ... }], total, page, pageSize }
-   */
-  getClients(): Observable<Client[]> {
-    return this.http.get<any>(`${this.apiBaseUrl}/Clients`).pipe(
-      map((response) => {
-        const items = this.extractItems(response)
-          .map((item: any) => ({
-            id: this.toPositiveNumber(this.first(item, ['id'])) ?? 0,
-            name: this.toText(this.first(item, ['clientName', 'name']), ''),
-          }))
-          .filter((client: Client) => client.id > 0 && client.name.length > 0);
-        return items;
-      }),
-      catchError(() => of([])),
-    );
-  }
-
-  /**
-   * Fetch list of vehicles for filter dropdown
-   * Response: { items: [{ id, fleetNumber, clientId, lastUpdate }], total, page, pageSize }
-   */
-  getVehicles(clientId?: number, projectId?: number): Observable<Vehicle[]> {
-    const parts: string[] = [];
-    if (clientId) parts.push(`clientId=${clientId}`);
-    if (projectId) parts.push(`projectId=${projectId}`);
-    const params = parts.length ? `?${parts.join('&')}` : '';
-    return this.http.get<any>(`${this.apiBaseUrl}/Vehicles${params}`).pipe(
-      map((response) => {
-        return this.extractItems(response)
-          .map((item: any) => ({
-            id: this.toPositiveNumber(this.first(item, ['id'])) ?? 0,
-            fleetNumber: this.toText(this.first(item, ['fleetNumber']), ''),
-            clientId: this.toPositiveNumber(this.first(item, ['clientId'])) ?? 0,
-          }))
-          .filter((v: Vehicle) => v.id > 0 && v.fleetNumber.length > 0);
-      }),
-      catchError(() => of([])),
-    );
-  }
-
-  /**
-   * Fetch time logs for Vehicle Hour Report
-   * Response: { items: [{ id, vehicleId, userId, projectId, typeOfTimeId, timeSpent, description, dateStarted, dateUpdated }], total, page, pageSize }
-   */
-  getTimeLogs(params?: { projectId?: number; vehicleId?: number }): Observable<TimeLog[]> {
-    const parts: string[] = ['pageSize=10000', 'page=1'];
-    if (params?.projectId) parts.push(`projectId=${params.projectId}`);
-    if (params?.vehicleId) parts.push(`vehicleId=${params.vehicleId}`);
-    const query = `?${parts.join('&')}`;
-    return this.http.get<any>(`${this.apiBaseUrl}/TimeLogs${query}`).pipe(
-      map((response) =>
-        this.extractItems(response)
-          .map((item: any) => ({
-            id: Number(item.id ?? 0),
-            vehicleId: Number(item.vehicleId ?? 0),
-            userId: Number(item.userId ?? 0),
-            projectId: Number(item.projectId ?? 0),
-            typeOfTimeId: Number(item.typeOfTimeId ?? 0),
-            timeSpent: Number(item.timeSpent ?? 0),
-            description: String(item.description ?? ''),
-            dateStarted: String(item.dateStarted ?? ''),
-            dateUpdated: String(item.dateUpdated ?? ''),
-          }))
-          .filter((log: TimeLog) => log.vehicleId > 0),
-      ),
-      catchError(() => of([])),
-    );
-  }
-
-  /**
-   * Fetch labour report rows
-   * Response: { items: [{ date, dateText, hours, inspectorId, inspector, projectId, project, vehicleId, vehicle, typeOfTimeId, typeOfTime, description }], total, page, pageSize }
-   */
-  getLabourReport(params?: { projectId?: number; inspectorId?: number; startDate?: string; endDate?: string }): Observable<LabourReportItem[]> {
-    const parts: string[] = ['pageSize=10000', 'page=1'];
-    if (params?.projectId) parts.push(`projectId=${params.projectId}`);
-    if (params?.inspectorId) parts.push(`inspectorId=${params.inspectorId}`);
-    if (params?.startDate) parts.push(`startDate=${params.startDate}`);
-    if (params?.endDate) parts.push(`endDate=${params.endDate}`);
-    const query = `?${parts.join('&')}`;
-    return this.http.get<any>(`${this.apiBaseUrl}/reports/labour${query}`).pipe(
-      map((response) =>
-        this.extractItems(response).map((item: any) => ({
-          date: String(item.date ?? ''),
-          dateText: String(item.dateText ?? ''),
-          hours: Number(item.hours ?? 0),
-          clientId: Number(item.clientId ?? item.customerId ?? 0),
-          client: String(item.client ?? item.customer ?? item.clientName ?? ''),
-          inspectorId: Number(item.inspectorId ?? 0),
-          inspector: String(item.inspector ?? ''),
-          projectId: Number(item.projectId ?? 0),
-          project: String(item.project ?? ''),
-          vehicleId: Number(item.vehicleId ?? 0),
-          vehicle: String(item.vehicle ?? ''),
-          typeOfTimeId: Number(item.typeOfTimeId ?? 0),
-          typeOfTime: String(item.typeOfTime ?? ''),
-          description: String(item.description ?? ''),
+      map((response) => this.extractItems(response)
+        .map((item: any) => ({
+          id: this.toPositiveNumber(this.first(item, ['id', 'inspectorId', 'userId'])) ?? 0,
+          name: this.toText(this.first(item, ['name', 'inspectorName', 'fullName']), ''),
+          email: this.toText(this.first(item, ['email', 'emailAddress']), ''),
         }))
+        .filter((inspector: Inspector) => inspector.id > 0 && inspector.name.length > 0),
       ),
       catchError(() => of([])),
-    );
-  }
-
-  /**
-   * Fetch inspector active asset rows
-   * Response: { items: [{ clientId, client, projectId, project, inspectorId, inspector, vehicleId, vehicle, ticketsOpen, ticketsClosed }], total, page, pageSize }
-   */
-  getInspectorAssets(params?: { projectId?: number; inspectorId?: number }): Observable<any[]> {
-    const parts: string[] = ['PageNumber=1', 'PageSize=10000'];
-    if (params?.projectId) parts.push(`ProjectId=${params.projectId}`);
-    if (params?.inspectorId) parts.push(`InspectorId=${params.inspectorId}`);
-    const query = `?${parts.join('&')}`;
-    return this.http.get<any>(`${this.apiBaseUrl}/reports/inspector-assets${query}`).pipe(
-      map((response) => {
-        console.log('[ReportService] /api/reports/inspector-assets response:', response);
-        return this.extractItems(response);
-      }),
-      catchError((error) => {
-        console.error('[ReportService] /api/reports/inspector-assets error:', error);
-        return of([]);
-      }),
     );
   }
 
