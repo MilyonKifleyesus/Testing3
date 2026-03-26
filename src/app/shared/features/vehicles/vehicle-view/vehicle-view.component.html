@@ -338,6 +338,13 @@
                 <option *ngFor="let name of inspectorNames" [value]="name">{{ name }}</option>
               </select>
             </div>
+            <div class="vv-table-filter" *ngIf="defectTypeNames.length">
+              <i class="ti ti-layout-grid vv-table-filter-icon"></i>
+              <select class="vv-table-filter-select" [(ngModel)]="ticketDefectTypeFilter" (ngModelChange)="onTicketDefectTypeFilterChange()">
+                <option value="all">All Areas</option>
+                <option *ngFor="let dt of defectTypeNames" [value]="dt">{{ dt }}</option>
+              </select>
+            </div>
           </div>
           <div class="vv-card-body p-0">
             <div class="vv-empty-state" *ngIf="!vehicle.tickets.length">
@@ -352,7 +359,7 @@
                       <th class="vv-th-sortable" (click)="sortTickets('status')">Status <i class="ti" [ngClass]="ticketSortCol==='status' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
                       <th>Description</th>
                       <th class="vv-th-sortable" (click)="sortTickets('defectLocation')">Location <i class="ti" [ngClass]="ticketSortCol==='defectLocation' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
-                      <th class="vv-th-sortable" (click)="sortTickets('station')">Station <i class="ti" [ngClass]="ticketSortCol==='station' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
+                      <th class="vv-th-sortable" (click)="sortTickets('defectType')">Defect Type <i class="ti" [ngClass]="ticketSortCol==='defectType' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
                       <th class="vv-th-sortable" (click)="sortTickets('assignedTo')">Assigned To <i class="ti" [ngClass]="ticketSortCol==='assignedTo' ? (ticketSortDir==='asc' ? 'ti-sort-ascending' : 'ti-sort-descending') : 'ti-arrows-sort'"></i></th>
                       <th class="text-center">Safety</th>
                       <th class="text-center">Repeat</th>
@@ -367,7 +374,7 @@
                       </td>
                       <td class="text-truncate vv-td-desc" [title]="ticket.description">{{ ticket.description }}</td>
                       <td class="fs-12 text-muted">{{ ticket.defectLocation || '-' }}</td>
-                      <td class="fs-12">{{ ticket.station || '-' }}</td>
+                      <td class="fs-12">{{ ticket.defectType || '-' }}</td>
                       <td class="fs-12">{{ ticket.assignedTo }}</td>
                       <td class="text-center">
                         <span [class]="ticket.safetyCritical ? 'badge bg-danger-transparent text-danger' : 'badge bg-secondary-transparent text-secondary'">

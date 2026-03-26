@@ -1,4 +1,4 @@
-<div class="dashboard-wrapper">
+﻿<div class="dashboard-wrapper">
   <app-page-header [title]="title" [title1]="['Home']" [activeitem]="'Dashboard'"></app-page-header>
 
   <div class="dashboard-content">
@@ -38,10 +38,10 @@
             </div>
 
             <p class="wb-subtitle" *ngIf="isAdminRole">
-              Fleet-wide operations &nbsp;·&nbsp; Inspection analytics &nbsp;·&nbsp; Live reporting
+              Fleet-wide operations &nbsp;Â·&nbsp; Inspection analytics &nbsp;Â·&nbsp; Live reporting
             </p>
             <p class="wb-subtitle" *ngIf="!isAdminRole">
-              {{ clientProfile.clientId }} &nbsp;·&nbsp; {{ clientProfile.vehicle }}
+              {{ clientProfile.clientId }} &nbsp;Â·&nbsp; {{ clientProfile.vehicle }}
             </p>
 
             <div class="wb-controls">
@@ -103,7 +103,7 @@
       </div>
     </div>
 
-    <!-- ═══ Filter Bar ═══════════════════════════════════════════════════════ -->
+    <!-- â•â•â• Filter Bar â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
     <div class="filter-bar mb-4">
       <div class="fb-prefix">
         <i class="ti ti-adjustments-alt"></i>
@@ -134,6 +134,8 @@
       </div>
     </div>
 
+
+    <!-- â•â•â• Widget Grid â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
     <div class="charts-grid" [class.compact-mode]="showFilters && selectedProject !== 'all'">
       <div class="widgets-row" cdkDropList (cdkDropListDropped)="onWidgetDrop($event)">
         <ng-container *ngFor="let widget of widgets; trackBy: trackByWidgetId">
@@ -145,21 +147,119 @@
             cdkDrag
             [cdkDragData]="widget"
           >
-            <div
-              class="data-card widget-card"
-              [style.height.px]="getWidgetCardHeight(widget)"
-              [attr.data-widget-id]="widget.id">
-              <div class="widget-drag-handle" cdkDragHandle>
-                <i class="fas fa-grip-vertical"></i>
-              </div>
+            <div class="card custom-card data-card widget-card" [style.height.px]="getWidgetCardHeight(widget)">
+              <div class="card-header">
+                <div class="widget-header-left">
+                  <div class="widget-drag-handle" cdkDragHandle>
+                    <i class="ti ti-grip-vertical"></i>
+                  </div>
+                  <div>
+                    <h5 class="card-title mb-1">{{ widget.title }}</h5>
+                    <p class="card-subtitle">{{ widget.subtitle }}</p>
+                  </div>
+                </div>
+                <div class="widget-header-actions">
+                  <ng-container *ngIf="widget.id === 'widget-11'">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="previousStationTypeHeatmapPage()"
+                      [disabled]="widget.loading || !hasStationTypeHeatmapPreviousPage"
+                      title="Previous page"
+                      aria-label="Previous page"
+                    >
+                      <i class="ti ti-chevron-left"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="nextStationTypeHeatmapPage()"
+                      [disabled]="widget.loading || !stationTypeHeatmapHasNextPage"
+                      title="Next page"
+                      aria-label="Next page"
+                    >
+                      <i class="ti ti-chevron-right"></i>
+                    </button>
+                    <span
+                      class="small text-muted"
+                      title="Showing station type record set {{ stationTypeHeatmapPage }}. Data is split into sets so the chart loads faster and stays responsive."
+                    >
+                      Record Set {{ stationTypeHeatmapPage }} ({{ stationTypeHeatmapPageSize }} timelines per set)
+                    </span>
+                  </ng-container>
 
-              <div class="widget-delete-btn">
-                <button class="control-btn fullscreen-btn" (click)="toggleFullscreen(widget.id)" title="Toggle fullscreen">
-                  <i class="fas" [ngClass]="fullscreenWidgetId === widget.id ? 'fa-compress' : 'fa-expand'"></i>
-                </button>
-                <button class="control-btn delete-btn" (click)="deleteWidget(widget.id)" title="Remove widget">
-                  <i class="fas fa-trash-alt"></i>
-                </button>
+                  <ng-container *ngIf="widget.id === 'widget-12'">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="previousStationTimeComparisonPage()"
+                      [disabled]="widget.loading || !hasStationTimeComparisonPreviousPage"
+                      title="Previous page"
+                      aria-label="Previous page"
+                    >
+                      <i class="ti ti-chevron-left"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="nextStationTimeComparisonPage()"
+                      [disabled]="widget.loading || !stationTimeComparisonHasNextPage"
+                      title="Next page"
+                      aria-label="Next page"
+                    >
+                      <i class="ti ti-chevron-right"></i>
+                    </button>
+                    <span
+                      class="small text-muted"
+                      title="Showing average station time record set {{ stationTimeComparisonPage }}. Data is split into sets so the chart loads faster and stays responsive."
+                    >
+                      Record Set {{ stationTimeComparisonPage }} ({{ stationTimeComparisonPageSize }} timelines per set)
+                    </span>
+                  </ng-container>
+                  <ng-container *ngIf="widget.id === 'widget-15'">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="previousVehicleStationTrackingPage()"
+                      [disabled]="widget.loading || !hasVehicleStationPreviousPage"
+                      title="Previous page"
+                      aria-label="Previous page"
+                    >
+                      <i class="ti ti-chevron-left"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="nextVehicleStationTrackingPage()"
+                      [disabled]="widget.loading || !vehicleStationHasNextPage"
+                      title="Next page"
+                      aria-label="Next page"
+                    >
+                      <i class="ti ti-chevron-right"></i>
+                    </button>
+                    <span
+                      class="small text-muted"
+                      title="Showing timeline record set {{ vehicleStationPage }}. Data is split into sets so the chart loads faster and stays responsive."
+                    >
+                      Record Set {{ vehicleStationPage }} ({{ vehicleStationPageSize }} timelines per set)
+                    </span>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success"
+                      (click)="toggleVehicleStationMergeByType()"
+                    >
+                      {{ vehicleStationMergeByType ? 'Show Detailed Timelines' : 'Merge By Station Type' }}
+                    </button>
+                  </ng-container>
+
+
+                  <button class="control-btn fullscreen-btn" (click)="toggleFullscreen(widget.id)" title="Toggle fullscreen">
+                    <i class="ti" [ngClass]="fullscreenWidgetId === widget.id ? 'ti-arrows-minimize' : 'ti-arrows-maximize'"></i>
+                  </button>
+                  <button class="control-btn delete-btn" (click)="deleteWidget(widget.id)" title="Remove widget">
+                    <i class="ti ti-x"></i>
+                  </button>
+                </div>
               </div>
 
               <div class="resize-handle resize-handle-corner" (mousedown)="onResizeStart($event, widget.id, 'corner')" title="Drag to resize">
@@ -167,11 +267,6 @@
               </div>
               <div class="resize-handle resize-handle-right" (mousedown)="onResizeStart($event, widget.id, 'right')" title="Drag to resize width"></div>
               <div class="resize-handle resize-handle-bottom" (mousedown)="onResizeStart($event, widget.id, 'bottom')" title="Drag to resize height"></div>
-
-              <div class="card-header">
-                <h5 class="card-title mb-1">{{ widget.title }}</h5>
-                <p class="card-subtitle">{{ widget.subtitle }}</p>
-              </div>
 
               <div class="card-body" style="position: relative;">
                 <div *ngIf="widget.loading" class="widget-loading-overlay">
@@ -365,17 +460,22 @@
                   </div>
                 </ng-container>
 
-                <ng-container *ngIf="widget.id === 'widget-15'">
-                  <div class="widget-chart-scroll" [class.widget-content-blur]="widget.loading">
+                <ng-container *ngIf="widget.id === 'widget-15' || widget.id === 'widget-12' || widget.id === 'widget-11'">
+                  <div
+                    class="widget-chart-scroll"
+                    [class.widget-chart-scroll--comparison]="widget.id === 'widget-12'"
+                    [class.widget-chart-scroll--station-heatmap]="widget.id === 'widget-11'"
+                    [class.widget-content-blur]="widget.loading"
+                  >
                     <spk-apex-charts
                       *ngIf="widget.chartOptions"
                       [chartOptions]="widget.chartOptions"
-                      [style.height.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostHeight || widget.chartOptions.chart?.height)) || 600"
-                      [style.min-width.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostWidth || widget.chartOptions.chart?.width)) || 1200">
+                      [style.height.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostHeight || widget.chartOptions.chart?.height)) || (widget.id === 'widget-12' ? 760 : (widget.id === 'widget-11' ? 760 : 600))"
+                      [style.min-width.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostWidth || widget.chartOptions.chart?.width)) || (widget.id === 'widget-12' ? 1600 : (widget.id === 'widget-11' ? 1600 : 1200))">
                     </spk-apex-charts>
                   </div>
                 </ng-container>
-                <ng-container *ngIf="widget.id !== 'widget-16' && widget.id !== 'widget-15' && widget.id !== 'widget-13' && widget.id !== 'widget-project-activities'">
+                <ng-container *ngIf="widget.id !== 'widget-16' && widget.id !== 'widget-15' && widget.id !== 'widget-12' && widget.id !== 'widget-11' && widget.id !== 'widget-13' && widget.id !== 'widget-project-activities'">
                   <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions" [class.widget-content-blur]="widget.loading"></spk-apex-charts>
                 </ng-container>
 
@@ -563,16 +663,113 @@
       </div>
     </div>
 
+    <!-- â•â•â• Fullscreen overlay â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
     <div *ngIf="fullscreenWidgetId" class="fullscreen-overlay" (click)="toggleFullscreen(fullscreenWidgetId); $event.stopPropagation()">
       <div class="fullscreen-container" (click)="$event.stopPropagation()">
         <div class="fullscreen-header" *ngIf="fullscreenWidget">
           <h3>{{ fullscreenWidget.title }}</h3>
-          <button class="btn btn-sm btn-light" (click)="toggleFullscreen(fullscreenWidgetId)" title="Exit fullscreen">
-            <i class="fas fa-times"></i>
-          </button>
+          <div class="d-flex align-items-center gap-2">
+            <ng-container *ngIf="fullscreenWidget.id === 'widget-11'">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="previousStationTypeHeatmapPage()"
+                [disabled]="fullscreenWidget.loading || !hasStationTypeHeatmapPreviousPage"
+                title="Previous page"
+                aria-label="Previous page"
+              >
+                <i class="ti ti-chevron-left"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="nextStationTypeHeatmapPage()"
+                [disabled]="fullscreenWidget.loading || !stationTypeHeatmapHasNextPage"
+                title="Next page"
+                aria-label="Next page"
+              >
+                <i class="ti ti-chevron-right"></i>
+              </button>
+              <span
+                class="small text-muted"
+                title="Showing station type record set {{ stationTypeHeatmapPage }}. Data is split into sets so the chart loads faster and stays responsive."
+              >
+                Record Set {{ stationTypeHeatmapPage }} ({{ stationTypeHeatmapPageSize }} timelines per set)
+              </span>
+            </ng-container>
+
+            <ng-container *ngIf="fullscreenWidget.id === 'widget-12'">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="previousStationTimeComparisonPage()"
+                [disabled]="fullscreenWidget.loading || !hasStationTimeComparisonPreviousPage"
+                title="Previous page"
+                aria-label="Previous page"
+              >
+                <i class="ti ti-chevron-left"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="nextStationTimeComparisonPage()"
+                [disabled]="fullscreenWidget.loading || !stationTimeComparisonHasNextPage"
+                title="Next page"
+                aria-label="Next page"
+              >
+                <i class="ti ti-chevron-right"></i>
+              </button>
+              <span
+                class="small text-muted"
+                title="Showing average station time record set {{ stationTimeComparisonPage }}. Data is split into sets so the chart loads faster and stays responsive."
+              >
+                Record Set {{ stationTimeComparisonPage }} ({{ stationTimeComparisonPageSize }} timelines per set)
+              </span>
+            </ng-container>
+            <ng-container *ngIf="fullscreenWidget.id === 'widget-15'">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="previousVehicleStationTrackingPage()"
+                [disabled]="fullscreenWidget.loading || !hasVehicleStationPreviousPage"
+                title="Previous page"
+                aria-label="Previous page"
+              >
+                <i class="ti ti-chevron-left"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                (click)="nextVehicleStationTrackingPage()"
+                [disabled]="fullscreenWidget.loading || !vehicleStationHasNextPage"
+                title="Next page"
+                aria-label="Next page"
+              >
+                <i class="ti ti-chevron-right"></i>
+              </button>
+              <span
+                class="small text-muted"
+                title="Showing timeline record set {{ vehicleStationPage }}. Data is split into sets so the chart loads faster and stays responsive."
+              >
+                Record Set {{ vehicleStationPage }} ({{ vehicleStationPageSize }} timelines per set)
+              </span>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-success"
+                (click)="toggleVehicleStationMergeByType()"
+              >
+                {{ vehicleStationMergeByType ? 'Show Detailed Timelines' : 'Merge By Station Type' }}
+              </button>
+            </ng-container>
+
+            <button class="btn btn-sm btn-light" (click)="toggleFullscreen(fullscreenWidgetId)" title="Exit fullscreen">
+              <i class="ti ti-x"></i>
+            </button>
+          </div>
         </div>
 
         <div class="fullscreen-content" *ngIf="fullscreenWidget">
+
           <div *ngIf="fullscreenWidget.id === 'widget-16'" class="ticket-activity-panel ticket-activity-panel--fullscreen">
             <div class="ticket-activity-filter-bar ticket-activity-filter-bar--fullscreen">
               <div class="ticket-activity-filter-bar__presets">
@@ -674,7 +871,24 @@
             </app-vehicle-activities-widget>
           </div>
 
-          <spk-apex-charts *ngIf="fullscreenWidget.id !== 'widget-16' && fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions"></spk-apex-charts>
+
+          <ng-container *ngIf="fullscreenWidget.id === 'widget-15' || fullscreenWidget.id === 'widget-12' || fullscreenWidget.id === 'widget-11'; else fullscreenDefaultChart">
+            <div
+              class="widget-chart-scroll"
+              [class.widget-chart-scroll--comparison]="fullscreenWidget.id === 'widget-12'"
+              [class.widget-chart-scroll--station-heatmap]="fullscreenWidget.id === 'widget-11'"
+            >
+              <spk-apex-charts
+                *ngIf="fullscreenWidget.chartOptions"
+                [chartOptions]="fullscreenWidget.chartOptions"
+                [style.height.px]="(fullscreenWidget.chartOptions && (fullscreenWidget.chartOptions.__calculatedHostHeight || fullscreenWidget.chartOptions.chart?.height)) || (fullscreenWidget.id === 'widget-12' ? 760 : (fullscreenWidget.id === 'widget-11' ? 760 : 600))"
+                [style.min-width.px]="(fullscreenWidget.chartOptions && (fullscreenWidget.chartOptions.__calculatedHostWidth || fullscreenWidget.chartOptions.chart?.width)) || (fullscreenWidget.id === 'widget-12' ? 1600 : (fullscreenWidget.id === 'widget-11' ? 1600 : 1200))"
+              ></spk-apex-charts>
+            </div>
+          </ng-container>
+          <ng-template #fullscreenDefaultChart>
+            <spk-apex-charts *ngIf="fullscreenWidget.id !== 'widget-16' && fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions"></spk-apex-charts>
+          </ng-template>
 
           <div *ngIf="fullscreenWidget.id === 'widget-map'" class="dashboard-map-widget dashboard-map-widget--fullscreen">
             <div class="dashboard-map-widget__summary" [class.dashboard-map-widget__summary--client]="!isAdminRole">
@@ -813,6 +1027,7 @@
         </div>
       </div>
     </div>
+
 
     <div *ngIf="showActivitiesModal" class="activities-modal-overlay" (click)="closeActivitiesModal()">
       <div class="activities-modal-container" (click)="$event.stopPropagation()">

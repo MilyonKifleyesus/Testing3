@@ -34,6 +34,7 @@ function resolveItems<T>(raw: unknown): T[] {
 
   const directCandidates: unknown[] = [
     record['items'],
+    record['users'],
     record['clients'],
     record['projects'],
     record['vehicles'],
@@ -49,6 +50,7 @@ function resolveItems<T>(raw: unknown): T[] {
   if (data) {
     const nestedCandidates: unknown[] = [
       data['items'],
+      data['users'],
       data['clients'],
       data['projects'],
       data['vehicles'],
@@ -64,6 +66,7 @@ function resolveItems<T>(raw: unknown): T[] {
   if (result) {
     const nestedCandidates: unknown[] = [
       result['items'],
+      result['users'],
       result['clients'],
       result['projects'],
       result['vehicles'],
@@ -88,36 +91,38 @@ function resolveTotal(raw: unknown, fallback: number): number {
   const dataPagination = data ? asRecord(data['pagination']) : null;
 
   const candidates: unknown[] = [
-    record['total'],
     record['totalCount'],
     record['totalItems'],
     record['totalRecords'],
+    record['total'],
     record['count'],
-    data?.['total'],
     data?.['totalCount'],
     data?.['totalItems'],
     data?.['totalRecords'],
+    data?.['total'],
     data?.['count'],
-    result?.['total'],
     result?.['totalCount'],
     result?.['totalItems'],
     result?.['totalRecords'],
+    result?.['total'],
     result?.['count'],
-    pagination?.['total'],
     pagination?.['totalCount'],
     pagination?.['totalItems'],
     pagination?.['totalRecords'],
+    pagination?.['total'],
     pagination?.['count'],
-    dataPagination?.['total'],
     dataPagination?.['totalCount'],
     dataPagination?.['totalItems'],
     dataPagination?.['totalRecords'],
+    dataPagination?.['total'],
     dataPagination?.['count'],
   ];
 
   for (const candidate of candidates) {
     const parsed = parseNullableNumber(candidate);
-    if (parsed != null && parsed >= 0) return parsed;
+    // A valid total must be >= the number of items on the current page.
+    // If it's less, it's likely a page number or page count, not a record count.
+    if (parsed != null && parsed >= fallback) return parsed;
   }
 
   return fallback;

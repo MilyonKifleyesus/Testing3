@@ -75,9 +75,12 @@ export class VehicleViewComponent implements OnInit {
   
   /** Chart: Snag by Area */
   snagByAreaChart: Partial<ChartOptions> = {};
-  
+
   /** Chart: Defect Severity Gauge */
   defectSeverityChart: Partial<ChartOptions> = {};
+
+  /** Chart: Tickets by Inspector (radial) */
+  inspectorTicketsChart: Partial<ChartOptions> = {};
   
   /** Currently selected image in gallery */
   selectedImage: string = '';
@@ -167,6 +170,24 @@ export class VehicleViewComponent implements OnInit {
   ticketInspectorFilter: string = 'all';
   snagInspectorFilter: string = 'all';
 
+  // Defect type (Area) filter for tickets
+  ticketDefectTypeFilter: string = 'all';
+
+  get defectTypeNames(): string[] {
+    if (!this.vehicle) return [];
+    const names = new Set<string>();
+    this.vehicle.tickets.forEach((t: any) => {
+      if (t.defectType && t.defectType !== '-') names.add(t.defectType);
+    });
+    return Array.from(names).sort();
+  }
+
+  onTicketDefectTypeFilterChange(): void {
+    this.currentPage = 1;
+    this.updatePagination();
+  }
+
+
   get inspectorNames(): string[] {
     if (!this.vehicle) return [];
     const names = new Set<string>();
@@ -176,10 +197,21 @@ export class VehicleViewComponent implements OnInit {
 
   get filteredTicketCount(): number {
     if (!this.vehicle) return 0;
-    if (this.ticketInspectorFilter === 'all') return this.vehicle.tickets.length;
-    return this.vehicle.tickets.filter(t =>
-      t.assignedTo === this.ticketInspectorFilter || t.assignedBy === this.ticketInspectorFilter
-    ).length;
+    return this.getFilteredTickets().length;
+  }
+
+  private getFilteredTickets(): any[] {
+    if (!this.vehicle) return [];
+    let filtered = this.vehicle.tickets;
+    if (this.ticketInspectorFilter !== 'all') {
+      filtered = filtered.filter((t: any) =>
+        t.assignedTo === this.ticketInspectorFilter || t.assignedBy === this.ticketInspectorFilter
+      );
+    }
+    if (this.ticketDefectTypeFilter !== 'all') {
+      filtered = filtered.filter((t: any) => t.defectType === this.ticketDefectTypeFilter);
+    }
+    return filtered;
   }
 
   get filteredSnagCount(): number {
@@ -330,11 +362,7 @@ export class VehicleViewComponent implements OnInit {
       this.paginationItems = [];
       return;
     }
-    const filtered = this.ticketInspectorFilter === 'all'
-      ? this.vehicle.tickets
-      : this.vehicle.tickets.filter(t =>
-          t.assignedTo === this.ticketInspectorFilter || t.assignedBy === this.ticketInspectorFilter
-        );
+    const filtered = this.getFilteredTickets();
     this.totalPages = Math.max(1, Math.ceil(filtered.length / this.pageSize));
     if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
     const start = (this.currentPage - 1) * this.pageSize;
@@ -407,13 +435,21 @@ export class VehicleViewComponent implements OnInit {
   /** Fetch all users into a local map (id → name). Result is cached by UserManagementService. */
   private loadUsers(): Promise<void> {
     return firstValueFrom(
-      this.userManagementService.getUsers({ page: 1, pageSize: 500, role: '', clientId: '0', manufacturerId: '0' }).pipe(
+      this.userManagementService.getUsers({ page: 1, pageSize: 1000, role: '', clientId: '', manufacturerId: '' }).pipe(
         map((result) => {
-          result.items.forEach((u) => this.userNameById.set(u.id, u.name));
+          result.items.forEach((u) => this.userNameById.set(u.id, u.userName || u.name));
         }),
         catchError(() => of(void 0)),
       ),
     );
+  }
+
+  /** Safely convert any API value to boolean — handles actual booleans, numbers (0/1), and strings ("true"/"false"/"1"/"0"). */
+  private toBool(val: unknown): boolean {
+    if (typeof val === 'boolean') return val;
+    if (typeof val === 'number') return val !== 0;
+    if (typeof val === 'string') return val.toLowerCase() === 'true' || val === '1';
+    return false;
   }
 
   /**
@@ -446,6 +482,7 @@ export class VehicleViewComponent implements OnInit {
         this.totalPages = Math.ceil(mappedTickets.length / this.pageSize);
         this.updatePagination();
         this.initializeCharts();
+        this.buildInspectorTicketsChart();
       });
   }
 
@@ -506,8 +543,8 @@ export class VehicleViewComponent implements OnInit {
       inspector: this.resolveUserName(getFirstDefinedValue(snag, ['userId', 'modifiedBy', 'userName', 'inspectorName'])),
       project: toText(getFirstDefinedValue(snag, ['projectName', 'project']), '-'),
       category: toText(getFirstDefinedValue(snag, ['finalInspectionCategoryName', 'categoryName']), '-'),
-      safetyCritical: Boolean(getFirstDefinedValue(snag, ['safetyCritical', 'isSafetyCritical']) ?? false),
-      repeater: Boolean(getFirstDefinedValue(snag, ['repeater', 'isRepeater']) ?? false),
+      safetyCritical: this.toBool(getFirstDefinedValue(snag, ['safetyCritical', 'isSafetyCritical', 'SafetyCritical'])),
+      repeater: this.toBool(getFirstDefinedValue(snag, ['repeater', 'isRepeater', 'repeated', 'Repeater'])),
       hasImages: Boolean(getFirstDefinedValue(snag, ['hasImages', 'hasImage']) ?? (Number(getFirstDefinedValue(snag, ['imageCount']) ?? 0) > 0)),
     };
   }
@@ -615,9 +652,10 @@ export class VehicleViewComponent implements OnInit {
       createdDate,
       defectLocation: toText(getFirstDefinedValue(ticket, ['defectLocationName', 'defectLocation']), '-'),
       station: toText(getFirstDefinedValue(ticket, ['stationName', 'station']), '-'),
+      defectType: toText(getFirstDefinedValue(ticket, ['defectTypeName', 'defectType', 'defectTypeDescription']), '-'),
       description: toText(getFirstDefinedValue(ticket, ['ticketDescription', 'description']), '-'),
-      safetyCritical: Boolean(getFirstDefinedValue(ticket, ['safetyCritical', 'isSafetyCritical']) ?? false),
-      repeater: Boolean(getFirstDefinedValue(ticket, ['repeated', 'repeater', 'isRepeater']) ?? false),
+      safetyCritical: this.toBool(getFirstDefinedValue(ticket, ['safetyCritical', 'isSafetyCritical', 'SafetyCritical'])),
+      repeater: this.toBool(getFirstDefinedValue(ticket, ['repeated', 'repeater', 'isRepeater', 'Repeated', 'Repeater'])),
       hasImages: Boolean(getFirstDefinedValue(ticket, ['hasImages', 'hasImage']) ?? (Number(getFirstDefinedValue(ticket, ['imageCount']) ?? 0) > 0)),
       imageUrl: (() => {
         if (Array.isArray(ticket.images) && ticket.images.length > 0) {
@@ -923,6 +961,58 @@ export class VehicleViewComponent implements OnInit {
         behavior: 'smooth'
       });
     }
+  }
+
+  private buildInspectorTicketsChart(): void {
+    if (!this.vehicle || !this.vehicle.assignments.length) return;
+
+    const palette = ['#845adf', '#23b7e5', '#f5b849', '#26bf94', '#e6533c', '#49b6f5', '#fd7e14'];
+    const assignments = this.vehicle.assignments;
+    const ticketCounts = assignments.map(a =>
+      this.vehicle!.tickets.filter(t => t.assignedTo === a.inspectorName || t.assignedBy === a.inspectorName).length
+    );
+    const maxCount = Math.max(...ticketCounts, 1);
+    const series = ticketCounts.map(c => Math.round((c / maxCount) * 100));
+    const labels = assignments.map(a => a.inspectorName);
+    const totalTickets = ticketCounts.reduce((a, b) => a + b, 0);
+
+    this.inspectorTicketsChart = {
+      series,
+      chart: { type: 'radialBar', height: 260, toolbar: { show: false }, sparkline: { enabled: false } },
+      plotOptions: {
+        radialBar: {
+          offsetY: 10,
+          startAngle: -135,
+          endAngle: 135,
+          hollow: { margin: 4, size: '20%', background: 'transparent' },
+          track: { show: true, background: 'rgba(132,90,223,0.08)', strokeWidth: '75%', margin: 4 },
+          dataLabels: {
+            name: { fontSize: '13px', fontWeight: '600' },
+            value: {
+              fontSize: '12px',
+              formatter: ((val: number, opts: any) => {
+                const idx = opts?.seriesIndex ?? opts?.dataPointIndex;
+                if (idx != null && ticketCounts[idx] != null) {
+                  return String(ticketCounts[idx]);
+                }
+                // Fallback: reverse the percentage back to ticket count
+                return String(Math.round((val / 100) * maxCount));
+              }) as any,
+            },
+            total: {
+              show: true,
+              label: 'Total',
+              formatter: () => String(totalTickets),
+            },
+          },
+        },
+      },
+      colors: palette.slice(0, labels.length),
+      labels,
+      tooltip: { enabled: false },
+      legend: { show: false },
+      responsive: [],
+    };
   }
 
   /**

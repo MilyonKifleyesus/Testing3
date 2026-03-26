@@ -13,8 +13,9 @@ import {
   DashboardVehicleOptionsResult,
 } from '../../services/dashboard-projects.service';
 import { buildPaginationItems, PAGINATION_ELLIPSIS } from '../../utils/pagination.utils';
-import { UserManagementService } from '../../services/user-management.service';
-import { map, Observable } from 'rxjs';
+import { UserListItem, UserManagementService } from '../../services/user-management.service';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { TicketImageModalComponent } from './ticket-image-modal.component';
 
@@ -49,11 +50,13 @@ interface TicketRow {
   imageUrl?: string;
   project?: string;
   vehicle?: string;
+  fleetNumber?: string;
   defectType?: string;
   station?: string;
   status?: string;
   client?: string;
   defectLocation?: string;
+  serialNo?: string;
   selected?: boolean;
 }
 
@@ -79,12 +82,12 @@ export class TicketsComponent implements OnInit {
   sortDirection: 'asc' | 'desc' = 'asc';
   tickets: TicketRow[] = [];
   filteredTickets: TicketRow[] = [];
-  private vehicleClientIdMap = new Map<string, string>();
   private hasClientNameMap = false;
   isLoadingTickets = false;
   isExporting = false;
   currentPage = 1;
   readonly pageSize = 10;
+  totalCount = 0;
 
   clientOptions: Array<{ id: string; name: string }> = [{ id: 'all', name: 'All Clients' }];
   projectOptions: DashboardProjectOption[] = [{ id: 'all', name: 'All Projects' }];
@@ -118,6 +121,8 @@ export class TicketsComponent implements OnInit {
   private initialProjectIdFromRoute: string | null = null;
 
   private userIdToName = new Map<number, string>();
+  isPrintLoading = false;
+  private allSelectedTickets: TicketRow[] = [];
 
   constructor(
     private route: ActivatedRoute,
@@ -194,7 +199,6 @@ export class TicketsComponent implements OnInit {
   }
 
   private initializeDataForCurrentClient(): void {
-    this.loadVehicleClientIds();
     this.loadProjectsFromApi(true, true);
   }
 
@@ -217,8 +221,8 @@ export class TicketsComponent implements OnInit {
     this.filters.client = String(clientId ?? '').trim() || 'all';
     this.filters.project = 'all';
     this.filters.vehicle = 'all';
+    this.currentPage = 1;
     this.resetVehiclesDropdown();
-    this.loadVehicleClientIds();
     this.loadProjectsFromApi(true, true);
   }
 
@@ -252,23 +256,28 @@ export class TicketsComponent implements OnInit {
   }
 
   private resolveAssignedUserNames(): void {
+    const toNumericId = (value: unknown): number | null => {
+      const n = Number(value);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+
     const userIds = Array.from(new Set(
-      this.tickets.flatMap(t => [t.ticketAssignedBy, t.assignedToId])
-        .filter((id): id is number => typeof id === 'number' && id > 0)
+      this.tickets.flatMap(t => [toNumericId(t.ticketAssignedBy), toNumericId(t.assignedToId)])
+        .filter((id): id is number => id !== null)
     ));
 
     if (!userIds.length) return;
 
     const applyNames = () => {
-      this.tickets = this.tickets.map(ticket => ({
-        ...ticket,
-        assignedBy: ticket.ticketAssignedBy && this.userIdToName.has(ticket.ticketAssignedBy)
-          ? this.userIdToName.get(ticket.ticketAssignedBy)!
-          : ticket.assignedBy,
-        assignedTo: ticket.assignedToId && this.userIdToName.has(ticket.assignedToId)
-          ? this.userIdToName.get(ticket.assignedToId)!
-          : ticket.assignedTo,
-      }));
+      this.tickets = this.tickets.map(ticket => {
+        const byId = toNumericId(ticket.ticketAssignedBy);
+        const toId = toNumericId(ticket.assignedToId);
+        return {
+          ...ticket,
+          assignedBy: byId && this.userIdToName.has(byId) ? this.userIdToName.get(byId)! : ticket.assignedBy,
+          assignedTo: toId && this.userIdToName.has(toId) ? this.userIdToName.get(toId)! : ticket.assignedTo,
+        };
+      });
       this.applyFilters();
     };
 
@@ -279,13 +288,15 @@ export class TicketsComponent implements OnInit {
       return;
     }
 
-    this.userManagementService.getUsers({ page: 1, pageSize: 10000, role: '', clientId: '', manufacturerId: '' }).subscribe({
-      next: (result) => {
-        for (const user of result.items) {
-          this.userIdToName.set(user.id, user.username || user.name || String(user.id));
+    forkJoin(
+      uncachedIds.map(id => this.userManagementService.getUserById(id).pipe(catchError(() => of(null))))
+    ).subscribe(users => {
+      users.forEach((user, i) => {
+        if (user) {
+          this.userIdToName.set(uncachedIds[i], user.userName || user.name || String(uncachedIds[i]));
         }
-        applyNames();
-      },
+      });
+      applyNames();
     });
   }
 
@@ -300,93 +311,17 @@ export class TicketsComponent implements OnInit {
     this.applyFilters();
   }
 
-  private loadVehicleClientIds(): void {
-    const clientId = this.getEffectiveClientId();
-
-    this.clientDashboardService
-      .getVehicles({ clientId, page: 1, pageSize: 5000 })
-      .subscribe({
-        next: (response: unknown) => {
-          const items = this.normalizeTicketItems(response);
-          const nextMap = new Map<string, string>();
-
-          for (const item of items) {
-            const vehicleId = this.getFirstDefinedValue(item, [
-              'id',
-              'vehicleId',
-              'vehicle_id',
-              'VehicleId',
-              'VehicleID',
-            ]);
-            const clientIdValue = this.getFirstDefinedValue(item, [
-              'clientId',
-              'client_id',
-              'ClientId',
-              'ClientID',
-              'customerId',
-              'customer_id',
-            ]);
-
-            if (vehicleId !== undefined && vehicleId !== null && clientIdValue !== undefined && clientIdValue !== null) {
-              const vehicleKey = String(vehicleId).trim();
-              const clientText = String(clientIdValue).trim();
-              if (vehicleKey && clientText) {
-                nextMap.set(vehicleKey, clientText);
-              }
-            }
-          }
-
-          this.vehicleClientIdMap = nextMap;
-          this.applyVehicleClientIdsToTickets();
-        },
-        error: () => {
-          this.vehicleClientIdMap.clear();
-        },
-      });
-  }
-
-  private getClientIdByVehicle(vehicleId: string | number | undefined): string | undefined {
-    if (vehicleId === undefined || vehicleId === null) return undefined;
-    const key = String(vehicleId).trim();
-    return key ? this.vehicleClientIdMap.get(key) : undefined;
-  }
-
-  private applyVehicleClientIdsToTickets(): void {
-    if (!this.tickets.length || this.vehicleClientIdMap.size === 0) return;
-
-    this.tickets = this.tickets.map((ticket) => {
-      const mappedClientId = this.getClientIdByVehicle(ticket.vehicleId);
-      if (!mappedClientId) return ticket;
-      return { ...ticket, client: this.resolveClientDisplay(mappedClientId) };
-    });
-
-    this.applyFilters();
-  }
-
-  private normalizeTicketItems(raw: unknown): any[] {
-    if (Array.isArray(raw)) return raw;
-    if (raw && typeof raw === 'object') {
-      const obj = raw as Record<string, unknown>;
-      if (Array.isArray(obj['items'])) return obj['items'] as any[];
-      if (Array.isArray(obj['tickets'])) return obj['tickets'] as any[];
-      if (Array.isArray(obj['results'])) return obj['results'] as any[];
-      if (Array.isArray(obj['data'])) return obj['data'] as any[];
-      if (obj['data'] && typeof obj['data'] === 'object') {
-        const data = obj['data'] as Record<string, unknown>;
-        if (Array.isArray(data['items'])) return data['items'] as any[];
-        if (Array.isArray(data['tickets'])) return data['tickets'] as any[];
-      }
-    }
-    return [];
-  }
 
   private mapApiTicketToRow(item: any): TicketRow {
     const projectId = this.getFirstDefinedValue(item, ['projectId', 'project_id']);
     const vehicleId = this.getFirstDefinedValue(item, ['vehicleId', 'vehicle_id']);
-    const defectTypeFromLocation = this.getFirstNonBlankValue(item, [
-      'defectLocationName',
-      'defect_location_name',
-      'defectlocationname',
+    const defectTypeName = this.getFirstNonBlankValue(item, [
+      'defectTypeName',
+      'defectType',
+      'defect_type_name',
+      'defect_type',
+      'DefectTypeName',
+      'DefectType',
     ]);
     const stationName = this.getFirstNonBlankValue(item, ['stationName', 'station_name']);
     const statusTicketName = this.getFirstDefinedValue(item, ['statusTicketName', 'statusName', 'status']);
@@ -441,18 +376,20 @@ export class TicketsComponent implements OnInit {
         (mappedVehicleBase.id != null ? `Vehicle ${mappedVehicleBase.id}` : '-'),
     };
 
-    const mappedClientIdFromVehicle = this.getClientIdByVehicle(mappedVehicle.id ?? vehicleId);
     const mappedClientFromTicket = this.getFirstDefinedValue(item, [
       'clientId',
       'client_id',
       'client',
       'clientName',
     ]);
-    const mappedClient =
-      mappedClientIdFromVehicle ||
-      (mappedClientFromTicket !== undefined && mappedClientFromTicket !== null
+
+    const rawClient =
+      mappedClientFromTicket !== undefined && mappedClientFromTicket !== null
         ? String(mappedClientFromTicket).trim()
-        : '');
+        : '';
+    const effectiveClientFallback = this.getEffectiveClientId();
+    const mappedClient = rawClient || (effectiveClientFallback ? String(effectiveClientFallback) : '');
+
 
     let imageUrl = undefined;
     if (Array.isArray(item.images) && item.images.length > 0) {
@@ -470,10 +407,10 @@ export class TicketsComponent implements OnInit {
       createdDate: createdAtValue != null ? String(createdAtValue) : undefined,
       ticketUpdatedDate: this.getFirstDefinedValue(item, ['ticketUpdatedDate', 'updatedDate', 'updated_at']),
       userId: this.getFirstDefinedValue(item, ['userId', 'user_id']),
-      ticketAssignedBy: this.getFirstDefinedValue(item, ['ticketAssignedBy', 'assignedById', 'assignedBy', 'assignBy']),
-      assignedToId: this.getFirstDefinedValue(item, ['assignedToId', 'assignedTo', 'assignTo']),
-      assignedBy: this.getFirstDefinedValue(item, ['assignedByName']) ?? '-',
-      assignedTo: this.getFirstDefinedValue(item, ['assignedToName']) ?? '-',
+      ticketAssignedBy: this.getFirstDefinedValue(item, ['ticketAssignedBy', 'assignedById', 'assignedByUserId', 'assignedBy']),
+      assignedToId: this.getFirstDefinedValue(item, ['assignedToId', 'assignedToUserId', 'assignedUserId', 'assignedTo']),
+      assignedBy: this.getFirstNameValue(item, ['assignedByName', 'assignByName', 'assignedByFullName', 'assignedByUserName', 'createdByName']) ?? '-',
+      assignedTo: this.getFirstNameValue(item, ['assignedToName', 'assignToName', 'assignedToFullName', 'assignedToUserName', 'inspectorName', 'userName']) ?? '-',
       projectId: mappedProject.id,
       vehicleId: mappedVehicle.id,
       inspectionTaskId: this.getFirstDefinedValue(item, ['inspectionTaskId', 'inspection_task_id']),
@@ -489,9 +426,9 @@ export class TicketsComponent implements OnInit {
       imageUrl: imageUrl,
       project: mappedProject.name,
       vehicle: mappedVehicle.name,
+      fleetNumber: this.getFirstNonBlankValue(item, ['fleetNumber', 'fleet_number', 'fleetNo', 'fleet_no', 'vehicleFleetNumber']) ?? mappedVehicle.name ?? '-',
       defectType:
-        defectTypeFromLocation ??
-        this.getFirstNonBlankValue(item, ['defectType', 'defectTypeName']) ??
+        defectTypeName ??
         '-',
       station:
         stationName ??
@@ -502,6 +439,7 @@ export class TicketsComponent implements OnInit {
         '-',
       status: normalizedStatus || 'open',
       client: this.resolveClientDisplay(mappedClient || '-'),
+      serialNo: this.getFirstNonBlankValue(item, ['serialNo', 'serialNumber', 'serial_no', 'serial_number', 'SerialNo', 'SerialNumber']) ?? '-',
       selected: false,
     };
   }
@@ -512,6 +450,18 @@ export class TicketsComponent implements OnInit {
       return undefined;
     }
     return value;
+  }
+
+  /** Like getFirstNonBlankValue but rejects pure-numeric values (those are IDs, not display names). */
+  private getFirstNameValue(source: any, keys: string[]): string | undefined {
+    for (const key of keys) {
+      const raw = this.getFirstDefinedValue(source, [key]);
+      if (raw == null) continue;
+      const str = String(raw).trim();
+      if (!str || /^\d+$/.test(str)) continue; // skip empty or numeric-only
+      return str;
+    }
+    return undefined;
   }
 
   private getFirstDefinedValue(source: any, keys: string[]): any {
@@ -571,16 +521,19 @@ export class TicketsComponent implements OnInit {
 
     const projectId = this.filters.project === 'all' ? 0 : Number(this.filters.project) || 0;
     const vehicleId = this.filters.vehicle === 'all' ? 0 : Number(this.filters.vehicle) || 0;
-    const userId = 0;
     const clientId = this.getEffectiveClientId();
-    const requestParams = { projectId, userId, vehicleId, clientId };
+
+    const orderBy = this.sortColumn ? (this.sortColumnApiMap[this.sortColumn] ?? String(this.sortColumn)) : undefined;
+    const orderDirection = this.sortColumn ? this.sortDirection : undefined;
 
     this.isLoadingTickets = true;
-    this.fetchAllTickets(requestParams)
+    this.clientDashboardService
+      .getTickets({ projectId, userId: 0, vehicleId, clientId, page: this.currentPage, pageSize: this.pageSize, orderBy, orderDirection })
       .subscribe({
-        next: (items: any[]) => {
+        next: (response: unknown) => {
+          const { items, total } = this.normalizeTicketResponse(response);
+          this.totalCount = total;
           this.tickets = items.map((item) => this.mapApiTicketToRow(item));
-          this.applyVehicleClientIdsToTickets();
           this.applyClientNamesToTickets();
           this.resolveAssignedUserNames();
           this.applyFilters();
@@ -590,23 +543,29 @@ export class TicketsComponent implements OnInit {
           console.error('Tickets API request failed:', error);
           this.tickets = [];
           this.filteredTickets = [];
-          this.applyFilters();
+          this.totalCount = 0;
           this.isLoadingTickets = false;
         },
       });
   }
 
-  private fetchAllTickets(params: {
-    projectId: number;
-    userId: number;
-    vehicleId: number;
-    clientId?: number;
-  }): Observable<any[]> {
-    return this.clientDashboardService
-      .getTickets({ ...params, page: 1, pageSize: 1000 })
-      .pipe(
-        map((response: unknown) => this.normalizeTicketItems(response)),
-      );
+  private normalizeTicketResponse(raw: unknown): { items: any[]; total: number } {
+    if (Array.isArray(raw)) return { items: raw, total: raw.length };
+    if (raw && typeof raw === 'object') {
+      const obj = raw as Record<string, unknown>;
+      const total = Number(obj['totalCount'] ?? obj['total'] ?? obj['totalItems'] ?? obj['count'] ?? 0);
+      for (const key of ['items', 'tickets', 'results', 'data'] as const) {
+        if (Array.isArray(obj[key])) return { items: obj[key] as any[], total };
+      }
+      if (obj['data'] && typeof obj['data'] === 'object' && !Array.isArray(obj['data'])) {
+        const d = obj['data'] as Record<string, unknown>;
+        const dt = Number(d['totalCount'] ?? d['total'] ?? total);
+        for (const key of ['items', 'tickets', 'results'] as const) {
+          if (Array.isArray(d[key])) return { items: d[key] as any[], total: dt };
+        }
+      }
+    }
+    return { items: [], total: 0 };
   }
 
   private loadProjectsFromApi(includeClosed: boolean, fetchTicketsAfterLoad = false): void {
@@ -615,8 +574,6 @@ export class TicketsComponent implements OnInit {
     this.dashboardProjectsService.getProjectOptions({
       clientId: this.getEffectiveClientId(),
       includeClosed,
-      page: 1,
-      pageSize: 10000,
     }).subscribe({
       next: (projects: DashboardProjectOption[]) => {
         this.projectOptions = projects.length ? projects : [{ id: 'all', name: 'All Projects' }];
@@ -646,14 +603,14 @@ export class TicketsComponent implements OnInit {
           this.loadVehiclesByProject(this.filters.project);
         }
 
-        if (fetchTicketsAfterLoad) {
+        if (fetchTicketsAfterLoad && this.filters.project && this.filters.project !== 'all') {
           this.fetchTicketsFromApi();
         }
       },
       error: () => {
         this.projectOptions = [{ id: 'all', name: 'All Projects' }];
         this.resetVehiclesDropdown();
-        if (fetchTicketsAfterLoad) {
+        if (fetchTicketsAfterLoad && this.filters.project && this.filters.project !== 'all') {
           this.fetchTicketsFromApi();
         }
       },
@@ -699,13 +656,20 @@ export class TicketsComponent implements OnInit {
       });
   }
 
+  get hasProjectSelected(): boolean {
+    return !!this.filters.project && this.filters.project !== 'all';
+  }
+
   onProjectFilterChange(projectId: string): void {
     this.filters.project = String(projectId ?? '').trim() || 'all';
     this.filters.vehicle = 'all';
+    this.currentPage = 1;
+    this.tickets = [];
+    this.filteredTickets = [];
+    this.totalCount = 0;
 
-    if (this.filters.project === 'all') {
+    if (!this.hasProjectSelected) {
       this.resetVehiclesDropdown();
-      this.fetchTicketsFromApi();
       return;
     }
 
@@ -714,9 +678,26 @@ export class TicketsComponent implements OnInit {
   }
 
   onVehicleFilterChange(vehicleId: string): void {
+    if (!this.hasProjectSelected) return;
     this.filters.vehicle = String(vehicleId ?? '').trim() || 'all';
+    this.currentPage = 1;
     this.fetchTicketsFromApi();
   }
+
+  private readonly sortColumnApiMap: Partial<Record<keyof TicketRow, string>> = {
+    id:             'id',
+    createdDate:    'ticketCreatedDate',
+    safetyCritical: 'safetyCritical',
+    repeater:       'repeater',
+    projectId:      'projectId',
+    vehicleId:      'vehicleId',
+    defectTypeId:   'defectTypeId',
+    stationId:      'stationId',
+    priority:       'priority',
+    statusTicketId: 'statusTicketId',
+    ticketAssignedBy: 'ticketAssignedBy',
+    assignedToId:   'assignedToId',
+  };
 
   sortTickets(column: keyof TicketRow): void {
     if (this.sortColumn === column) {
@@ -725,8 +706,8 @@ export class TicketsComponent implements OnInit {
       this.sortColumn = column;
       this.sortDirection = 'asc';
     }
-
-    this.applyFilters();
+    this.currentPage = 1;
+    this.fetchTicketsFromApi();
   }
 
   applyFilters(): void {
@@ -771,12 +752,11 @@ export class TicketsComponent implements OnInit {
   }
 
   get totalPages(): number {
-    return Math.max(1, Math.ceil(this.filteredTickets.length / this.pageSize));
+    return Math.max(1, Math.ceil(this.totalCount / this.pageSize));
   }
 
   get paginatedTickets(): TicketRow[] {
-    const start = (this.currentPage - 1) * this.pageSize;
-    return this.filteredTickets.slice(start, start + this.pageSize);
+    return this.filteredTickets;
   }
 
   get visiblePages(): PaginationItem[] {
@@ -788,17 +768,17 @@ export class TicketsComponent implements OnInit {
   }
 
   get pageStartItem(): number {
-    if (!this.filteredTickets.length) return 0;
-    return (this.currentPage - 1) * this.pageSize + 1;
+    return this.totalCount ? (this.currentPage - 1) * this.pageSize + 1 : 0;
   }
 
   get pageEndItem(): number {
-    return Math.min(this.currentPage * this.pageSize, this.filteredTickets.length);
+    return Math.min(this.currentPage * this.pageSize, this.totalCount);
   }
 
   changePage(page: number): void {
     if (page < 1 || page > this.totalPages) return;
     this.currentPage = page;
+    this.fetchTicketsFromApi();
   }
 
   previousPage(): void {
@@ -814,7 +794,7 @@ export class TicketsComponent implements OnInit {
   }
 
   get selectedCount(): number {
-    return this.selectedTickets.length;
+    return this.allSelectedTickets.length || this.selectedTickets.length;
   }
 
   get selectionSummary(): string {
@@ -836,10 +816,30 @@ export class TicketsComponent implements OnInit {
   }
 
   checkAll(): void {
-    this.filteredTickets.forEach(t => t.selected = true);
+    this.isPrintLoading = true;
+    const projectId = this.filters.project === 'all' ? 0 : Number(this.filters.project) || 0;
+    const vehicleId = this.filters.vehicle === 'all' ? 0 : Number(this.filters.vehicle) || 0;
+    const clientId = this.getEffectiveClientId();
+    this.clientDashboardService.getTickets({ projectId, userId: 0, vehicleId, clientId }).subscribe({
+      next: (response: unknown) => {
+        const { items } = this.normalizeTicketResponse(response);
+        this.allSelectedTickets = items.map((item) => ({ ...this.mapApiTicketToRow(item), selected: true }));
+        this.tickets.forEach(t => t.selected = true);
+        this.filteredTickets.forEach(t => t.selected = true);
+        this.isPrintLoading = false;
+      },
+      error: () => {
+        this.tickets.forEach(t => t.selected = true);
+        this.filteredTickets.forEach(t => t.selected = true);
+        this.allSelectedTickets = [];
+        this.isPrintLoading = false;
+      },
+    });
   }
 
   uncheckAll(): void {
+    this.allSelectedTickets = [];
+    this.tickets.forEach(t => t.selected = false);
     this.filteredTickets.forEach(t => t.selected = false);
   }
 
@@ -969,6 +969,187 @@ export class TicketsComponent implements OnInit {
 
   private getExportDateStamp(): string {
     return new Date().toISOString().split('T')[0];
+  }
+
+  printSelectedTickets(): void {
+    const selected = this.filteredTickets.filter(t => t.selected);
+    const toPrint = this.allSelectedTickets.length ? this.allSelectedTickets : selected.length ? selected : this.filteredTickets;
+    if (!toPrint.length) return;
+
+    const toNumericId = (value: unknown): number | null => {
+      const n = Number(value);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+
+    const uncachedIds = Array.from(new Set(
+      toPrint.flatMap(t => [toNumericId(t.ticketAssignedBy), toNumericId(t.assignedToId)])
+        .filter((id): id is number => id !== null && !this.userIdToName.has(id))
+    ));
+
+    const doPrint = async () => {
+      this.isPrintLoading = true;
+
+      const projectName = this.projectOptions.find(p => String(p.id) === this.filters.project)?.name || '—';
+      const vehicleLabel = this.filters.vehicle !== 'all'
+        ? (this.vehicleOptions.find(v => String(v.id) === this.filters.vehicle)?.name || '—')
+        : 'All Vehicles';
+      const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+      const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const resolveName = (idField: unknown, fallback: string) => {
+        const id = toNumericId(idField);
+        return (id && this.userIdToName.get(id)) || fallback;
+      };
+
+      const rows = toPrint.map((t, i) => {
+        const statusColor: Record<string, string> = {
+          open: '#2563eb', 'in-progress': '#d97706', resolved: '#0891b2', closed: '#16a34a'
+        };
+        const sColor = statusColor[String(t.status).toLowerCase()] || '#555';
+        const imgCell = t.imageUrl
+          ? `<img src="${esc(t.imageUrl)}" style="width:48px;height:32px;object-fit:cover;border-radius:2px;" />`
+          : '—';
+        return `<tr>
+          <td class="center">${i + 1}</td>
+          <td class="center">${t.safetyCritical ? '<span class="badge danger">Yes</span>' : '<span class="badge neutral">No</span>'}</td>
+          <td class="center">${t.repeater ? '<span class="badge warn">Yes</span>' : '<span class="badge neutral">No</span>'}</td>
+          <td class="nowrap">${t.createdDate ? new Date(t.createdDate).toLocaleDateString('en-GB') : '—'}</td>
+          <td>${esc(t.defectType)}</td>
+          <td>${esc(t.defectLocation)}</td>
+          <td class="desc">${esc(t.description)}</td>
+          <td class="center">${imgCell}</td>
+          <td>${esc(resolveName(t.assignedToId, t.assignedTo || '—'))}</td>
+          <td>${esc(t.station)}</td>
+          <td class="center"><span style="color:${sColor};font-weight:600;">${esc(t.status)}</span></td>
+          <td>—</td>
+          <td>—</td>
+        </tr>`;
+      }).join('');
+
+      const logoBase64 = await new Promise<string>((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = 'assets/images/brand-logos/login-optimized.jpg';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width; canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) { ctx.drawImage(img, 0, 0); resolve(canvas.toDataURL('image/jpeg')); } else resolve('');
+        };
+        img.onerror = () => resolve('');
+      });
+      const logoHtml = logoBase64
+        ? `<img src="${logoBase64}" alt="Logo" style="width:100px;height:50px;object-fit:contain;padding:5px;">`
+        : `<div style="width:100px;height:50px;background:#ccc;display:flex;align-items:center;justify-content:center;font-size:10px;color:#666;">Logo</div>`;
+
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket Report</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;font-size:12px;color:#333;background:white;padding:20px}
+  .page-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:15px;padding-bottom:10px;border-bottom:2px solid #000}
+  .report-title{text-align:center;flex-grow:1}
+  .report-title h1{font-size:16px;font-weight:bold;margin:0}
+  .report-title p{font-size:11px;margin:2px 0}
+  .project-info{font-size:11px;margin-bottom:15px;color:#333;padding:8px}
+  .section-header{background:#1DB954 !important;padding:8px 10px;font-weight:bold;font-size:12px;color:white !important;border:2px solid #000;margin-bottom:3px;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+  table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:11px;background:white}
+  thead tr{background:#1DB954 !important;border:2px solid #000;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+  th{padding:6px 4px;text-align:left;font-weight:bold;border:1px solid #000;color:white !important;font-size:10px;background:#1DB954 !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+  td{padding:6px 4px;border:1px solid #999;vertical-align:top;background:white;word-break:break-word;line-height:1.3}
+  tbody tr:nth-child(even) td{background:#f9f9f9;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .center{text-align:center}
+  .badge{display:inline-block;padding:1px 5px;border-radius:2px;font-size:9px;font-weight:700}
+  .badge.danger{background:#fee2e2 !important;color:#b91c1c !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .badge.warn{background:#fef3c7 !important;color:#92400e !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .badge.neutral{background:#e2e8f0 !important;color:#475569 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .footer{display:flex;justify-content:space-between;align-items:center;padding-top:15px;border-top:1px solid #ccc;font-size:10px;color:#666;margin-top:20px}
+  @page{size:297mm 210mm;margin:10mm;@bottom-right{content:"Page " counter(page) " of " counter(pages);font-size:8px;font-family:Arial,sans-serif;color:#666;font-weight:600}}
+  @media print{
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+    body{margin:0;padding:15px;background:white}
+    table{page-break-inside:auto}
+    thead{display:table-header-group}
+    tr{page-break-inside:avoid;page-break-after:auto}
+    .section-header{background:#1DB954 !important;color:white !important}
+    thead tr{background:#1DB954 !important}
+    th{background:#1DB954 !important;color:white !important}
+  }
+</style></head><body>
+  <div class="page-header">
+    <div>${logoHtml}</div>
+    <div class="report-title">
+      <h1>BusPulse Ticket Report</h1>
+      <p>Ticket Summary</p>
+    </div>
+    <div>${logoHtml}</div>
+  </div>
+  <div class="project-info">
+    <strong>Project: ${esc(projectName)}</strong> | <strong>Vehicle: ${esc(vehicleLabel)}</strong> | Generated: ${today}
+  </div>
+  <div class="section-header">Tickets</div>
+  <table>
+    <thead><tr>
+      <th>Serial No.</th><th>Safety Critical</th><th>Repeater</th><th>Created Date</th>
+      <th>Defect Type</th><th>Defect Location</th><th>Description</th><th>Images</th>
+      <th>Assign To</th><th>Station</th><th>Status</th><th>Resolved Date</th>
+      <th>Resolved Comment</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">
+    <div>Total Tickets: ${toPrint.length} | Print Date: ${today}</div>
+    <div></div>
+  </div>
+  <div id="bp-overlay" style="position:fixed;inset:0;background:rgba(255,255,255,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:Arial,sans-serif;">
+    <div style="font-size:15px;font-weight:700;color:#1e3a5f;margin-bottom:10px;">Preparing print&hellip;</div>
+    <div id="bp-prog-text" style="font-size:12px;color:#555;margin-bottom:14px;">Loading images&hellip;</div>
+    <div style="width:220px;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+      <div id="bp-prog-bar" style="height:100%;background:#1DB954;width:0%;transition:width 0.2s;"></div>
+    </div>
+    <button onclick="document.getElementById('bp-overlay').style.display='none';window.print();" style="margin-top:18px;padding:7px 22px;background:#1e3a5f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">Print Now</button>
+  </div>
+  <script>
+    (function(){
+      var overlay=document.getElementById('bp-overlay');
+      var txt=document.getElementById('bp-prog-text');
+      var bar=document.getElementById('bp-prog-bar');
+      var imgs=Array.from(document.querySelectorAll('img'));
+      var total=imgs.length;
+      if(!total){overlay.style.display='none';window.print();return;}
+      var done=0;
+      var timer=setTimeout(function(){overlay.style.display='none';window.print();},12000);
+      function settle(){
+        done++;
+        var pct=Math.round(done/total*100);
+        txt.textContent='Loading images\u2026 '+done+' / '+total;
+        bar.style.width=pct+'%';
+        if(done===total){clearTimeout(timer);overlay.style.display='none';window.print();}
+      }
+      imgs.forEach(function(img){
+        if(img.complete){settle();}
+        else{img.addEventListener('load',settle);img.addEventListener('error',settle);}
+      });
+    })();
+  </script>
+</body></html>`;
+
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      URL.revokeObjectURL(url);
+      this.isPrintLoading = false;
+    };
+
+    if (!uncachedIds.length) {
+      doPrint();
+      return;
+    }
+
+    forkJoin(uncachedIds.map(id => this.userManagementService.getUserById(id).pipe(catchError(() => of(null))))).subscribe((results: (UserListItem | null)[]) => {
+      results.forEach((user, i) => {
+        if (user) this.userIdToName.set(uncachedIds[i], user.userName || user.name || String(uncachedIds[i]));
+      });
+      doPrint();
+    });
   }
 
   private toComparableValue(value: unknown): string | number {

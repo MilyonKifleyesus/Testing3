@@ -282,13 +282,20 @@ export class UserEditComponent implements OnInit {
   }
 
   private applyUserToModel(user: UserListItem): void {
+    const resolvedUsername = (user as any).userName || user.username;
+    const resolvedClient = (user as any).clientName || user.client;
+    const resolvedManufacturer = (user as any).manufacturerName || user.manufacturer;
+    const resolvedStatus = typeof (user as any).deleted === 'boolean'
+      ? (!(user as any).deleted ? 'active' : 'inactive')
+      : this.normalizeStatus(user.status, user.isActive);
+
     this.model = {
       name: user.name !== 'N/A' ? user.name : '',
-      username: user.username !== 'N/A' ? user.username : '',
+      username: resolvedUsername !== 'N/A' ? (resolvedUsername || '') : '',
       email: user.email ?? '',
       picture: user.picture || '',
       role: user.role || this.roles[0] || 'Admin',
-      status: this.normalizeStatus(user.status, user.isActive),
+      status: resolvedStatus,
       language: user.language || 'English',
       clientId: this.normalizeOptionId(user.clientId),
       manufacturerId: this.normalizeOptionId(user.manufacturerId),

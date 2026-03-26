@@ -47,12 +47,21 @@
     </div>
   </div>
 
+  <!-- Prompt when no project selected -->
+  <div *ngIf="!hasProjectSelected" class="card custom-card">
+    <div class="card-body text-center py-5 text-muted">
+      <i class="ti ti-filter fs-40 mb-3 d-block"></i>
+      <p class="fs-15 mb-0">Select a project to view tickets.</p>
+    </div>
+  </div>
+
   <!-- Action Bar -->
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <div class="position-relative">
-      <button class="btn btn-sm btn-outline-secondary" (click)="toggleColumnMenu()" title="Column visibility">
-        <i class="ti ti-columns-3 me-1"></i>Column visibility
-      </button>
+  <div *ngIf="hasProjectSelected" class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center gap-2">
+      <div class="position-relative">
+        <button class="btn btn-sm btn-outline-secondary" (click)="toggleColumnMenu()" title="Column visibility">
+          <i class="ti ti-columns-3 me-1"></i>Column visibility
+        </button>
       <div class="dropdown-menu show" *ngIf="showColumnMenu">
         <div class="p-3">
           <div class="d-flex justify-content-between align-items-center mb-3">
@@ -74,6 +83,17 @@
           </ng-container>
         </div>
       </div>
+      </div>
+      <button class="btn btn-sm btn-outline-success" (click)="checkAll()" [disabled]="isPrintLoading" title="Check all">
+        <span *ngIf="isPrintLoading" class="spinner-border spinner-border-sm me-1" role="status"></span>
+        <i *ngIf="!isPrintLoading" class="ti ti-checkbox me-1"></i>Check All
+      </button>
+      <button class="btn btn-sm btn-outline-secondary" (click)="uncheckAll()" [disabled]="isPrintLoading || selectedCount === 0" title="Uncheck all">
+        <i class="ti ti-square me-1"></i>Uncheck All
+      </button>
+      <button class="btn btn-sm btn-outline-primary" (click)="printSelectedTickets()" [disabled]="isPrintLoading" title="Print tickets">
+        <i class="ti ti-printer me-1"></i>Print{{ selectedCount > 0 ? ' (' + selectedCount + ' selected)' : '' }}
+      </button>
     </div>
     <div class="search-wrapper">
       <div class="input-group">
@@ -84,7 +104,7 @@
   </div>
 
   <!-- Table Card -->
-  <div class="card custom-card">
+  <div *ngIf="hasProjectSelected" class="card custom-card">
     <div class="card-body project-table-body p-0">
       <div *ngIf="isLoadingTickets" class="d-flex flex-column align-items-center justify-content-center py-5">
         <div class="spinner-border text-primary" role="status" aria-label="Loading tickets">
@@ -120,7 +140,7 @@
               <td class="text-center">
                 <input type="checkbox" class="form-check-input" [(ngModel)]="ticket.selected" (change)="updateSelection()">
               </td>
-              <td class="fw-semibold text-primary" *ngIf="isColumnVisible('id')">{{ displayValue(ticket.id) }}</td>
+              <td class="fw-semibold text-primary" *ngIf="isColumnVisible('id')">{{ displayValue(ticket.ticketNumber || ticket.id) }}</td>
               <td *ngIf="isColumnVisible('client')">{{ displayValue(ticket.client) }}</td>
               <td *ngIf="isColumnVisible('status')">
                 <span class="badge" [ngClass]="getStatusBadgeClass(ticket.status || '')">
@@ -166,7 +186,7 @@
     <div class="card-footer">
       <div class="d-flex align-items-center">
         <div>
-          Showing {{ pageStartItem }} to {{ pageEndItem }} of {{ filteredTickets.length }} Entries
+          Showing {{ pageStartItem }} to {{ pageEndItem }} of {{ totalCount }} Entries
         </div>
         <div class="ms-auto">
           <nav aria-label="Page navigation" class="pagination-style-4">

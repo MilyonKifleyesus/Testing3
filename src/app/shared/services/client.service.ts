@@ -4,7 +4,6 @@ import { Observable, catchError, map, of, shareReplay, switchMap, throwError, ti
 import { Client } from '../models/client.model';
 import { environment } from '../../../environments/environment';
 import { adaptApiClient, ApiClientLike } from './adapters/client.adapter';
-import { fetchAllPages } from './adapters/pagination-fetch.util';
 import { parsePagedResponse } from './adapters/paged-response.adapter';
 import { normalizeEntityLocations } from './adapters/location.adapter';
 import {
@@ -159,9 +158,6 @@ function mapExistingClientForUpdate(raw: unknown): ExistingClientForUpdate | nul
 export class ClientService {
   private readonly envConfig = environment as ClientEnvironmentConfig;
   private readonly apiBaseUrl: string;
-  private readonly useApiV2: boolean;
-  private readonly pageSize: number;
-  private readonly maxPages: number;
   private readonly logoPayloadMode: LogoPayloadMode;
 
   private clientsCache$: Observable<Client[]> | null = null;
@@ -176,9 +172,6 @@ export class ClientService {
       throw new Error('Missing required envConfig.apiBaseUrl');
     }
     this.apiBaseUrl = configured.replace(/\/+$/, '');
-    this.useApiV2 = this.envConfig.useApiV2 !== false;
-    this.pageSize = Math.max(1, Number(this.envConfig.apiPagedFetchPageSize ?? 500));
-    this.maxPages = Math.max(1, Number(this.envConfig.apiPagedFetchMaxPages ?? 200));
     this.logoPayloadMode = this.resolveLogoPayloadMode(this.envConfig.logoPayloadMode);
   }
 
@@ -207,23 +200,8 @@ export class ClientService {
   }
 
   private clientsListRequest$(): Observable<unknown> {
-    if (!this.useApiV2) {
-      return this.http.get<unknown>(this.getClientsApiUrl());
-    }
-
-    return fetchAllPages<ApiClientLike>(
-      (page, pageSize) => {
-        const params = new HttpParams()
-          .set('page', String(page))
-          .set('pageSize', String(pageSize));
-        return this.http.get<unknown>(this.getClientsApiUrl(), { params });
-      },
-      {
-        pageSize: this.pageSize,
-        maxPages: this.maxPages,
-        startPage: 1,
-      }
-    ).pipe(map((result) => result.items));
+    const params = new HttpParams().set('locationId', '0');
+    return this.http.get<unknown>(this.getClientsApiUrl(), { params });
   }
 
   getClients(): Observable<Client[]> {

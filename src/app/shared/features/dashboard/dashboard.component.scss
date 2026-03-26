@@ -1230,6 +1230,227 @@
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+  }
+}
+
+// ─── Stat card v2 (new design system) ───────────────────────────────────────
+.stat-card-v2 {
+  .scv2-label {
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-muted);
+  }
+
+  .scv2-icon-wrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    i { font-size: 20px; transition: inherit; }
+  }
+
+  // ── Big animated value ────────────────────────────────────────────────
+  .scv2-value {
+    font-size: 2.3rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--default-text-color);
+    margin-bottom: 0.3rem;
+
+    animation: scv2-value-reveal 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--scv2-delay, 0s) + 0.18s);
+  }
+
+  // ── Subtitle ─────────────────────────────────────────────────────────
+  .scv2-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    line-height: 1.4;
+    margin: 0 0 0.6rem;
+    flex: 1;
+  }
+
+  // ── Trend row ────────────────────────────────────────────────────────
+  .scv2-trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    width: fit-content;
+
+    animation: scv2-trend-slide 0.5s ease both;
+    animation-delay: calc(var(--scv2-delay, 0s) + 0.35s);
+
+    i {
+      font-size: 0.85rem;
+      animation: scv2-trend-arrow 2.2s ease-in-out infinite;
+      animation-delay: calc(var(--scv2-delay, 0s) + 0.35s);
+    }
+
+    &.text-success {
+      color: var(--success);
+      background: rgba(var(--success-rgb), 0.1);
+    }
+    &.text-info {
+      color: var(--info);
+      background: rgba(var(--info-rgb), 0.1);
+    }
+    &.text-danger {
+      color: var(--danger);
+      background: rgba(var(--danger-rgb), 0.1);
+    }
+    &.text-warning {
+      color: var(--warning);
+      background: rgba(var(--warning-rgb), 0.1);
+    }
+  }
+
+  // ── Colour variants ───────────────────────────────────────────────────
+  &.stat-icon--success {
+    --scv2-accent: var(--success);
+    .scv2-icon-wrap {
+      background: rgba(var(--success-rgb), 0.12);
+      color: var(--success);
+      box-shadow: 0 4px 12px rgba(var(--success-rgb), 0.18);
+    }
+  }
+
+  &.stat-icon--info {
+    --scv2-accent: var(--info);
+    .scv2-icon-wrap {
+      background: rgba(var(--info-rgb), 0.12);
+      color: var(--info);
+      box-shadow: 0 4px 12px rgba(var(--info-rgb), 0.18);
+    }
+  }
+
+  &.stat-icon--danger {
+    --scv2-accent: var(--danger);
+    .scv2-icon-wrap {
+      background: rgba(var(--danger-rgb), 0.12);
+      color: var(--danger);
+      box-shadow: 0 4px 12px rgba(var(--danger-rgb), 0.18);
+    }
+  }
+
+  &.stat-icon--warning {
+    --scv2-accent: var(--warning);
+    .scv2-icon-wrap {
+      background: rgba(var(--warning-rgb), 0.12);
+      color: var(--warning);
+      box-shadow: 0 4px 12px rgba(var(--warning-rgb), 0.18);
+    }
+  }
+}
+
+// Dark mode stat cards
+:host-context(html[data-theme-mode='dark']) .stat-card-v2 {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+
+  &:hover {
+    box-shadow: 0 14px 36px rgba(0,0,0,0.4);
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WIDGET CARDS  (data-card / card-header improvements)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Widget loading overlay
+.widget-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--body-bg-rgb, 255,255,255), 0.7);
+  backdrop-filter: blur(4px);
+  border-radius: var(--default-border-radius, 8px);
+  pointer-events: none;
+}
+
+:host-context(html[data-theme-mode='dark']) .widget-loading-overlay {
+  background: rgba(var(--body-bg-rgb), 0.7);
+}
+
+.widget-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.widget-loading-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--primary);
+  letter-spacing: 0.3px;
+}
+
+.widget-content-blur {
+  filter: blur(3px);
+  transition: filter 0.25s ease;
+  pointer-events: none;
+  user-select: none;
+}
+
+// The widget card itself
+.data-card {
+  background: var(--custom-white);
+  border-radius: var(--default-border-radius, 12px);
+  box-shadow: var(--box-shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: none;
+  position: relative;
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow:
+      0 4px 16px rgba(var(--dark-rgb), 0.08),
+      0 1px 4px rgba(var(--dark-rgb), 0.04);
+  }
+
+  &.widget-card {
+    // Prevent clipping of Apex tooltip near top/edges.
+    overflow: visible;
+  }
+
+  // Card header
+  .card-header {
+    position: relative;
+    z-index: 1;
+    padding: 0.75rem 1rem;
+    border-bottom: none;
+    border-left: none;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+
+    .widget-header-left {
+>>>>>>> origin/main
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
       gap: 0.5rem;
       margin-bottom: 0.65rem;
     }
@@ -1485,8 +1706,12 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    // Keep Apex tooltips visible and hoverable near card edges.
+    // Widgets 12 and 15 keep their own scrolling containers (`.widget-chart-scroll`).
+    overflow: visible;
     min-height: 0;
+    position: relative;
+    z-index: 5;
 
     spk-apex-charts {
       display: flex;
@@ -1494,11 +1719,25 @@
       height: 100%;
 
       ::ng-deep {
+        .apexcharts-canvas {
+          overflow: visible !important;
+        }
+
+        .apexcharts-inner,
+        .apexcharts-graphical,
+        .apexcharts-plot-series {
+          overflow: visible !important;
+        }
         .apexcharts-canvas,
         .apexcharts-svg,
         svg {
           width: 100% !important;
           height: 100% !important;
+        }
+
+        .apexcharts-tooltip {
+          z-index: 9999 !important;
+          pointer-events: none;
         }
       }
     }
@@ -1529,6 +1768,22 @@
     overflow-x: hidden;
     padding: 6px 8px 6px 6px;
     box-sizing: border-box;
+  }
+
+  // Extended canvas for "Average Type of Time Comparison by Project" (widget-12)
+  // to keep dense project labels readable with both horizontal and vertical scrolling.
+  .widget-chart-scroll--comparison spk-apex-charts {
+    min-width: 1600px;
+    min-height: 760px;
+    display: block;
+  }
+
+  // Extended canvas for "Projects Comparison by Station Type" (widget-11)
+  // so dense project lists remain readable with both horizontal and vertical scrolling.
+  .widget-chart-scroll--station-heatmap spk-apex-charts {
+    min-width: 1600px;
+    min-height: 760px;
+    display: block;
   }
 
   .label-item {
@@ -2412,6 +2667,73 @@
   opacity: 1;
 }
 
+.control-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #555;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  i { font-size: 15px; line-height: 1; display: block; }
+
+  &.delete-btn:hover {
+    background: rgba(var(--danger-rgb), 0.12);
+    color: var(--danger);
+  }
+
+  &.fullscreen-btn:hover {
+    background: rgba(var(--info-rgb), 0.12);
+    color: var(--info);
+  }
+}
+
+.vehicle-station-page-btn {
+  min-width: 2rem;
+
+  // Keep default outline appearance after click/focus; only show solid green on real hover.
+  &.btn-outline-success:not(:disabled):not(.disabled) {
+    color: #198754;
+    border-color: #198754;
+    background-color: transparent;
+  }
+
+  &.btn-outline-success:not(:disabled):not(.disabled):hover {
+    color: #fff;
+    border-color: #198754;
+    background-color: #198754;
+  }
+
+  &.btn-outline-success:not(:disabled):not(.disabled):focus,
+  &.btn-outline-success:not(:disabled):not(.disabled):focus-visible,
+  &.btn-outline-success:not(:disabled):not(.disabled):active,
+  &.btn-outline-success:not(:disabled):not(.disabled).active,
+  .show > &.btn-outline-success.dropdown-toggle {
+    color: #198754;
+    border-color: #198754;
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  &:disabled,
+  &.disabled {
+    color: #8c949c !important;
+    border-color: #c7cdd3 !important;
+    background-color: #eef1f4 !important;
+    opacity: 1 !important;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+
+// ── Resize handles ────────────────────────────────────────────────────────────
+
 .resize-handle {
   position: absolute;
   z-index: 10;
@@ -2459,6 +2781,33 @@ body.is-resizing {
     cursor: inherit !important;
   }
 }
+
+.widget-container {
+  position: relative;
+  grid-column: span 4;
+  z-index: 1;
+  transition: transform 300ms ease;
+
+  &.cdk-drag-animating { transition: transform 300ms ease; }
+}
+
+.widget-container:hover,
+.widget-container:focus-within {
+  z-index: 40;
+}
+
+.widget-card {
+  overflow: visible !important;
+}
+
+:host ::ng-deep .apexcharts-tooltip,
+:host ::ng-deep .apexcharts-xaxistooltip,
+:host ::ng-deep .apexcharts-yaxistooltip {
+  z-index: 2147483647 !important;
+  pointer-events: none !important;
+}
+
+// ── Drag preview / placeholder ────────────────────────────────────────────────
 
 .widget-drag-preview {
   background: #10b981;
@@ -2618,8 +2967,64 @@ body.is-resizing {
     padding: 0 1rem;
   }
 
+  // Stat cards: allow trend to wrap below so it never overlaps the value
+  .wb-stat {
+    padding: 0.85rem 1rem;
+    min-width: 140px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .wbs-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    i { font-size: 1.05rem; }
+  }
+
+  .wbs-value {
+    font-size: 1.25rem;
+  }
+
+  // Trend wraps to its own row, indented past the icon
+  .wbs-trend {
+    flex-basis: 100%;
+    margin-left: calc(36px + 0.5rem);
+    font-size: 0.6rem;
+    padding: 0.15rem 0.4rem;
+    animation: none; // prevent re-layout jank on wrap
+  }
+
   .dashboard-map-header {
     flex-direction: column;
+  }
+
+  .wb-logo-ring {
+    width: 110px;
+    height: 110px;
+  }
+
+  .wb-logo-img {
+    width: 86px;
+    height: 86px;
+  }
+
+  .wb-logo-placeholder i { font-size: 2.75rem; }
+
+  .filter-bar {
+    flex-wrap: wrap;
+  }
+
+  .fb-prefix {
+    border-right: none;
+    padding-right: 0;
+    margin-right: 0;
+    border-bottom: 1px solid var(--default-border);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .dashboard-map-summary {
@@ -2674,6 +3079,40 @@ body.is-resizing {
 
   .welcome-section .welcome-no-image i {
     font-size: 34px;
+  }
+
+  // Stack main row: text above, logo below
+  .wb-main-row {
+    flex-direction: column;
+    align-items: flex-start;
+    padding-bottom: 1rem;
+    gap: 1rem;
+  }
+
+  .wb-right {
+    align-self: flex-start;
+  }
+
+  .wb-stats {
+    margin: 0 -1rem;
+    flex-wrap: wrap;
+  }
+
+  // 2-column grid for stat cards
+  .wb-stat {
+    min-width: calc(50% - 0.5px);
+    flex: 0 0 calc(50% - 0.5px);
+  }
+
+  .wbs-trend { display: none; }
+
+  .wbs-value { font-size: 1.15rem; }
+
+  .wb-name { font-size: 1.5rem; }
+
+  .wb-logo-ring {
+    width: 90px;
+    height: 90px;
   }
 
   .filter-section {
