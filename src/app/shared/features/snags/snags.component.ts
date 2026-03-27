@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ClientDashboardService } from '../../services/client-dashboard.service';
+import { AuthService } from '../../services/auth.service';
+import { DashboardProjectsService } from '../../services/dashboard-projects.service';
 import { UserManagementService } from '../../services/user-management.service';
 
 interface DropdownOption { id: number | string; name: string; }
@@ -351,7 +353,12 @@ export class SnagsComponent implements OnInit, OnDestroy {
 
   private userIdToName = new Map<number, string>();
 
-  constructor(private svc: ClientDashboardService, private userManagementService: UserManagementService) {}
+  constructor(
+    private svc: ClientDashboardService,
+    private userManagementService: UserManagementService,
+    private dashboardProjectsService: DashboardProjectsService,
+    private authService: AuthService,
+  ) {}
 
   ngOnInit(): void {
     this.loadProjects();
@@ -366,14 +373,20 @@ export class SnagsComponent implements OnInit, OnDestroy {
   // ── Load dropdown data ───────────────────────────────────────────────────────
 
   private loadProjects(): void {
-    this.svc.getProjects({}).subscribe({
-      next: (raw) => {
-        const items = this.extractItems(raw);
-        this.projectOptions = items.map((p: any) => ({
-          id:   p.projectId ?? p.id,
-          name: p.projectName ?? p.name ?? String(p.projectId ?? p.id),
+    const effectiveClientId = this.getEffectiveClientId();
+
+    this.dashboardProjectsService.getProjectOptions({
+      clientId: effectiveClientId ?? 0,
+      includeClosed: false,
+      includeAllOption: false,
+    }).subscribe({
+      next: (projects) => {
+        this.projectMap.clear();
+        this.projectOptions = projects.map((project) => ({
+          id: project.id,
+          name: project.name,
         }));
-        this.projectOptions.forEach(p => this.projectMap.set(p.id, p.name));
+        this.projectOptions.forEach((project) => this.projectMap.set(project.id, project.name));
       },
     });
   }
@@ -389,16 +402,26 @@ export class SnagsComponent implements OnInit, OnDestroy {
 
   private loadVehicles(projectId: number | string): void {
     this.vehicleOptions = [];
-    this.svc.getProjectVehicles(Number(projectId), { pageSize: 10000 }).subscribe({
-      next: (raw) => {
-        const items = this.extractItems(raw);
-        this.vehicleOptions = items.map((v: any) => ({
-          id:   v.vehicleId ?? v.id,
-          name: v.vehicleName ?? v.name ?? v.vehicleNumber ?? String(v.vehicleId ?? v.id),
+    this.vehicleMap.clear();
+    const effectiveClientId = this.getEffectiveClientId();
+
+    this.dashboardProjectsService.getVehicleOptionsByProjectResult(String(projectId), {
+      clientId: effectiveClientId,
+      includeAllOption: false,
+    }).subscribe({
+      next: (result) => {
+        this.vehicleOptions = result.options.map((vehicle) => ({
+          id: vehicle.id,
+          name: vehicle.name,
         }));
-        this.vehicleOptions.forEach(v => this.vehicleMap.set(v.id, v.name));
+        this.vehicleOptions.forEach((vehicle) => this.vehicleMap.set(vehicle.id, vehicle.name));
       },
     });
+  }
+
+  private getEffectiveClientId(): number | undefined {
+    const clientId = this.authService.currentUserValue?.clientId;
+    return Number.isFinite(clientId) && (clientId ?? 0) > 0 ? clientId : undefined;
   }
 
   // ── Filter event handlers ────────────────────────────────────────────────────
