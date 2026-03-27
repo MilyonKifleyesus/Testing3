@@ -1,4 +1,4 @@
-import type { TicketsByStatusData } from '../models/client-dashboard.models';
+﻿import type { TicketsByStatusData, TicketsByVehicleData } from '../models/client-dashboard.models';
 
 // BusPulse Dashboard Data - Fleet Management System
 
@@ -882,6 +882,112 @@ export const buildTicketsByStatusBar = (data?: TicketsByStatusData) => {
   };
 };
 
+/**
+ * 15. Tickets by Vehicle (Grouped Column Chart)
+ */
+export const buildTicketsByVehicleBar = (data?: TicketsByVehicleData) => {
+  const items = (data?.ticketsByVehicle ?? [])
+    .filter((item) => {
+      const vehicleName = String(item?.vehicleName ?? '').trim();
+      const openCount = Number(item?.openCount ?? 0) || 0;
+      const closedCount = Number(item?.closedCount ?? 0) || 0;
+      return !!vehicleName && (openCount > 0 || closedCount > 0);
+    });
+  const hasData = items.length > 0;
+
+  // Prepare data for grouped column chart
+  const categories = items.map(item => item.vehicleName);
+  const openData = items.map(item => item.openCount);
+  const closedData = items.map(item => item.closedCount);
+
+  return {
+    chart: {
+      type: 'bar',
+      height: 400,
+      animations: { enabled: items.length <= 12 },
+      toolbar: { show: false },
+      sparkline: { enabled: false }
+    },
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: '55%',
+        borderRadius: 3,
+        dataLabels: { position: 'top' }
+      }
+    },
+    dataLabels: {
+      enabled: hasData && items.length <= 12,
+      offsetY: -20,
+      style: {
+        colors: [DATA_LABEL_COLOR],
+        fontSize: '12px',
+        fontWeight: 600
+      }
+    },
+    xaxis: {
+      categories,
+      labels: {
+        style: {
+          colors: '#6c757d',
+          fontSize: '12px'
+        },
+        rotate: items.length > 6 ? -35 : 0,
+        trim: true,
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    yaxis: {
+      title: { text: 'Number of Tickets', style: { fontSize: '13px', fontFamily: 'Poppins, sans-serif' } },
+      labels: { style: { fontSize: '12px', fontFamily: 'Poppins, sans-serif' } }
+    },
+    series: [
+      {
+        name: 'Open',
+        data: openData
+      },
+      {
+        name: 'Closed',
+        data: closedData
+      }
+    ],
+    colors: ['#5FCB71', '#7F8DAA'], // Green for Open, slate blue-gray for Closed
+    grid: {
+      borderColor: 'rgba(0,0,0,0.05)',
+      xaxis: { lines: { show: true } },
+      yaxis: { lines: { show: true } }
+    },
+    tooltip: {
+      y: {
+        formatter: function (val: number) {
+          return val + ' tickets';
+        }
+      }
+    },
+    noData: {
+      text: 'No ticket data for the current filters',
+      align: 'center',
+      verticalAlign: 'middle',
+      style: {
+        color: '#94a3b8',
+        fontSize: '14px',
+        fontFamily: 'Poppins, sans-serif',
+      },
+    },
+    legend: {
+      position: 'top',
+      horizontalAlign: 'right',
+      fontSize: '13px',
+      fontFamily: 'Poppins, sans-serif'
+    },
+    states: {
+      hover: { filter: { type: 'darken', value: 0.15 } },
+      active: { filter: { type: 'darken', value: 0.15 } }
+    }
+  };
+};
+
 // Summary Statistics
 export const dashboardStats = {
   totalProjects: 32,
@@ -895,3 +1001,4 @@ export const dashboardStats = {
   averageDefectsPerVehicle: 3.2,
   completionRate: '85%'
 };
+

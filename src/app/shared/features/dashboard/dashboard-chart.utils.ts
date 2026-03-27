@@ -3,6 +3,7 @@ import {
   DashboardVehicleMakeModelDatum,
   ProjectsByAreaPayload,
 } from '../../services/dashboard-projects.service';
+import { ProjectDurationItem } from '../../models/client-dashboard.models';
 
 const CLOSED_STATUSES = new Set(['closed', 'inactive', 'completed', 'complete']);
 
@@ -173,5 +174,122 @@ function buildVehicleDistributionChartOptions(
     ...baseChartOptions,
     series: validItems.map((item) => Number(item.count ?? 0)),
     labels: validItems.map((item) => String(item.label ?? '').trim()),
+  };
+}
+
+// ── Widget-18: Project Duration by Type ──────────────────────────────────────
+
+const PROJECT_DURATION_TYPE_COLORS: Record<string, string> = {
+  'New Build': '#1B4332',
+  'Condition Assessment': '#2D6A4F',
+  'PDI': '#74C69D',
+  'Mid-Life Overhaul': '#F4A261',
+};
+const PROJECT_DURATION_DEFAULT_COLOR = '#52796F';
+
+/**
+ * Builds ApexCharts horizontal-bar options for widget-18 (Project Duration).
+ * Items should be sorted descending by durationDays before calling.
+ * Pass isDark=true for dark-theme colours, false for light.
+ */
+export function buildProjectDurationChartOptions(
+  items: ProjectDurationItem[],
+  isDark: boolean,
+): any {
+  const foreColor = isDark ? '#b0b0b0' : '#333333';
+  // Data labels need stronger contrast — always dark on light bg, light on dark bg
+  const labelColor = isDark ? '#d0d0d0' : '#111111';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+  const tooltipTheme = isDark ? 'dark' : 'light';
+
+  if (!items.length) {
+    return {
+      chart: { type: 'bar', height: 350, toolbar: { show: false }, foreColor, background: 'transparent' },
+      series: [{ name: 'Duration (days)', data: [] }],
+      noData: { text: 'No duration data available', style: { color: foreColor, fontSize: '14px' } },
+    };
+  }
+
+  const categories = items.map(i => i.projectName);
+  const data = items.map(i => i.durationDays);
+  const colors = items.map(i => PROJECT_DURATION_TYPE_COLORS[i.projectType] ?? PROJECT_DURATION_DEFAULT_COLOR);
+  const maxVal = Math.max(...data, 1);
+  // Extra right-side space so data labels never clip
+  const xMax = Math.ceil(maxVal * 1.30);
+
+  return {
+    chart: {
+      type: 'bar',
+      height: 420,
+      toolbar: { show: false },
+      foreColor,
+      background: 'transparent',
+      scrollablePlotArea: {
+        enabled: true,
+        minHeight: 420,
+        scrollHeight: Math.max(420, items.length * 44 + 60),
+      },
+    },
+    plotOptions: {
+      bar: {
+        horizontal: true,
+        distributed: true,
+        barHeight: '58%',
+        borderRadius: 4,
+        dataLabels: { position: 'right' },
+      },
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (val: number) => `${val}d`,
+      offsetX: 6,
+      style: {
+        colors: [labelColor],
+        fontSize: '11px',
+        fontWeight: 700,
+      },
+      background: { enabled: false },
+    },
+    series: [{ name: 'Duration (days)', data }],
+    xaxis: {
+      categories,
+      min: 0,
+      max: xMax,
+      labels: {
+        style: { colors: foreColor, fontSize: '12px' },
+        formatter: (val: number) => `${Math.round(val)}d`,
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+      title: { text: 'Days Active', style: { color: foreColor, fontSize: '11px' } },
+    },
+    yaxis: {
+      labels: {
+        style: { colors: foreColor, fontSize: '12px' },
+        maxWidth: 160,
+      },
+    },
+    colors,
+    legend: { show: false },
+    grid: {
+      borderColor: gridColor,
+      xaxis: { lines: { show: true } },
+      yaxis: { lines: { show: false } },
+    },
+    tooltip: {
+      theme: tooltipTheme,
+      y: {
+        formatter: (val: number, opts: any) => {
+          const item = items[opts?.dataPointIndex ?? 0];
+          if (!item) return `${val} days`;
+          const range = item.startDate
+            ? ` · ${item.startDate} → ${item.endDate ?? 'ongoing'}`
+            : '';
+          return `${val} days (${item.projectType})${range}`;
+        },
+        title: { formatter: () => '' },
+      },
+    },
+    noData: { text: 'No duration data available', style: { color: foreColor, fontSize: '14px' } },
   };
 }

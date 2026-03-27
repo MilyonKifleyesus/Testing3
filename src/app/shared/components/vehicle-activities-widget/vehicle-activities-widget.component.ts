@@ -16,24 +16,7 @@ interface SparklineModel {
   fillEnd: string;
 }
 
-function seededWave(seed: string, len = 18): number[] {
-  let hash = 5381;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = (Math.imul(33, hash) ^ seed.charCodeAt(index)) >>> 0;
-  }
-
-  const values: number[] = [];
-  for (let index = 0; index < len; index += 1) {
-    hash = (Math.imul(1664525, hash) + 1013904223) >>> 0;
-    values.push((hash % 70) + 15);
-  }
-
-  return values.map((value, index) => {
-    const previous = values[index - 1] ?? value;
-    const next = values[index + 1] ?? value;
-    return Math.round((previous + value + next) / 3);
-  });
-}
+type ApiStatusKey = 'critical' | 'warning' | 'inactive' | 'active' | 'neutral';
 
 @Component({
   selector: 'app-vehicle-activities-widget',
@@ -55,6 +38,7 @@ export class VehicleActivitiesWidgetComponent implements OnChanges {
   readonly inspectorPreviewLimit = 3;
 
   private readonly sparklineCache = new Map<string, SparklineModel>();
+  private readonly failedBrandLogoKeys = new Set<string>();
   private readonly compactDateFormatter = new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
@@ -102,11 +86,12 @@ export class VehicleActivitiesWidgetComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['rows']) {
       this.sparklineCache.clear();
+      this.failedBrandLogoKeys.clear();
     }
   }
 
   getVisibleProjectCount(): number {
-    return this.rows.length;
+    return this.totalCount;
   }
 
   getTotalTickets(): number {
@@ -130,17 +115,21 @@ export class VehicleActivitiesWidgetComponent implements OnChanges {
   }
 
   getChangeLabel(row: ProjectStats): string {
-    const percentage = Math.abs(row.ticketsChangePercentage ?? 0);
+    const percentage = row.ticketsChangePercentage;
+    if (percentage == null) {
+      return '-';
+    }
+
     if (percentage === 0) {
       return '0.0%';
     }
 
-    const prefix = row.ticketsStatus === 'increased' ? '+' : '-';
-    return `${prefix}${percentage.toFixed(1)}%`;
+    const prefix = row.ticketsStatus === 'decreased' ? '-' : '+';
+    return `${prefix}${Math.abs(percentage).toFixed(1)}%`;
   }
 
   getChangeClass(row: ProjectStats): string {
-    if ((row.ticketsChangePercentage ?? 0) === 0) {
+    if (row.ticketsChangePercentage == null || row.ticketsChangePercentage === 0 || !row.ticketsStatus) {
       return 'change--neutral';
     }
 
@@ -148,36 +137,33 @@ export class VehicleActivitiesWidgetComponent implements OnChanges {
   }
 
   getStatusLabel(row: ProjectStats): string {
-    const labels = {
-      critical: 'Critical',
-      warning: 'Watch',
-      inactive: 'Idle',
-      active: 'Active',
-    };
-
-    return labels[this.getStatusKey(row)];
+    return (row.status ?? this.getFallbackStatusLabel(row.statusTone) ?? '-').trim();
   }
 
   getStatusClass(row: ProjectStats): string {
-    const classes = {
+    const statusKey = this.getStatusKey(row);
+    const classes: Record<ApiStatusKey, string> = {
       critical: 'status--critical',
       warning: 'status--warning',
       inactive: 'status--idle',
       active: 'status--active',
+      neutral: 'status--idle',
     };
 
-    return classes[this.getStatusKey(row)];
+    return classes[statusKey];
   }
 
   getIconClass(row: ProjectStats): string {
-    const classes = {
+    const statusKey = this.getStatusKey(row);
+    const classes: Record<ApiStatusKey, string> = {
       critical: 'icon--critical',
       warning: 'icon--warning',
       inactive: 'icon--idle',
       active: 'icon--active',
+      neutral: 'icon--idle',
     };
 
-    return classes[this.getStatusKey(row)];
+    return classes[statusKey];
   }
 
   getRowClass(row: ProjectStats): string {
@@ -242,7 +228,11 @@ export class VehicleActivitiesWidgetComponent implements OnChanges {
     }
 
     const vehicleCount = this.getVehicleCount(row);
-    return `${vehicleCount} vehicle${vehicleCount === 1 ? '' : 's'} in scope`;
+    if (vehicleCount > 0) {
+      return `${vehicleCount} vehicle${vehicleCount === 1 ? '' : 's'} in scope`;
+    }
+
+    return '-';
   }
 
   getProjectMeta(row: ProjectStats): string {
@@ -255,28 +245,21 @@ export class VehicleActivitiesWidgetComponent implements OnChanges {
       return `${vehicleCount} vehicle${vehicleCount === 1 ? '' : 's'} in scope`;
     }
 
-    return 'Awaiting tracker data';
+    return '-';
   }
 
   getStatusMeta(row: ProjectStats): string {
-    const statusKey = this.getStatusKey(row);
-    if (statusKey === 'critical') {
-      const criticalCount = row.safetyCriticalTickets ?? 0;
-      return criticalCount > 0 ? `${criticalCount} safety-critical issues` : 'Immediate attention needed';
-    }
-
-    if (statusKey === 'warning') {
-      const repeatedCount = row.repeatedTickets ?? 0;
-      return repeatedCount > 0 ? `${repeatedCount} repeated issues` : 'Volume trend needs review';
+    if (row.statusMeta) {
+      return row.statusMeta;
     }
 
     if (!row.lastActivityDate) {
-      return 'No recent sync';
+      return '-';
     }
 
     const parsed = new Date(row.lastActivityDate);
     if (Number.isNaN(parsed.getTime())) {
-      return 'Recent sync detected';
+      return row.lastActivityDate;
     }
 
     return `Last sync ${this.compactDateFormatter.format(parsed)}`;
@@ -290,23 +273,26 @@ export class VehicleActivitiesWidgetComponent implements OnChanges {
     return `${row.ticketsYesterday}`;
   }
 
-  getSparkline(row: ProjectStats): SparklineModel {
-    const seed = row.projectId || row.projectName || 'project';
-    const history = row.sparklineHistory?.tickets?.length ? row.sparklineHistory.tickets : seededWave(seed);
-    const cacheKey = `${seed}|${history.join(',')}|${this.getStatusKey(row)}`;
+  getSparkline(row: ProjectStats): SparklineModel | null {
+    const history = row.sparklineHistory?.tickets;
+    if (!history?.length) {
+      return null;
+    }
+
+    const statusKey = this.getStatusKey(row);
+    const cacheKey = `${row.projectId}|${history.join(',')}|${statusKey}`;
     const cached = this.sparklineCache.get(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const tone = this.getStatusKey(row);
-    const stroke = tone === 'critical'
+    const stroke = statusKey === 'critical'
       ? '#ef4444'
-      : tone === 'warning'
+      : statusKey === 'warning'
         ? '#f59e0b'
-        : tone === 'inactive'
-          ? '#64748b'
-          : '#16a34a';
+        : statusKey === 'active'
+          ? '#16a34a'
+          : '#64748b';
     const points = this.buildPoints(history);
     const first = points[0];
     const last = points[points.length - 1];
@@ -335,26 +321,74 @@ export class VehicleActivitiesWidgetComponent implements OnChanges {
     return `${inspector.name}|${inspector.avatarUrl ?? ''}|${inspector.initials}`;
   }
 
-  private getStatusKey(row: ProjectStats): 'critical' | 'warning' | 'inactive' | 'active' {
-    if ((row.safetyCriticalTickets ?? 0) > 0) {
+  hasBrandLogo(projectId: string, kind: 'client' | 'manufacturer', logoUrl?: string | null): boolean {
+    if (!logoUrl) {
+      return false;
+    }
+
+    return !this.failedBrandLogoKeys.has(this.getBrandLogoKey(projectId, kind, logoUrl));
+  }
+
+  markBrandLogoFailed(projectId: string, kind: 'client' | 'manufacturer', logoUrl?: string | null): void {
+    if (!logoUrl) {
+      return;
+    }
+
+    this.failedBrandLogoKeys.add(this.getBrandLogoKey(projectId, kind, logoUrl));
+  }
+
+  getBrandInitials(name?: string | null): string {
+    const safeName = String(name ?? '').trim();
+    if (!safeName) {
+      return '--';
+    }
+
+    return safeName
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('');
+  }
+
+  private getStatusKey(row: ProjectStats): ApiStatusKey {
+    const tone = String(row.statusTone ?? '').trim().toLowerCase();
+    if (tone === 'critical') {
       return 'critical';
     }
-
-    if ((row.repeatedPercent ?? 0) >= 15 || (row.repeatedTickets ?? 0) >= 3) {
+    if (tone === 'warning') {
       return 'warning';
     }
-
-    if (!row.lastActivityDate) {
+    if (tone === 'inactive') {
       return 'inactive';
     }
-
-    const parsed = new Date(row.lastActivityDate);
-    if (Number.isNaN(parsed.getTime())) {
-      return 'inactive';
+    if (tone === 'active') {
+      return 'active';
     }
 
-    const diffHours = (Date.now() - parsed.getTime()) / 3600000;
-    return diffHours > 168 ? 'inactive' : 'active';
+    const status = String(row.status ?? '').trim().toLowerCase();
+    if (['critical', 'danger', 'error'].includes(status)) {
+      return 'critical';
+    }
+    if (['warning', 'watch', 'caution'].includes(status)) {
+      return 'warning';
+    }
+    if (['inactive', 'idle', 'closed', 'paused'].includes(status)) {
+      return 'inactive';
+    }
+    if (['active', 'open', 'healthy', 'ok'].includes(status)) {
+      return 'active';
+    }
+
+    return 'neutral';
+  }
+
+  private getFallbackStatusLabel(statusTone?: string | null): string | null {
+    const normalized = String(statusTone ?? '').trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
   }
 
   private buildPoints(series: number[]): SparklinePoint[] {
@@ -395,5 +429,9 @@ export class VehicleActivitiesWidgetComponent implements OnChanges {
     const blue = value & 255;
 
     return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+  }
+
+  private getBrandLogoKey(projectId: string, kind: 'client' | 'manufacturer', logoUrl: string): string {
+    return `${projectId}:${kind}:${logoUrl}`;
   }
 }

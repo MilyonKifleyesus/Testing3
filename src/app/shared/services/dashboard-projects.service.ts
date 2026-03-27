@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, catchError, firstValueFrom, forkJoin, from, map, of, shareReplay, switchMap } from 'rxjs';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { Observable, catchError, firstValueFrom, forkJoin, from, map, of, retry, shareReplay, switchMap, throwError, timer } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { extractArrayFromApiResponse, getFirstDefinedValue, toOptionalText, toText } from '../utils/api-data.utils';
 import { aggregateTicketCreationActivity, DashboardTicketActivityResult } from '../features/dashboard/dashboard-ticket-activity.utils';
-import { parsePagedResponse } from './adapters/paged-response.adapter';
+import { fetchAllPages } from './adapters/pagination-fetch.util';
+import type { TicketsByVehicleData, TicketsByVehicleItem } from '../models/client-dashboard.models';
 
 export interface DashboardProjectOption {
   id: string;
@@ -85,6 +86,7 @@ export class DashboardProjectsService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
   private readonly cacheTtlMs = 30000;
   private readonly ticketActivitySourceCacheTtlMs = 5 * 60 * 1000;
+  private readonly ticketsPageRetryDelayMs = 300;
   private readonly projectsCache = new Map<
     string,
     { expiresAt: number; observable: Observable<DashboardProjectOption[]> }
@@ -105,13 +107,13 @@ export class DashboardProjectsService {
     string,
     { expiresAt: number; observable: Observable<DashboardTicketsDashboardResult> }
   >();
-  private readonly ticketActivitySourceCache = new Map<
-    string,
-    { expiresAt: number; observable: Observable<any[]> }
-  >();
   private readonly ticketActivityCache = new Map<
     string,
     { expiresAt: number; observable: Observable<DashboardTicketActivityResult> }
+  >();
+  private readonly ticketsByVehicleCache = new Map<
+    string,
+    { expiresAt: number; observable: Observable<TicketsByVehicleData> }
   >();
   private readonly rawVehiclesCache = new Map<
     string,
@@ -120,13 +122,56 @@ export class DashboardProjectsService {
 
   constructor(private http: HttpClient) {}
 
+  private shouldFallbackToLowercaseTicketsEndpoint(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && (error.status === 404 || error.status === 405);
+  }
+
+  private isRetryableTicketsPageError(error: unknown): boolean {
+    return error instanceof HttpErrorResponse
+      ? error.status === 0 || error.status >= 500
+      : false;
+  }
+
+  private fetchTicketsPage(
+    query: Record<string, string | number | boolean | null | undefined>,
+    page: number,
+    pageSize: number,
+  ): Observable<unknown> {
+    const httpParams = this.buildHttpParams({
+      projectId: query['projectId'],
+      vehicleId: query['vehicleId'],
+      userId: query['userId'],
+      clientId: query['clientId'],
+      includeClosed: query['includeClosed'],
+      startDate: toOptionalText(query['startDate']),
+      endDate: toOptionalText(query['endDate']),
+      page,
+      pageSize,
+    });
+
+    return this.http.get<unknown>(`${this.apiBaseUrl}/Tickets`, { params: httpParams }).pipe(
+      catchError((error) => (
+        this.shouldFallbackToLowercaseTicketsEndpoint(error)
+          ? this.http.get<unknown>(`${this.apiBaseUrl}/tickets`, { params: httpParams })
+          : throwError(() => error)
+      )),
+      retry({
+        count: 1,
+        delay: (error) => (
+          this.isRetryableTicketsPageError(error)
+            ? timer(this.ticketsPageRetryDelayMs)
+            : throwError(() => error)
+        ),
+      }),
+      catchError(() => of({ items: [], total: 0, page, pageSize })),
+    );
+  }
+
   getProjectOptions(params: {
     clientId?: number;
     projectTypeId?: number;
     locationId?: number;
     includeClosed?: boolean;
-    page?: number;
-    pageSize?: number;
     includeAllOption?: boolean;
   } = {}): Observable<DashboardProjectOption[]> {
     const {
@@ -135,8 +180,6 @@ export class DashboardProjectsService {
       projectTypeId,
       locationId,
       includeClosed,
-      page,
-      pageSize,
     } = params;
 
     // Send 0 for filter IDs to mean "all" (matches API convention). No page/pageSize — API returns all.
@@ -565,7 +608,17 @@ export class DashboardProjectsService {
     return projectIds$.pipe(
       switchMap((resolvedProjectIds) => {
         if (!resolvedProjectIds.length) {
-          return of({ resolvedProjectIds, vehicles: [] as any[] });
+          return this.getRawVehiclesCached({ clientId, userId, includeClosed }).pipe(
+            map((vehicles) => ({ resolvedProjectIds, vehicles })),
+          );
+        }
+
+        // For "all projects" or multi-project views, a single /Vehicles fetch is
+        // materially cheaper than one /projects/{id}/vehicles request per project.
+        if (resolvedProjectIds.length !== 1) {
+          return this.getRawVehiclesCached({ clientId, userId, includeClosed }).pipe(
+            map((vehicles) => ({ resolvedProjectIds, vehicles })),
+          );
         }
 
         return forkJoin(
@@ -653,48 +706,6 @@ export class DashboardProjectsService {
           { label: 'Others', count: othersCount },
         ];
       }),
-    );
-  }
-
-  getAllVehiclesForProjects(params: {
-    projectIds?: string[];
-    clientId?: number;
-    includeClosed?: boolean;
-  } = {}): Observable<any[]> {
-    const { projectIds, clientId, includeClosed } = params;
-    const normalizedProjectIds = Array.from(new Set(
-      (projectIds ?? [])
-        .map((id) => this.normalizeProjectId(id))
-        .filter((id) => !!id),
-    ));
-
-    if (normalizedProjectIds.length >= 1) {
-      return forkJoin(
-        normalizedProjectIds.map((projectId) => {
-          const encodedId = encodeURIComponent(projectId);
-          return this.http
-            .get<unknown>(`${this.apiBaseUrl}/projects/${encodedId}/vehicles`)
-            .pipe(
-              map((response) => extractArrayFromApiResponse(response)),
-              catchError(() => of([] as any[])),
-            );
-        }),
-      ).pipe(
-        map((arrays) => arrays.flat()),
-        catchError(() => of([] as any[])),
-      );
-    }
-
-    let httpParams = new HttpParams().set('pageSize', '10000');
-    if (clientId !== undefined && clientId !== null) {
-      httpParams = httpParams.set('clientId', String(clientId));
-    }
-    if (includeClosed !== undefined && includeClosed !== null) {
-      httpParams = httpParams.set('includeClosed', String(includeClosed));
-    }
-    return this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams }).pipe(
-      map((response) => extractArrayFromApiResponse(response)),
-      catchError(() => of([] as any[])),
     );
   }
 
@@ -882,7 +893,48 @@ export class DashboardProjectsService {
       userId: normalizedParams['userId'] ?? null,
       clientId: normalizedParams['clientId'] ?? null,
       includeClosed: normalizedParams['includeClosed'] ?? null,
+      // The /Tickets source query is now filtered by date range, so the cache must
+      // include the requested range to avoid returning incomplete/incorrect results.
+      startDate: toOptionalText(normalizedParams['startDate']) ?? null,
+      endDate: toOptionalText(normalizedParams['endDate']) ?? null,
     });
+
+
+    return this.getCachedObservable(this.ticketActivityCache, sourceCacheKey, () => {
+      const pageSize = Math.max(10000, Number(environment.apiPagedFetchPageSize ?? 10000) || 10000);
+      const maxPages = Math.max(1, Number(environment.apiPagedFetchMaxPages ?? 200) || 200);
+      return fetchAllPages<any>(
+        (page, resolvedPageSize) => this.fetchTicketsPage(normalizedParams, page, resolvedPageSize),
+        {
+          pageSize,
+          maxPages,
+          startPage: 1,
+        },
+      ).pipe(
+        map((response) => aggregateTicketCreationActivity(response.items, {
+          startDate: toOptionalText(normalizedParams['startDate']),
+          endDate: toOptionalText(normalizedParams['endDate']),
+        })),
+      );
+    }, this.ticketActivitySourceCacheTtlMs);
+  }
+
+  getTicketsByVehicleData(params: DashboardTicketActivityQuery = {}): Observable<TicketsByVehicleData> {
+    const normalizedParams: Record<string, string | number | boolean | null | undefined> = { ...params };
+
+    if (normalizedParams['projectId'] !== undefined && normalizedParams['projectId'] !== null) {
+      const asString = String(normalizedParams['projectId'] ?? '').trim();
+      const normalizedProject = this.normalizeProjectId(asString);
+      if (normalizedProject) {
+        normalizedParams['projectId'] = normalizedProject;
+      }
+    }
+
+    if (normalizedParams['vehicleId'] !== undefined && normalizedParams['vehicleId'] !== null) {
+      const asString = String(normalizedParams['vehicleId'] ?? '').trim();
+      const parsed = Number(asString);
+      normalizedParams['vehicleId'] = Number.isFinite(parsed) ? parsed : asString;
+    }
 
     const cacheKey = JSON.stringify({
       projectId: normalizedParams['projectId'] ?? null,
@@ -894,59 +946,8 @@ export class DashboardProjectsService {
       endDate: normalizedParams['endDate'] ?? null,
     });
 
-    const source$ = this.getCachedObservable(this.ticketActivitySourceCache, sourceCacheKey, () => {
-      const pageSize = Math.max(10000, Number(environment.apiPagedFetchPageSize ?? 10000) || 10000);
-      const maxPages = Math.max(1, Number(environment.apiPagedFetchMaxPages ?? 200) || 200);
-      const fetchPage = (page: number) => {
-        const httpParams = this.buildHttpParams({
-          projectId: normalizedParams['projectId'],
-          vehicleId: normalizedParams['vehicleId'],
-          userId: normalizedParams['userId'],
-          clientId: normalizedParams['clientId'],
-          includeClosed: normalizedParams['includeClosed'],
-          page,
-          pageSize,
-        });
-
-        return this.http.get<unknown>(`${this.apiBaseUrl}/Tickets`, { params: httpParams }).pipe(
-          catchError(() => this.http.get<unknown>(`${this.apiBaseUrl}/tickets`, { params: httpParams })),
-          catchError(() => of({ items: [], total: 0, page, pageSize })),
-          map((response) => parsePagedResponse<any>(response)),
-        );
-      };
-
-      return fetchPage(1).pipe(
-        switchMap((firstPage) => {
-          const totalPages = Math.min(
-            maxPages,
-            Math.max(1, Math.ceil((firstPage.total || firstPage.items.length || 0) / pageSize)),
-          );
-
-          if (totalPages <= 1) {
-            return of(firstPage);
-          }
-
-          const remainingPages = Array.from({ length: totalPages - 1 }, (_, index) => index + 2);
-          return forkJoin(remainingPages.map((page) => fetchPage(page))).pipe(
-            map((otherPages) => ({
-              items: [firstPage, ...otherPages].flatMap((result) => result.items),
-              total: firstPage.total,
-              page: 1,
-              pageSize,
-            })),
-          );
-        }),
-        map((response) => response.items),
-      );
-    }, this.ticketActivitySourceCacheTtlMs);
-
-    return this.getCachedObservable(this.ticketActivityCache, cacheKey, () =>
-      source$.pipe(
-        map((items) => aggregateTicketCreationActivity(items, {
-          startDate: toOptionalText(normalizedParams['startDate']),
-          endDate: toOptionalText(normalizedParams['endDate']),
-        })),
-      ),
+    return this.getCachedObservable(this.ticketsByVehicleCache, cacheKey, () =>
+      from(this.fetchTicketsByVehicleData(normalizedParams)),
     );
   }
 
@@ -1598,5 +1599,122 @@ export class DashboardProjectsService {
     }
 
     return fallback;
+  }
+
+  private async fetchTicketsByVehicleData(
+    normalizedParams: Record<string, string | number | boolean | null | undefined>,
+  ): Promise<TicketsByVehicleData> {
+    // Cap at 5 000 tickets — enough to rank vehicles accurately.
+    // Strategy: fetch page 1 first to learn the total, then fetch remaining pages
+    // in parallel (Promise.all) instead of sequentially — reduces N round-trips to 2.
+    const maxItems = 5000;
+    const pageSize = Math.min(500, Math.max(200, Number(environment.apiPagedFetchPageSize ?? 500) || 500));
+    const maxPages = Math.max(1, Number(environment.apiPagedFetchMaxPages ?? 200) || 200);
+
+    const maxPagesForItems = Math.max(1, Math.ceil(maxItems / pageSize));
+    const pagedResult = await firstValueFrom(fetchAllPages<any>(
+      (page, resolvedPageSize) => this.fetchTicketsPage(normalizedParams, page, resolvedPageSize),
+      {
+        pageSize,
+        maxPages: Math.min(maxPages, maxPagesForItems),
+        startPage: 1,
+      },
+    ));
+
+    return {
+      ticketsByVehicle: this.aggregateTicketsByVehicle(pagedResult.items.slice(0, maxItems)),
+    };
+  }
+
+  private aggregateTicketsByVehicle(items: any[]): TicketsByVehicleItem[] {
+    const vehicleMap = new Map<string, TicketsByVehicleItem>();
+
+    for (const item of items ?? []) {
+      const vehicleId = toOptionalText(getFirstDefinedValue(item, [
+        'vehicleId',
+        'vehicleID',
+        'VehicleId',
+        'VehicleID',
+        'assetId',
+        'AssetId',
+      ]));
+      const vehicleName = toOptionalText(getFirstDefinedValue(item, [
+        'fleetNumber',
+        'vehicleName',
+        'VehicleName',
+        'displayName',
+        'name',
+        'title',
+      ])) ?? `Vehicle ${vehicleId ?? 'Unknown'}`;
+      const vehicleKey = String(vehicleId ?? vehicleName).trim();
+
+      if (!vehicleKey) {
+        continue;
+      }
+
+      const normalizedStatus = this.normalizeTicketLifecycleStatus(toOptionalText(getFirstDefinedValue(item, [
+        'status',
+        'statusTicketName',
+        'statusName',
+        'ticketStatus',
+        'state',
+      ])) ?? '');
+
+      if (!vehicleMap.has(vehicleKey)) {
+        vehicleMap.set(vehicleKey, {
+          vehicleName,
+          openCount: 0,
+          closedCount: 0,
+        });
+      }
+
+      const current = vehicleMap.get(vehicleKey)!;
+      if (normalizedStatus === 'open') {
+        current.openCount += 1;
+      } else if (normalizedStatus === 'closed') {
+        current.closedCount += 1;
+      }
+    }
+
+    return Array.from(vehicleMap.values())
+      .filter((item) => item.openCount > 0 || item.closedCount > 0)
+      .sort((left, right) => {
+        const leftTotal = left.openCount + left.closedCount;
+        const rightTotal = right.openCount + right.closedCount;
+        if (rightTotal !== leftTotal) {
+          return rightTotal - leftTotal;
+        }
+
+        return left.vehicleName.localeCompare(right.vehicleName);
+      });
+  }
+
+  private normalizeTicketLifecycleStatus(status: string): 'open' | 'closed' | null {
+    const normalized = String(status ?? '').trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    if (
+      normalized.includes('open') ||
+      normalized.includes('new') ||
+      normalized.includes('in progress') ||
+      normalized.includes('pending') ||
+      normalized.includes('active')
+    ) {
+      return 'open';
+    }
+
+    if (
+      normalized.includes('closed') ||
+      normalized.includes('resolved') ||
+      normalized.includes('completed') ||
+      normalized.includes('done') ||
+      normalized.includes('finished')
+    ) {
+      return 'closed';
+    }
+
+    return null;
   }
 }

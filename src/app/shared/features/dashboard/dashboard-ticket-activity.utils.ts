@@ -96,10 +96,10 @@ function getTicketActivityChartTheme(isDarkTheme: boolean): TicketActivityChartT
       axisTitleColor: '#cbd5e1',
       gridBorderColor: 'rgba(255,255,255,0.06)',
       tooltipTheme: 'dark',
-      barColor: '#7c6fe0',
-      trendColor: '#c5c8ff',
+      barColor: '#34d399',
+      trendColor: '#86efac',
       gradientShade: 'dark',
-      gradientToColor: '#9188ff',
+      gradientToColor: '#6ee7b7',
       annotationBorderColor: 'rgba(148, 163, 184, 0.35)',
       annotationLabelBackground: 'rgba(15, 23, 42, 0.88)',
       annotationLabelColor: '#e2e8f0',
@@ -114,10 +114,10 @@ function getTicketActivityChartTheme(isDarkTheme: boolean): TicketActivityChartT
     axisTitleColor: '#334155',
     gridBorderColor: 'rgba(148,163,184,0.18)',
     tooltipTheme: 'light',
-    barColor: '#4f46e5',
+    barColor: '#16a34a',
     trendColor: '#0f766e',
     gradientShade: 'light',
-    gradientToColor: '#818cf8',
+    gradientToColor: '#6ee7b7',
     annotationBorderColor: 'rgba(71, 85, 105, 0.28)',
     annotationLabelBackground: 'rgba(255, 255, 255, 0.96)',
     annotationLabelColor: '#1e293b',
@@ -229,7 +229,7 @@ function buildTicketActivityResponsiveOptions(
         padding: {
           top: compact ? 4 : 10,
           right: mobile ? 2 : 10,
-          bottom: 0,
+          bottom: mobile ? 12 : compact ? 18 : 24,
           left: mobile ? 0 : 6,
         },
       },
@@ -263,6 +263,64 @@ function buildTicketActivityResponsiveOptions(
       annotations: averagePerDay > 0 && compact ? { yaxis: [] } : undefined,
     };
   };
+}
+
+export type TicketActivityDatePreset = 'yesterday' | 'thisWeek' | '30d' | '90d' | '180d' | '365d';
+
+export function getTicketActivityPresetRange(
+  preset: TicketActivityDatePreset,
+  now = new Date(),
+): { startDate: string; endDate: string } {
+  const end = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const start = new Date(end);
+
+  if (preset === 'yesterday') {
+    start.setUTCDate(end.getUTCDate() - 1);
+    end.setUTCDate(end.getUTCDate() - 1);
+    return {
+      startDate: start.toISOString().slice(0, 10),
+      endDate: end.toISOString().slice(0, 10),
+    };
+  }
+
+  if (preset === 'thisWeek') {
+    const dayOfWeek = end.getUTCDay();
+    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    start.setUTCDate(end.getUTCDate() - mondayOffset);
+    return {
+      startDate: start.toISOString().slice(0, 10),
+      endDate: end.toISOString().slice(0, 10),
+    };
+  }
+
+  const days = preset === '30d'
+    ? 30
+    : preset === '180d'
+      ? 180
+      : preset === '365d'
+        ? 365
+        : 90;
+
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
+  };
+}
+
+export function getTicketActivityCountBetween(
+  activity: DashboardTicketActivityResult,
+  startDate: string,
+  endDate: string,
+): number {
+  return (activity.points ?? []).reduce((total, point) => {
+    const dayKey = String(point?.date ?? '').trim();
+    if (!dayKey || dayKey < startDate || dayKey > endDate) {
+      return total;
+    }
+
+    return total + (Number(point?.count ?? 0) || 0);
+  }, 0);
 }
 
 export function aggregateTicketCreationActivity(
@@ -440,6 +498,7 @@ export function buildTicketCreationActivityChartOptions(
 ): any {
   const theme = getTicketActivityChartTheme(isDarkTheme);
   const chartPoints = bucketTicketCreationActivityPoints(activity.points, granularity);
+  const hasChartData = chartPoints.length > 0;
   const trendWindow = granularity === 'month' ? 3 : granularity === 'week' ? 4 : 7;
   const rollingTrend = chartPoints.map((point, index) => {
     const slice = chartPoints.slice(Math.max(0, index - trendWindow + 1), index + 1);
@@ -493,8 +552,13 @@ export function buildTicketCreationActivityChartOptions(
     },
     xaxis: {
       ...(baseChartOptions?.xaxis ?? {}),
+      type: hasChartData ? (baseChartOptions?.xaxis?.type ?? 'datetime') : 'category',
+      categories: Array.isArray(baseChartOptions?.xaxis?.categories)
+        ? baseChartOptions?.xaxis?.categories
+        : [],
       labels: {
         ...(baseChartOptions?.xaxis?.labels ?? {}),
+        show: hasChartData,
         style: {
           ...(baseChartOptions?.xaxis?.labels?.style ?? {}),
           colors: theme.axisLabelColor,
@@ -521,6 +585,7 @@ export function buildTicketCreationActivityChartOptions(
     tooltip: {
       ...(baseChartOptions?.tooltip ?? {}),
       theme: theme.tooltipTheme,
+      enabled: hasChartData,
     },
     noData: {
       ...(baseChartOptions?.noData ?? {}),

@@ -166,8 +166,6 @@ export class VehicleFinalReportsComponent implements OnInit {
       clientId: effectiveClientId,
       includeClosed: true,
       includeAllOption: false,
-      page: 1,
-      pageSize: 10000,
     }).subscribe({
       next: (projects) => {
         this.projects = projects

@@ -19,6 +19,14 @@
   --pa-green: #16a34a;
   --pa-amber: #d97706;
   --pa-red: #ef4444;
+  --pa-brand-chip-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.96));
+  --pa-brand-chip-border: rgba(148, 163, 184, 0.22);
+  --pa-brand-chip-shadow: 0 8px 16px rgba(15, 23, 42, 0.06);
+  --pa-brand-logo-bg: #ffffff;
+  --pa-brand-logo-border: rgba(148, 163, 184, 0.24);
+  --pa-brand-fallback-bg: linear-gradient(135deg, #dbeafe, #e2e8f0);
+  --pa-brand-fallback-text: #1e293b;
+  --pa-brand-text: var(--pa-text-body);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -26,6 +34,14 @@
   border-radius: 18px;
   background: var(--pa-surface);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+:host-context(.widget-card[data-widget-id='widget-project-activities']) .pa-widget,
+:host-context(.project-activities-fullscreen-shell) .pa-widget {
+  /* Avoid "double card" appearance; dashboard widget-card already provides the surface + radius. */
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .pa-summary-bar {
@@ -74,14 +90,49 @@
 }
 
 .pa-table-shell {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
 }
 
+.pa-refresh-banner {
+  position: absolute;
+  top: 0.9rem;
+  right: 1rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+  color: var(--pa-text-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.pa-refresh-spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 2px solid rgba(37, 99, 235, 0.15);
+  border-top-color: var(--pa-blue);
+  border-radius: 999px;
+  animation: pa-spin 0.8s linear infinite;
+}
+
 .pa-table-scroll {
   height: 100%;
   overflow: auto;
+}
+
+@keyframes pa-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .pa-table {
@@ -209,6 +260,66 @@
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--pa-text-muted);
+}
+
+.pa-project-brands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.1rem;
+}
+
+.pa-brand-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  padding: 0.2rem 0.45rem 0.2rem 0.24rem;
+  border: 1px solid var(--pa-brand-chip-border);
+  border-radius: 999px;
+  background: var(--pa-brand-chip-bg);
+  box-shadow: var(--pa-brand-chip-shadow);
+  min-width: 0;
+}
+
+.pa-brand-logo,
+.pa-brand-mark {
+  width: 1.45rem;
+  height: 1.45rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+
+.pa-brand-logo {
+  display: block;
+  object-fit: cover;
+  background: var(--pa-brand-logo-bg);
+  border: 1px solid var(--pa-brand-logo-border);
+}
+
+.pa-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.pa-brand-mark--fallback {
+  color: var(--pa-brand-fallback-text);
+  background: var(--pa-brand-fallback-bg);
+}
+
+.pa-brand-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--pa-brand-text);
+  max-width: 10.5rem;
 }
 
 .pa-type-badge {
@@ -613,6 +724,13 @@
   gap: 0;
 }
 
+:host-context(html[data-theme-mode='dark']) .pa-refresh-banner,
+:host-context(html.dark) .pa-refresh-banner {
+  background: rgba(17, 24, 39, 0.92);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #dbe4ef;
+}
+
 :host-context(html[data-theme-mode='dark']) .pa-widget,
 :host-context(html.dark) .pa-widget {
   --pa-border: rgba(255, 255, 255, 0.08);
@@ -623,6 +741,14 @@
   --pa-text-strong: #f8fafc;
   --pa-text-body: #dbe4ef;
   --pa-text-muted: #94a3b8;
+  --pa-brand-chip-bg: linear-gradient(180deg, rgba(226, 232, 240, 0.92), rgba(203, 213, 225, 0.88));
+  --pa-brand-chip-border: rgba(255, 255, 255, 0.08);
+  --pa-brand-chip-shadow: 0 10px 22px rgba(2, 6, 23, 0.22);
+  --pa-brand-logo-bg: rgba(255, 255, 255, 0.98);
+  --pa-brand-logo-border: rgba(15, 23, 42, 0.08);
+  --pa-brand-fallback-bg: linear-gradient(135deg, #dbeafe, #cbd5e1);
+  --pa-brand-fallback-text: #0f172a;
+  --pa-brand-text: #0f172a;
 }
 
 :host-context(html[data-theme-mode='dark']) .pa-summary-item,
@@ -643,6 +769,11 @@
 :host-context(html[data-theme-mode='dark']) .pa-page-label,
 :host-context(html.dark) .pa-page-label {
   color: #f8fafc;
+}
+
+:host-context(html[data-theme-mode='dark']) .pa-footer,
+:host-context(html.dark) .pa-footer {
+  background: linear-gradient(180deg, #172033 0%, #111827 100%);
 }
 
 :host-context(html[data-theme-mode='dark']) .pa-page-btn,

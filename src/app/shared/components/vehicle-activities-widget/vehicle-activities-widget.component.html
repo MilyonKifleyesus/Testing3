@@ -1,5 +1,5 @@
 <div class="pa-widget">
-  <div class="pa-summary-bar" *ngIf="!loading && rows.length > 0">
+  <div class="pa-summary-bar" *ngIf="rows.length > 0">
     <div class="pa-summary-item">
       <span class="pa-summary-dot pa-summary-dot--violet"></span>
       <span class="pa-summary-label">{{ getVisibleProjectCount() }} Projects</span>
@@ -23,6 +23,11 @@
   </div>
 
   <div class="pa-table-shell">
+    <div class="pa-refresh-banner" *ngIf="loading && rows.length > 0" aria-live="polite">
+      <span class="pa-refresh-spinner" aria-hidden="true"></span>
+      <span>Refreshing project activities...</span>
+    </div>
+
     <div class="pa-table-scroll">
       <table class="pa-table">
         <thead class="pa-thead">
@@ -38,7 +43,7 @@
         </thead>
 
         <tbody>
-          <ng-container *ngIf="loading">
+          <ng-container *ngIf="loading && rows.length === 0">
             <tr class="pa-tr pa-tr--skeleton" *ngFor="let skeleton of skeletonRows">
               <td class="pa-td" data-label="Project">
                 <div class="pa-project-cell">
@@ -74,7 +79,7 @@
             </tr>
           </ng-container>
 
-          <ng-container *ngIf="!loading">
+          <ng-container *ngIf="!loading || rows.length > 0">
             <tr
               *ngFor="let row of rows; trackBy: trackById"
               class="pa-tr"
@@ -87,6 +92,39 @@
                   <div class="pa-project-copy">
                     <span class="pa-project-name">{{ row.projectName }}</span>
                     <span class="pa-project-meta">{{ getProjectMeta(row) }}</span>
+                    <div class="pa-project-brands" *ngIf="row.clientName || row.manufacturerName">
+                      <div class="pa-brand-chip" *ngIf="row.clientName" [attr.title]="row.clientName">
+                        <ng-container *ngIf="hasBrandLogo(row.projectId, 'client', row.clientLogoUrl); else clientBrandFallback">
+                          <img
+                            class="pa-brand-logo"
+                            [src]="row.clientLogoUrl!"
+                            [alt]="row.clientName + ' logo'"
+                            (error)="markBrandLogoFailed(row.projectId, 'client', row.clientLogoUrl)">
+                        </ng-container>
+                        <ng-template #clientBrandFallback>
+                          <span class="pa-brand-mark pa-brand-mark--fallback">
+                            {{ getBrandInitials(row.clientName) }}
+                          </span>
+                        </ng-template>
+                        <span class="pa-brand-text">{{ row.clientName }}</span>
+                      </div>
+
+                      <div class="pa-brand-chip" *ngIf="row.manufacturerName" [attr.title]="row.manufacturerName">
+                        <ng-container *ngIf="hasBrandLogo(row.projectId, 'manufacturer', row.manufacturerLogoUrl); else manufacturerBrandFallback">
+                          <img
+                            class="pa-brand-logo"
+                            [src]="row.manufacturerLogoUrl!"
+                            [alt]="row.manufacturerName + ' logo'"
+                            (error)="markBrandLogoFailed(row.projectId, 'manufacturer', row.manufacturerLogoUrl)">
+                        </ng-container>
+                        <ng-template #manufacturerBrandFallback>
+                          <span class="pa-brand-mark pa-brand-mark--fallback">
+                            {{ getBrandInitials(row.manufacturerName) }}
+                          </span>
+                        </ng-template>
+                        <span class="pa-brand-text">{{ row.manufacturerName }}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </td>
@@ -142,8 +180,8 @@
               </td>
 
               <td class="pa-td pa-td--center pa-td--trend" data-label="Trend">
-                <ng-container *ngIf="getSparkline(row) as spark">
-                  <div class="pa-trend-block">
+                <div class="pa-trend-block">
+                  <ng-container *ngIf="getSparkline(row) as spark">
                     <div class="pa-spark-wrap">
                       <svg class="pa-sparkline" viewBox="0 0 150 40" preserveAspectRatio="none" aria-hidden="true">
                         <defs>
@@ -162,16 +200,16 @@
                           [attr.stroke]="spark.stroke"></path>
                       </svg>
                     </div>
-                    <span class="pa-change" [ngClass]="getChangeClass(row)">
-                      <i
-                        class="ti"
-                        [class.ti-trending-up]="row.ticketsStatus === 'increased' && row.ticketsChangePercentage !== 0"
-                        [class.ti-trending-down]="row.ticketsStatus === 'decreased' && row.ticketsChangePercentage !== 0"
-                        [class.ti-minus]="row.ticketsChangePercentage === 0"></i>
-                      {{ getChangeLabel(row) }}
-                    </span>
-                  </div>
-                </ng-container>
+                  </ng-container>
+                  <span class="pa-change" [ngClass]="getChangeClass(row)">
+                    <i
+                      class="ti"
+                      [class.ti-trending-up]="row.ticketsStatus === 'increased' && (row.ticketsChangePercentage ?? 0) !== 0"
+                      [class.ti-trending-down]="row.ticketsStatus === 'decreased' && (row.ticketsChangePercentage ?? 0) !== 0"
+                      [class.ti-minus]="row.ticketsChangePercentage == null || row.ticketsChangePercentage === 0"></i>
+                    {{ getChangeLabel(row) }}
+                  </span>
+                </div>
               </td>
 
               <td class="pa-td pa-td--center" data-label="Status">
@@ -184,7 +222,7 @@
               </td>
             </tr>
 
-            <tr *ngIf="rows.length === 0">
+            <tr *ngIf="!loading && rows.length === 0">
               <td colspan="7" class="pa-empty-cell">
                 <div class="pa-empty">
                   <i class="ti ti-chart-bar pa-empty-icon"></i>
@@ -198,7 +236,7 @@
     </div>
   </div>
 
-  <div class="pa-footer" *ngIf="!loading">
+  <div class="pa-footer" *ngIf="!loading || rows.length > 0">
     <div class="pa-footer-range" *ngIf="totalCount > 0">
       Showing {{ visibleRangeStart }} - {{ visibleRangeEnd }} of {{ totalCount }}
     </div>

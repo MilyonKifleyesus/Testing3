@@ -77,28 +77,6 @@
 
         </div><!-- /wb-main-row -->
 
-        <!-- Stats strip -->
-        <div class="wb-stats" *ngIf="statCards.length">
-          <div class="wb-stat"
-               *ngFor="let card of statCards; let i = index"
-               [style.--wbs-delay]="(i * 0.1) + 's'"
-               [ngClass]="getStatIconClass(card.trendClass)">
-            <div class="wbs-icon-wrap">
-              <i [class]="card.iconClass"></i>
-            </div>
-            <div class="wbs-body">
-              <span class="wbs-value">{{ card.value | number }}</span>
-              <span class="wbs-label">{{ card.label }}</span>
-            </div>
-            <div class="wbs-trend" [ngClass]="card.trendClass">
-              <i class="ti"
-                 [ngClass]="card.trendClass.includes('danger') ? 'ti-trending-down' :
-                            card.trendClass.includes('warning') ? 'ti-trending-down' : 'ti-trending-up'">
-              </i>
-              <span>{{ card.trend }}</span>
-            </div>
-          </div>
-        </div><!-- /wb-stats -->
 
       </div>
     </div>
@@ -147,7 +125,7 @@
             cdkDrag
             [cdkDragData]="widget"
           >
-            <div class="card custom-card data-card widget-card" [style.height.px]="getWidgetCardHeight(widget)">
+            <div class="card custom-card data-card widget-card" [style.height.px]="getWidgetCardHeight(widget)" [attr.data-widget-id]="widget.id">
               <div class="card-header">
                 <div class="widget-header-left">
                   <div class="widget-drag-handle" cdkDragHandle>
@@ -216,6 +194,35 @@
                       Record Set {{ stationTimeComparisonPage }} ({{ stationTimeComparisonPageSize }} timelines per set)
                     </span>
                   </ng-container>
+                  <ng-container *ngIf="widget.id === 'widget-17'">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="previousTicketsByVehiclePage()"
+                      [disabled]="widget.loading || !hasTicketsByVehiclePreviousPage"
+                      title="Previous page"
+                      aria-label="Previous page"
+                    >
+                      <i class="ti ti-chevron-left"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                      (click)="nextTicketsByVehiclePage()"
+                      [disabled]="widget.loading || !hasTicketsByVehicleNextPage"
+                      title="Next page"
+                      aria-label="Next page"
+                    >
+                      <i class="ti ti-chevron-right"></i>
+                    </button>
+                    <span class="small text-muted">
+                      Page {{ ticketsByVehiclePage }} of {{ ticketsByVehicleTotalPages }}
+                      <ng-container *ngIf="ticketsByVehicleAllItems.length > 0">
+                        ({{ ticketsByVehicleAllItems.length }} vehicles)
+                      </ng-container>
+                    </span>
+                  </ng-container>
+
                   <ng-container *ngIf="widget.id === 'widget-15'">
                     <button
                       type="button"
@@ -269,7 +276,7 @@
               <div class="resize-handle resize-handle-bottom" (mousedown)="onResizeStart($event, widget.id, 'bottom')" title="Drag to resize height"></div>
 
               <div class="card-body" style="position: relative;">
-                <div *ngIf="widget.loading" class="widget-loading-overlay">
+                <div *ngIf="widget.loading && widget.id !== 'widget-17'" class="widget-loading-overlay">
                   <div class="widget-spinner">
                     <span class="spinner-border spinner-border-sm text-success" role="status"></span>
                     <span class="widget-loading-text">Loading...</span>
@@ -284,41 +291,50 @@
                       <div class="ticket-activity-filter-bar__presets">
                         <button
                           type="button"
-                          class="btn btn-sm"
-                          [class.btn-primary]="ticketActivityRangePreset === '30d'"
-                          [class.btn-outline-secondary]="ticketActivityRangePreset !== '30d'"
+                          class="btn btn-sm ticket-activity-filter-bar__preset"
+                          [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === 'yesterday'"
+                          (click)="applyTicketActivityPreset('yesterday')">
+                          Yesterday
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm ticket-activity-filter-bar__preset"
+                          [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === 'thisWeek'"
+                          (click)="applyTicketActivityPreset('thisWeek')">
+                          This Week
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm ticket-activity-filter-bar__preset"
+                          [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === '30d'"
                           (click)="applyTicketActivityPreset('30d')">
                           30D
                         </button>
                         <button
                           type="button"
-                          class="btn btn-sm"
-                          [class.btn-primary]="ticketActivityRangePreset === '90d'"
-                          [class.btn-outline-secondary]="ticketActivityRangePreset !== '90d'"
+                          class="btn btn-sm ticket-activity-filter-bar__preset"
+                          [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === '90d'"
                           (click)="applyTicketActivityPreset('90d')">
                           90D
                         </button>
                         <button
                           type="button"
-                          class="btn btn-sm"
-                          [class.btn-primary]="ticketActivityRangePreset === '180d'"
-                          [class.btn-outline-secondary]="ticketActivityRangePreset !== '180d'"
+                          class="btn btn-sm ticket-activity-filter-bar__preset"
+                          [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === '180d'"
                           (click)="applyTicketActivityPreset('180d')">
                           180D
                         </button>
                         <button
                           type="button"
-                          class="btn btn-sm"
-                          [class.btn-primary]="ticketActivityRangePreset === '365d'"
-                          [class.btn-outline-secondary]="ticketActivityRangePreset !== '365d'"
+                          class="btn btn-sm ticket-activity-filter-bar__preset"
+                          [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === '365d'"
                           (click)="applyTicketActivityPreset('365d')">
                           365D
                         </button>
                         <button
                           type="button"
-                          class="btn btn-sm"
-                          [class.btn-primary]="ticketActivityRangePreset === 'all'"
-                          [class.btn-outline-secondary]="ticketActivityRangePreset !== 'all'"
+                          class="btn btn-sm ticket-activity-filter-bar__preset"
+                          [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === 'all'"
                           (click)="applyTicketActivityPreset('all')">
                           All
                         </button>
@@ -329,8 +345,7 @@
                       <button
                         type="button"
                         class="btn btn-sm ticket-activity-filter-bar__custom-toggle"
-                        [class.btn-primary]="ticketActivityCustomRangeOpen || ticketActivityRangePreset === 'custom'"
-                        [class.btn-outline-secondary]="!(ticketActivityCustomRangeOpen || ticketActivityRangePreset === 'custom')"
+                        [class.ticket-activity-filter-bar__custom-toggle--active]="ticketActivityCustomRangeOpen || ticketActivityRangePreset === 'custom'"
                         [attr.aria-expanded]="ticketActivityCustomRangeOpen || ticketActivityRangePreset === 'custom'"
                         (click)="toggleTicketActivityCustomRange()">
                         <i class="fas fa-calendar-alt me-1"></i> Custom
@@ -355,7 +370,7 @@
                       </div>
                       <div class="ticket-activity-filter-bar__actions">
                         <button
-                          class="btn btn-sm btn-outline-primary"
+                          class="btn btn-sm ticket-activity-filter-bar__action ticket-activity-filter-bar__action--refresh"
                           type="button"
                           title="Date filters update automatically"
                           (click)="applyTicketActivityDateFilter()">
@@ -363,13 +378,13 @@
                         </button>
                         <button
                           *ngIf="ticketActivityRangePreset === 'custom' || ticketActivityRangePreset === 'all'"
-                          class="btn btn-sm btn-outline-secondary"
+                          class="btn btn-sm ticket-activity-filter-bar__action ticket-activity-filter-bar__action--secondary"
                           (click)="clearTicketActivityDateFilter()">
                           Reset
                         </button>
                         <div class="tca-dl-wrap">
                           <button
-                            class="btn btn-sm btn-outline-secondary tca-dl-btn"
+                            class="btn btn-sm ticket-activity-filter-bar__action ticket-activity-filter-bar__action--secondary tca-dl-btn"
                             title="Export options"
                             (click)="toggleTicketActivityDownloadMenu($event)">
                             <i class="fas fa-download me-1"></i> Export
@@ -475,8 +490,150 @@
                     </spk-apex-charts>
                   </div>
                 </ng-container>
-                <ng-container *ngIf="widget.id !== 'widget-16' && widget.id !== 'widget-15' && widget.id !== 'widget-12' && widget.id !== 'widget-11' && widget.id !== 'widget-13' && widget.id !== 'widget-project-activities'">
+                <!-- ── Tickets By Vehicle custom animated widget (widget-17) ── -->
+                <ng-container *ngIf="widget.id === 'widget-17'">
+                  <div class="tbv-widget">
+
+                    <!-- Skeleton while loading -->
+                    <div *ngIf="widget.loading" class="tbv-skeleton">
+                      <div class="tbv-skeleton__kpis">
+                        <div class="tbv-skeleton__pill"></div>
+                        <div class="tbv-skeleton__pill"></div>
+                        <div class="tbv-skeleton__pill"></div>
+                        <div class="tbv-skeleton__pill"></div>
+                      </div>
+                      <div class="tbv-skeleton__chart">
+                        <div class="tbv-skeleton__col" *ngFor="let h of [70,45,85,55,65,90,40,75,50,60,80,35]">
+                          <div class="tbv-skeleton__bar-v tbv-skeleton__bar-v--open"  [style.height.%]="h"></div>
+                          <div class="tbv-skeleton__bar-v tbv-skeleton__bar-v--closed" [style.height.%]="h * 0.55"></div>
+                          <div class="tbv-skeleton__name-v"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <ng-container *ngIf="!widget.loading">
+                      <!-- KPI strip -->
+                      <div class="tbv-kpi-strip">
+                        <div class="tbv-kpi-pill tbv-kpi-pill--vehicles">
+                          <i class="ti ti-bus tbv-kpi-pill__icon"></i>
+                          <div class="tbv-kpi-pill__content">
+                            <span class="tbv-kpi-pill__value">{{ ticketsByVehicleAllItems.length }}</span>
+                            <span class="tbv-kpi-pill__label">Vehicles</span>
+                          </div>
+                        </div>
+                        <div class="tbv-kpi-pill tbv-kpi-pill--open">
+                          <i class="ti ti-ticket tbv-kpi-pill__icon"></i>
+                          <div class="tbv-kpi-pill__content">
+                            <span class="tbv-kpi-pill__value">{{ ticketsByVehicleTotalOpen | number }}</span>
+                            <span class="tbv-kpi-pill__label">Open</span>
+                          </div>
+                        </div>
+                        <div class="tbv-kpi-pill tbv-kpi-pill--closed">
+                          <i class="ti ti-circle-check tbv-kpi-pill__icon"></i>
+                          <div class="tbv-kpi-pill__content">
+                            <span class="tbv-kpi-pill__value">{{ ticketsByVehicleTotalClosed | number }}</span>
+                            <span class="tbv-kpi-pill__label">Closed</span>
+                          </div>
+                        </div>
+                        <div class="tbv-kpi-pill tbv-kpi-pill--rate">
+                          <i class="ti ti-chart-donut tbv-kpi-pill__icon"></i>
+                          <div class="tbv-kpi-pill__content">
+                            <span class="tbv-kpi-pill__value">{{ ticketsByVehicleOpenPct }}%</span>
+                            <span class="tbv-kpi-pill__label">Open Rate</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Legend + page hint -->
+                      <div class="tbv-legend">
+                        <span class="tbv-legend__item">
+                          <span class="tbv-legend__dot tbv-legend__dot--open"></span>Open
+                        </span>
+                        <span class="tbv-legend__item">
+                          <span class="tbv-legend__dot tbv-legend__dot--closed"></span>Closed
+                        </span>
+                        <span class="tbv-legend__hint" *ngIf="ticketsByVehiclePageItems.length > 0">
+                          <i class="ti ti-arrows-left-right"></i> scroll to see all
+                        </span>
+                      </div>
+
+                      <!-- Vertical bar chart area -->
+                      <div class="tbv-chart"
+                           [class.tbv-chart--slide-left]="ticketsByVehicleSlideDir === 'left'"
+                           [class.tbv-chart--slide-right]="ticketsByVehicleSlideDir === 'right'"
+                           [attr.data-key]="ticketsByVehicleAnimKey">
+
+                        <!-- Floating tooltip (shown at top-right of chart, avoids scroll clipping) -->
+                        <div class="tbv-tooltip" *ngIf="tbvHoveredIndex !== -1 && ticketsByVehiclePageItems[tbvHoveredIndex]">
+                          <div class="tbv-tooltip__name">{{ ticketsByVehiclePageItems[tbvHoveredIndex].vehicleName }}</div>
+                          <div class="tbv-tooltip__row">
+                            <span class="tbv-tooltip__dot tbv-tooltip__dot--open"></span>
+                            <span>Open</span>
+                            <strong>{{ ticketsByVehiclePageItems[tbvHoveredIndex].openCount }}</strong>
+                          </div>
+                          <div class="tbv-tooltip__row">
+                            <span class="tbv-tooltip__dot tbv-tooltip__dot--closed"></span>
+                            <span>Closed</span>
+                            <strong>{{ ticketsByVehiclePageItems[tbvHoveredIndex].closedCount }}</strong>
+                          </div>
+                          <div class="tbv-tooltip__total">
+                            Total: <strong>{{ ticketsByVehiclePageItems[tbvHoveredIndex].openCount + ticketsByVehiclePageItems[tbvHoveredIndex].closedCount }}</strong>
+                          </div>
+                        </div>
+
+                        <ng-container *ngIf="ticketsByVehiclePageItems.length > 0; else tbvEmpty">
+                          <div class="tbv-plot">
+                            <div class="tbv-col"
+                                 *ngFor="let v of ticketsByVehiclePageItems; let i = index"
+                                 [style.animation-delay.ms]="i * 30"
+                                 [class.tbv-col--dimmed]="tbvHoveredIndex !== -1 && tbvHoveredIndex !== i"
+                                 [class.tbv-col--active]="tbvHoveredIndex === i"
+                                 (mouseenter)="tbvHoveredIndex = i"
+                                 (mouseleave)="tbvHoveredIndex = -1">
+                              <div class="tbv-col__bars">
+                                <div class="tbv-col__bar-wrap">
+                                  <span class="tbv-col__count tbv-col__count--open" [style.animation-delay.ms]="i * 30 + 350">{{ v.openCount }}</span>
+                                  <div class="tbv-bar-v tbv-bar-v--open"
+                                       [style.height.%]="(v.openCount / ticketsByVehicleMaxTotal) * 100"
+                                       [style.animation-delay.ms]="i * 30 + 60"></div>
+                                </div>
+                                <div class="tbv-col__bar-wrap">
+                                  <span class="tbv-col__count tbv-col__count--closed" [style.animation-delay.ms]="i * 30 + 350">{{ v.closedCount }}</span>
+                                  <div class="tbv-bar-v tbv-bar-v--closed"
+                                       [style.height.%]="(v.closedCount / ticketsByVehicleMaxTotal) * 100"
+                                       [style.animation-delay.ms]="i * 30 + 60"></div>
+                                </div>
+                              </div>
+                              <span class="tbv-col__name" [title]="v.vehicleName">{{ v.vehicleName }}</span>
+                            </div>
+                          </div>
+                        </ng-container>
+                        <ng-template #tbvEmpty>
+                          <div class="tbv-empty">
+                            <i class="ti ti-database-off"></i>
+                            <span>No ticket data for the current filters</span>
+                          </div>
+                        </ng-template>
+                      </div>
+                    </ng-container>
+                  </div>
+                </ng-container>
+
+                <ng-container *ngIf="widget.id !== 'widget-16' && widget.id !== 'widget-15' && widget.id !== 'widget-12' && widget.id !== 'widget-11' && widget.id !== 'widget-13' && widget.id !== 'widget-17' && widget.id !== 'widget-project-activities' && widget.id !== 'widget-inspection-time' && widget.id !== 'widget-18'">
                   <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions" [class.widget-content-blur]="widget.loading"></spk-apex-charts>
+                </ng-container>
+
+                <!-- ── Widget-18: Project Duration ── -->
+                <ng-container *ngIf="widget.id === 'widget-18'">
+                  <div class="pd-widget" [class.widget-content-blur]="widget.loading">
+                    <div class="pd-legend">
+                      <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#1B4332"></span>New Build</span>
+                      <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#2D6A4F"></span>Condition Assessment</span>
+                      <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#74C69D"></span>PDI</span>
+                      <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#F4A261"></span>Mid-Life Overhaul</span>
+                    </div>
+                    <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions"></spk-apex-charts>
+                  </div>
                 </ng-container>
 
                 <div *ngIf="widget.id === 'widget-map'" class="dashboard-map-widget" [class.widget-content-blur]="widget.loading">
@@ -590,6 +747,15 @@
                   [class.widget-content-blur]="widget.loading"
                   style="display:block;width:100%;height:100%;">
                 </app-defect-word-cloud-widget>
+
+                <app-inspection-time-widget
+                  *ngIf="widget.id === 'widget-inspection-time'"
+                  [data]="inspectionTimeData"
+                  [loading]="inspectionTimeLoading"
+                  [error]="inspectionTimeError"
+                  (retry)="loadInspectionTimeData()"
+                  style="display:block;width:100%;height:100%;">
+                </app-inspection-time-widget>
 
                 <app-vehicle-activities-widget
                   *ngIf="widget.id === 'widget-project-activities'"
@@ -768,48 +934,57 @@
           </div>
         </div>
 
-        <div class="fullscreen-content" *ngIf="fullscreenWidget">
+        <div class="fullscreen-content" [class.fullscreen-content--fill]="fullscreenWidget.id === 'widget-inspection-time'" *ngIf="fullscreenWidget">
 
           <div *ngIf="fullscreenWidget.id === 'widget-16'" class="ticket-activity-panel ticket-activity-panel--fullscreen">
             <div class="ticket-activity-filter-bar ticket-activity-filter-bar--fullscreen">
               <div class="ticket-activity-filter-bar__presets">
                 <button
                   type="button"
-                  class="btn btn-sm"
-                  [class.btn-primary]="ticketActivityRangePreset === '30d'"
-                  [class.btn-outline-secondary]="ticketActivityRangePreset !== '30d'"
+                  class="btn btn-sm ticket-activity-filter-bar__preset"
+                  [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === 'yesterday'"
+                  (click)="applyTicketActivityPreset('yesterday')">
+                  Yesterday
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm ticket-activity-filter-bar__preset"
+                  [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === 'thisWeek'"
+                  (click)="applyTicketActivityPreset('thisWeek')">
+                  This Week
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm ticket-activity-filter-bar__preset"
+                  [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === '30d'"
                   (click)="applyTicketActivityPreset('30d')">
                   30D
                 </button>
                 <button
                   type="button"
-                  class="btn btn-sm"
-                  [class.btn-primary]="ticketActivityRangePreset === '90d'"
-                  [class.btn-outline-secondary]="ticketActivityRangePreset !== '90d'"
+                  class="btn btn-sm ticket-activity-filter-bar__preset"
+                  [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === '90d'"
                   (click)="applyTicketActivityPreset('90d')">
                   90D
                 </button>
                 <button
                   type="button"
-                  class="btn btn-sm"
-                  [class.btn-primary]="ticketActivityRangePreset === '180d'"
-                  [class.btn-outline-secondary]="ticketActivityRangePreset !== '180d'"
+                  class="btn btn-sm ticket-activity-filter-bar__preset"
+                  [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === '180d'"
                   (click)="applyTicketActivityPreset('180d')">
                   180D
                 </button>
                 <button
                   type="button"
-                  class="btn btn-sm"
-                  [class.btn-primary]="ticketActivityRangePreset === '365d'"
-                  [class.btn-outline-secondary]="ticketActivityRangePreset !== '365d'"
+                  class="btn btn-sm ticket-activity-filter-bar__preset"
+                  [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === '365d'"
                   (click)="applyTicketActivityPreset('365d')">
                   365D
                 </button>
                 <button
                   type="button"
-                  class="btn btn-sm"
-                  [class.btn-primary]="ticketActivityRangePreset === 'all'"
-                  [class.btn-outline-secondary]="ticketActivityRangePreset !== 'all'"
+                  class="btn btn-sm ticket-activity-filter-bar__preset"
+                  [class.ticket-activity-filter-bar__preset--active]="ticketActivityRangePreset === 'all'"
                   (click)="applyTicketActivityPreset('all')">
                   All
                 </button>
@@ -837,7 +1012,7 @@
               </div>
               <div class="ticket-activity-filter-bar__actions">
                 <button
-                  class="btn btn-sm btn-outline-primary"
+                  class="btn btn-sm ticket-activity-filter-bar__action ticket-activity-filter-bar__action--refresh"
                   type="button"
                   title="Date filters update automatically"
                   (click)="applyTicketActivityDateFilter()">
@@ -845,7 +1020,7 @@
                 </button>
                 <button
                   *ngIf="ticketActivityRangePreset === 'custom' || ticketActivityRangePreset === 'all'"
-                  class="btn btn-sm btn-outline-secondary"
+                  class="btn btn-sm ticket-activity-filter-bar__action ticket-activity-filter-bar__action--secondary"
                   (click)="clearTicketActivityDateFilter()">
                   Reset
                 </button>
@@ -857,6 +1032,15 @@
               [loading]="fullscreenWidget.loading ?? false"
               [viewModel]="ticketActivityViewModel">
             </spk-ticket-activity-widget>
+          </div>
+
+          <div *ngIf="fullscreenWidget.id === 'widget-inspection-time'" class="inspection-time-fullscreen-shell">
+            <app-inspection-time-widget
+              [data]="inspectionTimeData"
+              [loading]="inspectionTimeLoading"
+              [error]="inspectionTimeError"
+              (retry)="loadInspectionTimeData()">
+            </app-inspection-time-widget>
           </div>
 
           <div *ngIf="fullscreenWidget.id === 'widget-project-activities'" class="project-activities-fullscreen-shell">
@@ -886,8 +1070,108 @@
               ></spk-apex-charts>
             </div>
           </ng-container>
+          <!-- widget-17 fullscreen -->
+          <ng-container *ngIf="fullscreenWidget.id === 'widget-17'">
+            <div class="tbv-widget tbv-widget--fullscreen">
+              <div class="tbv-toolbar">
+                <div class="tbv-toolbar__pager">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                    (click)="previousTicketsByVehiclePage()"
+                    [disabled]="fullscreenWidget.loading || !hasTicketsByVehiclePreviousPage"
+                    title="Previous page"
+                    aria-label="Previous page"
+                  >
+                    <i class="ti ti-chevron-left"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-success vehicle-station-page-btn"
+                    (click)="nextTicketsByVehiclePage()"
+                    [disabled]="fullscreenWidget.loading || !hasTicketsByVehicleNextPage"
+                    title="Next page"
+                    aria-label="Next page"
+                  >
+                    <i class="ti ti-chevron-right"></i>
+                  </button>
+                  <span class="tbv-toolbar__page text-muted">
+                    Page {{ ticketsByVehiclePage }} of {{ ticketsByVehicleTotalPages }}
+                    <ng-container *ngIf="ticketsByVehicleAllItems.length > 0">
+                      ({{ ticketsByVehicleAllItems.length }} vehicles)
+                    </ng-container>
+                  </span>
+                </div>
+              </div>
+              <div class="tbv-legend">
+                <span class="tbv-legend__item"><span class="tbv-legend__dot tbv-legend__dot--open"></span>Open</span>
+                <span class="tbv-legend__item"><span class="tbv-legend__dot tbv-legend__dot--closed"></span>Closed</span>
+              </div>
+              <div class="tbv-chart" [attr.data-key]="ticketsByVehicleAnimKey">
+                <div class="tbv-tooltip" *ngIf="tbvHoveredIndex !== -1 && ticketsByVehiclePageItems[tbvHoveredIndex]">
+                  <div class="tbv-tooltip__name">{{ ticketsByVehiclePageItems[tbvHoveredIndex].vehicleName }}</div>
+                  <div class="tbv-tooltip__row">
+                    <span class="tbv-tooltip__dot tbv-tooltip__dot--open"></span>
+                    <span>Open</span>
+                    <strong>{{ ticketsByVehiclePageItems[tbvHoveredIndex].openCount }}</strong>
+                  </div>
+                  <div class="tbv-tooltip__row">
+                    <span class="tbv-tooltip__dot tbv-tooltip__dot--closed"></span>
+                    <span>Closed</span>
+                    <strong>{{ ticketsByVehiclePageItems[tbvHoveredIndex].closedCount }}</strong>
+                  </div>
+                  <div class="tbv-tooltip__total">Total: <strong>{{ ticketsByVehiclePageItems[tbvHoveredIndex].openCount + ticketsByVehiclePageItems[tbvHoveredIndex].closedCount }}</strong></div>
+                </div>
+                <ng-container *ngIf="ticketsByVehiclePageItems.length > 0; else tbvEmptyFullscreen">
+                  <div class="tbv-plot">
+                    <div class="tbv-col"
+                         *ngFor="let v of ticketsByVehiclePageItems; let i = index"
+                         [style.animation-delay.ms]="i * 30"
+                         [class.tbv-col--dimmed]="tbvHoveredIndex !== -1 && tbvHoveredIndex !== i"
+                         [class.tbv-col--active]="tbvHoveredIndex === i"
+                         (mouseenter)="tbvHoveredIndex = i"
+                         (mouseleave)="tbvHoveredIndex = -1">
+                      <div class="tbv-col__bars">
+                        <div class="tbv-col__bar-wrap">
+                          <span class="tbv-col__count tbv-col__count--open" [style.animation-delay.ms]="i * 30 + 350">{{ v.openCount }}</span>
+                          <div class="tbv-bar-v tbv-bar-v--open"
+                               [style.height.%]="(v.openCount / ticketsByVehicleMaxTotal) * 100"
+                               [style.animation-delay.ms]="i * 30 + 60"></div>
+                        </div>
+                        <div class="tbv-col__bar-wrap">
+                          <span class="tbv-col__count tbv-col__count--closed" [style.animation-delay.ms]="i * 30 + 350">{{ v.closedCount }}</span>
+                          <div class="tbv-bar-v tbv-bar-v--closed"
+                               [style.height.%]="(v.closedCount / ticketsByVehicleMaxTotal) * 100"
+                               [style.animation-delay.ms]="i * 30 + 60"></div>
+                        </div>
+                      </div>
+                      <span class="tbv-col__name" [title]="v.vehicleName">{{ v.vehicleName }}</span>
+                    </div>
+                  </div>
+                </ng-container>
+                <ng-template #tbvEmptyFullscreen>
+                  <div class="tbv-empty">
+                    <i class="ti ti-database-off"></i>
+                    <span>No ticket data for the current filters</span>
+                  </div>
+                </ng-template>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- widget-18 fullscreen -->
+          <div *ngIf="fullscreenWidget.id === 'widget-18'" class="pd-widget pd-widget--fullscreen">
+            <div class="pd-legend">
+              <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#1B4332"></span>New Build</span>
+              <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#2D6A4F"></span>Condition Assessment</span>
+              <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#74C69D"></span>PDI</span>
+              <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#F4A261"></span>Mid-Life Overhaul</span>
+            </div>
+            <spk-apex-charts *ngIf="fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions" style="flex:1;display:block;"></spk-apex-charts>
+          </div>
+
           <ng-template #fullscreenDefaultChart>
-            <spk-apex-charts *ngIf="fullscreenWidget.id !== 'widget-16' && fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions"></spk-apex-charts>
+            <spk-apex-charts *ngIf="fullscreenWidget.id !== 'widget-16' && fullscreenWidget.id !== 'widget-17' && fullscreenWidget.id !== 'widget-18' && fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions"></spk-apex-charts>
           </ng-template>
 
           <div *ngIf="fullscreenWidget.id === 'widget-map'" class="dashboard-map-widget dashboard-map-widget--fullscreen">
@@ -991,6 +1275,15 @@
                 (selectEntity)="onDashboardMapSelect($event)"
               ></app-map-stage>
             </div>
+          </div>
+
+          <div *ngIf="fullscreenWidget.id === 'widget-wordcloud'" style="display:block;width:100%;height:100%;overflow:auto;">
+            <app-defect-word-cloud-widget
+              [clientId]="getEffectiveClientId()"
+              [projectId]="selectedProject"
+              [vehicleId]="selectedVehicle"
+              style="display:block;width:100%;height:100%;">
+            </app-defect-word-cloud-widget>
           </div>
 
           <div *ngIf="fullscreenWidget.id === 'widget-14'" class="recent-activities-container fullscreen-activities">

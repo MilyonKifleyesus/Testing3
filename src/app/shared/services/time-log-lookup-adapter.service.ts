@@ -186,25 +186,38 @@ export class TimeLogLookupAdapterService {
   }
 
   private fetchUsersByIdsBulk(ids: string[]): Observable<Array<{ id: string; user: TimeLogUser | null }>> {
-    return this.http
-      .post<unknown>(buildApiUrl(this.baseUrl, TIME_LOG_API_PATHS.usersByIds), { ids })
-      .pipe(
-        map((raw) => {
-          const users = this.normalizeUsers(raw, true);
-          const byId = new Map(users.map((u) => [u.id, u]));
-          return ids.map((id) => ({ id, user: byId.get(id) ?? null }));
-        }),
-        catchError(() =>
-          forkJoin(
-            ids.map((id) =>
-              this.fetchUserById(id).pipe(
-                catchError(() => of(null)),
-                map((user) => ({ id, user }))
-              )
+    return this.fetchUsersByIdsQuery(ids, 'ids').pipe(
+      catchError(() => this.fetchUsersByIdsQuery(ids, 'userIds')),
+      catchError(() =>
+        this.http.post<unknown>(buildApiUrl(this.baseUrl, TIME_LOG_API_PATHS.usersByIds), { ids })
+      ),
+      map((raw) => {
+        const users = this.normalizeUsers(raw, true);
+        const byId = new Map(users.map((u) => [u.id, u]));
+        return ids.map((id) => ({ id, user: byId.get(id) ?? null }));
+      }),
+      catchError(() =>
+        forkJoin(
+          ids.map((id) =>
+            this.fetchUserById(id).pipe(
+              catchError(() => of(null)),
+              map((user) => ({ id, user }))
             )
           )
         )
-      );
+      )
+    );
+  }
+
+  private fetchUsersByIdsQuery(ids: string[], paramKey: 'ids' | 'userIds'): Observable<unknown> {
+    const usersUrl = buildApiUrl(this.baseUrl, '/Users');
+    const params = new HttpParams().set(paramKey, ids.join(','));
+
+    return this.http.get<unknown>(usersUrl, { params }).pipe(
+      catchError(() =>
+        this.http.get<unknown>(buildApiUrl(this.baseUrl, TIME_LOG_API_PATHS.users), { params })
+      )
+    );
   }
 
   private fetchVehiclesWithFallback(

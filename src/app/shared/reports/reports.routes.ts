@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { roleGuard } from '../guards/auth.guard';
 
 export const sharedReportsRoutes: Routes = [
   {
@@ -36,22 +37,32 @@ export const sharedReportsRoutes: Routes = [
   },
   {
     path: 'administrative-reports',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
     loadComponent: () => import('./administrative-reports/administrative-reports.component').then((m) => m.AdministrativeReportsComponent),
   },
   {
     path: 'administrative-reports/labour-reports',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
     loadComponent: () => import('./administrative-reports/labour-reports/labour-reports.component').then((m) => m.LabourReportsComponent),
   },
   {
     path: 'administrative-reports/summary-time-logged',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
     loadComponent: () => import('./administrative-reports/summary-time-logged/summary-time-logged.component').then((m) => m.SummaryTimeLoggedComponent),
   },
   {
     path: 'administrative-reports/inspector-active-assets',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
     loadComponent: () => import('./administrative-reports/inspector-active-assets/inspector-active-assets.component').then((m) => m.InspectorActiveAssetsComponent),
   },
   {
     path: 'administrative-reports/vehicle-hour-report',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
     loadComponent: () => import('./administrative-reports/vehicle-hour-report/vehicle-hour-report.component').then((m) => m.VehicleHourReportComponent),
   },
 ];

@@ -31,7 +31,7 @@ function mapUserToCard(user: UserListItem): InspectorCard {
     username: user.userName,
     email: user.email ?? '',
     role: user.role,
-    client: user.clientName,
+    client: user.clientName ?? '',
     isActive: !user.deleted,
     statsLoading: true,
     stats: null,

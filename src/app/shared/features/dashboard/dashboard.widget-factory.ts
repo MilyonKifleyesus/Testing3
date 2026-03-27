@@ -14,13 +14,15 @@ export function createDefaultDashboardWidgets(): DashboardWidget[] {
     { id: 'widget-9', title: 'Tickets by Status', subtitle: 'Distribution of support tickets', type: 'bar', chartOptions: busPulseData.buildTicketsByStatusBar(), width: 4, height: 450, order: 9, loading: true },
     { id: 'widget-10', title: 'Average Tickets per Area by Project', subtitle: 'Average tickets per project per area', type: 'chart', chartOptions: busPulseData.projectsByAreaStackedChart, width: 8, height: 450, order: 10, loading: true },
     { id: 'widget-16', title: 'Ticket Creation Activity', subtitle: 'Daily created tickets from first to last ticket date', type: 'chart', chartOptions: busPulseData.ticketCreationActivityChart, width: 12, height: 620, order: 11, loading: true },
+    { id: 'widget-17', title: 'Tickets By Vehicle', subtitle: 'Open vs Closed tickets per vehicle', type: 'chart', chartOptions: null, width: 12, height: 450, order: 11.5, loading: true },
     { id: 'widget-project-activities', title: 'Project Activities', subtitle: 'Live ticket volume, staffing, and sync status by project', type: 'table', width: 12, height: 620, order: 11.05, loading: false },
     { id: 'widget-14', title: 'Recent Activities', subtitle: 'Latest inspector sync activity', type: 'stat', width: 4, height: 500, order: 11.1, loading: false },
     { id: 'widget-11', title: 'Projects Comparison by Station Type', subtitle: 'Heatmap of StationTrackers count by station type and project', type: 'heatmap', chartOptions: busPulseData.projectsByStationHeatmap, width: 12, height: 500, order: 12, loading: true },
     { id: 'widget-12', title: 'Average Type of Time Comparison by Project', subtitle: 'Setup, inspection and reporting time', type: 'chart', chartOptions: busPulseData.stationTimeComparisonChart, width: 12, height: 450, order: 13, loading: true },
     { id: 'widget-15', title: 'Vehicle Station Tracking', subtitle: 'Vehicle station timeline', type: 'timeline', chartOptions: busPulseData.vehicleStationTrackingChart, width: 12, height: 450, order: 14, loading: true },
-    { id: 'widget-13', title: 'Project Timeline', subtitle: 'Project schedules and milestones', type: 'timeline', chartOptions: busPulseData.projectTimelineChart, width: 12, height: 450, order: 15, loading: true },
     { id: 'widget-map', title: 'Fleet Map', subtitle: 'All mapped projects', type: 'map', width: 12, height: 500, order: 16, loading: true },
     { id: 'widget-wordcloud', title: 'Defect Word Cloud', subtitle: 'Common defect terms from tickets', type: 'wordcloud', width: 8, height: 450, order: 17, loading: false },
+    { id: 'widget-inspection-time', title: 'Inspection Time', subtitle: 'Total inspection hours by inspector', type: 'table', width: 12, height: 520, order: 13.5, loading: false },
+    { id: 'widget-18', title: 'Project Duration', subtitle: 'Days active per project, coloured by type', type: 'bar', chartOptions: null, width: 12, height: 480, order: 14.5, loading: true },
   ];
 }

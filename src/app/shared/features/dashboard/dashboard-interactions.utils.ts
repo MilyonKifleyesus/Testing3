@@ -14,6 +14,16 @@ export interface DashboardResizeSession {
   cardEl: HTMLElement;
 }
 
+export const DEFAULT_WIDGET_MIN_HEIGHT = 220;
+const WIDGET_MIN_HEIGHTS: Record<string, number> = {
+  'widget-map': 520,
+  'widget-wordcloud': 620,
+};
+
+export function getWidgetMinHeight(widgetId: string): number {
+  return WIDGET_MIN_HEIGHTS[widgetId] ?? DEFAULT_WIDGET_MIN_HEIGHT;
+}
+
 export function createResizeSession(
   widget: DashboardWidget,
   handle: DashboardResizeHandle,
@@ -45,7 +55,7 @@ export function applyResizeDeltaToDom(
   session: DashboardResizeSession,
   event: MouseEvent,
   pixelsPerColumn: number = 100,
-  minHeight: number = 220,
+  minHeight: number = getWidgetMinHeight(session.widgetId),
 ): void {
   const deltaX = event.clientX - session.startX;
   const deltaY = event.clientY - session.startY;

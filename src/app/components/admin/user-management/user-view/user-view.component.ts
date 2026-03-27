@@ -10,6 +10,7 @@ interface User {
   username: string;
   email: string;
   phone?: string;
+  organization?: string;
   role: string;
   clientId?: string;
   client?: string;
@@ -71,6 +72,7 @@ export class UserViewComponent implements OnInit {
         name: user.name !== 'N/A' ? user.name : user.userName,
         username: user.userName,
         email: user.email ?? '',
+        organization: user.organization || undefined,
         role: user.role,
         clientId: String(user.clientId),
         client: user.clientName || undefined,

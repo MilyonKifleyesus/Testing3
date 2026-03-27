@@ -2,6 +2,8 @@ import {
   aggregateTicketCreationActivity,
   bucketTicketCreationActivityPoints,
   buildTicketCreationActivityChartOptions,
+  getTicketActivityCountBetween,
+  getTicketActivityPresetRange,
 } from './dashboard-ticket-activity.utils';
 
 describe('dashboard-ticket-activity.utils', () => {
@@ -76,6 +78,23 @@ describe('dashboard-ticket-activity.utils', () => {
     expect(chartOptions.yaxis.title.style.color).toBe('#334155');
   });
 
+  it('suppresses datetime axis labels when no ticket activity exists', () => {
+    const chartOptions = buildTicketCreationActivityChartOptions(
+      {
+        chart: { type: 'line' },
+        series: [],
+        xaxis: { labels: { style: {} } },
+        tooltip: {},
+      },
+      aggregateTicketCreationActivity([]),
+    );
+
+    expect(chartOptions.xaxis.type).toBe('category');
+    expect(chartOptions.xaxis.categories).toEqual([]);
+    expect(chartOptions.xaxis.labels.show).toBeFalse();
+    expect(chartOptions.tooltip.enabled).toBeFalse();
+  });
+
   it('filters tickets to the requested created-date range', () => {
     const result = aggregateTicketCreationActivity(
       [
@@ -138,6 +157,93 @@ describe('dashboard-ticket-activity.utils', () => {
     expect(compactOptions.plotOptions.bar.columnWidth).toBe('72%');
     expect(compactOptions.annotations.yaxis).toEqual([]);
     expect(compactOptions.tooltip.followCursor).toBeTrue();
+  });
+
+  describe('getTicketActivityPresetRange', () => {
+    // Fixed reference: Thursday 2026-03-26
+    const thursday = new Date('2026-03-26T12:00:00Z');
+    // Fixed reference: Monday 2026-03-23
+    const monday = new Date('2026-03-23T12:00:00Z');
+    // Fixed reference: Sunday 2026-03-22
+    const sunday = new Date('2026-03-22T12:00:00Z');
+
+    it('returns yesterday as a single-day range', () => {
+      const { startDate, endDate } = getTicketActivityPresetRange('yesterday', thursday);
+      expect(startDate).toBe('2026-03-25');
+      expect(endDate).toBe('2026-03-25');
+    });
+
+    it('returns yesterday correctly when today is Monday', () => {
+      const { startDate, endDate } = getTicketActivityPresetRange('yesterday', monday);
+      expect(startDate).toBe('2026-03-22');
+      expect(endDate).toBe('2026-03-22');
+    });
+
+    it('returns Monday-to-today for thisWeek on a Thursday', () => {
+      const { startDate, endDate } = getTicketActivityPresetRange('thisWeek', thursday);
+      expect(startDate).toBe('2026-03-23');
+      expect(endDate).toBe('2026-03-26');
+    });
+
+    it('returns Monday-to-today for thisWeek on a Monday', () => {
+      const { startDate, endDate } = getTicketActivityPresetRange('thisWeek', monday);
+      expect(startDate).toBe('2026-03-23');
+      expect(endDate).toBe('2026-03-23');
+    });
+
+    it('returns Monday-to-today for thisWeek on a Sunday (week starts on Monday)', () => {
+      const { startDate, endDate } = getTicketActivityPresetRange('thisWeek', sunday);
+      expect(startDate).toBe('2026-03-16');
+      expect(endDate).toBe('2026-03-22');
+    });
+
+    it('returns a 30-day range inclusive for 30d preset', () => {
+      const { startDate, endDate } = getTicketActivityPresetRange('30d', thursday);
+      expect(endDate).toBe('2026-03-26');
+      expect(startDate).toBe('2026-02-25');
+    });
+
+    it('returns a 90-day range for 90d preset', () => {
+      const { startDate, endDate } = getTicketActivityPresetRange('90d', thursday);
+      expect(endDate).toBe('2026-03-26');
+      expect(startDate).toBe('2025-12-27');
+    });
+  });
+
+  describe('getTicketActivityCountBetween', () => {
+    const activity = aggregateTicketCreationActivity([
+      { projectId: 1, createdAt: '2026-03-22T09:00:00Z' }, // Sunday (last week)
+      { projectId: 1, createdAt: '2026-03-23T09:00:00Z' }, // Monday (this week)
+      { projectId: 1, createdAt: '2026-03-24T09:00:00Z' }, // Tuesday (this week)
+      { projectId: 1, createdAt: '2026-03-24T14:00:00Z' }, // Tuesday second ticket
+      { projectId: 1, createdAt: '2026-03-25T09:00:00Z' }, // Wednesday / yesterday
+      { projectId: 1, createdAt: '2026-03-26T09:00:00Z' }, // Thursday / today
+    ]);
+
+    it('counts tickets for yesterday correctly', () => {
+      // yesterday relative to 2026-03-26 is 2026-03-25
+      const { startDate, endDate } = getTicketActivityPresetRange('yesterday', new Date('2026-03-26T12:00:00Z'));
+      expect(getTicketActivityCountBetween(activity, startDate, endDate)).toBe(1);
+    });
+
+    it('counts tickets for this week correctly (Mon–Thu)', () => {
+      // thisWeek from Thursday 2026-03-26 = Mon 2026-03-23 to Thu 2026-03-26
+      const { startDate, endDate } = getTicketActivityPresetRange('thisWeek', new Date('2026-03-26T12:00:00Z'));
+      expect(getTicketActivityCountBetween(activity, startDate, endDate)).toBe(5);
+    });
+
+    it('excludes tickets from before the start date', () => {
+      expect(getTicketActivityCountBetween(activity, '2026-03-24', '2026-03-26')).toBe(4);
+    });
+
+    it('returns 0 when no tickets fall in the range', () => {
+      expect(getTicketActivityCountBetween(activity, '2026-03-01', '2026-03-10')).toBe(0);
+    });
+
+    it('returns 0 for empty activity', () => {
+      const empty = aggregateTicketCreationActivity([]);
+      expect(getTicketActivityCountBetween(empty, '2026-03-23', '2026-03-26')).toBe(0);
+    });
   });
 
   it('keeps more labels and wider bars on large chart containers', () => {

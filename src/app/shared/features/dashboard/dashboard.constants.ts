@@ -10,7 +10,7 @@ export const PROJECT_TYPE_LOOKUP: Record<number, string> = {
   4: 'Mid-Life Overhaul',
 };
 
-export const CLIENT_COMPACT_HIDDEN_WIDGET_IDS = ['widget-2', 'widget-10', 'widget-11', 'widget-12', 'widget-13'];
+export const CLIENT_COMPACT_HIDDEN_WIDGET_IDS = ['widget-2', 'widget-10', 'widget-11', 'widget-12'];
 
 export const DEFAULT_WIDGET_LAYOUT: DashboardWidgetLayoutItem[] = [
   { id: 'widget-map', width: 12, height: 640, order: 1 },
@@ -30,8 +30,8 @@ export const DEFAULT_WIDGET_LAYOUT: DashboardWidgetLayoutItem[] = [
   { id: 'widget-11', width: 12, height: 500, order: 13 },
   { id: 'widget-12', width: 12, height: 450, order: 14 },
   { id: 'widget-15', width: 12, height: 450, order: 15 },
-  { id: 'widget-13', width: 12, height: 450, order: 16 },
   { id: 'widget-wordcloud', width: 8, height: 450, order: 16.5 },
+  { id: 'widget-18', width: 12, height: 480, order: 17 },
 ];
 
 export const ADMIN_DEFAULT_WIDGET_LAYOUT: DashboardWidgetLayoutItem[] = [
@@ -52,8 +52,8 @@ export const ADMIN_DEFAULT_WIDGET_LAYOUT: DashboardWidgetLayoutItem[] = [
   { id: 'widget-11', width: 12, height: 500, order: 14 },
   { id: 'widget-12', width: 12, height: 450, order: 15 },
   { id: 'widget-15', width: 12, height: 450, order: 16 },
-  { id: 'widget-13', width: 12, height: 450, order: 17 },
   { id: 'widget-wordcloud', width: 8, height: 450, order: 17.5 },
+  { id: 'widget-18', width: 12, height: 480, order: 18 },
 ];
 
 export const DEFAULT_RECENT_ACTIVITIES: RecentActivity[] = [

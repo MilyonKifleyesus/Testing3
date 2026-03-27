@@ -1,0 +1,2103 @@
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "../../components/vehicle-activities-widget/vehicle-activities-widget.component"[0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:26:49:
+[37m      26 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module '../../components/vehicle-activities-widget/vehicle-activities-widget.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:78:49:
+[37m      78 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: 'imports' must be an array of components, directives, pipes, or NgModules.
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Unknown reference.
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "../../components/vehicle-activities-widget/vehicle-activities-widget.component"[0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:26:49:
+[37m      26 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module '../../components/vehicle-activities-widget/vehicle-activities-widget.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:78:49:
+[37m      78 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: 'imports' must be an array of components, directives, pipes, or NgModules.
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Unknown reference.
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "../../components/vehicle-activities-widget/vehicle-activities-widget.component"[0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:26:49:
+[37m      26 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module '../../components/vehicle-activities-widget/vehicle-activities-widget.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:78:49:
+[37m      78 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: 'imports' must be an array of components, directives, pipes, or NgModules.
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Unknown reference.
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "../../components/vehicle-activities-widget/vehicle-activities-widget.component"[0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:26:49:
+[37m      26 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module '../../components/vehicle-activities-widget/vehicle-activities-widget.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:78:49:
+[37m      78 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: 'imports' must be an array of components, directives, pipes, or NgModules.
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Unknown reference.
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module '../../components/vehicle-activities-widget/vehicle-activities-widget.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:78:49:
+[37m      78 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: 'imports' must be an array of components, directives, pipes, or NgModules.
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Unknown reference.
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module '../../components/vehicle-activities-widget/vehicle-activities-widget.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:78:49:
+[37m      78 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: 'imports' must be an array of components, directives, pipes, or NgModules.
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Unknown reference.
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module '../../components/vehicle-activities-widget/vehicle-activities-widget.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:78:49:
+[37m      78 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: 'imports' must be an array of components, directives, pipes, or NgModules.
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Unknown reference.
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module '../../components/vehicle-activities-widget/vehicle-activities-widget.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:78:49:
+[37m      78 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: 'imports' must be an array of components, directives, pipes, or NgModules.
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Unknown reference.
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module '../../components/vehicle-activities-widget/vehicle-activities-widget.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:78:49:
+[37m      78 │ ...nt } from [32m'../../components/vehicle-activities-widget/vehicle-a[37m...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-991010: 'imports' must be an array of components, directives, pipes, or NgModules.
+  Value could not be determined statically.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Unknown reference.
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mTS-998113: VehicleActivitiesWidgetComponent is not used within the template of DashboardComponent[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:130:4:
+[37m      130 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:239:29:
+[37m      239 │   private cachedLookupUsers: [32mTimeLogUser[37m[] = [];
+          ╵                              [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-992003: No suitable injection token for parameter 'timeLogLookupService' of class 'DashboardComponent'.
+  Consider using the @Inject decorator to specify an injection token.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:262:12:
+[37m      262 │     private [32mtimeLogLookupService[37m: TimeLogLookupAdapterService,
+          ╵             [32m~~~~~~~~~~~~~~~~~~~~[0m
+
+  This type does not have a value, so it cannot be used as injection token.
+
+    src/app/shared/features/dashboard/dashboard.component.ts:262:34:
+[37m      262 │     private timeLogLookupService: [32mTimeLogLookupAdapterService[37m,
+          ╵                                   [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogLookupAdapterService'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:262:34:
+[37m      262 │     private timeLogLookupService: [32mTimeLogLookupAdapterService[37m,
+          ╵                                   [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectActivitiesDataService'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:263:38:
+[37m      263 │     private projectActivitiesService: [32mProjectActivitiesDataService[37m,
+          ╵                                       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'state' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:315:76:
+[37m      315 │ ...ption = this.timeLogLookupService.lookups$.subscribe(([32mstate[37m) => {
+          ╵                                                          [32m~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'rows' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:324:87:
+[37m      324 │ ...ription = this.projectActivitiesService.rows$.subscribe([32mrows[37m => {
+          ╵                                                            [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'count' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:328:56:
+[37m      328 │     this.projectActivitiesService.totalCount$.subscribe([32mcount[37m => {
+          ╵                                                         [32m~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'loading' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:331:53:
+[37m      331 │     this.projectActivitiesService.loading$.subscribe([32mloading[37m => {
+          ╵                                                      [32m~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4056:48:
+[37m      4056 │ ...ivate buildProjectInspectors(items: any[]): [32mProjectInspector[37m[] {
+           ╵                                                [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4057:39:
+[37m      4057 │     const inspectors = new Map<string, [32mProjectInspector[37m>();
+           ╵                                        [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4060:39:
+[37m      4060 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4061:37:
+[37m      4061 │     const userById = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                      [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4142:27:
+[37m      4142 │       const nextInspector: [32mProjectInspector[37m = {
+           ╵                            [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4174:39:
+[37m      4174 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'lookupSubscription' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:303:9:
+[37m      303 │     this.[32mlookupSubscription[37m = this.timeLogLookupService.lookups$....
+          ╵          [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'timeLogLookupService' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:303:35:
+[37m      303 │ ...pSubscription = this.[32mtimeLogLookupService[37m.lookups$.subscribe((...
+          ╵                         [32m~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'state' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:303:76:
+[37m      303 │ ...ption = this.timeLogLookupService.lookups$.subscribe(([32mstate[37m) => {
+          ╵                                                          [32m~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:304:11:
+[37m      304 │       this.[32mcachedLookupUsers[37m = state.users;
+          ╵            [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'timeLogLookupService' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:309:9:
+[37m      309 │     this.[32mtimeLogLookupService[37m.refresh('ttl');
+          ╵          [32m~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectActivitiesSubscription' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:312:9:
+[37m      312 │     this.[32mprojectActivitiesSubscription[37m = this.projectActivitiesSe...
+          ╵          [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectActivitiesService' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:312:46:
+[37m      312 │ ...ubscription = this.[32mprojectActivitiesService[37m.rows$.subscribe(ro...
+          ╵                       [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'rows' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:312:87:
+[37m      312 │ ...ription = this.projectActivitiesService.rows$.subscribe([32mrows[37m => {
+          ╵                                                            [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:313:11:
+[37m      313 │       this.[32mallProjectStats[37m = rows;
+          ╵            [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectActivitiesService' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:316:9:
+[37m      316 │     this.[32mprojectActivitiesService[37m.totalCount$.subscribe(count => {
+          ╵          [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'count' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:316:56:
+[37m      316 │     this.projectActivitiesService.totalCount$.subscribe([32mcount[37m => {
+          ╵                                                         [32m~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsTotalCount' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:317:11:
+[37m      317 │       this.[32mprojectStatsTotalCount[37m = count;
+          ╵            [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectActivitiesService' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:319:9:
+[37m      319 │     this.[32mprojectActivitiesService[37m.loading$.subscribe(loading => {
+          ╵          [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'loading' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:319:53:
+[37m      319 │     this.projectActivitiesService.loading$.subscribe([32mloading[37m => {
+          ╵                                                      [32m~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'lookupSubscription' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:369:9:
+[37m      369 │     this.[32mlookupSubscription[37m?.unsubscribe();
+          ╵          [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectActivitiesSubscription' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:370:9:
+[37m      370 │     this.[32mprojectActivitiesSubscription[37m?.unsubscribe();
+          ╵          [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:806:37:
+[37m      806 │ ...nst firstVisibleIndex = this.[32mprojectStatsPage[37m * previousPageSize;
+          ╵                                 [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsTotalCount' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:808:56:
+[37m      808 │ ...th.max(1, Math.ceil(this.[32mprojectStatsTotalCount[37m / nextPageSize));
+          ╵                             [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:809:11:
+[37m      809 │       this.[32mprojectStatsPage[37m = Math.min(Math.floor(firstVisibleInd...
+          ╵            [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:984:13:
+[37m      984 │         this.[32mprojectStatsPage[37m = 0;
+          ╵              [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectActivitiesService' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3975:9:
+[37m      3975 │     this.[32mprojectActivitiesService[37m.loadPage({
+           ╵          [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3976:17:
+[37m      3976 │       page: this.[32mprojectStatsPage[37m,
+           ╵                  [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPageSize' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3977:21:
+[37m      3977 │       pageSize: this.[32mprojectStatsPageSize[37m,
+           ╵                      [32m~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsTotalCount' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3984:38:
+[37m      3984 │ ...es = Math.ceil(this.[32mprojectStatsTotalCount[37m / this.projectStat...
+           ╵                        [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPageSize' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3984:68:
+[37m      3984 │ ...h.ceil(this.projectStatsTotalCount / this.[32mprojectStatsPageSize[37m);
+           ╵                                              [32m~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3985:22:
+[37m      3985 │     const next = this.[32mprojectStatsPage[37m + delta;
+           ╵                       [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3987:9:
+[37m      3987 │     this.[32mprojectStatsPage[37m = next;
+           ╵          [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4044:48:
+[37m      4044 │ ...ivate buildProjectInspectors(items: any[]): [32mProjectInspector[37m[] {
+           ╵                                                [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4045:39:
+[37m      4045 │     const inspectors = new Map<string, [32mProjectInspector[37m>();
+           ╵                                        [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4048:39:
+[37m      4048 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4049:37:
+[37m      4049 │     const userById = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                      [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4050:9:
+[37m      4050 │     this.[32mcachedLookupUsers[37m.forEach((u) => {
+           ╵          [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'u' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4050:36:
+[37m      4050 │     this.cachedLookupUsers.forEach(([32mu[37m) => {
+           ╵                                     [32m^[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4130:27:
+[37m      4130 │       const nextInspector: [32mProjectInspector[37m = {
+           ╵                            [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4158:14:
+[37m      4158 │     if (!this.[32mallProjectStats[37m.length || !this.cachedLookupUsers....
+           ╵               [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4158:46:
+[37m      4158 │ ...this.allProjectStats.length || !this.[32mcachedLookupUsers[37m.length) {
+           ╵                                         [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4162:39:
+[37m      4162 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4163:9:
+[37m      4163 │     this.[32mcachedLookupUsers[37m.forEach((user) => {
+           ╵          [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'user' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4163:36:
+[37m      4163 │     this.cachedLookupUsers.forEach(([32muser[37m) => {
+           ╵                                     [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4171:27:
+[37m      4171 │     const nextStats = this.[32mallProjectStats[37m.map((row) => {
+           ╵                            [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'row' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4171:48:
+[37m      4171 │     const nextStats = this.allProjectStats.map(([32mrow[37m) => {
+           ╵                                                 [32m~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'inspector' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4172:53:
+[37m      4172 │ ...  const inspectors = (row.inspectors ?? []).map(([32minspector[37m) => {
+           ╵                                                     [32m~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4196:11:
+[37m      4196 │       this.[32mallProjectStats[37m = nextStats;
+           ╵            [32m~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:783:37:
+[37m      783 │ ...nst firstVisibleIndex = this.[32mprojectStatsPage[37m * previousPageSize;
+          ╵                                 [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsTotalCount' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:785:56:
+[37m      785 │ ...th.max(1, Math.ceil(this.[32mprojectStatsTotalCount[37m / nextPageSize));
+          ╵                             [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:786:11:
+[37m      786 │       this.[32mprojectStatsPage[37m = Math.min(Math.floor(firstVisibleInd...
+          ╵            [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:961:13:
+[37m      961 │         this.[32mprojectStatsPage[37m = 0;
+          ╵              [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectActivitiesService' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3952:9:
+[37m      3952 │     this.[32mprojectActivitiesService[37m.loadPage({
+           ╵          [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3953:17:
+[37m      3953 │       page: this.[32mprojectStatsPage[37m,
+           ╵                  [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPageSize' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3954:21:
+[37m      3954 │       pageSize: this.[32mprojectStatsPageSize[37m,
+           ╵                      [32m~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsTotalCount' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3961:38:
+[37m      3961 │ ...es = Math.ceil(this.[32mprojectStatsTotalCount[37m / this.projectStat...
+           ╵                        [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPageSize' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3961:68:
+[37m      3961 │ ...h.ceil(this.projectStatsTotalCount / this.[32mprojectStatsPageSize[37m);
+           ╵                                              [32m~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3962:22:
+[37m      3962 │     const next = this.[32mprojectStatsPage[37m + delta;
+           ╵                       [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3964:9:
+[37m      3964 │     this.[32mprojectStatsPage[37m = next;
+           ╵          [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4021:48:
+[37m      4021 │ ...ivate buildProjectInspectors(items: any[]): [32mProjectInspector[37m[] {
+           ╵                                                [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4022:39:
+[37m      4022 │     const inspectors = new Map<string, [32mProjectInspector[37m>();
+           ╵                                        [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4025:39:
+[37m      4025 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4026:37:
+[37m      4026 │     const userById = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                      [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4027:9:
+[37m      4027 │     this.[32mcachedLookupUsers[37m.forEach((u) => {
+           ╵          [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'u' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4027:36:
+[37m      4027 │     this.cachedLookupUsers.forEach(([32mu[37m) => {
+           ╵                                     [32m^[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4107:27:
+[37m      4107 │       const nextInspector: [32mProjectInspector[37m = {
+           ╵                            [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4135:14:
+[37m      4135 │     if (!this.[32mallProjectStats[37m.length || !this.cachedLookupUsers....
+           ╵               [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4135:46:
+[37m      4135 │ ...this.allProjectStats.length || !this.[32mcachedLookupUsers[37m.length) {
+           ╵                                         [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4139:39:
+[37m      4139 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4140:9:
+[37m      4140 │     this.[32mcachedLookupUsers[37m.forEach((user) => {
+           ╵          [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'user' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4140:36:
+[37m      4140 │     this.cachedLookupUsers.forEach(([32muser[37m) => {
+           ╵                                     [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4148:27:
+[37m      4148 │     const nextStats = this.[32mallProjectStats[37m.map((row) => {
+           ╵                            [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'row' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4148:48:
+[37m      4148 │     const nextStats = this.allProjectStats.map(([32mrow[37m) => {
+           ╵                                                 [32m~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'inspector' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4149:53:
+[37m      4149 │ ...  const inspectors = (row.inspectors ?? []).map(([32minspector[37m) => {
+           ╵                                                     [32m~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4173:11:
+[37m      4173 │       this.[32mallProjectStats[37m = nextStats;
+           ╵            [32m~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:950:13:
+[37m      950 │         this.[32mprojectStatsPage[37m = 0;
+          ╵              [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectActivitiesService' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3941:9:
+[37m      3941 │     this.[32mprojectActivitiesService[37m.loadPage({
+           ╵          [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3942:17:
+[37m      3942 │       page: this.[32mprojectStatsPage[37m,
+           ╵                  [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPageSize' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3943:21:
+[37m      3943 │       pageSize: this.[32mprojectStatsPageSize[37m,
+           ╵                      [32m~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsTotalCount' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3950:38:
+[37m      3950 │ ...es = Math.ceil(this.[32mprojectStatsTotalCount[37m / this.projectStat...
+           ╵                        [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPageSize' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3950:68:
+[37m      3950 │ ...h.ceil(this.projectStatsTotalCount / this.[32mprojectStatsPageSize[37m);
+           ╵                                              [32m~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3951:22:
+[37m      3951 │     const next = this.[32mprojectStatsPage[37m + delta;
+           ╵                       [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3953:9:
+[37m      3953 │     this.[32mprojectStatsPage[37m = next;
+           ╵          [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4010:48:
+[37m      4010 │ ...ivate buildProjectInspectors(items: any[]): [32mProjectInspector[37m[] {
+           ╵                                                [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4011:39:
+[37m      4011 │     const inspectors = new Map<string, [32mProjectInspector[37m>();
+           ╵                                        [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4014:39:
+[37m      4014 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4015:37:
+[37m      4015 │     const userById = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                      [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4016:9:
+[37m      4016 │     this.[32mcachedLookupUsers[37m.forEach((u) => {
+           ╵          [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'u' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4016:36:
+[37m      4016 │     this.cachedLookupUsers.forEach(([32mu[37m) => {
+           ╵                                     [32m^[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4096:27:
+[37m      4096 │       const nextInspector: [32mProjectInspector[37m = {
+           ╵                            [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4124:14:
+[37m      4124 │     if (!this.[32mallProjectStats[37m.length || !this.cachedLookupUsers....
+           ╵               [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4124:46:
+[37m      4124 │ ...this.allProjectStats.length || !this.[32mcachedLookupUsers[37m.length) {
+           ╵                                         [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4128:39:
+[37m      4128 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4129:9:
+[37m      4129 │     this.[32mcachedLookupUsers[37m.forEach((user) => {
+           ╵          [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'user' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4129:36:
+[37m      4129 │     this.cachedLookupUsers.forEach(([32muser[37m) => {
+           ╵                                     [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4137:27:
+[37m      4137 │     const nextStats = this.[32mallProjectStats[37m.map((row) => {
+           ╵                            [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'row' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4137:48:
+[37m      4137 │     const nextStats = this.allProjectStats.map(([32mrow[37m) => {
+           ╵                                                 [32m~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'inspector' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4138:53:
+[37m      4138 │ ...  const inspectors = (row.inspectors ?? []).map(([32minspector[37m) => {
+           ╵                                                     [32m~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4162:11:
+[37m      4162 │       this.[32mallProjectStats[37m = nextStats;
+           ╵            [32m~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectActivitiesService' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3939:9:
+[37m      3939 │     this.[32mprojectActivitiesService[37m.loadPage({
+           ╵          [32m~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3940:17:
+[37m      3940 │       page: this.[32mprojectStatsPage[37m,
+           ╵                  [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPageSize' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3941:21:
+[37m      3941 │       pageSize: this.[32mprojectStatsPageSize[37m,
+           ╵                      [32m~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsTotalCount' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3948:38:
+[37m      3948 │ ...es = Math.ceil(this.[32mprojectStatsTotalCount[37m / this.projectStat...
+           ╵                        [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPageSize' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3948:68:
+[37m      3948 │ ...h.ceil(this.projectStatsTotalCount / this.[32mprojectStatsPageSize[37m);
+           ╵                                              [32m~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3949:22:
+[37m      3949 │     const next = this.[32mprojectStatsPage[37m + delta;
+           ╵                       [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'projectStatsPage' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3951:9:
+[37m      3951 │     this.[32mprojectStatsPage[37m = next;
+           ╵          [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4008:48:
+[37m      4008 │ ...ivate buildProjectInspectors(items: any[]): [32mProjectInspector[37m[] {
+           ╵                                                [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4009:39:
+[37m      4009 │     const inspectors = new Map<string, [32mProjectInspector[37m>();
+           ╵                                        [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4012:39:
+[37m      4012 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4013:37:
+[37m      4013 │     const userById = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                      [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4014:9:
+[37m      4014 │     this.[32mcachedLookupUsers[37m.forEach((u) => {
+           ╵          [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'u' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4014:36:
+[37m      4014 │     this.cachedLookupUsers.forEach(([32mu[37m) => {
+           ╵                                     [32m^[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4094:27:
+[37m      4094 │       const nextInspector: [32mProjectInspector[37m = {
+           ╵                            [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4122:14:
+[37m      4122 │     if (!this.[32mallProjectStats[37m.length || !this.cachedLookupUsers....
+           ╵               [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4122:46:
+[37m      4122 │ ...this.allProjectStats.length || !this.[32mcachedLookupUsers[37m.length) {
+           ╵                                         [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4126:39:
+[37m      4126 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4127:9:
+[37m      4127 │     this.[32mcachedLookupUsers[37m.forEach((user) => {
+           ╵          [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'user' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4127:36:
+[37m      4127 │     this.cachedLookupUsers.forEach(([32muser[37m) => {
+           ╵                                     [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4135:27:
+[37m      4135 │     const nextStats = this.[32mallProjectStats[37m.map((row) => {
+           ╵                            [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'row' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4135:48:
+[37m      4135 │     const nextStats = this.allProjectStats.map(([32mrow[37m) => {
+           ╵                                                 [32m~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'inspector' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4136:53:
+[37m      4136 │ ...  const inspectors = (row.inspectors ?? []).map(([32minspector[37m) => {
+           ╵                                                     [32m~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4160:11:
+[37m      4160 │       this.[32mallProjectStats[37m = nextStats;
+           ╵            [32m~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3980:48:
+[37m      3980 │ ...ivate buildProjectInspectors(items: any[]): [32mProjectInspector[37m[] {
+           ╵                                                [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3981:39:
+[37m      3981 │     const inspectors = new Map<string, [32mProjectInspector[37m>();
+           ╵                                        [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3984:39:
+[37m      3984 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3985:37:
+[37m      3985 │     const userById = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                      [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3986:9:
+[37m      3986 │     this.[32mcachedLookupUsers[37m.forEach((u) => {
+           ╵          [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'u' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:3986:36:
+[37m      3986 │     this.cachedLookupUsers.forEach(([32mu[37m) => {
+           ╵                                     [32m^[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'ProjectInspector'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4066:27:
+[37m      4066 │       const nextInspector: [32mProjectInspector[37m = {
+           ╵                            [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4094:14:
+[37m      4094 │     if (!this.[32mallProjectStats[37m.length || !this.cachedLookupUsers....
+           ╵               [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4094:46:
+[37m      4094 │ ...this.allProjectStats.length || !this.[32mcachedLookupUsers[37m.length) {
+           ╵                                         [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2304: Cannot find name 'TimeLogUser'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4098:39:
+[37m      4098 │     const userByName = new Map<string, [32mTimeLogUser[37m>();
+           ╵                                        [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'cachedLookupUsers' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4099:9:
+[37m      4099 │     this.[32mcachedLookupUsers[37m.forEach((user) => {
+           ╵          [32m~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'user' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4099:36:
+[37m      4099 │     this.cachedLookupUsers.forEach(([32muser[37m) => {
+           ╵                                     [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4107:27:
+[37m      4107 │     const nextStats = this.[32mallProjectStats[37m.map((row) => {
+           ╵                            [32m~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'row' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4107:48:
+[37m      4107 │     const nextStats = this.allProjectStats.map(([32mrow[37m) => {
+           ╵                                                 [32m~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS7006: Parameter 'inspector' implicitly has an 'any' type.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4108:53:
+[37m      4108 │ ...  const inspectors = (row.inspectors ?? []).map(([32minspector[37m) => {
+           ╵                                                     [32m~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'allProjectStats' does not exist on type 'DashboardComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:4132:11:
+[37m      4132 │       this.[32mallProjectStats[37m = nextStats;
+           ╵            [32m~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mTS-998113: VehicleActivitiesWidgetComponent is not used within the template of DashboardComponent[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:127:4:
+[37m      127 │     [32mVehicleActivitiesWidgetComponent[37m,
+          ╵     [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1707:6:
+[37m      1707 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1707:6:
+[37m      1707 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1707:6:
+[37m      1707 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS-992008: Could not find template file './create-ticket.component.html'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:29:15:
+[37m      29 │   templateUrl: [32m'./create-ticket.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ name: string; }[]' is not assignable to type 'UserOption[]'.
+  Property 'id' is missing in type '{ name: string; }' but required in type 'UserOption'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:430:4:
+[37m      430 │     [32mreturn[37m this.sortByName(
+          ╵     [32m~~~~~~[0m
+
+  'id' is declared here.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:40:2:
+[37m      40 │   [32mid[37m: number;
+         ╵   [32m~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '({ id: number; name: string; email: string | undefined; role: string | undefined; } | null)[]' is not assignable to parameter of type '{ name: string; }[]'.
+  Type '{ id: number; name: string; email: string | undefined; role: string | undefined; } | null' is not assignable to type '{ name: string; }'.
+    Type 'null' is not assignable to type '{ name: string; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:431:6:
+[37m      431 │       [32mthis.extractItems(response)[37m
+          ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2677: A type predicate's type must be assignable to its parameter's type.
+  Type 'UserOption' is not assignable to type '{ id: number; name: string; email: string | undefined; role: string | undefined; }'.
+    Property 'email' is optional in type 'UserOption' but required in type '{ id: number; name: string; email: string | undefined; role: string | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:446:32:
+[37m      446 │         .filter((user): user is [32mUserOption[37m => user !== null),
+          ╵                                 [32m~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ name: string; }[]' is not assignable to type 'UserOption[]'.
+  Property 'id' is missing in type '{ name: string; }' but required in type 'UserOption'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:430:4:
+[37m      430 │     [32mreturn[37m this.sortByName(
+          ╵     [32m~~~~~~[0m
+
+  'id' is declared here.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:40:2:
+[37m      40 │   [32mid[37m: number;
+         ╵   [32m~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '({ id: number; name: string; email: string | undefined; role: string | undefined; } | null)[]' is not assignable to parameter of type '{ name: string; }[]'.
+  Type '{ id: number; name: string; email: string | undefined; role: string | undefined; } | null' is not assignable to type '{ name: string; }'.
+    Type 'null' is not assignable to type '{ name: string; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:431:6:
+[37m      431 │       [32mthis.extractItems(response)[37m
+          ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2677: A type predicate's type must be assignable to its parameter's type.
+  Type 'UserOption' is not assignable to type '{ id: number; name: string; email: string | undefined; role: string | undefined; }'.
+    Property 'email' is optional in type 'UserOption' but required in type '{ id: number; name: string; email: string | undefined; role: string | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:446:32:
+[37m      446 │         .filter((user): user is [32mUserOption[37m => user !== null),
+          ╵                                 [32m~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ name: string; }[]' is not assignable to type 'UserOption[]'.
+  Property 'id' is missing in type '{ name: string; }' but required in type 'UserOption'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:430:4:
+[37m      430 │     [32mreturn[37m this.sortByName(
+          ╵     [32m~~~~~~[0m
+
+  'id' is declared here.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:40:2:
+[37m      40 │   [32mid[37m: number;
+         ╵   [32m~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '({ id: number; name: string; email: string | undefined; role: string | undefined; } | null)[]' is not assignable to parameter of type '{ name: string; }[]'.
+  Type '{ id: number; name: string; email: string | undefined; role: string | undefined; } | null' is not assignable to type '{ name: string; }'.
+    Type 'null' is not assignable to type '{ name: string; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:431:6:
+[37m      431 │       [32mthis.extractItems(response)[37m
+          ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2677: A type predicate's type must be assignable to its parameter's type.
+  Type 'UserOption' is not assignable to type '{ id: number; name: string; email: string | undefined; role: string | undefined; }'.
+    Property 'email' is optional in type 'UserOption' but required in type '{ id: number; name: string; email: string | undefined; role: string | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:446:32:
+[37m      446 │         .filter((user): user is [32mUserOption[37m => user !== null),
+          ╵                                 [32m~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '{ name: string; }[]' is not assignable to type 'UserOption[]'.
+  Property 'id' is missing in type '{ name: string; }' but required in type 'UserOption'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:430:4:
+[37m      430 │     [32mreturn[37m this.sortByName(
+          ╵     [32m~~~~~~[0m
+
+  'id' is declared here.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:40:2:
+[37m      40 │   [32mid[37m: number;
+         ╵   [32m~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '({ id: number; name: string; email: string | undefined; role: string | undefined; } | null)[]' is not assignable to parameter of type '{ name: string; }[]'.
+  Type '{ id: number; name: string; email: string | undefined; role: string | undefined; } | null' is not assignable to type '{ name: string; }'.
+    Type 'null' is not assignable to type '{ name: string; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:431:6:
+[37m      431 │       [32mthis.extractItems(response)[37m
+          ╵       [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2677: A type predicate's type must be assignable to its parameter's type.
+  Type 'UserOption' is not assignable to type '{ id: number; name: string; email: string | undefined; role: string | undefined; }'.
+    Property 'email' is optional in type 'UserOption' but required in type '{ id: number; name: string; email: string | undefined; role: string | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:446:32:
+[37m      446 │         .filter((user): user is [32mUserOption[37m => user !== null),
+          ╵                                 [32m~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2322: Type '({ id: number; name: string; email: string | undefined; role: string | undefined; } | null)[]' is not assignable to type 'UserOption[]'.
+  Type '{ id: number; name: string; email: string | undefined; role: string | undefined; } | null' is not assignable to type 'UserOption'.
+    Type 'null' is not assignable to type 'UserOption'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:430:10:
+[37m      430 │     const [32musers[37m: UserOption[] = this.extractItems(response)
+          ╵           [32m~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2677: A type predicate's type must be assignable to its parameter's type.
+  Type 'UserOption' is not assignable to type '{ id: number; name: string; email: string | undefined; role: string | undefined; }'.
+    Property 'email' is optional in type 'UserOption' but required in type '{ id: number; name: string; email: string | undefined; role: string | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.service.ts:445:30:
+[37m      445 │       .filter((user): user is [32mUserOption[37m => user !== null);
+          ╵                               [32m~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG9: Property 'openFilePicker' does not exist on type 'CreateTicketComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.html:208:27:
+[37m      208 │                   (click)="[32mopenFilePicker[37m(fileInput)"
+          ╵                            [32m~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component CreateTicketComponent.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:29:15:
+[37m      29 │   templateUrl: [32m'./create-ticket.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG9: Property 'openFilePicker' does not exist on type 'CreateTicketComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.html:209:35:
+[37m      209 │                   (keydown.enter)="[32mopenFilePicker[37m(fileInput)"
+          ╵                                    [32m~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component CreateTicketComponent.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:29:15:
+[37m      29 │   templateUrl: [32m'./create-ticket.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG9: Property 'openFilePicker' does not exist on type 'CreateTicketComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.html:210:35:
+[37m      210 │ ...       (keydown.space)="[32mopenFilePicker[37m(fileInput); $event.prev...
+          ╵                            [32m~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component CreateTicketComponent.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:29:15:
+[37m      29 │   templateUrl: [32m'./create-ticket.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG9: Property 'openFilePicker' does not exist on type 'CreateTicketComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.html:228:121:
+[37m      228 │ ...3" (click)="$event.stopPropagation(); [32mopenFilePicker[37m(fileInput)">
+          ╵                                          [32m~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component CreateTicketComponent.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:29:15:
+[37m      29 │   templateUrl: [32m'./create-ticket.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'scrollToFeedback' does not exist on type 'CreateTicketComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:157:15:
+[37m      157 │           this.[32mscrollToFeedback[37m();
+          ╵                [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'scrollToFeedback' does not exist on type 'CreateTicketComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:162:15:
+[37m      162 │           this.[32mscrollToFeedback[37m();
+          ╵                [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2729: Property 'currentUser' is used before its initialization.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:49:24:
+[37m      49 │     assignedById: [this.[32mcurrentUser[37m.id, Validators.required],
+         ╵                         [32m~~~~~~~~~~~[0m
+
+  'currentUser' is declared here.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:65:2:
+[37m      65 │   [32mcurrentUser[37m: UserOption = this.createTicketService.getCurrentUse...
+         ╵   [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2729: Property 'currentUser' is used before its initialization.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:49:24:
+[37m      49 │     assignedById: [this.[32mcurrentUser[37m.id, Validators.required],
+         ╵                         [32m~~~~~~~~~~~[0m
+
+  'currentUser' is declared here.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:65:2:
+[37m      65 │   [32mcurrentUser[37m: UserOption = this.createTicketService.getCurrentUse...
+         ╵   [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2729: Property 'currentUser' is used before its initialization.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:49:24:
+[37m      49 │     assignedById: [this.[32mcurrentUser[37m.id, Validators.required],
+         ╵                         [32m~~~~~~~~~~~[0m
+
+  'currentUser' is declared here.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:65:2:
+[37m      65 │   [32mcurrentUser[37m: UserOption = this.createTicketService.getCurrentUse...
+         ╵   [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2729: Property 'currentUser' is used before its initialization.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:49:24:
+[37m      49 │     assignedById: [this.[32mcurrentUser[37m.id, Validators.required],
+         ╵                         [32m~~~~~~~~~~~[0m
+
+  'currentUser' is declared here.
+
+    src/app/components/admin/simulator/create-ticket/create-ticket.component.ts:65:2:
+[37m      65 │   [32mcurrentUser[37m: UserOption = this.createTicketService.getCurrentUse...
+         ╵   [32m~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "./user-management/user-edit/user-edit.component"[0m
+
+    src/app/components/admin/admin.routes.ts:42:44:
+[37m      42 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "./user-management/user-edit/user-edit.component"[0m
+
+    src/app/components/admin/admin.routes.ts:42:44:
+[37m      42 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:44:36:
+[37m      44 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:48:36:
+[37m      48 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "./user-management/user-edit/user-edit.component"[0m
+
+    src/app/components/admin/admin.routes.ts:42:44:
+[37m      42 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:44:36:
+[37m      44 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:48:36:
+[37m      48 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "./user-management/user-edit/user-edit.component"[0m
+
+    src/app/components/admin/admin.routes.ts:42:44:
+[37m      42 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:44:36:
+[37m      44 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:48:36:
+[37m      48 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCould not resolve "./user-management/user-edit/user-edit.component"[0m
+
+    src/app/components/admin/admin.routes.ts:42:44:
+[37m      42 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:44:36:
+[37m      44 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:48:36:
+[37m      48 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:44:36:
+[37m      44 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:48:36:
+[37m      48 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:44:36:
+[37m      44 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2307: Cannot find module './user-management/user-edit/user-edit.component' or its corresponding type declarations.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/components/admin/admin.routes.ts:48:36:
+[37m      48 │ ...=> import([32m'./user-management/user-edit/user-edit.component'[37m).th...
+         ╵              [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG9: Property 'selectionSummary' does not exist on type 'TicketsComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/tickets/tickets.component.html:11:11:
+[37m      11 │         {{ [32mselectionSummary[37m }}
+         ╵            [32m~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component TicketsComponent.
+
+    src/app/shared/features/tickets/tickets.component.ts:72:15:
+[37m      72 │   templateUrl: [32m'./tickets.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG9: Property 'isExporting' does not exist on type 'TicketsComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/tickets/tickets.component.html:16:43:
+[37m      16 │         [disabled]="selectedCount === 0 || [32misExporting[37m"
+         ╵                                            [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component TicketsComponent.
+
+    src/app/shared/features/tickets/tickets.component.ts:72:15:
+[37m      72 │   templateUrl: [32m'./tickets.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG9: Property 'exportSelectedTickets' does not exist on type 'TicketsComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/tickets/tickets.component.html:17:17:
+[37m      17 │         (click)="[32mexportSelectedTickets[37m()">
+         ╵                  [32m~~~~~~~~~~~~~~~~~~~~~[0m
+
+  Error occurs in the template of component TicketsComponent.
+
+    src/app/shared/features/tickets/tickets.component.ts:72:15:
+[37m      72 │   templateUrl: [32m'./tickets.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG9: Property 'isExporting' does not exist on type 'TicketsComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/tickets/tickets.component.html:18:21:
+[37m      18 │         <span *ngIf="[32misExporting[37m" class="spinner-border spinner-bo...
+         ╵                      [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component TicketsComponent.
+
+    src/app/shared/features/tickets/tickets.component.ts:72:15:
+[37m      72 │   templateUrl: [32m'./tickets.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mNG9: Property 'isExporting' does not exist on type 'TicketsComponent'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/tickets/tickets.component.html:19:19:
+[37m      19 │         <i *ngIf="![32misExporting[37m" class="ti ti-download me-2"></i>Ex...
+         ╵                    [32m~~~~~~~~~~~[0m
+
+  Error occurs in the template of component TicketsComponent.
+
+    src/app/shared/features/tickets/tickets.component.ts:72:15:
+[37m      72 │   templateUrl: [32m'./tickets.component.html'[37m,
+         ╵                [32m~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2352: Conversion of type 'TicketRow' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'TicketRow'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/tickets/tickets.component.ts:961:34:
+[37m      961 │ ...his.displayValue(([32mticket as Record<string, unknown>[37m)[columnKey]);
+          ╵                      [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2352: Conversion of type 'TicketRow' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'TicketRow'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/tickets/tickets.component.ts:956:34:
+[37m      956 │ ...his.displayValue(([32mticket as Record<string, unknown>[37m)[columnKey]);
+          ╵                      [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2352: Conversion of type 'TicketRow' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'TicketRow'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/tickets/tickets.component.ts:956:34:
+[37m      956 │ ...his.displayValue(([32mticket as Record<string, unknown>[37m)[columnKey]);
+          ╵                      [32m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2353: Object literal may only specify known properties, and 'projectId' does not exist in type '{ page: number; pageSize: number; clientId?: string | number | undefined; includeClosed?: boolean | undefined; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/features/dashboard/dashboard.component.ts:1708:6:
+[37m      1708 │       [32mprojectId[37m: projectScope.projectId,
+           ╵       [32m~~~~~~~~~[0m
+
+[39m[22m

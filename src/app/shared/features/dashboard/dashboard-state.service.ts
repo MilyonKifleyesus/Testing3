@@ -19,6 +19,7 @@ export interface DashboardSnapshot {
   allMapClients: ApiClient[];
   allMapManufacturers: ApiManufacturer[];
   allMapLocations: ApiLocation[];
+  allFleetApiProjects: ApiProject[];
   dashboardMapDataLoaded: boolean;
   welcomeUserName: string;
   vehicleStationLabels: string[];

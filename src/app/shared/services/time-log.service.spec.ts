@@ -54,7 +54,7 @@ describe('TimeLogService', () => {
         actual = result;
       });
 
-    const req = httpMock.expectOne((request) => request.url === '/api/timelogs');
+    const req = httpMock.expectOne((request) => request.url === '/api/TimeLogs');
     expect(req.request.method).toBe('GET');
     expect(req.request.params.get('page')).toBe('2');
     expect(req.request.params.get('pageSize')).toBe('1');
@@ -128,7 +128,7 @@ describe('TimeLogService', () => {
         actual = result;
       });
 
-    const req = httpMock.expectOne((request) => request.url === '/api/timelogs');
+    const req = httpMock.expectOne((request) => request.url === '/api/TimeLogs');
     expect(req.request.params.get('sortBy')).toBe('userId');
 
     req.flush({
@@ -157,11 +157,11 @@ describe('TimeLogService', () => {
       firstResult = result;
     });
 
-    const bulkReq = httpMock.expectOne((request) => request.url === '/api/timelogs/bulk');
+    const bulkReq = httpMock.expectOne((request) => request.url === '/api/TimeLogs/bulk');
     expect(bulkReq.request.method).toBe('POST');
     bulkReq.flush({}, { status: 404, statusText: 'Not Found' });
 
-    const createRequests = httpMock.match((request) => request.url === '/api/timelogs');
+    const createRequests = httpMock.match((request) => request.url === '/api/TimeLogs');
     expect(createRequests.length).toBe(2);
     expect(createRequests[0].request.body).toEqual(
       jasmine.objectContaining({
@@ -198,8 +198,8 @@ describe('TimeLogService', () => {
       secondResult = result;
     });
 
-    httpMock.expectNone('/api/timelogs/bulk');
-    const singleCreateReq = httpMock.expectOne((request) => request.url === '/api/timelogs');
+    httpMock.expectNone('/api/TimeLogs/bulk');
+    const singleCreateReq = httpMock.expectOne((request) => request.url === '/api/TimeLogs');
     singleCreateReq.flush({
       id: 9,
       dateStarted: '2026-03-10T09:30',
@@ -222,7 +222,7 @@ describe('TimeLogService', () => {
       service.createTimeLog({ ...basePayload, projectId: '' })
     ).toThrowError('Invalid projectId value');
 
-    httpMock.expectNone('/api/timelogs');
+    httpMock.expectNone('/api/TimeLogs');
   });
 
   // ─── getTimeLog ──────────────────────────────────────────────────────────────
@@ -231,7 +231,7 @@ describe('TimeLogService', () => {
     let result: any;
     service.getTimeLog('101').subscribe((r) => (result = r));
 
-    const req = httpMock.expectOne('/api/timelogs/101');
+    const req = httpMock.expectOne('/api/TimeLogs/101');
     expect(req.request.method).toBe('GET');
 
     req.flush({
@@ -273,7 +273,7 @@ describe('TimeLogService', () => {
     let result: any;
     service.createTimeLog(basePayload).subscribe((r) => (result = r));
 
-    const req = httpMock.expectOne('/api/timelogs');
+    const req = httpMock.expectOne('/api/TimeLogs');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
       projectId: 10,
@@ -292,12 +292,12 @@ describe('TimeLogService', () => {
 
   it('createTimeLog throws when vehicleId is empty', () => {
     expect(() => service.createTimeLog({ ...basePayload, vehicleId: '' })).toThrowError('Invalid vehicleId value');
-    httpMock.expectNone('/api/timelogs');
+    httpMock.expectNone('/api/TimeLogs');
   });
 
   it('createTimeLog throws when userId is empty', () => {
     expect(() => service.createTimeLog({ ...basePayload, userId: '' })).toThrowError('Invalid userId value');
-    httpMock.expectNone('/api/timelogs');
+    httpMock.expectNone('/api/TimeLogs');
   });
 
   // ─── updateTimeLog ───────────────────────────────────────────────────────────
@@ -306,7 +306,7 @@ describe('TimeLogService', () => {
     let result: any;
     service.updateTimeLog('101', { description: 'Updated desc', spentTimeHours: 4 }).subscribe((r) => (result = r));
 
-    const req = httpMock.expectOne('/api/timelogs/101');
+    const req = httpMock.expectOne('/api/TimeLogs/101');
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({ description: 'Updated desc', timeSpent: 4 });
     expect(req.request.body.projectId).toBeUndefined();
@@ -327,7 +327,7 @@ describe('TimeLogService', () => {
       description: 'Rework',
     }).subscribe();
 
-    const req = httpMock.expectOne('/api/timelogs/99');
+    const req = httpMock.expectOne('/api/TimeLogs/99');
     expect(req.request.body).toEqual({
       projectId: 5,
       vehicleId: 12,
@@ -347,7 +347,7 @@ describe('TimeLogService', () => {
     let completed = false;
     service.deleteTimeLog('101').subscribe(() => (completed = true));
 
-    const req = httpMock.expectOne('/api/timelogs/101');
+    const req = httpMock.expectOne('/api/TimeLogs/101');
     expect(req.request.method).toBe('DELETE');
     req.flush(null);
 
@@ -360,7 +360,7 @@ describe('TimeLogService', () => {
     let result: any;
     service.bulkCreateTimeLogs([basePayload, { ...basePayload, projectId: '11' }]).subscribe((r) => (result = r));
 
-    const req = httpMock.expectOne('/api/timelogs/bulk');
+    const req = httpMock.expectOne('/api/TimeLogs/bulk');
     expect(req.request.method).toBe('POST');
     expect(req.request.body.length).toBe(2);
     req.flush(null);
@@ -372,10 +372,10 @@ describe('TimeLogService', () => {
     let result: any;
     service.bulkCreateTimeLogs([basePayload]).subscribe((r) => (result = r));
 
-    const bulkReq = httpMock.expectOne('/api/timelogs/bulk');
+    const bulkReq = httpMock.expectOne('/api/TimeLogs/bulk');
     bulkReq.flush({}, { status: 405, statusText: 'Method Not Allowed' });
 
-    const singleReq = httpMock.expectOne((r) => r.url === '/api/timelogs');
+    const singleReq = httpMock.expectOne((r) => r.url === '/api/TimeLogs');
     singleReq.flush({ id: 200, dateStarted: '2026-03-10T09:30', timeSpent: 2.5, projectId: 10, vehicleId: 20, userId: 30, typeOfTimeId: 3 });
 
     expect(result).toEqual({ successCount: 1, failureCount: 0, errors: [] });
@@ -387,11 +387,11 @@ describe('TimeLogService', () => {
     service.bulkCreateTimeLogs([]).subscribe((r) => (result = r));
 
     // bulk endpoint may or may not be called depending on state; handle both:
-    const bulkPending = httpMock.match('/api/timelogs/bulk');
+    const bulkPending = httpMock.match('/api/TimeLogs/bulk');
     if (bulkPending.length) {
       bulkPending[0].flush({});
     }
-    httpMock.expectNone((r) => r.url === '/api/timelogs' && r.method === 'POST');
+    httpMock.expectNone((r) => r.url === '/api/TimeLogs' && r.method === 'POST');
 
     expect(result).toEqual({ successCount: 0, failureCount: 0, errors: [] });
   });
@@ -401,12 +401,12 @@ describe('TimeLogService', () => {
     // Use a fresh service state where bulk is unknown
     service.bulkCreateTimeLogs([basePayload]).subscribe((r) => (result = r));
 
-    const bulkPending = httpMock.match('/api/timelogs/bulk');
+    const bulkPending = httpMock.match('/api/TimeLogs/bulk');
     if (bulkPending.length) {
       bulkPending[0].flush({}, { status: 404, statusText: 'Not Found' });
     }
 
-    const singleReq = httpMock.expectOne((r) => r.url === '/api/timelogs' && r.method === 'POST');
+    const singleReq = httpMock.expectOne((r) => r.url === '/api/TimeLogs' && r.method === 'POST');
     singleReq.flush({ message: 'Internal failure' }, { status: 500, statusText: 'Server Error' });
 
     expect(result.failureCount).toBe(1);
@@ -417,21 +417,21 @@ describe('TimeLogService', () => {
 
   it('maps spentTimeHours → timeSpent sort param', () => {
     service.getTimeLogs({ page: 1, pageSize: 25, sortBy: 'spentTimeHours', sortDirection: 'asc' }).subscribe();
-    const req = httpMock.expectOne((r) => r.url === '/api/timelogs');
+    const req = httpMock.expectOne((r) => r.url === '/api/TimeLogs');
     expect(req.request.params.get('sortBy')).toBe('timeSpent');
     req.flush([]);
   });
 
   it('maps typeOfTime → typeOfTimeId sort param', () => {
     service.getTimeLogs({ page: 1, pageSize: 25, sortBy: 'typeOfTime', sortDirection: 'asc' }).subscribe();
-    const req = httpMock.expectOne((r) => r.url === '/api/timelogs');
+    const req = httpMock.expectOne((r) => r.url === '/api/TimeLogs');
     expect(req.request.params.get('sortBy')).toBe('typeOfTimeId');
     req.flush([]);
   });
 
   it('maps projectName → projectName (passes through unchanged)', () => {
     service.getTimeLogs({ page: 1, pageSize: 25, sortBy: 'projectName', sortDirection: 'asc' }).subscribe();
-    const req = httpMock.expectOne((r) => r.url === '/api/timelogs');
+    const req = httpMock.expectOne((r) => r.url === '/api/TimeLogs');
     expect(req.request.params.get('sortBy')).toBe('projectName');
     req.flush([]);
   });
@@ -450,7 +450,7 @@ describe('TimeLogService', () => {
 
     for (const [label, expectedId] of cases) {
       service.getTimeLogs({ page: 1, pageSize: 25, sortBy: 'startDate', sortDirection: 'asc', typeOfTime: label }).subscribe();
-      const req = httpMock.expectOne((r) => r.url === '/api/timelogs');
+      const req = httpMock.expectOne((r) => r.url === '/api/TimeLogs');
       expect(req.request.params.get('typeOfTimeId')).withContext(`${label}`).toBe(expectedId);
       req.flush([]);
     }
@@ -459,7 +459,7 @@ describe('TimeLogService', () => {
   it('maps typeOfTimeId numbers in responses back to UI labels', () => {
     let result: any;
     service.getTimeLogs({ page: 1, pageSize: 25, sortBy: 'startDate', sortDirection: 'asc' }).subscribe((r) => (result = r));
-    const req = httpMock.expectOne((r) => r.url === '/api/timelogs');
+    const req = httpMock.expectOne((r) => r.url === '/api/TimeLogs');
     req.flush([
       { id: '1', typeOfTimeId: 2 },
       { id: '2', typeOfTimeId: 3 },
@@ -482,7 +482,7 @@ describe('TimeLogService', () => {
   it('extracts items from { data: { items: [...] } } envelope', () => {
     let result: any;
     service.getTimeLogs({ page: 1, pageSize: 25, sortBy: 'startDate', sortDirection: 'asc' }).subscribe((r) => (result = r));
-    const req = httpMock.expectOne((r) => r.url === '/api/timelogs');
+    const req = httpMock.expectOne((r) => r.url === '/api/TimeLogs');
     req.flush({ data: { items: [{ id: '9', dateStarted: '2026-01-01T00:00:00Z', timeSpent: 1 }] }, total: 1 });
 
     expect(result.items.length).toBe(1);
@@ -492,7 +492,7 @@ describe('TimeLogService', () => {
   it('extracts items from { data: [...] } envelope', () => {
     let result: any;
     service.getTimeLogs({ page: 1, pageSize: 25, sortBy: 'startDate', sortDirection: 'asc' }).subscribe((r) => (result = r));
-    const req = httpMock.expectOne((r) => r.url === '/api/timelogs');
+    const req = httpMock.expectOne((r) => r.url === '/api/TimeLogs');
     req.flush({ data: [{ id: '10', dateStarted: '2026-01-02T00:00:00Z', timeSpent: 2 }], total: 1 });
 
     expect(result.items.length).toBe(1);
@@ -502,7 +502,7 @@ describe('TimeLogService', () => {
   it('extracts items from { result: { items: [...] } } envelope', () => {
     let result: any;
     service.getTimeLogs({ page: 1, pageSize: 25, sortBy: 'startDate', sortDirection: 'asc' }).subscribe((r) => (result = r));
-    const req = httpMock.expectOne((r) => r.url === '/api/timelogs');
+    const req = httpMock.expectOne((r) => r.url === '/api/TimeLogs');
     req.flush({ result: { items: [{ id: '11', dateStarted: '2026-01-03T00:00:00Z', timeSpent: 3 }] }, total: 1 });
 
     expect(result.items.length).toBe(1);
@@ -513,14 +513,14 @@ describe('TimeLogService', () => {
 
   it('sends clientId as a query param when provided in the filter', () => {
     service.getTimeLogs({ page: 1, pageSize: 25, sortBy: 'startDate', sortDirection: 'asc', clientId: '42' }).subscribe();
-    const req = httpMock.expectOne((r) => r.url === '/api/timelogs');
+    const req = httpMock.expectOne((r) => r.url === '/api/TimeLogs');
     expect(req.request.params.get('clientId')).toBe('42');
     req.flush([]);
   });
 
   it('omits clientId from query params when not provided', () => {
     service.getTimeLogs({ page: 1, pageSize: 25, sortBy: 'startDate', sortDirection: 'asc' }).subscribe();
-    const req = httpMock.expectOne((r) => r.url === '/api/timelogs');
+    const req = httpMock.expectOne((r) => r.url === '/api/TimeLogs');
     expect(req.request.params.has('clientId')).toBeFalse();
     req.flush([]);
   });

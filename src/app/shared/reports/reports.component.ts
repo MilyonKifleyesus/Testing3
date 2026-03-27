@@ -66,7 +66,7 @@ import { resolveReportRouteContext } from './report-route-context';
         </div>
 
         <!-- Administrative Reports Card -->
-        <div class="col-xl-4 col-lg-6 col-md-6 col-sm-12">
+        <div *ngIf="showAdministrativeReports" class="col-xl-4 col-lg-6 col-md-6 col-sm-12">
           <div class="card custom-card">
             <div class="card-body">
               <div class="d-flex align-items-center mb-3">
@@ -159,10 +159,12 @@ import { resolveReportRouteContext } from './report-route-context';
 export class ReportsComponent {
   readonly dashboardPath: string;
   readonly reportsPath: string;
+  readonly showAdministrativeReports: boolean;
 
   constructor(private readonly authService: AuthService) {
     const context = resolveReportRouteContext(this.authService.currentUserValue);
     this.dashboardPath = context.dashboardPath;
     this.reportsPath = context.reportsPath;
+    this.showAdministrativeReports = this.authService.hasRole(['superadmin', 'admin']);
   }
 }

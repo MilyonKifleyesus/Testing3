@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ClientDashboardService } from '../../../shared/services/client-dashboard.service';
@@ -28,7 +29,7 @@ interface SnagRow {
 @Component({
   selector: 'app-snags',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   template: `
     <div class="main-container container-fluid px-0">
       <!-- Page Header -->
@@ -41,7 +42,7 @@ interface SnagRow {
           <button class="btn btn-success-light btn-wave">
             <i class="ti ti-download me-2"></i>Export
           </button>
-          <button class="btn btn-primary btn-wave">
+          <button class="btn btn-primary btn-wave" [routerLink]="['/admin/snags/new']">
             <i class="ti ti-plus me-2"></i>New Snag
           </button>
         </div>

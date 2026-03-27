@@ -162,8 +162,6 @@ export class CreateTicketService {
           clientId,
           includeClosed: true,
           includeAllOption: false,
-          page: 1,
-          pageSize: 10000,
         }).pipe(
           map((projects) => this.mapDashboardProjects(projects)),
           map((items) => items.length ? items : [...MOCK_PROJECTS]),
@@ -186,8 +184,6 @@ export class CreateTicketService {
         clientId,
         userId,
         includeAllOption: false,
-        page: 1,
-        pageSize: 10000,
       }).pipe(
         map((result) => this.mapDashboardVehicles(result.options, projectId)),
         map((items) => {
@@ -234,7 +230,9 @@ export class CreateTicketService {
   }
 
   getStations(): Observable<StationOption[]> {
-    return this.http.get<unknown>(`${this.apiBaseUrl}/vehicle-reports/stations`).pipe(
+    return this.dashboardProjectsService.getAllStationTrackers({
+      pageSize: 250,
+    }).pipe(
       map((response) => this.mapStations(response)),
       map((items) => items.length ? items : [...MOCK_STATIONS]),
       catchError(() => this.returnMock(MOCK_STATIONS)),
@@ -407,19 +405,41 @@ export class CreateTicketService {
   }
 
   private mapStations(response: unknown): StationOption[] {
-    return this.sortByName(
-      this.extractItems(response)
-        .map((item) => {
-          const id = this.toPositiveNumber(getFirstDefinedValue(item, ['id', 'stationId', 'StationId']));
-          const name = toOptionalText(getFirstDefinedValue(item, ['name', 'stationName', 'StationName']));
-          if (!id || !name) {
-            return null;
-          }
+    const uniqueStations = new Map<number, StationOption>();
 
-          return { id, name } satisfies StationOption;
-        })
-        .filter((station): station is StationOption => station !== null),
-    );
+    for (const item of this.extractItems(response)) {
+      const id = this.toPositiveNumber(getFirstDefinedValue(item, [
+        'id',
+        'stationId',
+        'StationId',
+        'station.id',
+        'station.stationId',
+      ]));
+      const stationName = toOptionalText(getFirstDefinedValue(item, [
+        'name',
+        'stationName',
+        'StationName',
+        'station.name',
+        'station.stationName',
+        'stageName',
+        'stage',
+      ]));
+      const stationNumber = toOptionalText(getFirstDefinedValue(item, [
+        'stationNumber',
+        'StationNumber',
+      ]));
+
+      if (!id || !stationName) {
+        continue;
+      }
+
+      const name = stationNumber ? `${stationNumber} - ${stationName}` : stationName;
+      if (!uniqueStations.has(id)) {
+        uniqueStations.set(id, { id, name });
+      }
+    }
+
+    return this.sortByName(Array.from(uniqueStations.values()));
   }
 
   private mapDefectTypes(response: unknown): DefectTypeOption[] {

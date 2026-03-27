@@ -76,8 +76,22 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['chartOptions']) {
+    const chartOptionsChange = changes['chartOptions'];
+    if (chartOptionsChange) {
       if (this.chartInstance && this.renderChart && this.isViewReady) {
+        const seriesPresenceChanged =
+          this.hasChartSeriesData(chartOptionsChange.previousValue) !==
+          this.hasChartSeriesData(chartOptionsChange.currentValue);
+
+        const prevCount = this.getSeriesPointCount(chartOptionsChange.previousValue);
+        const nextCount = this.getSeriesPointCount(chartOptionsChange.currentValue);
+        const seriesShapeChanged = Math.abs(prevCount - nextCount) > 5;
+
+        if (seriesPresenceChanged || seriesShapeChanged) {
+          this.scheduleChartMount();
+          return;
+        }
+
         this.updateChartOptionsInPlace();
         return;
       }
@@ -165,6 +179,11 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
     const { width, height } = this.getHostDimensions();
     const chartConfig = this.resolveChartConfig(width, height);
 
+    // Validate that chart config has required data before rendering
+    if (!chartConfig || !this.isValidChartConfig(chartConfig)) {
+      return;
+    }
+
     try {
       this.chartInstance = new ApexCharts(host, chartConfig);
       this.chartInstance.render();
@@ -175,6 +194,66 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
     }
   }
 
+  private isValidChartConfig(config: any): boolean {
+    if (!config?.chart) return false;
+    
+    // For charts with series data, ensure series is valid
+    if (config.series !== undefined) {
+      if (!Array.isArray(config.series)) return false;
+      if (config.series.length === 0) return false;
+      
+      // Check each series item is valid
+      for (const item of config.series) {
+        if (item === undefined || item === null) return false;
+        if (Array.isArray(item) && item.length === 0) return false;
+        if (typeof item === 'object' && Array.isArray(item.data) && item.data.length === 0) return false;
+      }
+    }
+    
+    return true;
+  }
+
+  private getSeriesPointCount(config: any): number {
+    if (!Array.isArray(config?.series)) return 0;
+    let count = 0;
+    for (const item of config.series) {
+      if (Array.isArray(item)) {
+        count += item.length;
+      } else if (isPlainObject(item) && Array.isArray(item['data'])) {
+        count += item['data'].length;
+      } else if (item !== null && item !== undefined) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  private hasChartSeriesData(config: any): boolean {
+    if (!Array.isArray(config?.series) || config.series.length === 0) {
+      return false;
+    }
+
+    return config.series.some((item: any) => {
+      if (item === undefined || item === null) {
+        return false;
+      }
+
+      if (Array.isArray(item)) {
+        return item.length > 0;
+      }
+
+      if (typeof item === 'number' || typeof item === 'string') {
+        return true;
+      }
+
+      if (isPlainObject(item) && Array.isArray(item['data'])) {
+        return item['data'].length > 0;
+      }
+
+      return true;
+    });
+  }
+
   private updateChartOptionsInPlace(): void {
     if (this.isDestroyed || !this.chartInstance || !this.chartOptions) {
       return;
@@ -183,23 +262,44 @@ export class SpkApexChartsComponent implements AfterViewInit, OnDestroy, OnChang
     const { width, height } = this.getHostDimensions();
     const nextOptions = this.resolveChartConfig(width, height);
 
+    // Validate chart config has required data before updating
+    if (!nextOptions || !this.isValidChartConfig(nextOptions)) {
+      return;
+    }
+
     if (this.updateOptionsTimeout) {
       clearTimeout(this.updateOptionsTimeout);
     }
 
     this.updateOptionsTimeout = setTimeout(() => {
-      if (this.isDestroyed || !this.chartInstance) {
+      const chartInstance = this.chartInstance;
+      if (this.isDestroyed || !chartInstance) {
         return;
       }
 
       try {
-        this.chartInstance.updateOptions(nextOptions, false, false, false);
-        if (width > 0) {
-          this.lastWidth = width;
-        }
-        if (height > 0) {
-          this.lastHeight = height;
-        }
+        const { series, ...nextChartOptions } = nextOptions;
+        const updatePromise = Promise.resolve(
+          chartInstance.updateOptions(nextChartOptions, false, false, false)
+        );
+
+        void (Array.isArray(series)
+          ? updatePromise.then(() => chartInstance.updateSeries(series, false))
+          : updatePromise
+        ).then(() => {
+          if (this.isDestroyed || this.chartInstance !== chartInstance) {
+            return;
+          }
+
+          if (width > 0) {
+            this.lastWidth = width;
+          }
+          if (height > 0) {
+            this.lastHeight = height;
+          }
+        }).catch(() => {
+          this.scheduleChartMount();
+        });
       } catch {
         this.scheduleChartMount();
       }

@@ -6,6 +6,8 @@ export interface SpkTicketActivityWidgetViewModel {
   scopeLabel: string;
   projectLabel: string;
   totalTickets: string;
+  ticketsThisWeek: string;
+  ticketsYesterday: string;
   spanDays: string;
   activeDays: string;
   averagePerDay: string;
@@ -20,6 +22,8 @@ const EMPTY_VIEW_MODEL: SpkTicketActivityWidgetViewModel = {
   scopeLabel: 'Current selection',
   projectLabel: '',
   totalTickets: '0',
+  ticketsThisWeek: '0',
+  ticketsYesterday: '0',
   spanDays: '0',
   activeDays: '0',
   averagePerDay: '0.0',

@@ -5,6 +5,7 @@ import {
   Observable,
   catchError,
   concat,
+  forkJoin,
   firstValueFrom,
   from,
   map,
@@ -35,6 +36,7 @@ export interface UserListItem {
   name: string;
   email: string | null;
   role: string;
+  organization?: string;
   clientId: string | number;
   client?: string;
   clientName?: string;
@@ -54,7 +56,6 @@ export interface UserListItem {
   lastName?: string;
   picture?: string | null;
   username?: string;
-  userName?: string;
 }
 
 export interface UserListResult {
@@ -72,6 +73,7 @@ export interface SaveUserRequest {
   username: string;
   email: string;
   role: string;
+  organization?: string | null;
   status?: string;
   clientId?: string | number | null;
   manufacturerId?: string | number | null;
@@ -105,6 +107,12 @@ interface ApiUser {
   name?: string;
   email?: string | null;
   role?: string;
+  organization?: string;
+  organisation?: string;
+  organizationName?: string;
+  organisationName?: string;
+  company?: string;
+  companyName?: string;
   clientId?: number;
   clientName?: string;
   manufacturerId?: number;
@@ -250,6 +258,15 @@ function mapApiUserToUser(item: ApiUser): UserListItem {
     username: toNonEmptyString(item.userName ?? (item as any).username, 'N/A'),
     email: item.email ?? toNonEmptyString((item as any).emailAddress, '') ?? null,
     role: toNonEmptyString(item.role ?? (item as any).roleName, 'N/A'),
+    organization: toNonEmptyString(
+      item.organization ??
+      item.organisation ??
+      item.organizationName ??
+      item.organisationName ??
+      item.companyName ??
+      item.company,
+      '',
+    ),
     clientId: toIdString(item.clientId ?? (item as any).ClientId ?? (item as any).clientID, '0'),
     client: toNonEmptyString(item.clientName ?? (item as any).ClientName ?? (item as any).client, ''),
     clientName: toNonEmptyString(item.clientName ?? (item as any).ClientName ?? (item as any).client, ''),
@@ -293,6 +310,7 @@ export class UserManagementService {
   private readonly usersQueryCache = new Map<string, Observable<UserListResult>>();
   private readonly inspectorStatsCache = new Map<number, Observable<InspectorStatistics | null>>();
   private readonly rolesFetchPageSize = 100;
+  private readonly defaultFetchPageSize = 500;
   private readonly requestTimeoutMs = 10_000;
 
   constructor(private readonly http: HttpClient) {}
@@ -301,8 +319,8 @@ export class UserManagementService {
     let params = new HttpParams()
       .set('page', String(query.page))
       .set('pageSize', String(query.pageSize))
-      .set('clientId', String(query.clientId ?? '0'))
-      .set('manufacturerId', String(query.manufacturerId ?? '0'))
+      .set('clientId', String(query.clientId || '0'))
+      .set('manufacturerId', String(query.manufacturerId || '0'))
       .set('SortBy', String(query.sortBy ?? 'id'))
       .set('SortDirection', String(query.sortDirection ?? 'asc'));
 
@@ -376,6 +394,40 @@ export class UserManagementService {
     );
   }
 
+  getUsersByIds(userIds: number[]): Observable<UserListItem[]> {
+    const ids = Array.from(
+      new Set(
+        (userIds ?? [])
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id) && id > 0),
+      ),
+    );
+
+    if (!ids.length) {
+      return of([]);
+    }
+
+    return this.fetchUsersByIdsQuery(ids, 'ids').pipe(
+      catchError(() => this.fetchUsersByIdsQuery(ids, 'userIds')),
+      map((raw) => {
+        const items = extractCollection(raw).map((item) => mapApiUserToUser(item as ApiUser));
+        const usersById = new Map(items.map((item) => [item.id, item]));
+        return ids.map((id) => usersById.get(id)).filter((item): item is UserListItem => !!item);
+      }),
+      catchError(() =>
+        forkJoin(
+          ids.map((id) =>
+            this.getUserById(id).pipe(
+              catchError(() => of(null)),
+            ),
+          ),
+        ).pipe(
+          map((items) => items.filter((item): item is UserListItem => !!item)),
+        ),
+      ),
+    );
+  }
+
   createUser(body: SaveUserRequest): Observable<UserListItem> {
     return this.http.post<unknown>(this.usersApiUrl, this.buildSaveUserPayload(body)).pipe(
       timeout(this.requestTimeoutMs),
@@ -408,8 +460,8 @@ export class UserManagementService {
             const expectedEmail = String(body.email ?? '').trim().toLowerCase();
             const expectedUsername = String(body.username ?? '').trim().toLowerCase();
             const matchedUser = result.items.find((user) =>
-              user.email.trim().toLowerCase() === expectedEmail ||
-              user.username.trim().toLowerCase() === expectedUsername,
+              (user.email ?? '').trim().toLowerCase() === expectedEmail ||
+              (user.username ?? '').trim().toLowerCase() === expectedUsername,
             );
 
             if (!matchedUser) {
@@ -522,6 +574,11 @@ export class UserManagementService {
     );
   }
 
+  private fetchUsersByIdsQuery(ids: number[], paramKey: 'ids' | 'userIds'): Observable<unknown> {
+    const params = new HttpParams().set(paramKey, ids.join(','));
+    return this.http.get<unknown>(this.usersApiUrl, { params });
+  }
+
   private parseSingleUserResponse(raw: unknown): UserListItem | null {
     if (Array.isArray(raw)) {
       const first = raw[0] as ApiUser | undefined;
@@ -575,6 +632,7 @@ export class UserManagementService {
   }
 
   private buildSaveUserPayload(body: SaveUserRequest): Record<string, unknown> {
+    const organization = String(body.organization ?? '').trim() || null;
     const payload: Record<string, unknown> = {
       name: String(body.name ?? '').trim(),
       username: String(body.username ?? '').trim(),
@@ -582,6 +640,10 @@ export class UserManagementService {
       email: String(body.email ?? '').trim(),
       emailAddress: String(body.email ?? '').trim(),
       role: String(body.role ?? '').trim(),
+      organization,
+      organisation: organization,
+      organizationName: organization,
+      companyName: organization,
       status: normalizeUserStatus(body.status),
       phone: String(body.phone ?? '').trim() || null,
       address: String(body.address ?? '').trim() || null,

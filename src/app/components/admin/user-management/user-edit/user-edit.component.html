@@ -163,6 +163,18 @@
                 </div>
 
                 <div class="col-xl-4">
+                  <label class="form-label">Organization</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    [(ngModel)]="model.organization"
+                    name="organization"
+                    autocomplete="organization"
+                    placeholder="Enter organization name">
+                  <small class="form-hint">Free-text organization or company name.</small>
+                </div>
+
+                <div class="col-xl-4">
                   <label class="form-label">Role <span class="text-danger">*</span></label>
                   <select
                     class="form-select"

@@ -49,7 +49,7 @@ function mapUserToInspector(user: UserListItem, stats: InspectorStatistics | nul
     yearsExperience: 0,
     specialization: '',
     notes: '',
-    primaryClient: user.clientName,
+    primaryClient: user.clientName ?? '',
     serviceArea: '',
     shiftPreference: '',
     maxInspectionsPerDay: 8,

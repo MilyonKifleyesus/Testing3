@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { map, catchError } from 'rxjs/operators';
 import { ClientDashboardService } from '../../services/client-dashboard.service';
 import { Observable, of, delay } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 
 // API Request/Response Interfaces
 export interface TicketReportRequest {
@@ -185,7 +186,7 @@ export class ReportService {
       return text || fallback;
     }
 
-  private apiBaseUrl = '/api';
+  private apiBaseUrl = environment.apiBaseUrl;
   private projectNameById = new Map<number, string>();
   private projectClientIdByProjectId = new Map<number, number>();
 

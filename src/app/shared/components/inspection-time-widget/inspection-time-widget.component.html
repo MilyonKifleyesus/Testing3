@@ -1,0 +1,163 @@
+<div class="it-widget">
+
+  <!-- ── Loading skeleton ─────────────────────────────────────────── -->
+  <ng-container *ngIf="loading">
+    <div class="it-skeleton">
+      <div class="it-skeleton__kpis">
+        <div class="it-skeleton__kpi-pill" *ngFor="let n of skeletonRows | slice:0:4"></div>
+      </div>
+      <div class="it-skeleton__rows">
+        <div class="it-skeleton__row" *ngFor="let n of skeletonRows">
+          <div class="it-skeleton__rank"></div>
+          <div class="it-skeleton__name"></div>
+          <div class="it-skeleton__bar-track">
+            <div class="it-skeleton__bar" [style.width.%]="85 - n * 12"></div>
+          </div>
+          <div class="it-skeleton__value"></div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ── Error state ───────────────────────────────────────────────── -->
+  <ng-container *ngIf="!loading && error">
+    <div class="it-state it-state--error">
+      <div class="it-state__icon">
+        <i class="ti ti-alert-circle"></i>
+      </div>
+      <p class="it-state__title">Unable to load inspection time data.</p>
+      <p class="it-state__sub">Check your connection or try again.</p>
+      <button class="it-state__btn" type="button" (click)="retry.emit()">
+        <i class="ti ti-refresh me-1"></i>Retry
+      </button>
+    </div>
+  </ng-container>
+
+  <!-- ── Empty state ───────────────────────────────────────────────── -->
+  <ng-container *ngIf="!loading && !error && !hasData">
+    <div class="it-state it-state--empty">
+      <div class="it-state__icon">
+        <i class="ti ti-clock-off"></i>
+      </div>
+      <p class="it-state__title">No inspection time data found.</p>
+      <p class="it-state__sub">Try adjusting your date range or filters.</p>
+    </div>
+  </ng-container>
+
+  <!-- ── Data state ────────────────────────────────────────────────── -->
+  <ng-container *ngIf="!loading && !error && hasData">
+
+    <!-- Chart header -->
+    <div class="it-chart-header">
+      <span class="it-chart-header__label">Inspector</span>
+      <span class="it-chart-header__label it-chart-header__label--right">Hours · Inspections · Share</span>
+    </div>
+
+    <!-- Bar chart rows -->
+    <div class="it-chart">
+      <div
+        class="it-row"
+        *ngFor="let inspector of sortedInspectors; let i = index; trackBy: trackByInspectorId"
+        [class.it-row--active]="hoveredIndex === i"
+        [class.it-row--dimmed]="hoveredIndex !== -1 && hoveredIndex !== i"
+        (mouseenter)="hoveredIndex = i"
+        (mouseleave)="hoveredIndex = -1"
+        (focus)="focusedIndex = i"
+        (blur)="focusedIndex = -1"
+        tabindex="0"
+        [attr.aria-describedby]="hoveredIndex === i || focusedIndex === i ? 'inspection-tooltip-' + i : null"
+      >
+        <!-- Rank -->
+        <span class="it-rank" [class.it-rank--top]="i === 0">{{ i + 1 }}</span>
+
+        <!-- Inspector identity -->
+        <div class="it-identity">
+          <span class="it-avatar" [class.it-avatar--fallback]="!inspector.avatarUrl" [attr.title]="inspector.name">
+            <img
+              *ngIf="inspector.avatarUrl; else inspectorAvatarFallback"
+              [src]="inspector.avatarUrl"
+              [alt]="inspector.name"
+              (error)="clearAvatar(inspector)">
+            <ng-template #inspectorAvatarFallback>
+              <span>{{ getInitials(inspector.name) }}</span>
+            </ng-template>
+          </span>
+          <span class="it-name" [title]="inspector.name">{{ inspector.name }}</span>
+        </div>
+
+        <!-- Bar track -->
+        <div class="it-bar-track">
+          <div
+            class="it-bar"
+            [style.width.%]="getBarWidth(inspector)"
+            [style.--it-bar-delay.ms]="i * 60 + 80"
+          >
+            <span class="it-bar__value">{{ formatHours(inspector.hours) }}</span>
+          </div>
+        </div>
+
+        <!-- Inspection count badge -->
+        <span class="it-inspections-badge" title="Inspections completed">
+          {{ inspector.inspections }}
+        </span>
+
+        <!-- Trend indicator -->
+        <span
+          class="it-trend"
+          [ngClass]="getTrendClass(inspector.trendPercent)"
+          *ngIf="inspector.trendPercent != null"
+          [title]="'vs. previous period: ' + getTrendLabel(inspector.trendPercent)"
+        >
+          <i class="ti" [ngClass]="{
+            'ti-trending-up': inspector.trendPercent > 0,
+            'ti-trending-down': inspector.trendPercent < 0,
+            'ti-minus': inspector.trendPercent === 0
+          }"></i>
+          <span>{{ getTrendLabel(inspector.trendPercent) }}</span>
+        </span>
+
+        <!-- Rich tooltip -->
+        <div class="it-tooltip" *ngIf="hoveredIndex === i || focusedIndex === i" role="tooltip" [id]="'inspection-tooltip-' + i">
+          <div class="it-tooltip__name">{{ inspector.name }}</div>
+          <div class="it-tooltip__divider"></div>
+          <div class="it-tooltip__row">
+            <span class="it-tooltip__dot it-tooltip__dot--hours"></span>
+            <span class="it-tooltip__key">Total Hours</span>
+            <span class="it-tooltip__val">{{ formatHours(inspector.hours) }}</span>
+          </div>
+          <div class="it-tooltip__row">
+            <span class="it-tooltip__dot it-tooltip__dot--insp"></span>
+            <span class="it-tooltip__key">Inspections</span>
+            <span class="it-tooltip__val">{{ inspector.inspections }}</span>
+          </div>
+          <div class="it-tooltip__row">
+            <span class="it-tooltip__dot it-tooltip__dot--avg"></span>
+            <span class="it-tooltip__key">Avg / Inspection</span>
+            <span class="it-tooltip__val">{{ formatAvg(inspector.avgHoursPerInspection) }}</span>
+          </div>
+          <div class="it-tooltip__row">
+            <span class="it-tooltip__dot it-tooltip__dot--share"></span>
+            <span class="it-tooltip__key">Share of Total</span>
+            <span class="it-tooltip__val">{{ formatShare(inspector.sharePercent) }}</span>
+          </div>
+          <div class="it-tooltip__row" *ngIf="inspector.projectCount != null">
+            <span class="it-tooltip__dot it-tooltip__dot--proj"></span>
+            <span class="it-tooltip__key">Projects</span>
+            <span class="it-tooltip__val">{{ inspector.projectCount }}</span>
+          </div>
+          <div class="it-tooltip__trend" *ngIf="inspector.trendPercent != null" [ngClass]="getTrendClass(inspector.trendPercent)">
+            <i class="ti" [ngClass]="{
+              'ti-trending-up': inspector.trendPercent > 0,
+              'ti-trending-down': inspector.trendPercent < 0,
+              'ti-minus': inspector.trendPercent === 0
+            }"></i>
+            <span>{{ getTrendLabel(inspector.trendPercent) }} vs. previous period</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </ng-container>
+
+</div>

@@ -186,15 +186,15 @@ describe('TimeLogLookupAdapterService', () => {
     service.resolveUsersByIds([]).subscribe((r) => (result = r));
     expect(result).toEqual([]);
     httpMock.expectNone('/api/users/by-ids');
+    httpMock.expectNone((r) => r.url === '/api/Users');
   });
 
-  it('resolveUsersByIds() calls bulk endpoint and returns resolved users', () => {
+  it('resolveUsersByIds() calls query endpoint and returns resolved users', () => {
     let result: any;
     service.resolveUsersByIds(['10', '11']).subscribe((r) => (result = r));
 
-    const req = httpMock.expectOne('/api/users/by-ids');
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ ids: ['10', '11'] });
+    const req = httpMock.expectOne((r) => r.url === '/api/Users' && r.params.get('ids') === '10,11');
+    expect(req.request.method).toBe('GET');
 
     req.flush([
       { userId: 10, username: 'Taylor' },
@@ -210,21 +210,44 @@ describe('TimeLogLookupAdapterService', () => {
     let result: any;
     service.resolveUsersByIds(['10', '10', '10']).subscribe((r) => (result = r));
 
-    const req = httpMock.expectOne('/api/users/by-ids');
-    expect(req.request.body).toEqual({ ids: ['10'] });
+    const req = httpMock.expectOne((r) => r.url === '/api/Users' && r.params.get('ids') === '10');
 
     req.flush([{ userId: 10, username: 'Taylor' }]);
     expect(result.length).toBe(1);
   });
 
-  it('resolveUsersByIds() falls back to individual GET requests when bulk returns 404', () => {
+  it('resolveUsersByIds() falls back to userIds query param when ids is rejected', () => {
     let result: any;
     service.resolveUsersByIds(['10']).subscribe((r) => (result = r));
 
-    const bulkReq = httpMock.expectOne('/api/users/by-ids');
-    bulkReq.flush({}, { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne((r) => r.url === '/api/Users' && r.params.get('ids') === '10')
+      .flush({}, { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne((r) => r.url === '/api/users' && r.params.get('ids') === '10')
+      .flush({}, { status: 404, statusText: 'Not Found' });
 
-    // Falls back to individual GET
+    const userIdsReq = httpMock.expectOne((r) => r.url === '/api/Users' && r.params.get('userIds') === '10');
+    expect(userIdsReq.request.method).toBe('GET');
+    userIdsReq.flush([{ userId: 10, username: 'Taylor' }]);
+
+    expect(result.length).toBe(1);
+    expect(result[0].name).toBe('Taylor');
+  });
+
+  it('resolveUsersByIds() falls back to individual GET requests when batch endpoints fail', () => {
+    let result: any;
+    service.resolveUsersByIds(['10']).subscribe((r) => (result = r));
+
+    httpMock.expectOne((r) => r.url === '/api/Users' && r.params.get('ids') === '10')
+      .flush({}, { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne((r) => r.url === '/api/users' && r.params.get('ids') === '10')
+      .flush({}, { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne((r) => r.url === '/api/Users' && r.params.get('userIds') === '10')
+      .flush({}, { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne((r) => r.url === '/api/users' && r.params.get('userIds') === '10')
+      .flush({}, { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne('/api/users/by-ids')
+      .flush({}, { status: 404, statusText: 'Not Found' });
+
     const singleReq = httpMock.expectOne('/api/users/10');
     singleReq.flush({ userId: 10, username: 'Taylor' });
 

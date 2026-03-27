@@ -1,0 +1,361 @@
+<div class="main-container container-fluid px-0">
+
+  <!-- Page header -->
+  <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-2">
+          <li class="breadcrumb-item"><a [routerLink]="['/admin/dashboard']">Home</a></li>
+          <li class="breadcrumb-item"><a [routerLink]="['/admin/snags']">Snags</a></li>
+          <li class="breadcrumb-item active" aria-current="page">New Snag</li>
+        </ol>
+      </nav>
+      <h1 class="page-title fw-semibold fs-20 mb-1">New Snag</h1>
+      <p class="mb-0 text-muted fs-13">Log a customer-identified defect for a project vehicle.</p>
+    </div>
+    <div class="btn-list mt-3 mt-md-0">
+      <button type="button" class="btn btn-light btn-wave" (click)="cancel()">
+        <i class="ti ti-arrow-left me-2"></i>Back to Snags
+      </button>
+    </div>
+  </div>
+
+  <!-- Alerts -->
+  <div class="alert alert-danger py-2 px-3 mb-3" *ngIf="submitError">{{ submitError }}</div>
+  <div class="alert alert-success py-2 px-3 mb-3 d-flex flex-wrap align-items-center gap-2" *ngIf="submitSuccess">
+    <span>{{ submitSuccess }}</span>
+    <button type="button" class="btn btn-sm btn-success ms-auto" (click)="createAnother()">
+      Create Another
+    </button>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- ── Left: form ──────────────────────────────────────────────────────── -->
+    <div class="col-12 col-xl-8">
+      <div class="card custom-card cs-form-card">
+        <div class="card-header border-bottom">
+          <div class="card-title mb-0">Snag Details</div>
+        </div>
+        <div class="card-body">
+
+          <div *ngIf="loadingLookups" class="cs-loading-state">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <span>Loading form options…</span>
+          </div>
+
+          <form *ngIf="!loadingLookups" [formGroup]="snagForm" (ngSubmit)="onSubmit()" novalidate>
+            <div class="row g-3">
+
+              <!-- Project -->
+              <div class="col-12 col-md-6">
+                <label class="form-label">Project <span class="text-danger">*</span></label>
+                <ng-select
+                  class="cs-select"
+                  [items]="filteredProjects"
+                  bindLabel="name"
+                  bindValue="id"
+                  [searchable]="false"
+                  [clearable]="true"
+                  placeholder="Choose a project"
+                  formControlName="projectId"
+                  (close)="projectSearchText = ''">
+                  <ng-template ng-header-tmp>
+                    <div class="cs-dropdown-search">
+                      <input
+                        type="text"
+                        class="form-control form-control-sm cs-dropdown-search-input"
+                        placeholder="Search projects…"
+                        [value]="projectSearchText"
+                        (input)="projectSearchText = $any($event.target).value"
+                        (click)="$event.stopPropagation()"
+                        autofocus>
+                    </div>
+                  </ng-template>
+                </ng-select>
+                <div class="invalid-feedback d-block" *ngIf="fieldError('projectId')">{{ fieldError('projectId') }}</div>
+              </div>
+
+              <!-- Vehicle -->
+              <div class="col-12 col-md-6">
+                <label class="form-label">Vehicle <span class="text-danger">*</span></label>
+                <ng-select
+                  class="cs-select"
+                  [items]="filteredVehicles"
+                  bindLabel="name"
+                  bindValue="id"
+                  [searchable]="false"
+                  [clearable]="true"
+                  [loading]="loadingVehicles"
+                  [placeholder]="snagForm.get('projectId')?.value ? 'Choose a vehicle' : 'Select a project first'"
+                  formControlName="vehicleId"
+                  (close)="vehicleSearchText = ''">
+                  <ng-template ng-header-tmp *ngIf="vehicles.length > 0">
+                    <div class="cs-dropdown-search">
+                      <input
+                        type="text"
+                        class="form-control form-control-sm cs-dropdown-search-input"
+                        placeholder="Search vehicles…"
+                        [value]="vehicleSearchText"
+                        (input)="vehicleSearchText = $any($event.target).value"
+                        (click)="$event.stopPropagation()"
+                        autofocus>
+                    </div>
+                  </ng-template>
+                </ng-select>
+                <div class="form-text"
+                     *ngIf="snagForm.get('projectId')?.value && !loadingVehicles && vehicles.length === 0">
+                  No vehicles found for this project.
+                </div>
+                <div class="invalid-feedback d-block" *ngIf="fieldError('vehicleId')">{{ fieldError('vehicleId') }}</div>
+              </div>
+
+              <!-- Inspector -->
+              <div class="col-12 col-md-6">
+                <label class="form-label">Inspector <span class="text-danger">*</span></label>
+                <ng-select
+                  *ngIf="isAdmin; else inspectorReadonly"
+                  class="cs-select"
+                  [items]="filteredInspectors"
+                  bindLabel="name"
+                  bindValue="id"
+                  [searchable]="false"
+                  [clearable]="false"
+                  placeholder="Choose an inspector"
+                  formControlName="userId"
+                  (close)="inspectorSearchText = ''">
+                  <ng-template ng-header-tmp>
+                    <div class="cs-dropdown-search">
+                      <input
+                        type="text"
+                        class="form-control form-control-sm cs-dropdown-search-input"
+                        placeholder="Search inspectors…"
+                        [value]="inspectorSearchText"
+                        (input)="inspectorSearchText = $any($event.target).value"
+                        (click)="$event.stopPropagation()"
+                        autofocus>
+                    </div>
+                  </ng-template>
+                </ng-select>
+                <ng-template #inspectorReadonly>
+                  <input type="text" class="form-control" [value]="currentUser.name" readonly>
+                </ng-template>
+                <div class="form-text" *ngIf="isAdmin">Defaults to you. Admins may assign to another inspector.</div>
+                <div class="invalid-feedback d-block" *ngIf="fieldError('userId')">{{ fieldError('userId') }}</div>
+              </div>
+
+              <!-- Category (Final Inspection Area) -->
+              <div class="col-12 col-md-6">
+                <label class="form-label">Category <span class="text-danger">*</span></label>
+                <ng-select
+                  class="cs-select"
+                  [items]="filteredCategories"
+                  bindLabel="name"
+                  bindValue="id"
+                  [searchable]="false"
+                  [clearable]="true"
+                  placeholder="Choose a category"
+                  formControlName="finalInspectionCategoryId"
+                  (close)="categorySearchText = ''">
+                  <ng-template ng-header-tmp>
+                    <div class="cs-dropdown-search">
+                      <input
+                        type="text"
+                        class="form-control form-control-sm cs-dropdown-search-input"
+                        placeholder="Search categories…"
+                        [value]="categorySearchText"
+                        (input)="categorySearchText = $any($event.target).value"
+                        (click)="$event.stopPropagation()"
+                        autofocus>
+                    </div>
+                  </ng-template>
+                </ng-select>
+                <div class="invalid-feedback d-block" *ngIf="fieldError('finalInspectionCategoryId')">{{ fieldError('finalInspectionCategoryId') }}</div>
+              </div>
+
+              <!-- Safety Critical -->
+              <div class="col-12 col-sm-6 col-lg-3">
+                <label class="form-label">Safety Critical <span class="text-danger">*</span></label>
+                <div class="cs-toggle-group" role="group" aria-label="Safety critical">
+                  <input type="radio" class="btn-check" id="safety-no"  [value]="false" formControlName="safetyCritical">
+                  <label class="btn btn-outline-secondary" for="safety-no">No</label>
+                  <input type="radio" class="btn-check" id="safety-yes" [value]="true"  formControlName="safetyCritical">
+                  <label class="btn btn-outline-secondary" for="safety-yes">Yes</label>
+                </div>
+              </div>
+
+              <!-- Repeater -->
+              <div class="col-12 col-sm-6 col-lg-3">
+                <label class="form-label">Repeater <span class="text-danger">*</span></label>
+                <div class="cs-toggle-group" role="group" aria-label="Repeater">
+                  <input type="radio" class="btn-check" id="repeater-no"  [value]="false" formControlName="repeater">
+                  <label class="btn btn-outline-secondary" for="repeater-no">No</label>
+                  <input type="radio" class="btn-check" id="repeater-yes" [value]="true"  formControlName="repeater">
+                  <label class="btn btn-outline-secondary" for="repeater-yes">Yes</label>
+                </div>
+              </div>
+
+              <!-- Description -->
+              <div class="col-12">
+                <label class="form-label">Description <span class="text-danger">*</span></label>
+                <textarea
+                  class="form-control cs-description"
+                  rows="5"
+                  formControlName="description"
+                  placeholder="Describe the defect in detail…"></textarea>
+                <div class="d-flex justify-content-between align-items-center mt-1">
+                  <div class="invalid-feedback d-block mb-0" *ngIf="fieldError('description')">{{ fieldError('description') }}</div>
+                  <div class="cs-character-count ms-auto">{{ descriptionLength }}/1000</div>
+                </div>
+              </div>
+
+              <!-- Images -->
+              <div class="col-12">
+                <label class="form-label">Images <span class="text-muted fs-12">(max 3)</span></label>
+                <div
+                  class="cs-upload-zone"
+                  [class.cs-upload-zone--active]="dragActive"
+                  tabindex="0"
+                  role="button"
+                  aria-label="Upload snag images"
+                  (click)="openFilePicker(fileInput)"
+                  (keydown.enter)="openFilePicker(fileInput)"
+                  (keydown.space)="openFilePicker(fileInput); $event.preventDefault()"
+                  (dragover)="onDragOver($event)"
+                  (dragleave)="onDragLeave($event)"
+                  (drop)="onDrop($event)">
+                  <input
+                    #fileInput
+                    type="file"
+                    class="d-none"
+                    accept="image/*"
+                    multiple
+                    (change)="onFileInputChange($event)">
+                  <div class="cs-upload-inner">
+                    <div class="cs-upload-icon">
+                      <i class="ti ti-camera"></i>
+                    </div>
+                    <p class="mb-1 fw-semibold">Drop up to 3 images here or click to upload</p>
+                    <p class="mb-0 text-muted fs-12">PNG, JPG, WEBP — max 5 MB each.</p>
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary btn-sm mt-3"
+                      [disabled]="imagePreviews.length >= maxImages"
+                      (click)="$event.stopPropagation(); openFilePicker(fileInput)">
+                      Choose Files
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Image preview grid -->
+                <div class="cs-image-grid mt-3" *ngIf="imagePreviews.length > 0">
+                  <div class="cs-image-card" *ngFor="let img of imagePreviews; let i = index">
+                    <img [src]="img.url" [alt]="img.file.name" class="cs-image-thumb">
+                    <div class="cs-image-meta">
+                      <span class="cs-image-name">{{ img.file.name }}</span>
+                      <span class="cs-image-size">{{ img.file.size / 1024 / 1024 | number:'1.1-1' }} MB</span>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-icon btn-light-danger"
+                      (click)="removeImage(i)"
+                      aria-label="Remove image">
+                      <i class="ti ti-x"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /row -->
+
+            <!-- Actions -->
+            <div class="cs-actions mt-4">
+              <div class="cs-actions-hint" *ngIf="snagForm.invalid && !submitting">
+                Complete the required fields to enable snag creation.
+              </div>
+              <button type="button" class="btn btn-light btn-wave" (click)="cancel()">Cancel</button>
+              <button
+                type="submit"
+                class="btn btn-primary btn-wave"
+                [disabled]="submitting || snagForm.invalid">
+                <span *ngIf="submitting" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                <i *ngIf="!submitting" class="ti ti-alert-triangle me-2"></i>
+                {{ submitting ? 'Saving…' : 'Create Snag' }}
+              </button>
+            </div>
+
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Right: summary sidebar ───────────────────────────────────────────── -->
+    <div class="col-12 col-xl-4">
+      <div class="card custom-card cs-summary-card">
+        <div class="card-header border-bottom">
+          <div class="card-title mb-0">Summary</div>
+        </div>
+        <div class="card-body">
+
+          <div class="cs-summary-section">
+            <div class="cs-summary-label">Project</div>
+            <div class="cs-summary-value">{{ summaryProject }}</div>
+          </div>
+
+          <div class="cs-summary-section">
+            <div class="cs-summary-label">Vehicle</div>
+            <div class="cs-summary-value">{{ summaryVehicle }}</div>
+          </div>
+
+          <div class="cs-summary-section">
+            <div class="cs-summary-label">Inspector</div>
+            <div class="cs-summary-value">{{ summaryInspector }}</div>
+          </div>
+
+          <div class="cs-summary-section">
+            <div class="cs-summary-label">Category</div>
+            <div class="cs-summary-value">{{ summaryCategory }}</div>
+          </div>
+
+          <div class="cs-summary-section">
+            <div class="cs-summary-label">Flags</div>
+            <div class="cs-summary-badges">
+              <span
+                class="badge"
+                [class.bg-danger-transparent]="snagForm.get('safetyCritical')?.value"
+                [class.bg-success-transparent]="!snagForm.get('safetyCritical')?.value">
+                {{ snagForm.get('safetyCritical')?.value ? 'Safety Critical' : 'Not Critical' }}
+              </span>
+              <span
+                class="badge"
+                [class.bg-warning-transparent]="snagForm.get('repeater')?.value"
+                [class.bg-light]="!snagForm.get('repeater')?.value">
+                {{ snagForm.get('repeater')?.value ? 'Repeater' : 'First Occurrence' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="cs-summary-section" *ngIf="snagForm.get('description')?.value?.trim()">
+            <div class="cs-summary-label">Description Preview</div>
+            <div class="cs-description-preview">{{ snagForm.get('description')?.value }}</div>
+          </div>
+
+          <div class="cs-summary-section" *ngIf="imagePreviews.length > 0">
+            <div class="cs-summary-label">Images ({{ imagePreviews.length }}/{{ maxImages }})</div>
+            <div class="cs-summary-image-row">
+              <img
+                *ngFor="let img of imagePreviews"
+                [src]="img.url"
+                [alt]="img.file.name"
+                class="cs-summary-thumb">
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row -->
+</div>

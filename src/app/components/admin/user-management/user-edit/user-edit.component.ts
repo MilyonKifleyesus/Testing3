@@ -29,6 +29,7 @@ interface UserEditorModel {
   role: string;
   status: string;
   language: string;
+  organization: string;
   clientId: string;
   manufacturerId: string;
   phone: string;
@@ -297,6 +298,7 @@ export class UserEditComponent implements OnInit {
       role: user.role || this.roles[0] || 'Admin',
       status: resolvedStatus,
       language: user.language || 'English',
+      organization: user.organization || '',
       clientId: this.normalizeOptionId(user.clientId),
       manufacturerId: this.normalizeOptionId(user.manufacturerId),
       phone: user.phone || '',
@@ -313,6 +315,7 @@ export class UserEditComponent implements OnInit {
       role: this.model.role.trim(),
       status: this.normalizeStatus(this.model.status),
       language: this.model.language.trim() || null,
+      organization: this.model.organization.trim() || null,
       clientId: this.normalizeOptionId(this.model.clientId),
       manufacturerId: this.normalizeOptionId(this.model.manufacturerId),
       phone: this.model.phone.trim() || null,
@@ -363,6 +366,7 @@ export class UserEditComponent implements OnInit {
       role: 'Admin',
       status: 'active',
       language: 'English',
+      organization: '',
       clientId: '',
       manufacturerId: '',
       phone: '',

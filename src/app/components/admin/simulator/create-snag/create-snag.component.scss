@@ -1,0 +1,260 @@
+:host {
+  display: block;
+}
+
+.cs-form-card,
+.cs-summary-card {
+  border: 1px solid var(--default-border, #d8dce6);
+  box-shadow: 0 0.5rem 1.25rem rgba(15, 23, 42, 0.06);
+}
+
+.cs-loading-state {
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: #64748b;
+}
+
+:host ::ng-deep .cs-select.ng-select .ng-select-container {
+  min-height: 44px;
+  border-radius: 0.65rem;
+  border-color: var(--default-border, #d8dce6);
+  font-size: 0.875rem;
+  box-shadow: none;
+}
+
+:host ::ng-deep .cs-select.ng-select .ng-value-container {
+  padding-left: 0.85rem;
+}
+
+:host ::ng-deep .cs-select.ng-select .ng-arrow-wrapper {
+  padding-right: 0.75rem;
+}
+
+:host ::ng-deep .cs-select.ng-select.ng-select-disabled > .ng-select-container {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+:host ::ng-deep .cs-select.ng-select.ng-select-focused:not(.ng-select-opened) > .ng-select-container,
+.cs-description:focus,
+.form-control:focus {
+  border-color: #5b8def;
+  box-shadow: 0 0 0 0.2rem rgba(91, 141, 239, 0.14);
+}
+
+.cs-description {
+  border-radius: 0.65rem;
+}
+
+:host ::ng-deep .cs-select .cs-dropdown-search {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--default-border, #d8dce6);
+}
+
+:host ::ng-deep .cs-select .cs-dropdown-search-input {
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  background: var(--custom-white, #fff);
+  color: var(--default-text-color, #212529);
+  border-color: var(--default-border, #d8dce6);
+}
+
+:host ::ng-deep .cs-select .cs-dropdown-search-input:focus {
+  border-color: #5b8def;
+  box-shadow: 0 0 0 0.15rem rgba(91, 141, 239, 0.18);
+  outline: none;
+}
+
+.cs-toggle-group {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.cs-toggle-group .btn {
+  border-radius: 0.65rem;
+  font-weight: 600;
+}
+
+.cs-toggle-group .btn-check:checked + .btn {
+  background: rgba(91, 141, 239, 0.14);
+  color: #2557b7;
+  border-color: rgba(91, 141, 239, 0.38);
+}
+
+.cs-character-count {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.cs-upload-zone {
+  border: 1px dashed #cbd5e1;
+  border-radius: 1rem;
+  padding: 2rem 1.25rem;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 1));
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+
+.cs-upload-zone:focus-visible {
+  outline: none;
+  border-color: #5b8def;
+  box-shadow: 0 0 0 0.2rem rgba(91, 141, 239, 0.14);
+}
+
+.cs-upload-zone--active {
+  border-color: #5b8def;
+  background: rgba(91, 141, 239, 0.06);
+  transform: translateY(-1px);
+}
+
+.cs-upload-inner {
+  text-align: center;
+}
+
+.cs-upload-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: 0 auto 1rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(91, 141, 239, 0.12);
+  color: #2557b7;
+  font-size: 1.6rem;
+}
+
+.cs-image-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.cs-image-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem;
+  border: 1px solid var(--default-border, #d8dce6);
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.cs-image-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  flex-shrink: 0;
+}
+
+.cs-image-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.cs-image-name {
+  font-weight: 600;
+  color: #0f172a;
+  word-break: break-word;
+  font-size: 0.875rem;
+}
+
+.cs-image-size {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.cs-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.cs-actions-hint {
+  margin-right: auto;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.cs-summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 1rem;
+}
+
+.cs-summary-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.cs-summary-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.cs-summary-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cs-description-preview {
+  min-height: 80px;
+  padding: 0.75rem 1rem;
+  border-radius: 0.85rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  white-space: pre-wrap;
+  font-size: 0.875rem;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.cs-summary-image-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cs-summary-thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 0.65rem;
+  border: 1px solid var(--default-border, #d8dce6);
+}
+
+.btn-light-danger {
+  color: #c2410c;
+  background: rgba(251, 146, 60, 0.12);
+  border-color: transparent;
+}
+
+@media (max-width: 767.98px) {
+  .cs-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .cs-actions-hint {
+    margin-right: 0;
+    text-align: center;
+  }
+
+  .cs-image-card {
+    align-items: flex-start;
+  }
+}

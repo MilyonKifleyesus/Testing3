@@ -50,7 +50,7 @@ export interface VehicleStats {
   totalAssets: number;
   ticketsChangePercentage: number | null | undefined;
   assetsChangePercentage: number | null | undefined;
-  ticketsStatus: 'increased' | 'decreased';
+  ticketsStatus: 'increased' | 'decreased' | null | undefined;
   assetsStatus: 'increased' | 'decreased';
 }
 
@@ -65,27 +65,34 @@ export type ProjectType = 'New Build' | 'Condition Assessment' | 'PDI' | 'Mid-Li
 export interface ProjectStats {
   projectId: string;
   projectName: string;
+  clientName?: string | null;
+  clientLogoUrl?: string | null;
+  manufacturerName?: string | null;
+  manufacturerLogoUrl?: string | null;
   projectType?: ProjectType | string | null;
   totalTickets: number;
   totalAssets: number;
   ticketsYesterday?: number | null;
   ticketsChangePercentage: number | null | undefined;
   assetsChangePercentage: number | null | undefined;
-  ticketsStatus: 'increased' | 'decreased';
+  ticketsStatus: 'increased' | 'decreased' | null | undefined;
   assetsStatus: 'increased' | 'decreased';
   vehicleName?: string;
   vehicles: VehicleStats[];
   // Enriched from GET /tickets/dashboard?projectId={id}
   safetyCriticalTickets?: number;
   repeatedTickets?: number;
-  repeatedPercent?: number;
-  safetyCriticalPercent?: number;
+  repeatedPercent?: number | null;
+  safetyCriticalPercent?: number | null;
   // Enriched from GET /Projects?clientId={id}
   progress?: number;
   // Enriched from GET /StationTrackers?projectId={id}
   lastActivityDate?: string | null;
   lastStationName?: string | null;
   inspectors?: ProjectInspector[];
+  status?: string | null;
+  statusMeta?: string | null;
+  statusTone?: string | null;
   /**
    * Optional sparkline history — populated when
    * GET /dashboard/stats/history?projectId={id}&periods=10 is available.
@@ -109,11 +116,48 @@ export interface TicketsByStatusData {
   ticketsByStatus?: TicketStatusItem[];
 }
 
+export interface TicketsByVehicleItem {
+  vehicleName: string;
+  openCount: number;
+  closedCount: number;
+}
+
+export interface TicketsByVehicleData {
+  ticketsByVehicle?: TicketsByVehicleItem[];
+}
+
 export interface RecentActivity {
   lastSync: string;
   ticketsGenerated: number;
   hoursWorked: number;
   inspector: string;
+}
+
+export interface InspectorTimeEntry {
+  id: number;
+  name: string;
+  avatarUrl?: string | null;
+  hours: number;
+  inspections: number;
+  avgHoursPerInspection: number;
+  trendPercent?: number;
+  projectCount?: number;
+}
+
+export interface InspectionTimeData {
+  title: string;
+  dateRange: { start: string; end: string };
+  totals: { hours: number; inspections: number };
+  inspectors: InspectorTimeEntry[];
+}
+
+export interface ProjectDurationItem {
+  projectId: string;
+  projectName: string;
+  projectType: string;
+  durationDays: number;
+  startDate: string | null;
+  endDate: string | null;
 }
 
 export interface ClientDashboardResponse {

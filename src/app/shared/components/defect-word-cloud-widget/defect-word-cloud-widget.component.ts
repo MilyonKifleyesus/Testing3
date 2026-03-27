@@ -123,6 +123,8 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
   private svg: any;
   private g: any;
   private resizeObserver: ResizeObserver | null = null;
+  private resizeDebounceTimer: number | null = null;
+  private themeObserver: MutationObserver | null = null;
   private activeLayout: any = null;
 
   constructor(
@@ -144,27 +146,124 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
     this.updateDimensionsFromContainer();
     this.resizeObserver = new ResizeObserver(() => {
       this.updateDimensionsFromContainer();
-      if (!this.loading) this.renderCloud();
+      if (this.loading) return;
+
+      // Debounce to ensure the final (post-layout) dimensions are used.
+      if (this.resizeDebounceTimer !== null) window.clearTimeout(this.resizeDebounceTimer);
+      this.resizeDebounceTimer = window.setTimeout(() => {
+        this.resizeDebounceTimer = null;
+        this.renderCloud();
+      }, 120);
     });
     this.resizeObserver.observe(this.cloudContainer.nativeElement);
+    this.observeThemeChanges();
   }
 
   ngOnDestroy() {
     this.activeLayout?.stop();
     this.resizeObserver?.disconnect();
+    if (this.resizeDebounceTimer !== null) window.clearTimeout(this.resizeDebounceTimer);
+    this.themeObserver?.disconnect();
   }
 
   private updateDimensionsFromContainer() {
     const el = this.cloudContainer?.nativeElement;
     if (!el) return;
-    const w = el.clientWidth || this.width;
-    const h = el.clientHeight || this.height;
+    // Use bounding rect to avoid transient 0 values during flex/grid reflow.
+    // Do NOT fall back to @Input sizes when the element is not measurable;
+    // renderCloud() has a separate guard to avoid stale layouts.
+    const rect = el.getBoundingClientRect();
+    const w = rect.width > 0 ? Math.round(rect.width) : 0;
+    const h = rect.height > 0 ? Math.round(rect.height) : 0;
     this.dimensions = { width: w, height: h };
+  }
+
+  private isDarkTheme(): boolean {
+    const html = document.documentElement;
+    return html.getAttribute('data-theme-mode') === 'dark' || html.classList.contains('dark');
+  }
+
+  private observeThemeChanges(): void {
+    this.themeObserver?.disconnect();
+    this.themeObserver = new MutationObserver(() => this.applyTooltipTheme());
+    this.themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme-mode', 'class']
+    });
+  }
+
+  private getTooltipPalette() {
+    const styles = getComputedStyle(this.cloudContainer?.nativeElement ?? document.documentElement);
+    const read = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
+
+    return {
+      background: read('--wc-tooltip-bg', '#ffffff'),
+      border: read('--wc-tooltip-border', 'rgba(0,0,0,0.12)'),
+      color: read('--wc-tooltip-text', '#1d212f'),
+      shadow: read('--wc-tooltip-shadow', '0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08)'),
+      title: read('--wc-tooltip-title', '#0f172a'),
+      count: read('--wc-tooltip-count', '#64748b'),
+      label: read('--wc-tooltip-label', '#475569'),
+      dotBorder: read('--wc-tooltip-dot-border', 'rgba(0,0,0,0.15)'),
+      sample: read('--wc-tooltip-sample', '#334155'),
+      divider: read('--wc-tooltip-divider', 'rgba(0,0,0,0.1)'),
+      sampleLabel: read('--wc-tooltip-sample-label', '#94a3b8'),
+    };
+  }
+
+  private applyTooltipTheme() {
+    const palette = this.getTooltipPalette();
+    if (!this.cloudContainer?.nativeElement) {
+      return palette;
+    }
+
+    const tooltipEl = d3.select(this.cloudContainer.nativeElement).select('.wc-tooltip');
+    if (!tooltipEl.empty()) {
+      tooltipEl
+        .style('background', palette.background)
+        .style('border', `1px solid ${palette.border}`)
+        .style('color', palette.color)
+        .style('box-shadow', palette.shadow);
+    }
+
+    return palette;
+  }
+
+  private getResponsiveWordLimit(): number {
+    const { width } = this.dimensions;
+    if (width < 360) return 22;
+    if (width < 480) return 30;
+    if (width < 640) return 40;
+    return 60;
+  }
+
+  private getResponsiveFontRange(words: WordFreq[]): [number, number] {
+    const { width, height } = this.dimensions;
+    const minFont = width < 360 ? 12 : width < 480 ? 13 : width < 640 ? 14 : 16;
+    const maxByWidth = width < 360 ? 42 : width < 480 ? 50 : width < 640 ? 60 : 82;
+    const maxByHeight = Math.max(minFont + 10, Math.floor(height * 0.22));
+    const longestWord = words.reduce((max, word) => Math.max(max, word.text.length), 1);
+    const maxByLongestWord = Math.max(
+      minFont + 12,
+      Math.floor((width * 0.84) / Math.max(longestWord * 0.62, 1))
+    );
+    const maxFont = Math.max(minFont + 8, Math.min(maxByWidth, maxByHeight, maxByLongestWord));
+
+    return [minFont, maxFont];
+  }
+
+  private getWordSizeLimit(word: string): number {
+    const { width, height } = this.dimensions;
+    const wordLength = Math.max(word.length, 1);
+    const widthCap = (width * 0.88) / Math.max(wordLength * 0.62, 1);
+    const heightCap = height * 0.24;
+
+    return Math.max(12, Math.min(widthCap, heightCap, 82));
   }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['width'] || changes['height']) {
-      this.dimensions = { width: this.width, height: this.height };
+      // Always measure from the real container — never override with static input values.
       this.renderCloud();
     }
 
@@ -365,11 +464,17 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
     }
 
     this.updateDimensionsFromContainer();
+    const layoutWidth = this.dimensions.width;
+    const layoutHeight = this.dimensions.height;
+
+    // If hidden (e.g. [hidden] toggled) or not yet measurable, skip rendering.
+    // ResizeObserver will re-trigger once visible.
+    if (layoutWidth < 120 || layoutHeight < 120) return;
 
     // Clear the canvas immediately so old words don't linger
     d3.select(this.cloudContainer.nativeElement).select('svg').remove();
 
-    const words = this.processWords().slice(0, 60); // Keep fewer words so the dominant terms stay visually clear.
+    const words = this.processWords().slice(0, this.getResponsiveWordLimit()); // Keep fewer words so the dominant terms stay visually clear.
 
     if (words.length === 0) {
       return;
@@ -378,45 +483,53 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
     const sortedCounts = words.map(w => w.count).sort((a, b) => a - b);
     const minCount = sortedCounts[0];
     const maxCount = sortedCounts[sortedCounts.length - 1];
+    const [minFont, maxFont] = this.getResponsiveFontRange(words);
+    const defaultFont = Math.max(minFont, Math.round((minFont + maxFont) / 2));
 
     // Scale font sizes relative to the current filtered dataset so the word
     // cloud always fills the container — even when filter results are sparse.
     const sizeScale = d3.scaleSqrt()
       .domain([minCount, maxCount])
-      .range(minCount === maxCount ? [34, 34] : [16, 82])
+      .range(minCount === maxCount ? [defaultFont, defaultFont] : [minFont, maxFont])
       .clamp(true);
 
+    const wordPadding = layoutWidth < 420 ? 4 : layoutWidth < 640 ? 6 : 8;
+
     this.activeLayout = cloud()
-      .size([this.dimensions.width, this.dimensions.height])
+      .size([layoutWidth, layoutHeight])
       .words(words.map(w => {
         const { color, label } = this.getFrequencyInfo(w.count, sortedCounts);
-        return { ...w, size: sizeScale(w.count), baseColor: color, frequencyLabel: label };
+        const responsiveSize = Math.max(minFont, Math.min(sizeScale(w.count), this.getWordSizeLimit(w.text)));
+        return { ...w, size: responsiveSize, baseColor: color, frequencyLabel: label };
       }))
-      .padding(8)
+      .padding(wordPadding)
       .rotate(() => 0)
       .font('Impact')
       .fontSize((d: any) => d.size)
       .on('end', (layoutWords: any[]) => {
+        // Prevent stale layouts from drawing after a resize-triggered re-layout.
+        const widthStillMatches = Math.abs(this.dimensions.width - layoutWidth) <= 2;
+        const heightStillMatches = Math.abs(this.dimensions.height - layoutHeight) <= 2;
+        if (!widthStillMatches || !heightStillMatches) return;
+
         this.activeLayout = null;
-        this.draw(layoutWords);
+        this.draw(layoutWords, layoutWidth, layoutHeight);
       });
 
     this.activeLayout.start();
   }
 
-  draw(words: any[]) {
-    // Re-read container size at draw time — it may have changed since layout started.
-    this.updateDimensionsFromContainer();
-    const { width, height } = this.dimensions;
+  draw(words: any[], width: number, height: number) {
 
     d3.select(this.cloudContainer.nativeElement).select('svg').remove();
 
     this.svg = d3.select(this.cloudContainer.nativeElement)
       .append('svg')
-      .attr('width', width)
-      .attr('height', height)
       .attr('viewBox', `0 0 ${width} ${height}`)
-      .attr('preserveAspectRatio', 'xMidYMid meet');
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .style('width', '100%')
+      .style('height', '100%')
+      .style('display', 'block');
 
     this.g = this.svg.append('g')
       .attr('transform', `translate(${width / 2},${height / 2})`);
@@ -454,15 +567,6 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
     // Add tooltip div — use wc-tooltip to avoid Bootstrap's .tooltip { opacity: 0 } conflict.
     // All styles are applied inline via D3 because Angular's style encapsulation prevents
     // component SCSS from targeting dynamically-created D3 elements.
-    const isDark = document.documentElement.getAttribute('data-theme-mode') === 'dark'
-      || document.documentElement.classList.contains('dark');
-    const tooltipBg    = isDark ? '#1a1a2e'              : '#ffffff';
-    const tooltipBorder= isDark ? 'rgba(255,255,255,0.1)': 'rgba(0,0,0,0.12)';
-    const tooltipColor = isDark ? '#e8e8f0'              : '#1d212f';
-    const tooltipShadow= isDark
-      ? '0 8px 24px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.35)'
-      : '0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08)';
-
     d3.select(this.cloudContainer.nativeElement).select('.wc-tooltip').remove();
     d3.select(this.cloudContainer.nativeElement)
       .append('div')
@@ -471,17 +575,19 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
       .style('opacity', '0')
       .style('pointer-events', 'none')
       .style('transition', 'opacity 0.15s ease')
-      .style('background', tooltipBg)
-      .style('border', `1px solid ${tooltipBorder}`)
+      .style('background', '#ffffff')
+      .style('border', '1px solid rgba(0,0,0,0.12)')
       .style('border-radius', '8px')
       .style('padding', '10px 14px')
-      .style('box-shadow', tooltipShadow)
+      .style('box-shadow', '0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.08)')
       .style('max-width', '280px')
       .style('font-size', '12px')
       .style('line-height', '1.5')
-      .style('color', tooltipColor)
+      .style('color', '#1d212f')
       .style('z-index', '1000')
       .style('white-space', 'normal');
+
+    this.applyTooltipTheme();
   }
 
   showTooltip(event: any, d: any) {
@@ -493,25 +599,20 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
     const cursorY = event.clientY - containerRect.top;
 
     const word = d.text.toLowerCase();
-    const dark = document.documentElement.getAttribute('data-theme-mode') === 'dark'
-      || document.documentElement.classList.contains('dark');
-    const titleColor   = dark ? '#ffffff' : '#0f172a';
-    const countColor   = dark ? '#8888aa' : '#64748b';
-    const labelColor   = dark ? '#b0b0cc' : '#475569';
-    const dotBorder    = dark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)';
-    const sampleColor  = dark ? '#c8c8d8' : '#334155';
-    const dividerColor = dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
-    const sampleLabel  = dark ? '#7878a0' : '#94a3b8';
+    const palette = this.applyTooltipTheme();
+    const countColor = palette.count;
+    const dotBorder = palette.dotBorder;
+    const labelColor = palette.label;
 
     const matchingDescsThemed = this.getFilteredTickets()
       .filter(t => t.ticketDescription.toLowerCase().includes(word))
       .slice(0, 3)
-      .map(t => `<li style="margin-bottom:4px;color:${sampleColor};">${t.ticketDescription.trim()}</li>`)
+      .map(t => `<li style="margin-bottom:4px;color:${palette.sample};">${t.ticketDescription.trim()}</li>`)
       .join('');
 
     const samplesHtmlThemed = matchingDescsThemed
-      ? `<div style="margin-top:8px;padding-top:7px;border-top:1px solid ${dividerColor};">
-           <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:${sampleLabel};margin-bottom:4px;">Sample Tickets</div>
+      ? `<div style="margin-top:8px;padding-top:7px;border-top:1px solid ${palette.divider};">
+           <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:${palette.sampleLabel};margin-bottom:4px;">Sample Tickets</div>
            <ul style="margin:0;padding-left:14px;">${matchingDescsThemed}</ul>
          </div>`
       : '';
@@ -523,8 +624,9 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
       .style('left', '-9999px')
       .style('top', '-9999px')
       .style('opacity', '0')
+      .style('max-width', `${Math.max(180, Math.min(320, container.clientWidth - 12))}px`)
       .html(`<div style="display:flex;align-items:baseline;gap:8px;">
-               <strong style="font-size:14px;color:${titleColor};letter-spacing:0.02em;">${d.text}</strong>
+               <strong style="font-size:14px;color:${palette.title};letter-spacing:0.02em;">${d.text}</strong>
                <span style="font-size:12px;color:${countColor};font-weight:500;">×${d.count}</span>
              </div>
              <div style="display:flex;align-items:center;gap:6px;margin-top:5px;">
@@ -642,8 +744,7 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
         canvas.height = height;
         const ctx = canvas.getContext('2d')!;
         // Fill background to match card
-        const isDark = document.documentElement.getAttribute('data-theme-mode') === 'dark'
-          || document.documentElement.classList.contains('dark');
+        const isDark = this.isDarkTheme();
         ctx.fillStyle = isDark ? '#0e0e23' : '#fafafa';
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);

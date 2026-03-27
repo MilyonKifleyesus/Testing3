@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse } from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
+import { takeUntil, catchError } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
 import { environment } from '../../../environments/environment';
 
@@ -18,7 +18,13 @@ export class AuthInterceptor implements HttpInterceptor {
     return next.handle(
       req.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
     ).pipe(
-      takeUntil(this.auth.logout$)   // abort request immediately on logout
+      takeUntil(this.auth.logout$),
+      catchError((err: HttpErrorResponse) => {
+        if (err.status === 401) {
+          this.auth.logout();
+        }
+        return throwError(() => err);
+      }),
     );
   }
 }

@@ -226,6 +226,12 @@ export const adminRoutingModule: Routes = [
     loadComponent: () => import('./snags/snags.component').then(m => m.SnagsComponent)
   },
   {
+    path: 'snags/new',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
+    loadComponent: () => import('./simulator/create-snag/create-snag.component').then(m => m.CreateSnagComponent)
+  },
+  {
     path: 'tickets/new',
     canActivate: [roleGuard],
     data: { roles: ['superadmin', 'admin'] },
