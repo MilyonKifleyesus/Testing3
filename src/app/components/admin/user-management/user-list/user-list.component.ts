@@ -134,9 +134,9 @@ export class UserListComponent implements OnInit, OnDestroy {
           name: user.name,
           email: user.email,
           role: user.role,
-          clientName: user.clientName,
-          manufacturerName: user.manufacturerName,
-          deleted: user.deleted,
+          clientName: user.clientName ?? '',
+          manufacturerName: user.manufacturerName ?? '',
+          deleted: !!user.deleted,
         }));
         this.totalCount = totalCount;
         this.isLoading = false;

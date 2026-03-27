@@ -9,6 +9,7 @@ import { parsePagedResponse } from './adapters/paged-response.adapter';
 export interface DashboardProjectOption {
   id: string;
   name: string;
+  projectTypeName?: string;
   clientId?: string;
   status?: string;
   isClosed?: boolean;
@@ -46,6 +47,7 @@ export interface DashboardTicketsDashboardResult {
   safetyCriticalTickets?: number;
   repeatedPercent?: number;
   safetyCriticalPercent?: number;
+  overallByArea?: Array<{ name?: string; area?: string; value?: number; count?: number }>;
   projectsByArea?: ProjectsByAreaPayload;
   [key: string]: unknown;
 }
@@ -181,6 +183,7 @@ export class DashboardProjectsService {
                   item?.Project_Name ??
                   item?.title ??
                   `Project ${item?.id ?? item?.projectId ?? ''}`,
+                projectTypeName: this.extractProjectTypeName(item),
                 status: String(
                   item?.status ??
                   item?.Status ??
@@ -478,46 +481,6 @@ export class DashboardProjectsService {
       'All Propulsion Types',
     );
   }
-
-
-  getAllVehiclesForProjects(params: {
-    projectIds?: string[];
-    clientId?: number;
-    includeClosed?: boolean;
-  } = {}): Observable<any[]> {
-    const { projectIds, clientId, includeClosed } = params;
-    const normalizedProjectIds = Array.from(new Set(
-      (projectIds ?? [])
-        .map((id) => this.normalizeProjectId(id))
-        .filter((id) => !!id),
-    ));
-
-    if (normalizedProjectIds.length >= 1) {
-      return forkJoin(
-        normalizedProjectIds.map((projectId) => {
-          const encodedId = encodeURIComponent(projectId);
-          return this.http
-            .get<unknown>(`${this.apiBaseUrl}/projects/${encodedId}/vehicles`)
-            .pipe(
-              map((response) => extractArrayFromApiResponse(response)),
-              catchError(() => of([] as any[])),
-            );
-        }),
-      ).pipe(
-        map((arrays) => arrays.flat()),
-        catchError(() => of([] as any[])),
-      );
-    }
-
-    const httpParams = new HttpParams()
-      .set('clientId', String(clientId ?? 0))
-      .set('includeClosed', String(includeClosed ?? false));
-    return this.http.get<unknown>(`${this.apiBaseUrl}/Vehicles`, { params: httpParams }).pipe(
-      map((response) => extractArrayFromApiResponse(response)),
-      catchError(() => of([] as any[])),
-    );
-  }
-
 
   private getVehiclesDistributionData(
     params: {
@@ -1500,6 +1463,43 @@ export class DashboardProjectsService {
     }
 
     return trimmed;
+  }
+
+  private extractProjectTypeName(item: any): string | undefined {
+    const directValue =
+      item?.projectTypeName ??
+      item?.ProjectTypeName ??
+      item?.project_type_name ??
+      item?.projectType ??
+      item?.ProjectType ??
+      item?.projectTypeInfo ??
+      item?.ProjectTypeInfo;
+
+    if (typeof directValue === 'string' || typeof directValue === 'number') {
+      const nextText = String(directValue).trim();
+      return nextText || undefined;
+    }
+
+    const objectValue =
+      (directValue && typeof directValue === 'object' ? directValue : null) ??
+      (item?.projectTypeInfo && typeof item.projectTypeInfo === 'object' ? item.projectTypeInfo : null) ??
+      (item?.ProjectTypeInfo && typeof item.ProjectTypeInfo === 'object' ? item.ProjectTypeInfo : null);
+
+    if (!objectValue) {
+      return undefined;
+    }
+
+    const nestedText = String(
+      objectValue?.name ??
+      objectValue?.Name ??
+      objectValue?.projectTypeName ??
+      objectValue?.ProjectTypeName ??
+      objectValue?.label ??
+      objectValue?.Label ??
+      '',
+    ).trim();
+
+    return nestedText || undefined;
   }
 
   private inferProjectClosedState(item: any): boolean | undefined {

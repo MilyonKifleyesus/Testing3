@@ -54,7 +54,6 @@ export interface UserListItem {
   lastName?: string;
   picture?: string | null;
   username?: string;
-  userName?: string;
 }
 
 export interface UserListResult {
@@ -293,6 +292,7 @@ export class UserManagementService {
   private readonly usersQueryCache = new Map<string, Observable<UserListResult>>();
   private readonly inspectorStatsCache = new Map<number, Observable<InspectorStatistics | null>>();
   private readonly rolesFetchPageSize = 100;
+  private readonly defaultFetchPageSize = 100;
   private readonly requestTimeoutMs = 10_000;
 
   constructor(private readonly http: HttpClient) {}
@@ -408,8 +408,8 @@ export class UserManagementService {
             const expectedEmail = String(body.email ?? '').trim().toLowerCase();
             const expectedUsername = String(body.username ?? '').trim().toLowerCase();
             const matchedUser = result.items.find((user) =>
-              user.email.trim().toLowerCase() === expectedEmail ||
-              user.username.trim().toLowerCase() === expectedUsername,
+              String(user.email ?? '').trim().toLowerCase() === expectedEmail ||
+              String(user.userName ?? '').trim().toLowerCase() === expectedUsername,
             );
 
             if (!matchedUser) {

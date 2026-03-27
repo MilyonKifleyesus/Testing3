@@ -159,35 +159,6 @@
                   </div>
                 </div>
                 <div class="widget-header-actions">
-                  <ng-container *ngIf="widget.id === 'widget-11'">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                      (click)="previousStationTypeHeatmapPage()"
-                      [disabled]="widget.loading || !hasStationTypeHeatmapPreviousPage"
-                      title="Previous page"
-                      aria-label="Previous page"
-                    >
-                      <i class="ti ti-chevron-left"></i>
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                      (click)="nextStationTypeHeatmapPage()"
-                      [disabled]="widget.loading || !stationTypeHeatmapHasNextPage"
-                      title="Next page"
-                      aria-label="Next page"
-                    >
-                      <i class="ti ti-chevron-right"></i>
-                    </button>
-                    <span
-                      class="small text-muted"
-                      title="Showing station type record set {{ stationTypeHeatmapPage }}. Data is split into sets so the chart loads faster and stays responsive."
-                    >
-                      Record Set {{ stationTypeHeatmapPage }} ({{ stationTypeHeatmapPageSize }} timelines per set)
-                    </span>
-                  </ng-container>
-
                   <ng-container *ngIf="widget.id === 'widget-12'">
                     <button
                       type="button"
@@ -465,14 +436,43 @@
                     class="widget-chart-scroll"
                     [class.widget-chart-scroll--comparison]="widget.id === 'widget-12'"
                     [class.widget-chart-scroll--station-heatmap]="widget.id === 'widget-11'"
+                    [class.widget-chart-scroll--no-scroll]="widget.id === 'widget-11' && !!widget.chartOptions?.__disableScroll"
                     [class.widget-content-blur]="widget.loading"
                   >
+                    <div
+                      *ngIf="widget.id === 'widget-11' && widget.chartOptions?.__projectTypeLegendItems?.length"
+                      class="widget-11-project-type-legend"
+                    >
+                      <span
+                        *ngFor="let item of widget.chartOptions.__projectTypeLegendItems; trackBy: trackByIndex"
+                        class="widget-11-project-type-legend__item"
+                      >
+                        <span class="widget-11-project-type-legend__swatch" [style.background]="item.color"></span>
+                        <span class="widget-11-project-type-legend__label">{{ item.label }}</span>
+                      </span>
+                    </div>
                     <spk-apex-charts
                       *ngIf="widget.chartOptions"
                       [chartOptions]="widget.chartOptions"
                       [style.height.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostHeight || widget.chartOptions.chart?.height)) || (widget.id === 'widget-12' ? 760 : (widget.id === 'widget-11' ? 760 : 600))"
                       [style.min-width.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostWidth || widget.chartOptions.chart?.width)) || (widget.id === 'widget-12' ? 1600 : (widget.id === 'widget-11' ? 1600 : 1200))">
                     </spk-apex-charts>
+                    <div
+                      *ngIf="widget.id === 'widget-11' && getWidget11TopCategoryLabels(widget.chartOptions).length"
+                      class="widget-11-top-categories"
+                      [style.min-width.px]="(widget.chartOptions && (widget.chartOptions.__calculatedHostWidth || widget.chartOptions.chart?.width)) || 1600"
+                      [style.padding-left.px]="widget.chartOptions?.__widget11TopLabelsLeftPad || 266"
+                      [style.padding-right.px]="widget.chartOptions?.__widget11TopLabelsRightPad || 22"
+                      [style.grid-template-columns]="'repeat(' + getWidget11TopCategoryLabels(widget.chartOptions).length + ', minmax(0, 1fr))'"
+                      [style.--widget11-top-label-rotate]="(widget.chartOptions?.__widget11TopLabelsRotateDeg || 35) + 'deg'"
+                    >
+                      <span
+                        *ngFor="let category of getWidget11TopCategoryLabels(widget.chartOptions); trackBy: trackByIndex"
+                        class="widget-11-top-categories__label"
+                      >
+                        {{ category }}
+                      </span>
+                    </div>
                   </div>
                 </ng-container>
                 <ng-container *ngIf="widget.id !== 'widget-16' && widget.id !== 'widget-15' && widget.id !== 'widget-12' && widget.id !== 'widget-11' && widget.id !== 'widget-13' && widget.id !== 'widget-project-activities'">
@@ -669,35 +669,6 @@
         <div class="fullscreen-header" *ngIf="fullscreenWidget">
           <h3>{{ fullscreenWidget.title }}</h3>
           <div class="d-flex align-items-center gap-2">
-            <ng-container *ngIf="fullscreenWidget.id === 'widget-11'">
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                (click)="previousStationTypeHeatmapPage()"
-                [disabled]="fullscreenWidget.loading || !hasStationTypeHeatmapPreviousPage"
-                title="Previous page"
-                aria-label="Previous page"
-              >
-                <i class="ti ti-chevron-left"></i>
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-success vehicle-station-page-btn"
-                (click)="nextStationTypeHeatmapPage()"
-                [disabled]="fullscreenWidget.loading || !stationTypeHeatmapHasNextPage"
-                title="Next page"
-                aria-label="Next page"
-              >
-                <i class="ti ti-chevron-right"></i>
-              </button>
-              <span
-                class="small text-muted"
-                title="Showing station type record set {{ stationTypeHeatmapPage }}. Data is split into sets so the chart loads faster and stays responsive."
-              >
-                Record Set {{ stationTypeHeatmapPage }} ({{ stationTypeHeatmapPageSize }} timelines per set)
-              </span>
-            </ng-container>
-
             <ng-container *ngIf="fullscreenWidget.id === 'widget-12'">
               <button
                 type="button"
@@ -877,13 +848,42 @@
               class="widget-chart-scroll"
               [class.widget-chart-scroll--comparison]="fullscreenWidget.id === 'widget-12'"
               [class.widget-chart-scroll--station-heatmap]="fullscreenWidget.id === 'widget-11'"
+              [class.widget-chart-scroll--no-scroll]="fullscreenWidget.id === 'widget-11' && !!fullscreenWidget.chartOptions?.__disableScroll"
             >
+              <div
+                *ngIf="fullscreenWidget.id === 'widget-11' && fullscreenWidget.chartOptions?.__projectTypeLegendItems?.length"
+                class="widget-11-project-type-legend"
+              >
+                <span
+                  *ngFor="let item of fullscreenWidget.chartOptions.__projectTypeLegendItems; trackBy: trackByIndex"
+                  class="widget-11-project-type-legend__item"
+                >
+                  <span class="widget-11-project-type-legend__swatch" [style.background]="item.color"></span>
+                  <span class="widget-11-project-type-legend__label">{{ item.label }}</span>
+                </span>
+              </div>
               <spk-apex-charts
                 *ngIf="fullscreenWidget.chartOptions"
                 [chartOptions]="fullscreenWidget.chartOptions"
                 [style.height.px]="(fullscreenWidget.chartOptions && (fullscreenWidget.chartOptions.__calculatedHostHeight || fullscreenWidget.chartOptions.chart?.height)) || (fullscreenWidget.id === 'widget-12' ? 760 : (fullscreenWidget.id === 'widget-11' ? 760 : 600))"
                 [style.min-width.px]="(fullscreenWidget.chartOptions && (fullscreenWidget.chartOptions.__calculatedHostWidth || fullscreenWidget.chartOptions.chart?.width)) || (fullscreenWidget.id === 'widget-12' ? 1600 : (fullscreenWidget.id === 'widget-11' ? 1600 : 1200))"
               ></spk-apex-charts>
+              <div
+                *ngIf="fullscreenWidget.id === 'widget-11' && getWidget11TopCategoryLabels(fullscreenWidget.chartOptions).length"
+                class="widget-11-top-categories"
+                [style.min-width.px]="(fullscreenWidget.chartOptions && (fullscreenWidget.chartOptions.__calculatedHostWidth || fullscreenWidget.chartOptions.chart?.width)) || 1600"
+                [style.padding-left.px]="fullscreenWidget.chartOptions?.__widget11TopLabelsLeftPad || 266"
+                [style.padding-right.px]="fullscreenWidget.chartOptions?.__widget11TopLabelsRightPad || 22"
+                [style.grid-template-columns]="'repeat(' + getWidget11TopCategoryLabels(fullscreenWidget.chartOptions).length + ', minmax(0, 1fr))'"
+                [style.--widget11-top-label-rotate]="(fullscreenWidget.chartOptions?.__widget11TopLabelsRotateDeg || 35) + 'deg'"
+              >
+                <span
+                  *ngFor="let category of getWidget11TopCategoryLabels(fullscreenWidget.chartOptions); trackBy: trackByIndex"
+                  class="widget-11-top-categories__label"
+                >
+                  {{ category }}
+                </span>
+              </div>
             </div>
           </ng-container>
           <ng-template #fullscreenDefaultChart>

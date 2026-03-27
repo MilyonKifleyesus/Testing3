@@ -186,8 +186,6 @@ export class CreateTicketService {
         clientId,
         userId,
         includeAllOption: false,
-        page: 1,
-        pageSize: 10000,
       }).pipe(
         map((result) => this.mapDashboardVehicles(result.options, projectId)),
         map((items) => {
