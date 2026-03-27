@@ -1,0 +1,89 @@
+<div class="defect-word-cloud-widget">
+  <div class="filters-section">
+    <div class="filters-toolbar">
+      <div class="toolbar-field toolbar-field--type">
+        <label class="toolbar-label">Defect Type</label>
+        <select class="form-select" [(ngModel)]="filters.defectType" (ngModelChange)="onFilterChange()">
+          <option value="all">All Defect Types</option>
+          <option *ngFor="let dt of defectTypes" [value]="dt.id">{{ dt.name }}</option>
+        </select>
+      </div>
+
+      <div class="toolbar-field toolbar-field--date">
+        <label class="toolbar-label">Created From</label>
+        <input type="date" class="form-control" [(ngModel)]="filters.dateFrom" (ngModelChange)="onFilterChange()" />
+      </div>
+
+      <div class="toolbar-field toolbar-field--date">
+        <label class="toolbar-label">Created To</label>
+        <input type="date" class="form-control" [(ngModel)]="filters.dateTo" (ngModelChange)="onFilterChange()" />
+      </div>
+
+      <div class="toolbar-field toolbar-field--search">
+        <label class="toolbar-label">Search Defects</label>
+        <div class="input-group">
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Type a term and press Enter or Search..."
+            [(ngModel)]="searchInput"
+            (keyup.enter)="onSearchSubmit()"
+          />
+          <button class="btn btn-primary" type="button" (click)="onSearchSubmit()">Search</button>
+        </div>
+      </div>
+
+      <div class="toolbar-actions">
+        <button
+          class="btn btn-outline-secondary"
+          type="button"
+          *ngIf="filters.dateFrom || filters.dateTo"
+          (click)="filters.dateFrom = ''; filters.dateTo = ''; onFilterChange()"
+        >
+          Clear Dates
+        </button>
+        <button class="btn btn-secondary" type="button" (click)="resetDrilldown()">Reset Drilldown</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="drilldown-path" *ngIf="drilldownPath.length > 0">
+    <span class="badge bg-primary me-1" *ngFor="let path of drilldownPath">{{ path }}</span>
+  </div>
+
+  <div class="cloud-wrapper">
+    <div class="cloud-header">
+      <div class="frequency-legend">
+        <span *ngFor="let level of frequencyLevels" class="legend-item">
+          <span class="legend-dot" [style.background]="level.color"></span>
+          <span class="legend-label">{{ level.label }}</span>
+        </span>
+      </div>
+
+      <div class="wc-toolbar">
+        <div class="wc-menu-icon" (click)="toggleDownloadMenu($event)" title="Download options">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
+            <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+          </svg>
+        </div>
+        <div class="wc-menu" [class.wc-menu-open]="showDownloadMenu">
+          <div class="wc-menu-item" (click)="downloadPNG(); showDownloadMenu = false">PNG image</div>
+          <div class="wc-menu-item" (click)="downloadSVG(); showDownloadMenu = false">SVG image</div>
+          <div class="wc-menu-item" (click)="downloadCSV(); showDownloadMenu = false">CSV</div>
+          <div class="wc-menu-item" (click)="downloadPDF(); showDownloadMenu = false">PDF</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cloud-container" #cloudContainer>
+      <div *ngIf="loading" class="loading-overlay">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+      <div *ngIf="error" class="error-message">
+        {{ error }}
+      </div>
+    </div>
+  </div>
+</div>

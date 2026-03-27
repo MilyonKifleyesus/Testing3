@@ -192,4 +192,185 @@ describe('TimesheetComponent', () => {
     expect(component.confirmDeleteId).toBe('42');
     expect(toastr.error).toHaveBeenCalledWith('Server error (500): Delete failed');
   });
+
+  it('clearFilters resets search, client, filters and resets page to 1', fakeAsync(() => {
+    const fixture = TestBed.createComponent(TimesheetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(400);
+    timeLogService.getTimeLogs.calls.reset();
+
+    component.searchTerm = 'brake';
+    component.selectedClientId = 'c-1';
+    component.filters = { projectId: 'p-1', typeOfTime: 'Production' };
+    component.page = 5;
+
+    component.clearFilters();
+
+    tick(400);
+
+    expect(component.searchTerm).toBe('');
+    expect(component.selectedClientId).toBe('');
+    expect(component.filters).toEqual({});
+    expect(component.page).toBe(1);
+    expect(timeLogService.getTimeLogs).toHaveBeenCalled();
+  }));
+
+  it('hasActiveFilters returns true when searchTerm is set', fakeAsync(() => {
+    const fixture = TestBed.createComponent(TimesheetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(400);
+
+    expect(component.hasActiveFilters).toBeFalse();
+
+    component.searchTerm = 'test';
+    expect(component.hasActiveFilters).toBeTrue();
+
+    component.searchTerm = '';
+    component.selectedClientId = 'c-1';
+    expect(component.hasActiveFilters).toBeTrue();
+
+    component.selectedClientId = '';
+    component.filters = { projectId: 'p-1' };
+    expect(component.hasActiveFilters).toBeTrue();
+  }));
+
+  it('onClientFilterChange clears project filter when selected project belongs to a different client', fakeAsync(() => {
+    lookupAdapter.setState({
+      projects: [
+        { id: 'p-1', name: 'Project Alpha', clientId: 'c-1' },
+        { id: 'p-2', name: 'Project Beta', clientId: 'c-2' },
+      ],
+      vehicles: [],
+      users: [],
+    });
+
+    const fixture = TestBed.createComponent(TimesheetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(400);
+
+    component.filters = { projectId: 'p-1' };
+
+    // Switch to client c-2 — p-1 belongs to c-1, so it should be cleared
+    component.onClientFilterChange('c-2');
+    tick(400);
+
+    expect(component.filters['projectId']).toBe('');
+    expect(component.selectedClientId).toBe('c-2');
+  }));
+
+  it('onClientFilterChange keeps project filter when project belongs to the selected client', fakeAsync(() => {
+    lookupAdapter.setState({
+      projects: [{ id: 'p-1', name: 'Project Alpha', clientId: 'c-1' }],
+      vehicles: [],
+      users: [],
+    });
+
+    const fixture = TestBed.createComponent(TimesheetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(400);
+
+    component.filters = { projectId: 'p-1' };
+    component.onClientFilterChange('c-1');
+    tick(400);
+
+    expect(component.filters['projectId']).toBe('p-1');
+  }));
+
+  it('onFilterChange resets page to 1 and triggers a refresh', fakeAsync(() => {
+    const fixture = TestBed.createComponent(TimesheetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(400);
+    timeLogService.getTimeLogs.calls.reset();
+
+    component.page = 4;
+    component.onFilterChange();
+    tick(0);
+
+    expect(component.page).toBe(1);
+    expect(timeLogService.getTimeLogs).toHaveBeenCalledTimes(1);
+  }));
+
+  it('getTotalPages returns 0 when total is 0 and ceil(n/pageSize) otherwise', fakeAsync(() => {
+    const fixture = TestBed.createComponent(TimesheetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(400);
+
+    component.total = 0;
+    component.pageSize = 25;
+    expect(component.getTotalPages()).toBe(0);
+
+    component.total = 1;
+    expect(component.getTotalPages()).toBe(1);
+
+    component.total = 25;
+    expect(component.getTotalPages()).toBe(1);
+
+    component.total = 26;
+    expect(component.getTotalPages()).toBe(2);
+
+    component.total = 200;
+    expect(component.getTotalPages()).toBe(8);
+  }));
+
+  it('getPageNumbers returns last 5 pages when near the end', fakeAsync(() => {
+    const fixture = TestBed.createComponent(TimesheetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(400);
+
+    component.total = 300;
+    component.pageSize = 25;
+    // 12 total pages; at page 10 we're within 3 of the end
+    component.page = 10;
+    expect(component.getPageNumbers()).toEqual([8, 9, 10, 11, 12]);
+  }));
+
+  it('getPageNumbers returns first 5 pages when total pages <= 5', fakeAsync(() => {
+    const fixture = TestBed.createComponent(TimesheetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(400);
+
+    component.total = 75;
+    component.pageSize = 25;
+    component.page = 2;
+    expect(component.getPageNumbers()).toEqual([1, 2, 3]);
+  }));
+
+  it('formatDate returns a readable string for a valid ISO date', fakeAsync(() => {
+    const fixture = TestBed.createComponent(TimesheetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(400);
+
+    const result = component.formatDate('2026-03-10T08:00:00Z');
+    expect(result).toMatch(/10 Mar 2026/);
+  }));
+
+  it('formatDate returns the raw string when the value is not parseable', fakeAsync(() => {
+    const fixture = TestBed.createComponent(TimesheetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(400);
+
+    expect(component.formatDate('not-a-date')).toBe('not-a-date');
+  }));
+
+  it('sets error message and clears loading when fetch fails', fakeAsync(() => {
+    timeLogService.getTimeLogs.and.returnValue(throwError(() => ({ message: 'Network error' })));
+
+    const fixture = TestBed.createComponent(TimesheetComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    tick(400);
+
+    expect(component.loading).toBeFalse();
+    expect(component.error).toBe('Network error');
+  }));
 });

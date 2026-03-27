@@ -1,0 +1,226 @@
+<div class="pa-widget">
+  <div class="pa-summary-bar" *ngIf="!loading && rows.length > 0">
+    <div class="pa-summary-item">
+      <span class="pa-summary-dot pa-summary-dot--violet"></span>
+      <span class="pa-summary-label">{{ getVisibleProjectCount() }} Projects</span>
+    </div>
+    <div class="pa-summary-item">
+      <span class="pa-summary-dot pa-summary-dot--blue"></span>
+      <span class="pa-summary-label">{{ getTotalTickets() | number }} Total Tickets</span>
+    </div>
+    <div class="pa-summary-item">
+      <span class="pa-summary-dot pa-summary-dot--green"></span>
+      <span class="pa-summary-label">{{ getActiveCount() }} Active</span>
+    </div>
+    <div class="pa-summary-item" *ngIf="getTotalRepeated() > 0">
+      <span class="pa-summary-dot pa-summary-dot--amber"></span>
+      <span class="pa-summary-label">{{ getTotalRepeated() }} Repeated</span>
+    </div>
+    <div class="pa-summary-item" *ngIf="getTotalCritical() > 0">
+      <span class="pa-summary-dot pa-summary-dot--red"></span>
+      <span class="pa-summary-label pa-summary-label--critical">{{ getTotalCritical() }} Critical</span>
+    </div>
+  </div>
+
+  <div class="pa-table-shell">
+    <div class="pa-table-scroll">
+      <table class="pa-table">
+        <thead class="pa-thead">
+          <tr>
+            <th class="pa-th">Project</th>
+            <th class="pa-th pa-th--center pa-th--type">Project Type</th>
+            <th class="pa-th pa-th--center pa-th--inspectors">Inspectors</th>
+            <th class="pa-th pa-th--right">Total Tickets</th>
+            <th class="pa-th pa-th--right pa-th--yesterday">Tickets Yesterday</th>
+            <th class="pa-th pa-th--center pa-th--trend">Trend</th>
+            <th class="pa-th pa-th--center pa-th--status">Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <ng-container *ngIf="loading">
+            <tr class="pa-tr pa-tr--skeleton" *ngFor="let skeleton of skeletonRows">
+              <td class="pa-td" data-label="Project">
+                <div class="pa-project-cell">
+                  <div class="sk sk--icon"></div>
+                  <div class="pa-project-copy">
+                    <div class="sk sk--title"></div>
+                    <div class="sk sk--meta"></div>
+                  </div>
+                </div>
+              </td>
+              <td class="pa-td pa-td--center" data-label="Project Type">
+                <div class="sk sk--type"></div>
+              </td>
+              <td class="pa-td pa-td--center" data-label="Inspectors">
+                <div class="pa-inspector-stack pa-inspector-stack--skeleton">
+                  <div class="sk sk--avatar" *ngFor="let avatar of [1, 2, 3]"></div>
+                </div>
+              </td>
+              <td class="pa-td pa-td--right" data-label="Total Tickets">
+                <div class="sk sk--number ms-auto"></div>
+                <div class="sk sk--caption ms-auto"></div>
+              </td>
+              <td class="pa-td pa-td--right" data-label="Tickets Yesterday">
+                <div class="sk sk--number ms-auto"></div>
+              </td>
+              <td class="pa-td pa-td--center" data-label="Trend">
+                <div class="sk sk--spark"></div>
+              </td>
+              <td class="pa-td pa-td--center" data-label="Status">
+                <div class="sk sk--badge mx-auto"></div>
+                <div class="sk sk--caption mx-auto"></div>
+              </td>
+            </tr>
+          </ng-container>
+
+          <ng-container *ngIf="!loading">
+            <tr
+              *ngFor="let row of rows; trackBy: trackById"
+              class="pa-tr"
+              [ngClass]="getRowClass(row)">
+              <td class="pa-td" data-label="Project">
+                <div class="pa-project-cell">
+                  <span class="pa-project-icon" [ngClass]="getIconClass(row)">
+                    <i class="ti ti-bus"></i>
+                  </span>
+                  <div class="pa-project-copy">
+                    <span class="pa-project-name">{{ row.projectName }}</span>
+                    <span class="pa-project-meta">{{ getProjectMeta(row) }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <td class="pa-td pa-td--center" data-label="Project Type">
+                <span class="pa-type-badge" [ngClass]="getProjectTypeClass(row)">
+                  {{ row.projectType || 'Unassigned' }}
+                </span>
+              </td>
+
+              <td class="pa-td pa-td--center" data-label="Inspectors">
+                <div class="pa-inspector-column">
+                  <div class="pa-inspector-stack" [attr.title]="getInspectorTooltip(row)">
+                    <ng-container *ngFor="let inspector of getInspectorPreview(row); trackBy: trackInspector">
+                      <div
+                        class="pa-inspector-avatar"
+                        [ngClass]="!inspector.avatarUrl ? getInspectorToneClass(inspector) : ''"
+                        [attr.title]="inspector.name">
+                        <img
+                          *ngIf="inspector.avatarUrl; else inspectorFallback"
+                          [src]="inspector.avatarUrl"
+                          [alt]="inspector.name">
+                        <ng-template #inspectorFallback>
+                          <span>{{ inspector.initials }}</span>
+                        </ng-template>
+                      </div>
+                    </ng-container>
+
+                    <div class="pa-inspector-avatar pa-inspector-avatar--overflow" *ngIf="getInspectorOverflowCount(row) > 0">
+                      +{{ getInspectorOverflowCount(row) }}
+                    </div>
+
+                    <div class="pa-inspector-avatar pa-inspector-avatar--empty tone--grey" *ngIf="(row.inspectors?.length ?? 0) === 0">
+                      <i class="ti ti-user-off"></i>
+                    </div>
+                  </div>
+
+                  <span class="pa-inspector-caption">{{ getInspectorCountLabel(row) }}</span>
+                </div>
+              </td>
+
+              <td class="pa-td pa-td--right" data-label="Total Tickets">
+                <div class="pa-metric-block">
+                  <span class="pa-metric-value">{{ row.totalTickets | number }}</span>
+                  <span class="pa-metric-meta">{{ getTicketCaption(row) }}</span>
+                </div>
+              </td>
+
+              <td class="pa-td pa-td--right" data-label="Tickets Yesterday">
+                <div class="pa-metric-block">
+                  <span class="pa-metric-value pa-metric-value--compact">{{ getYesterdayLabel(row) }}</span>
+                </div>
+              </td>
+
+              <td class="pa-td pa-td--center pa-td--trend" data-label="Trend">
+                <ng-container *ngIf="getSparkline(row) as spark">
+                  <div class="pa-trend-block">
+                    <div class="pa-spark-wrap">
+                      <svg class="pa-sparkline" viewBox="0 0 150 40" preserveAspectRatio="none" aria-hidden="true">
+                        <defs>
+                          <linearGradient [attr.id]="spark.gradientId" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" [attr.stop-color]="spark.fillStart"></stop>
+                            <stop offset="100%" [attr.stop-color]="spark.fillEnd"></stop>
+                          </linearGradient>
+                        </defs>
+                        <path
+                          class="pa-sparkline__area"
+                          [attr.d]="spark.areaPath"
+                          [attr.fill]="'url(#' + spark.gradientId + ')'"></path>
+                        <path
+                          class="pa-sparkline__line"
+                          [attr.d]="spark.linePath"
+                          [attr.stroke]="spark.stroke"></path>
+                      </svg>
+                    </div>
+                    <span class="pa-change" [ngClass]="getChangeClass(row)">
+                      <i
+                        class="ti"
+                        [class.ti-trending-up]="row.ticketsStatus === 'increased' && row.ticketsChangePercentage !== 0"
+                        [class.ti-trending-down]="row.ticketsStatus === 'decreased' && row.ticketsChangePercentage !== 0"
+                        [class.ti-minus]="row.ticketsChangePercentage === 0"></i>
+                      {{ getChangeLabel(row) }}
+                    </span>
+                  </div>
+                </ng-container>
+              </td>
+
+              <td class="pa-td pa-td--center" data-label="Status">
+                <div class="pa-status-block">
+                  <span class="pa-status-badge" [ngClass]="getStatusClass(row)">
+                    {{ getStatusLabel(row) }}
+                  </span>
+                  <span class="pa-status-meta">{{ getStatusMeta(row) }}</span>
+                </div>
+              </td>
+            </tr>
+
+            <tr *ngIf="rows.length === 0">
+              <td colspan="7" class="pa-empty-cell">
+                <div class="pa-empty">
+                  <i class="ti ti-chart-bar pa-empty-icon"></i>
+                  <p class="pa-empty-text">No project activity data available</p>
+                </div>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="pa-footer" *ngIf="!loading">
+    <div class="pa-footer-range" *ngIf="totalCount > 0">
+      Showing {{ visibleRangeStart }} - {{ visibleRangeEnd }} of {{ totalCount }}
+    </div>
+    <div class="pa-footer-range" *ngIf="totalCount === 0">
+      No projects loaded
+    </div>
+
+    <div class="pa-pagination" *ngIf="totalPages > 1">
+      <button class="pa-page-btn" type="button" [disabled]="!hasPrev" (click)="pageChange.emit(-1)">
+        <i class="ti ti-chevron-left"></i>
+        <span>Prev</span>
+      </button>
+
+      <div class="pa-page-info">
+        <span class="pa-page-label">{{ pageLabel }}</span>
+        <span class="pa-page-count">{{ totalCount }} projects</span>
+      </div>
+
+      <button class="pa-page-btn" type="button" [disabled]="!hasNext" (click)="pageChange.emit(1)">
+        <span>Next</span>
+        <i class="ti ti-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+</div>

@@ -248,6 +248,18 @@ export class MapStageComponent implements AfterViewInit, OnDestroy {
     return logos;
   });
 
+  captureMapImage(): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      const mapRef = this.map;
+      if (!mapRef) { resolve(null); return; }
+      mapRef.once('render', () => {
+        const canvas = mapRef.getCanvas();
+        canvas.toBlob(resolve, 'image/png');
+      });
+      mapRef.triggerRepaint();
+    });
+  }
+
   private map: MapLibreMap | null = null;
   private maplibreModule: Awaited<typeof import('maplibre-gl')> | null = null;
   private markers = new Map<string, MarkerInstance>();
@@ -789,6 +801,7 @@ export class MapStageComponent implements AfterViewInit, OnDestroy {
       maxBounds: WORLD_BOUNDS,
       renderWorldCopies: false,
       attributionControl: false,
+      canvasContextAttributes: { preserveDrawingBuffer: true },
     };
 
     const map = new maplibre.Map(mapOptions);

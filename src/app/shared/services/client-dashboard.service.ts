@@ -77,6 +77,11 @@ export class ClientDashboardService {
     return this.http.get<any>(`${this.apiBaseUrl}/Snags`, { params: httpParams });
   }
 
+  getDefectTypes(params: { clientId?: number } = {}): Observable<any> {
+    const httpParams = this.buildParams(params);
+    return this.http.get<any>(`${this.apiBaseUrl}/DefectTypes`, { params: httpParams });
+  }
+
   private buildParams(params: Record<string, string | number | boolean | null | undefined>): HttpParams {
     let httpParams = new HttpParams();
     Object.entries(params).forEach(([key, value]) => {

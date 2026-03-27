@@ -48,7 +48,7 @@ import {
   TypeOfTime,
 } from '../../../../shared/models/time-log.model';
 
-type ManualDropdownSearchKey = 'project' | 'vehicle' | 'user' | 'typeOfTime';
+type ManualDropdownSearchKey = 'client' | 'project' | 'vehicle' | 'user' | 'typeOfTime';
 
 @Component({
   selector: 'app-new-time-log',
@@ -88,7 +88,9 @@ export class NewTimeLogComponent implements OnInit, OnDestroy {
   allVehiclesForImport: TimeLogVehicle[] = [];
   users: { id: string; name: string }[] = [];
   typeOfTimeOptions = [...TIME_OF_TIME_OPTIONS];
+  clientSelectOptions: { id: string; name: string }[] = [{ id: '', name: 'Select client...' }];
   projectSelectOptions: { id: string; name: string }[] = [{ id: '', name: 'Select project...' }];
+  filteredProjectSelectOptions: { id: string; name: string }[] = [{ id: '', name: 'Select project...' }];
   vehicleSelectOptions: { id: string; name: string }[] = [{ id: '', name: 'Select vehicle...' }];
   userSelectOptions: { id: string; name: string }[] = [{ id: '', name: 'Select user...' }];
   typeOfTimeSelectOptions: { id: string; name: string }[] = [
@@ -96,11 +98,13 @@ export class NewTimeLogComponent implements OnInit, OnDestroy {
     ...TIME_OF_TIME_OPTIONS.map((type) => ({ id: type, name: type })),
   ];
   manualDropdownSearch: Record<ManualDropdownSearchKey, string> = {
+    client: '',
     project: '',
     vehicle: '',
     user: '',
     typeOfTime: '',
   };
+  selectedClientId = '';
   lookupWarning: string | null = null;
 
   manualForm!: FormGroup;
@@ -296,6 +300,21 @@ export class NewTimeLogComponent implements OnInit, OnDestroy {
     this.stagingRows.update((prev) => prev.filter((r) => r._id !== id));
   }
 
+  onClientChange(clientId: string): void {
+    this.selectedClientId = clientId ?? '';
+    this.syncFilteredProjects();
+    // Clear project/vehicle if they no longer belong to selected client
+    const currentProjectId = this.manualForm.get('projectId')?.value;
+    if (currentProjectId && this.selectedClientId) {
+      const project = this.projects.find((p) => p.id === currentProjectId);
+      if (project && project.clientId !== this.selectedClientId) {
+        this.manualForm.patchValue({ projectId: '', vehicleId: '' }, { emitEvent: false });
+        this.selectedProjectId = '';
+        this.syncManualVehiclesForProject('');
+      }
+    }
+  }
+
   onManualDropdownSearch(select: NgSelectComponent, term: string): void {
     if (!select?.itemsList) return;
     const value = term ?? '';
@@ -400,10 +419,24 @@ export class NewTimeLogComponent implements OnInit, OnDestroy {
     this.projects = state.projects;
     this.users = state.users;
     this.allVehiclesForImport = state.vehicles;
+
+    // Build unique client list from projects
+    const clientMap = new Map<string, string>();
+    for (const p of this.projects) {
+      if (p.clientId && !clientMap.has(p.clientId)) {
+        clientMap.set(p.clientId, p.clientName ?? p.clientId);
+      }
+    }
+    this.clientSelectOptions = [
+      { id: '', name: 'Select client...' },
+      ...Array.from(clientMap.entries()).map(([id, name]) => ({ id, name })),
+    ];
+
     this.projectSelectOptions = [
       { id: '', name: 'Select project...' },
       ...this.projects.map((project) => ({ id: project.id, name: project.name })),
     ];
+    this.syncFilteredProjects();
     this.userSelectOptions = [
       { id: '', name: 'Select user...' },
       ...this.users.map((user) => ({ id: user.id, name: user.name })),
@@ -421,6 +454,16 @@ export class NewTimeLogComponent implements OnInit, OnDestroy {
     } else if (state.ready) {
       this.lookupWarning = null;
     }
+  }
+
+  private syncFilteredProjects(): void {
+    const visible = this.selectedClientId
+      ? this.projects.filter((p) => p.clientId === this.selectedClientId)
+      : this.projects;
+    this.filteredProjectSelectOptions = [
+      { id: '', name: 'Select project...' },
+      ...visible.map((p) => ({ id: p.id, name: p.name })),
+    ];
   }
 
   private syncManualVehiclesForProject(projectId: string): void {

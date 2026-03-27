@@ -1,6 +1,20 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, map, of, shareReplay } from 'rxjs';
+import {
+  EMPTY,
+  Observable,
+  catchError,
+  concat,
+  firstValueFrom,
+  from,
+  map,
+  of,
+  shareReplay,
+  switchMap,
+  take,
+  throwError,
+  timeout,
+} from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { parsePagedResponse } from './adapters/paged-response.adapter';
 
@@ -21,13 +35,26 @@ export interface UserListItem {
   name: string;
   email: string | null;
   role: string;
-  clientId: number;
-  clientName: string;
-  manufacturerId: number;
-  manufacturerName: string;
-  deleted: boolean;
-  picture: string | null;
-  lastUpdate: string | null;
+  clientId: string | number;
+  client?: string;
+  clientName?: string;
+  manufacturerId: string | number;
+  manufacturer?: string;
+  manufacturerName?: string;
+  isActive?: boolean;
+  deleted?: boolean;
+  updatedAt?: string;
+  lastUpdate?: string | null;
+  status?: string;
+  createdDate?: string;
+  phone?: string;
+  address?: string;
+  language?: string;
+  firstName?: string;
+  lastName?: string;
+  picture?: string | null;
+  username?: string;
+  userName?: string;
 }
 
 export interface UserListResult {
@@ -38,6 +65,27 @@ export interface UserListResult {
 export interface ManufacturerOption {
   id: string;
   name: string;
+}
+
+export interface SaveUserRequest {
+  name: string;
+  username: string;
+  email: string;
+  role: string;
+  status?: string;
+  clientId?: string | number | null;
+  manufacturerId?: string | number | null;
+  phone?: string | null;
+  address?: string | null;
+  language?: string | null;
+  picture?: string | null;
+  password?: string | null;
+  confirmPassword?: string | null;
+}
+
+export interface ChangeUserPasswordRequest {
+  password: string;
+  confirmPassword?: string;
 }
 
 export interface InspectorStatistics {
@@ -61,9 +109,31 @@ interface ApiUser {
   clientName?: string;
   manufacturerId?: number;
   manufacturerName?: string;
+  ManufacturerName?: string;
+  manufacturer?: string;
+  status?: string;
+  createdDate?: string;
+  isActive?: boolean;
   deleted?: boolean;
-  picture?: string | null;
+  updatedAt?: string;
   lastUpdate?: string | null;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  phoneNumber?: string;
+  mobile?: string;
+  mobileNumber?: string;
+  contactNumber?: string;
+  address?: string;
+  streetAddress?: string;
+  language?: string;
+  languageName?: string;
+  preferredLanguage?: string;
+  locale?: string;
+  picture?: string | null;
+  pictureUrl?: string;
+  avatar?: string;
+  avatarUrl?: string;
 }
 
 interface ApiManufacturer {
@@ -153,20 +223,54 @@ function toIdString(value: unknown, fallback = '0'): string {
   return next || fallback;
 }
 
+function toNullableIdString(value: unknown): string | null {
+  const next = String(value ?? '').trim();
+  return next && next !== '0' ? next : null;
+}
+
+function normalizeUserStatus(status: unknown, isActive?: boolean): string {
+  const normalizedStatus = String(status ?? '').trim().toLowerCase();
+  if (normalizedStatus) {
+    return normalizedStatus;
+  }
+
+  if (typeof isActive === 'boolean') {
+    return isActive ? 'active' : 'inactive';
+  }
+
+  return 'active';
+}
+
 function mapApiUserToUser(item: ApiUser): UserListItem {
+  const resolvedName = toNonEmptyString(item.name, 'N/A');
   return {
-    id: Number(item.id ?? 0),
-    userName: toNonEmptyString(item.userName, 'N/A'),
-    name: toNonEmptyString(item.name, 'N/A'),
-    email: item.email ?? null,
-    role: toNonEmptyString(item.role, 'N/A'),
-    clientId: Number(item.clientId ?? 0),
-    clientName: toNonEmptyString(item.clientName, ''),
-    manufacturerId: Number(item.manufacturerId ?? 0),
-    manufacturerName: toNonEmptyString(item.manufacturerName, ''),
+    id: Number(item.id ?? (item as any).userId ?? 0),
+    name: resolvedName,
+    userName: toNonEmptyString(item.userName ?? (item as any).username, 'N/A'),
+    username: toNonEmptyString(item.userName ?? (item as any).username, 'N/A'),
+    email: item.email ?? toNonEmptyString((item as any).emailAddress, '') ?? null,
+    role: toNonEmptyString(item.role ?? (item as any).roleName, 'N/A'),
+    clientId: toIdString(item.clientId ?? (item as any).ClientId ?? (item as any).clientID, '0'),
+    client: toNonEmptyString(item.clientName ?? (item as any).ClientName ?? (item as any).client, ''),
+    clientName: toNonEmptyString(item.clientName ?? (item as any).ClientName ?? (item as any).client, ''),
+    manufacturerId: toIdString(item.manufacturerId ?? (item as any).ManufacturerId ?? (item as any).manufacturerID, '0'),
+    manufacturer: toNonEmptyString(item.manufacturerName ?? item.ManufacturerName ?? item.manufacturer, ''),
+    manufacturerName: toNonEmptyString(item.manufacturerName ?? item.ManufacturerName ?? item.manufacturer, ''),
+    isActive: typeof item.isActive === 'boolean' ? item.isActive : undefined,
     deleted: item.deleted ?? false,
-    picture: item.picture ?? null,
+    updatedAt: toNonEmptyString(item.updatedAt, ''),
     lastUpdate: item.lastUpdate ?? null,
+    status: normalizeUserStatus(item.status, item.isActive),
+    createdDate: toNonEmptyString(item.createdDate, ''),
+    phone: toNonEmptyString(
+      item.phone ?? item.phoneNumber ?? item.mobile ?? item.mobileNumber ?? item.contactNumber,
+      '',
+    ),
+    address: toNonEmptyString(item.address ?? item.streetAddress, ''),
+    language: toNonEmptyString(item.language ?? item.languageName ?? item.preferredLanguage ?? item.locale, ''),
+    firstName: toNonEmptyString(item.firstName, ''),
+    lastName: toNonEmptyString(item.lastName, ''),
+    picture: item.picture ?? toNonEmptyString(item.pictureUrl ?? item.avatar ?? item.avatarUrl, '') ?? null,
   };
 }
 
@@ -189,6 +293,7 @@ export class UserManagementService {
   private readonly usersQueryCache = new Map<string, Observable<UserListResult>>();
   private readonly inspectorStatsCache = new Map<number, Observable<InspectorStatistics | null>>();
   private readonly rolesFetchPageSize = 100;
+  private readonly requestTimeoutMs = 10_000;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -266,25 +371,133 @@ export class UserManagementService {
 
   getUserById(userId: number): Observable<UserListItem | null> {
     return this.http.get<unknown>(`${this.usersApiUrl}/${userId}`).pipe(
-      map((raw) => {
-        if (Array.isArray(raw)) {
-          const first = raw[0] as ApiUser | undefined;
-          return first ? mapApiUserToUser(first) : null;
-        }
-
-        const obj = asObject(raw);
-        if (!obj) {
-          return null;
-        }
-
-        const wrapped = extractCollection(raw);
-        if (wrapped.length > 0) {
-          return mapApiUserToUser(wrapped[0] as ApiUser);
-        }
-
-        return mapApiUserToUser(obj as ApiUser);
-      }),
+      map((raw) => this.parseSingleUserResponse(raw)),
       catchError(() => of(null)),
+    );
+  }
+
+  createUser(body: SaveUserRequest): Observable<UserListItem> {
+    return this.http.post<unknown>(this.usersApiUrl, this.buildSaveUserPayload(body)).pipe(
+      timeout(this.requestTimeoutMs),
+      switchMap((raw) => {
+        const mapped = this.parseSingleUserResponse(raw);
+        if (mapped) {
+          return of(mapped);
+        }
+
+        const createdId = this.extractUserId(raw);
+        if (createdId && createdId > 0) {
+          return this.getUserById(createdId).pipe(
+            map((createdUser) => {
+              if (!createdUser) {
+                throw new Error(`User ${createdId} not found after create.`);
+              }
+              return createdUser;
+            }),
+          );
+        }
+
+        return this.getUsers({
+          page: 1,
+          pageSize: this.defaultFetchPageSize,
+          role: body.role,
+          clientId: toNullableIdString(body.clientId) ?? '0',
+          manufacturerId: toNullableIdString(body.manufacturerId) ?? '0',
+        }).pipe(
+          map((result) => {
+            const expectedEmail = String(body.email ?? '').trim().toLowerCase();
+            const expectedUsername = String(body.username ?? '').trim().toLowerCase();
+            const matchedUser = result.items.find((user) =>
+              user.email.trim().toLowerCase() === expectedEmail ||
+              user.username.trim().toLowerCase() === expectedUsername,
+            );
+
+            if (!matchedUser) {
+              throw new Error('User create succeeded but response could not be mapped.');
+            }
+
+            return matchedUser;
+          }),
+        );
+      }),
+      map((user) => {
+        this.clearUsersCache();
+        return user;
+      }),
+      catchError((error) => {
+        console.error('Failed to create user:', error);
+        return throwError(() => error);
+      }),
+    );
+  }
+
+  updateUser(userId: number, body: SaveUserRequest): Observable<UserListItem> {
+    return this.http.put<unknown>(`${this.usersApiUrl}/${userId}`, this.buildSaveUserPayload(body)).pipe(
+      timeout(this.requestTimeoutMs),
+      switchMap((raw) => {
+        const mapped = this.parseSingleUserResponse(raw);
+        if (mapped) {
+          return of(mapped);
+        }
+
+        return this.getUserById(userId).pipe(
+          map((updatedUser) => {
+            if (!updatedUser) {
+              throw new Error(`User ${userId} not found after update.`);
+            }
+            return updatedUser;
+          }),
+        );
+      }),
+      map((user) => {
+        this.clearUsersCache();
+        return user;
+      }),
+      catchError((error) => {
+        console.error(`Failed to update user id=${userId}:`, error);
+        return throwError(() => error);
+      }),
+    );
+  }
+
+  changeUserPassword(userId: number, body: ChangeUserPasswordRequest): Observable<void> {
+    const payload = {
+      password: body.password,
+      newPassword: body.password,
+      confirmPassword: body.confirmPassword ?? body.password,
+    };
+
+    const attempts = [
+      this.http.put<unknown>(`${this.usersApiUrl}/${userId}/password`, payload),
+      this.http.post<unknown>(`${this.usersApiUrl}/${userId}/password`, payload),
+      this.http.put<unknown>(`${this.usersApiUrl}/${userId}/change-password`, payload),
+      this.http.post<unknown>(`${this.usersApiUrl}/${userId}/change-password`, payload),
+      this.http.post<unknown>(`${this.usersApiUrl}/change-password`, { userId, ...payload }),
+    ];
+
+    return concat(
+      ...attempts.map((request$, index) =>
+        request$.pipe(
+          timeout(this.requestTimeoutMs),
+          catchError((error) => {
+            if (index === attempts.length - 1) {
+              return throwError(() => error);
+            }
+
+            return EMPTY;
+          }),
+        ),
+      ),
+    ).pipe(
+      take(1),
+      map(() => {
+        this.clearUsersCache();
+        return void 0;
+      }),
+      catchError((error) => {
+        console.error(`Failed to change password for user id=${userId}:`, error);
+        return throwError(() => error);
+      }),
     );
   }
 
@@ -307,5 +520,84 @@ export class UserManagementService {
       map((result) => [...new Set(result.items.map((user) => user.role).filter((role) => role.length > 0))].sort()),
       catchError(() => of(['Admin', 'Client User', 'Inspector', 'Manager', 'Viewer'])),
     );
+  }
+
+  private parseSingleUserResponse(raw: unknown): UserListItem | null {
+    if (Array.isArray(raw)) {
+      const first = raw[0] as ApiUser | undefined;
+      return first ? mapApiUserToUser(first) : null;
+    }
+
+    const obj = asObject(raw);
+    if (!obj) {
+      return null;
+    }
+
+    const wrapped = extractCollection(raw);
+    if (wrapped.length > 0) {
+      return mapApiUserToUser(wrapped[0] as ApiUser);
+    }
+
+    const nestedItem =
+      asObject(obj['item']) ??
+      asObject(obj['user']) ??
+      asObject(obj['data']) ??
+      asObject(obj['result']);
+
+    if (nestedItem) {
+      const nestedCollection = extractCollection(nestedItem);
+      if (nestedCollection.length > 0) {
+        return mapApiUserToUser(nestedCollection[0] as ApiUser);
+      }
+
+      return mapApiUserToUser(nestedItem as ApiUser);
+    }
+
+    return mapApiUserToUser(obj as ApiUser);
+  }
+
+  private extractUserId(raw: unknown): number | null {
+    const record = asObject(raw);
+    if (!record) {
+      return null;
+    }
+
+    const candidate =
+      record['id'] ??
+      record['userId'] ??
+      asObject(record['item'])?.['id'] ??
+      asObject(record['item'])?.['userId'] ??
+      asObject(record['user'])?.['id'] ??
+      asObject(record['user'])?.['userId'];
+
+    const parsed = Number(candidate);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  private buildSaveUserPayload(body: SaveUserRequest): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+      name: String(body.name ?? '').trim(),
+      username: String(body.username ?? '').trim(),
+      userName: String(body.username ?? '').trim(),
+      email: String(body.email ?? '').trim(),
+      emailAddress: String(body.email ?? '').trim(),
+      role: String(body.role ?? '').trim(),
+      status: normalizeUserStatus(body.status),
+      phone: String(body.phone ?? '').trim() || null,
+      address: String(body.address ?? '').trim() || null,
+      language: String(body.language ?? '').trim() || null,
+      picture: String(body.picture ?? '').trim() || null,
+      pictureUrl: String(body.picture ?? '').trim() || null,
+      clientId: toNullableIdString(body.clientId),
+      manufacturerId: toNullableIdString(body.manufacturerId),
+    };
+
+    const password = String(body.password ?? '').trim();
+    if (password) {
+      payload['password'] = password;
+      payload['confirmPassword'] = String(body.confirmPassword ?? body.password ?? '').trim() || password;
+    }
+
+    return payload;
   }
 }

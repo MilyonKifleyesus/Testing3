@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { ClientService } from '../../services/client.service';
@@ -70,7 +71,7 @@ type PaginationItem = number;
 @Component({
   selector: 'app-tickets',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './tickets.component.html',
   styleUrl: './tickets.component.scss'
 })
@@ -83,6 +84,7 @@ export class TicketsComponent implements OnInit {
   filteredTickets: TicketRow[] = [];
   private hasClientNameMap = false;
   isLoadingTickets = false;
+  isExporting = false;
   currentPage = 1;
   readonly pageSize = 10;
   totalCount = 0;
@@ -787,17 +789,30 @@ export class TicketsComponent implements OnInit {
     this.changePage(this.currentPage + 1);
   }
 
+  get selectedTickets(): TicketRow[] {
+    return this.tickets.filter((ticket) => ticket.selected);
+  }
+
   get selectedCount(): number {
-    return this.allSelectedTickets.length || this.filteredTickets.filter(t => t.selected).length;
+    return this.allSelectedTickets.length || this.selectedTickets.length;
+  }
+
+  get selectionSummary(): string {
+    if (this.selectedCount === 0) {
+      return 'Select rows to enable export';
+    }
+
+    return `${this.selectedCount} ${this.selectedCount === 1 ? 'row' : 'rows'} selected`;
   }
 
   get allSelected(): boolean {
-    return this.filteredTickets.length > 0 && this.filteredTickets.every(t => t.selected);
+    return this.paginatedTickets.length > 0 && this.paginatedTickets.every((ticket) => ticket.selected);
   }
 
   toggleAll(event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
-    this.filteredTickets.forEach(t => t.selected = checked);
+    this.paginatedTickets.forEach((ticket) => ticket.selected = checked);
+    this.updateSelection();
   }
 
   checkAll(): void {
@@ -830,6 +845,29 @@ export class TicketsComponent implements OnInit {
 
   updateSelection(): void {
     this.tickets = [...this.tickets];
+  }
+
+  async exportSelectedTickets(): Promise<void> {
+    if (this.selectedCount === 0 || this.isExporting) {
+      return;
+    }
+
+    this.isExporting = true;
+
+    try {
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(
+        this.selectedTickets.map((ticket) => this.buildExportRow(ticket)),
+      );
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Selected Tickets');
+      XLSX.writeFile(workbook, `tickets-selected-${this.getExportDateStamp()}.xlsx`);
+    } catch (error) {
+      console.error('Unable to export selected tickets.', error);
+    } finally {
+      this.isExporting = false;
+    }
   }
 
   getStatusBadgeClass(status: string): string {
@@ -871,6 +909,66 @@ export class TicketsComponent implements OnInit {
     if (value === null || value === undefined) return '-';
     const text = String(value).trim();
     return text ? text : '-';
+  }
+
+  private buildExportRow(ticket: TicketRow): Record<string, string | number> {
+    return this.columns
+      .filter((column) => column.visible)
+      .reduce<Record<string, string | number>>((row, column) => {
+        row[column.label] = this.getExportValue(ticket, column.key);
+        return row;
+      }, {});
+  }
+
+  private getExportValue(ticket: TicketRow, columnKey: string): string | number {
+    switch (columnKey) {
+      case 'id':
+        return this.displayValue(ticket.id);
+      case 'client':
+        return this.displayValue(ticket.client);
+      case 'status':
+        return this.displayValue(ticket.status);
+      case 'project':
+        return this.displayValue(ticket.project);
+      case 'vehicle':
+        return this.displayValue(ticket.vehicle);
+      case 'safetyCritical':
+        return ticket.safetyCritical ? 'Yes' : 'No';
+      case 'repeater':
+        return ticket.repeater ? 'Yes' : 'No';
+      case 'createdDate':
+        return this.formatExportDate(ticket.createdDate);
+      case 'defectType':
+        return this.displayValue(ticket.defectType);
+      case 'defectLocation':
+        return this.displayValue(ticket.defectLocation);
+      case 'description':
+        return this.displayValue(ticket.description);
+      case 'hasImages':
+        return ticket.hasImages ? 'Yes' : 'No';
+      case 'assignedBy':
+        return this.displayValue(ticket.assignedBy);
+      case 'assignedTo':
+        return this.displayValue(ticket.assignedTo);
+      case 'station':
+        return this.displayValue(ticket.station);
+      default:
+        return this.displayValue((ticket as unknown as Record<string, unknown>)[columnKey]);
+    }
+  }
+
+  private formatExportDate(value: unknown): string {
+    const raw = this.displayValue(value);
+    if (raw === '-') {
+      return raw;
+    }
+
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? raw : parsed.toLocaleString();
+  }
+
+  private getExportDateStamp(): string {
+    return new Date().toISOString().split('T')[0];
   }
 
   printSelectedTickets(): void {

@@ -31,6 +31,23 @@
       <app-summary-cards [stats]="state.stats()" />
 
       <div class="fleet-map-shell__toolbar" role="toolbar" aria-label="Fleet map controls">
+        <div class="fleet-map-download-dropdown fleet-glass-panel" (keydown.escape)="closeDownloadMenu()">
+          <button
+            type="button"
+            class="fleet-map-filter-button fleet-map-download-toggle"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="showDownloadMenu"
+            (click)="toggleDownloadMenu($event)">
+            <i class="bi bi-download"></i>
+            <span>Download</span>
+          </button>
+          <div class="fleet-map-download-menu" role="menu" [class.fleet-map-download-menu--open]="showDownloadMenu">
+            <button type="button" class="fleet-map-download-item" role="menuitem" (click)="downloadMapPNG()">Download PNG</button>
+            <button type="button" class="fleet-map-download-item" role="menuitem" (click)="downloadMapCSV()">Download CSV</button>
+            <button type="button" class="fleet-map-download-item" role="menuitem" (click)="downloadMapExcel()">Download Excel</button>
+          </div>
+        </div>
+
         <button
           type="button"
           class="fleet-map-filter-button fleet-glass-panel"

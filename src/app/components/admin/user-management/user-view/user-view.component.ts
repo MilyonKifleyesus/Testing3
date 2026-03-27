@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { UserManagementService } from '../../../../shared/services/user-management.service';
 
@@ -44,6 +44,7 @@ export class UserViewComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private userManagementService: UserManagementService,
   ) {}
 
@@ -136,8 +137,11 @@ export class UserViewComponent implements OnInit {
   }
 
   editUser(): void {
-    // Navigate to edit page or open modal
-    console.log('Edit user:', this.userId);
+    if (!this.userId) {
+      return;
+    }
+
+    this.router.navigate(['/admin/users/edit', this.userId]);
   }
 
   suspendUser(): void {

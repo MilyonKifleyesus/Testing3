@@ -262,3 +262,58 @@
     max-height: calc(100% - 9rem);
   }
 }
+
+.fleet-map-download-dropdown {
+  position: relative;
+  z-index: 1;
+  padding: 0;
+  border-radius: 0.95rem;
+
+  &:hover .fleet-map-download-menu,
+  &:focus-within .fleet-map-download-menu {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .fleet-map-download-toggle {
+    border-radius: 0.95rem;
+  }
+
+  .fleet-map-download-menu {
+    opacity: 0;
+    pointer-events: none;
+    transition: 0.15s ease all;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.25rem;
+    background: var(--fleet-card, #fff);
+    border: 1px solid var(--fleet-border, #ddd);
+    border-radius: 0.19rem;
+    padding: 0.19rem;
+    min-width: 130px;
+    z-index: 500;
+
+    &.fleet-map-download-menu--open {
+      opacity: 1;
+      pointer-events: all;
+    }
+  }
+
+  .fleet-map-download-item {
+    display: block;
+    width: 100%;
+    padding: 0.375rem 0.44rem;
+    border: none;
+    background: transparent;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    color: var(--fleet-foreground, #374151);
+
+    &:hover {
+      background: var(--fleet-border, #eee);
+    }
+  }
+}

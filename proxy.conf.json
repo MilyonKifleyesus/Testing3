@@ -1,6 +1,6 @@
 {
   "/api": {
-    "target": "https://api.fleetpulse.net",
+    "target": "https://eus-buspulse-api-prod.azurewebsites.net",
     "secure": true,
     "changeOrigin": true,
     "logLevel": "debug"

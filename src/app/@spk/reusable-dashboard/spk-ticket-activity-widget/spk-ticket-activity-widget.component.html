@@ -1,0 +1,41 @@
+<div class="tca" [class.tca--fullscreen]="fullscreen" [class.widget-content-blur]="loading">
+  <div class="tca__chart-shell">
+    <div class="tca__chart-overlay">
+      <div class="tca__chart-stat">
+        <span class="tca__chart-stat-label">Total</span>
+        <strong class="tca__chart-stat-value">{{ viewModel.totalTickets }}</strong>
+      </div>
+      <div class="tca__chart-stat">
+        <span class="tca__chart-stat-label">Avg / Day</span>
+        <strong class="tca__chart-stat-value">{{ viewModel.averagePerDay }}</strong>
+      </div>
+      <div class="tca__chart-stat">
+        <span class="tca__chart-stat-label">Active Days</span>
+        <strong class="tca__chart-stat-value">{{ viewModel.activeDays }}</strong>
+      </div>
+      <div class="tca__chart-stat tca__chart-stat--accent">
+        <span class="tca__chart-stat-label">Peak Day</span>
+        <strong class="tca__chart-stat-value">{{ viewModel.peakDayCount }}</strong>
+      </div>
+    </div>
+
+    <div class="tca__chart">
+      <spk-apex-charts *ngIf="chartOptions" [chartOptions]="chartOptions"></spk-apex-charts>
+    </div>
+
+    <div class="tca__chart-meta">
+      <div class="tca__meta-chip">
+        <span class="tca__meta-label">Peak Day</span>
+        <strong class="tca__meta-value">{{ viewModel.peakDayLabel }}</strong>
+      </div>
+      <div class="tca__meta-chip">
+        <span class="tca__meta-label">First Ticket</span>
+        <strong class="tca__meta-value">{{ viewModel.firstTicketLabel }}</strong>
+      </div>
+      <div class="tca__meta-chip">
+        <span class="tca__meta-label">Last Ticket</span>
+        <strong class="tca__meta-value">{{ viewModel.lastTicketLabel }}</strong>
+      </div>
+    </div>
+  </div>
+</div>

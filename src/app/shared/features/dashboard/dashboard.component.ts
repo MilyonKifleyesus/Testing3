@@ -1,15 +1,15 @@
 ﻿import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Inject, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { NgApexchartsModule } from 'ng-apexcharts';
-import { firstValueFrom, forkJoin, map, Observable, Subscription } from 'rxjs';
+import { catchError, firstValueFrom, forkJoin, from, map, mergeMap, Observable, of, Subscription, switchMap, toArray } from 'rxjs';
 import { SpkApexChartsComponent } from '../../../@spk/reusable-charts/spk-apex-charts/spk-apex-charts.component';
 import { SharedModule } from '../../shared.module';
+import { MapStageComponent } from '../fleet-map/components/map-stage/map-stage.component';
 import * as busPulseData from '../../data/bus-pulse-dashboard';
 import { defaultClientProfile } from '../../data/client-profiles-dashboard';
 import { projectStats } from '../../data/client-tickets-assets';
@@ -17,6 +17,7 @@ import {
   DashboardWidget,
   ProjectStats,
   RecentActivity,
+  VehicleStats,
 } from '../../models/client-dashboard.models';
 import { AuthService, CurrentUser } from '../../services/auth.service';
 import { ClientService } from '../../services/client.service';
@@ -40,6 +41,7 @@ import {
   DASHBOARD_LAYOUT_STORAGE_KEY,
   DEFAULT_RECENT_ACTIVITIES,
   DEFAULT_WIDGET_LAYOUT,
+  PROJECT_TYPE_LOOKUP,
 } from './dashboard.constants';
 import {
   buildAdminStatCards,
@@ -47,10 +49,18 @@ import {
   resolveClientProjectStats,
 } from './dashboard-stats.utils';
 import {
+  buildProjectsByAreaChartOptions,
   buildProjectStatusChartOptions,
   buildVehiclesByMakeModelChartOptions,
   buildVehiclesByPropulsionTypeChartOptions,
+  normalizeAreaEntries,
 } from './dashboard-chart.utils';
+import {
+  bucketTicketCreationActivityPoints,
+  buildTicketCreationActivityChartOptions,
+  DashboardTicketActivityGranularity,
+  DashboardTicketActivityResult,
+} from './dashboard-ticket-activity.utils';
 import { DashboardResizeHandle, DashboardRole, DashboardStatCard } from './dashboard.types';
 import { createDefaultDashboardWidgets } from './dashboard.widget-factory';
 import { DashboardSnapshot, DashboardStateService } from './dashboard-state.service';
@@ -61,8 +71,14 @@ import {
   getNextFullscreenWidgetId,
   getResizeCursor,
 } from './dashboard-interactions.utils';
+import { Inject } from '@angular/core';
 import { ToastService } from '../../../components/elements/toast/toast.service';
-import { MapStageComponent } from '../fleet-map/components/map-stage/map-stage.component';
+import { DefectWordCloudWidgetComponent } from '../../components/defect-word-cloud-widget/defect-word-cloud-widget.component';
+import { VehicleActivitiesWidgetComponent } from '../../components/vehicle-activities-widget/vehicle-activities-widget.component';
+import {
+  SpkTicketActivityWidgetComponent,
+  SpkTicketActivityWidgetViewModel,
+} from '../../../@spk/reusable-dashboard/spk-ticket-activity-widget/spk-ticket-activity-widget.component';
 import type {
   ApiClient,
   ApiLocation,
@@ -74,8 +90,10 @@ import type {
 import { FleetMapApiService } from '../fleet-map/services/fleet-map-api.service';
 import { getProjectStatusDisplayLabel } from '../fleet-map/utils/fleet-map-status';
 import { AppStateService } from '../../services/app-state.service';
+import { getFirstDefinedValue, toOptionalText, toText, extractArrayFromApiResponse } from '../../utils/api-data.utils';
+import { ProjectActivitiesDataService } from '../../services/project-activities-data.service';
+import ExcelJS from 'exceljs';
 import { UserManagementService } from '../../services/user-management.service';
-import { extractArrayFromApiResponse } from '../../utils/api-data.utils';
 
 type DashboardMapStatusFilter = 'all' | ApiProject['status'];
 
@@ -85,6 +103,7 @@ interface DashboardMapFilterOption {
 }
 
 type DashboardMapStatusOption = { id: DashboardMapStatusFilter; label: string };
+type TicketActivityRangePreset = '30d' | '90d' | '180d' | '365d' | 'all' | 'custom';
 
 const DASHBOARD_MAP_STATUS_OPTIONS: DashboardMapStatusOption[] = [
   { id: 'all', label: 'All Statuses' },
@@ -105,40 +124,14 @@ const DASHBOARD_MAP_STATUS_OPTIONS: DashboardMapStatusOption[] = [
     SpkApexChartsComponent,
     DragDropModule,
     MapStageComponent,
+    DefectWordCloudWidgetComponent,
+    VehicleActivitiesWidgetComponent,
+    SpkTicketActivityWidgetComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-      private debounceDashboardMapView(): void {
-        if (this.dashboardFilterChangeTimeout) {
-          clearTimeout(this.dashboardFilterChangeTimeout);
-        }
-        this.dashboardFilterChangeTimeout = setTimeout(() => {
-          this.updateDashboardMapView();
-        }, this.dashboardFilterDebounceMs);
-      }
-    // ...existing code...
-      private dashboardFilterChangeTimeout: any = null;
-      private readonly dashboardFilterDebounceMs = 150;
-    userIdToUsername: { [id: number]: string } = {};
-
-    constructor(
-      private authService: AuthService,
-      private dashboardProjectsService: DashboardProjectsService,
-      private clientService: ClientService,
-      @Inject(ClientDashboardService) private clientDashboardService: ClientDashboardService,
-      private toastService: ToastService,
-      private fleetMapApiService: FleetMapApiService,
-      private appStateService: AppStateService,
-      private userManagementService: UserManagementService,
-      private location: Location,
-      private route: ActivatedRoute,
-      private cdr: ChangeDetectorRef,
-      private ngZone: NgZone,
-      private dashboardStateService: DashboardStateService,
-    ) {}
   role: DashboardRole = 'client';
   title = 'BusPulse Dashboard';
   welcomeUserName = 'User';
@@ -166,10 +159,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   clientProfile = defaultClientProfile;
   customerLogoName = '';
   currentProjectStats: ProjectStats = projectStats[0];
-  userPicture = '';
+  projectActivitiesRows: ProjectStats[] = [];
+  projectActivitiesLoading = false;
+  projectActivitiesTotalCount = 0;
+  projectActivitiesCurrentPage = 0;
+  readonly projectActivitiesPageSize = 5;
 
   allClientVehicles: any[] = [];
   allClientTickets: any[] = [];
+  userIdToUsername: { [id: number]: string } = {};
 
   readonly dashboardMapMode: FleetMode = 'projects';
 
@@ -193,6 +191,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private allMapLocations: ApiLocation[] = [];
   private dashboardMapDataLoaded = false;
 
+  userPicture = '';
   private dataInitialized = false;
   private resizeSession: DashboardResizeSession | null = null;
   private projectsRequestVersion = 0;
@@ -200,11 +199,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private makeModelRequestVersion = 0;
   private propulsionRequestVersion = 0;
   private vehicleStationRequestVersion = 0;
+  private widget10RequestVersion = 0;
+  private ticketActivityRequestVersion = 0;
+  private projectTimelineRequestVersion = 0;
   private stationTypeHeatmapRequestVersion = 0;
   private stationTimeComparisonRequestVersion = 0;
   private ticketsDashboardRequestVersion = 0;
   // Labels shown in the left column of widget-15 (vehicle list)
   vehicleStationLabels: string[] = [];
+  // Date range filter for widget-13 (Project Timeline)
+  projectTimelineStartDate = '';
+  projectTimelineEndDate = '';
+  ticketActivityStartDate = '';
+  ticketActivityEndDate = '';
+  ticketActivityRangePreset: TicketActivityRangePreset = '90d';
+  ticketActivityCustomRangeOpen = false;
+  ticketActivityDownloadMenuOpen = false;
+  ticketActivityGranularity: DashboardTicketActivityGranularity = 'day';
+  projectTimelinePageNumber = 1;
+  projectTimelinePageSize = 50;
+  projectTimelineTotalCount = 0;
+  projectTimelineLoadedPageCount = 1;
+  projectTimelineLoadedAllRecords = false;
+  readonly projectTimelinePageSizeOptions = [25, 50, 100];
+  private projectTimelineItems: any[] = [];
+  private lastTicketActivityResult: DashboardTicketActivityResult | null = null;
+  private ticketActivityLiveRefreshTimeout: ReturnType<typeof setTimeout> | null = null;
   vehicleStationMergeByType = false;
   vehicleStationPage = 1;
   readonly vehicleStationPageSize = 500;
@@ -283,12 +303,46 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   };
 
+  @ViewChildren(MapStageComponent) private mapStageComponents!: QueryList<MapStageComponent>;
+  @ViewChild(SpkTicketActivityWidgetComponent) private ticketActivityWidget?: SpkTicketActivityWidgetComponent;
+
   private userSubscription?: Subscription;
   private themeSubscription?: Subscription;
+  private projectActivitiesSubscriptions = new Subscription();
+  ticketActivityViewModel: SpkTicketActivityWidgetViewModel = {
+    scopeLabel: 'Current selection',
+    projectLabel: '',
+    totalTickets: '0',
+    spanDays: '0',
+    activeDays: '0',
+    averagePerDay: '0.0',
+    peakDayLabel: '-',
+    peakDayCount: '0',
+    firstTicketLabel: '-',
+    lastTicketLabel: '-',
+    rangeLabel: 'No created ticket dates',
+  };
 
+  constructor(
+    private authService: AuthService,
+    private dashboardProjectsService: DashboardProjectsService,
+    private clientService: ClientService,
+    @Inject(ClientDashboardService) private clientDashboardService: ClientDashboardService,
+    private toastService: ToastService,
+    private fleetMapApiService: FleetMapApiService,
+    private appStateService: AppStateService,
+    private projectActivitiesDataService: ProjectActivitiesDataService,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone,
+    private dashboardStateService: DashboardStateService,
+    private route: ActivatedRoute,
+  ) {}
 
   ngOnInit(): void {
+    this.bindProjectActivitiesWidgetState();
+
     try {
+      this.applyTicketActivityPreset('90d', false);
       this.syncDashboardTheme();
       const cached = this.dashboardStateService.snapshot;
       const currentRole = this.computeRole(this.authService.userRole);
@@ -297,8 +351,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       } else {
         this.dashboardStateService.snapshot = null;
         this.applyRole(this.authService.userRole);
-        // On hard refresh, always start from default filters.
-        // Keep URL in sync with defaults instead of restoring query params.
+        const qp = this.route.snapshot.queryParams;
+        if (qp['projectId']) this.selectedProject = qp['projectId'];
+        if (qp['vehicleId']) this.selectedVehicle = qp['vehicleId'];
         this.updateQueryParams();
         this.fetchAllClientVehiclesAndTickets();
         this.loadDashboardMapData();
@@ -314,7 +369,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.userPicture = newPicture;
         this.cdr.markForCheck();
       }
-      // Skip full re-init if role hasn't changed â€” covers the immediate BehaviorSubject emit on subscribe
+      // Skip full re-init if role hasn't changed — covers the immediate BehaviorSubject emit on subscribe
       if (this.isRoleMatch(user?.role ?? null)) {
         this.cdr.markForCheck();
         return;
@@ -327,13 +382,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       } catch (err) {
         this.toastService.show('Client dashboard role error: ' + (typeof err === 'object' && err && 'message' in err ? (err as any).message : String(err)), { classname: 'bg-danger text-light', autohide: true });
       }
-      this.cdr.markForCheck();
     });
     this.themeSubscription = this.appStateService.state$.subscribe((state) => {
       this.syncDashboardTheme(state?.theme);
-      this.cdr.markForCheck();
     });
-
     this.ngZone.runOutsideAngular(() => {
       document.addEventListener('mousemove', this.mouseMoveHandler);
       document.addEventListener('mouseup', this.mouseUpHandler);
@@ -344,9 +396,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.clearTicketActivityLiveRefreshTimeout();
     this.saveLayoutToStorage();
-    // Persist dashboard state for next navigation (cleared on browser refresh).
-    // Only save when widgets actually have chart data â€” skip if data never finished loading.
+    // Persist dashboard state for next in-app navigation (cleared on browser refresh).
+    // Only save when widgets actually have chart data — skip if data never finished loading.
     const hasData = this.widgets.some(w => w.chartOptions);
     if (this.dataInitialized && hasData) {
       this.dashboardStateService.snapshot = {
@@ -383,6 +436,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     this.userSubscription?.unsubscribe();
     this.themeSubscription?.unsubscribe();
+    this.projectActivitiesSubscriptions.unsubscribe();
     document.removeEventListener('mousemove', this.mouseMoveHandler);
     document.removeEventListener('mouseup', this.mouseUpHandler);
     document.removeEventListener('keydown', this.keydownHandler);
@@ -463,10 +517,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   toggleAdminOpenClosed(): void {
-    this.selectedProject = 'all';
     this.selectedVehicle = 'all';
-    this.dashboardProjectsService.clearProjectsCache();
-    this.setDonutChartsLoading();
     this.updateDashboardMapView();
     this.loadProjects();
   }
@@ -511,28 +562,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return 'stat-icon--success';
   }
 
-  private updateQueryParams(): void {
-    const projectId = this.selectedProject !== 'all' ? this.selectedProject : '0';
-    const vehicleId = this.selectedVehicle !== 'all' ? this.selectedVehicle : '0';
-    const currentPath = this.location.path(false).split('?')[0];
-    const query = `projectId=${encodeURIComponent(projectId)}&userId=0&vehicleId=${encodeURIComponent(vehicleId)}`;
-    this.location.replaceState(currentPath, query);
-  }
-
   onProjectChange(projectId: string): void {
     this.selectedProject = projectId;
     this.selectedVehicle = 'all';
+    this.resetProjectTimelinePagination();
     this.resetVehicleStationTrackingPaging();
     this.resetStationTypeHeatmapPaging();
     this.resetStationTimeComparisonPaging();
     this.updateQueryParams();
     this.updateDashboardMapView();
-    this.updateProjectStatusChart(this.projects);
-    this.fetchAllVehiclesForSelectedProjects();
+    this.refreshVehiclesByMakeModelChart();
+    this.refreshVehiclesByPropulsionTypesChart();
     this.loadVehicles(projectId);
-    if (this.isAdminRole) {
-      this.setAdminStatCards();
-    } else {
+    if (!this.isAdminRole) {
       this.fetchAllClientVehiclesAndTickets();
       this.refreshClientView();
     }
@@ -551,49 +593,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     // refresh vehicle station tracking when project changes
     this.refreshVehicleStationTrackingWidget();
-  }
-
-  private fetchAllVehiclesForSelectedProjects(): void {
-    this.refreshVehiclesByMakeModelChart();
-    this.refreshVehiclesByPropulsionTypesChart();
-  }
-
-  private refreshVehiclesByMakeModelChart(): void {
-    this.refreshVehicleDistributionWidget(
-      'widget-2',
-      () => ++this.makeModelRequestVersion,
-      () => this.makeModelRequestVersion,
-      () => this.dashboardProjectsService.getVehiclesByMakeModelData({
-        projectIds: this.getSelectedOrAllVisibleProjectIds(),
-        clientId: this.getEffectiveClientId(),
-        userId: undefined,
-        includeClosed: this.includeClosedProjects,
-        maxItems: 7,
-      }),
-      (items) => buildVehiclesByMakeModelChartOptions(
-        busPulseData.vehiclesByMakeModelChart,
-        items,
-      ),
-    );
-  }
-
-  private refreshVehiclesByPropulsionTypesChart(): void {
-    this.refreshVehicleDistributionWidget(
-      'widget-3',
-      () => ++this.propulsionRequestVersion,
-      () => this.propulsionRequestVersion,
-      () => this.dashboardProjectsService.getVehiclesByPropulsionTypeData({
-        projectIds: this.getSelectedOrAllVisibleProjectIds(),
-        clientId: this.getEffectiveClientId(),
-        userId: undefined,
-        includeClosed: this.includeClosedProjects,
-        maxItems: 7,
-      }),
-      (items) => buildVehiclesByPropulsionTypeChartOptions(
-        busPulseData.vehiclesByPropulsionChart,
-        items,
-      ),
-    );
+    this.refreshProjectTimelineWidget();
   }
 
   onAdminClientChange(clientId: string): void {
@@ -602,21 +602,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.selectedClient = clientId;
     this.selectedProject = 'all';
     this.selectedVehicle = 'all';
+    this.resetProjectTimelinePagination();
     this.totalVehiclesCount = null;
     this.resetStationTypeHeatmapPaging();
     this.resetStationTimeComparisonPaging();
     this.projects = [{ id: 'all', name: 'All Projects' }];
     this.vehicles = [{ id: 'all', name: 'All Vehicles' }];
 
-    // Reset all three donut charts to loading so stale data from the previous
-    // client is not shown while the new client's data is being fetched.
-    this.setDonutChartsLoading();
     this.updateDashboardMapView();
     this.loadProjects();
   }
 
   onVehicleChange(vehicleId: string): void {
     this.selectedVehicle = vehicleId;
+    this.resetProjectTimelinePagination();
     this.resetVehicleStationTrackingPaging();
     this.resetStationTimeComparisonPaging();
     this.updateQueryParams();
@@ -645,6 +644,166 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     this.refreshVehicleStationTrackingWidget();
+    this.refreshProjectTimelineWidget();
+  }
+
+  applyTicketActivityDateFilter(): void {
+    this.ticketActivityCustomRangeOpen = true;
+    this.ticketActivityRangePreset = 'custom';
+    this.clearTicketActivityLiveRefreshTimeout();
+    if (!this.hasValidTicketActivityDateRange()) {
+      return;
+    }
+    this.refreshTicketCreationActivityWidget(false);
+  }
+
+  clearTicketActivityDateFilter(): void {
+    this.ticketActivityCustomRangeOpen = false;
+    this.applyTicketActivityPreset('90d');
+  }
+
+  toggleTicketActivityCustomRange(): void {
+    this.ticketActivityCustomRangeOpen = !this.ticketActivityCustomRangeOpen;
+  }
+
+  toggleTicketActivityDownloadMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.ticketActivityDownloadMenuOpen = !this.ticketActivityDownloadMenuOpen;
+  }
+
+  downloadTicketActivityPNG(): void {
+    const widget = this.ticketActivityWidget;
+    if (!widget) {
+      console.warn('[TCA] Ticket activity widget not found');
+      return;
+    }
+    widget.exportChartPng().then((result) => {
+      if (!result?.imgURI) {
+        console.warn('[TCA] PNG export returned no data');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = result.imgURI;
+      a.download = 'ticket-creation-activity.png';
+      a.click();
+    }).catch((err) => {
+      console.error('[TCA] PNG export failed', err);
+    });
+  }
+
+  downloadTicketActivityCSV(): void {
+    const activity = this.lastTicketActivityResult;
+    const vm = this.ticketActivityViewModel;
+    const granularity = this.ticketActivityGranularity;
+    const points = activity ? bucketTicketCreationActivityPoints(activity.points, granularity) : [];
+    const rows: string[][] = [
+      ['# Ticket Creation Activity Summary'],
+      ['Scope', vm.scopeLabel],
+      ['Project', vm.projectLabel || 'All Projects'],
+      ['Range', vm.rangeLabel],
+      ['Total Tickets', vm.totalTickets],
+      ['Span Days', vm.spanDays],
+      ['Active Days', vm.activeDays],
+      ['Average / Day', vm.averagePerDay],
+      ['Peak Day Date', vm.peakDayLabel],
+      ['Peak Day Count', vm.peakDayCount],
+      ['First Ticket', vm.firstTicketLabel],
+      ['Last Ticket', vm.lastTicketLabel],
+      [],
+      [`# Timeline (${granularity} granularity)`],
+      ['Date', 'Tickets Created'],
+      ...points.map((p) => [p.date, String(p.count)]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ticket-creation-activity.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async downloadTicketActivityExcel(): Promise<void> {
+    const activity = this.lastTicketActivityResult;
+    const vm = this.ticketActivityViewModel;
+    const granularity = this.ticketActivityGranularity;
+    const points = activity ? bucketTicketCreationActivityPoints(activity.points, granularity) : [];
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'BusPulse';
+    workbook.created = new Date();
+
+    const summarySheet = workbook.addWorksheet('Summary');
+    summarySheet.columns = [
+      { header: 'Metric', key: 'metric', width: 24 },
+      { header: 'Value', key: 'value', width: 32 },
+    ];
+    summarySheet.addRows([
+      { metric: 'Scope', value: vm.scopeLabel },
+      { metric: 'Project', value: vm.projectLabel || 'All Projects' },
+      { metric: 'Range', value: vm.rangeLabel },
+      { metric: 'Total Tickets', value: vm.totalTickets },
+      { metric: 'Span Days', value: vm.spanDays },
+      { metric: 'Active Days', value: vm.activeDays },
+      { metric: 'Average / Day', value: vm.averagePerDay },
+      { metric: 'Peak Day Date', value: vm.peakDayLabel },
+      { metric: 'Peak Day Count', value: vm.peakDayCount },
+      { metric: 'First Ticket', value: vm.firstTicketLabel },
+      { metric: 'Last Ticket', value: vm.lastTicketLabel },
+    ]);
+    summarySheet.getRow(1).font = { bold: true };
+
+    const timelineSheet = workbook.addWorksheet(`Timeline (${granularity})`);
+    timelineSheet.columns = [
+      { header: 'Date', key: 'date', width: 16 },
+      { header: 'Tickets Created', key: 'count', width: 18 },
+    ];
+    timelineSheet.addRows(points.map((p) => ({ date: p.date, count: p.count })));
+    timelineSheet.getRow(1).font = { bold: true };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ticket-creation-activity.xlsx';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  onTicketActivityDateChange(): void {
+    this.ticketActivityCustomRangeOpen = true;
+    this.ticketActivityRangePreset = 'custom';
+    this.scheduleTicketActivityLiveRefresh();
+  }
+
+  applyTicketActivityPreset(preset: TicketActivityRangePreset, refresh = true): void {
+    this.clearTicketActivityLiveRefreshTimeout();
+    this.ticketActivityRangePreset = preset;
+    this.ticketActivityCustomRangeOpen = preset === 'custom';
+
+    if (preset === 'all') {
+      this.ticketActivityStartDate = '';
+      this.ticketActivityEndDate = '';
+    } else if (preset !== 'custom') {
+      const today = new Date();
+      const end = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+      const days = preset === '30d'
+        ? 30
+        : preset === '180d'
+          ? 180
+          : preset === '365d'
+            ? 365
+            : 90;
+      const start = new Date(end);
+      start.setUTCDate(start.getUTCDate() - (days - 1));
+      this.ticketActivityStartDate = start.toISOString().slice(0, 10);
+      this.ticketActivityEndDate = end.toISOString().slice(0, 10);
+    }
+
+    if (refresh) {
+      this.refreshTicketCreationActivityWidget(false);
+    }
   }
 
   onDashboardMapSelect(entity: FleetSelectedEntity | null): void {
@@ -687,8 +846,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.dashboardMapSelectedStatus === status) {
       return;
     }
+
     this.dashboardMapSelectedStatus = status;
-    this.debounceDashboardMapView();
+    this.updateDashboardMapView();
   }
 
   toggleDashboardMapManufacturer(manufacturerId: string): void {
@@ -696,10 +856,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!normalizedId) {
       return;
     }
+
     this.dashboardMapSelectedManufacturerIds = this.dashboardMapSelectedManufacturerIds.includes(normalizedId)
       ? this.dashboardMapSelectedManufacturerIds.filter((id) => id !== normalizedId)
       : [...this.dashboardMapSelectedManufacturerIds, normalizedId];
-    this.debounceDashboardMapView();
+
+    this.updateDashboardMapView();
   }
 
   isDashboardMapManufacturerSelected(manufacturerId: string): boolean {
@@ -733,7 +895,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.saveLayoutToStorage();
     // After CDK drop animation completes (~300ms), force chart components to
     // re-read their container dimensions by creating new chartOptions references.
-    // This triggers ngOnChanges â†’ updateChartOptionsInPlace with correct sizes.
+    // This triggers ngOnChanges → updateChartOptionsInPlace with correct sizes.
     setTimeout(() => {
       this.widgets.forEach(w => { if (w.chartOptions) w.chartOptions = { ...w.chartOptions }; });
       this.cdr.markForCheck();
@@ -756,7 +918,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // Admins always see all widgets
     if (this.isAdminRole) return true;
 
-    // Hide fleet map and recent activities widgets for non-admin users
+    // Hide fleet map and recent activities widgets for non-admin users (added PR 309)
     if (widget.id === 'widget-map' || widget.id === 'widget-14') return false;
 
     // Preserve existing compact-mode behavior: when filters aren't shown or project is 'all', show widgets
@@ -797,15 +959,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   restoreAllWidgets(): void {
     localStorage.removeItem(this.getLayoutStorageKey());
     this.initializeWidgets();
-    this.loadProjects();
-    if (!this.isAdminRole) {
-      this.fetchAllClientVehiclesAndTickets();
-      this.fetchAllVehiclesForSelectedProjects();
-    }
   }
 
   toggleFullscreen(widgetId: string): void {
-    this.fullscreenWidgetId = getNextFullscreenWidgetId(this.fullscreenWidgetId, widgetId);
+    const nextFullscreenId = getNextFullscreenWidgetId(this.fullscreenWidgetId, widgetId);
+
+    this.fullscreenWidgetId = nextFullscreenId;
     document.body.style.overflow = this.fullscreenWidgetId ? 'hidden' : 'auto';
   }
 
@@ -908,6 +1067,63 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.widgets.find((widget) => widget.id === this.fullscreenWidgetId);
   }
 
+  onProjectActivitiesPageChange(delta: number): void {
+    const nextPage = this.projectActivitiesCurrentPage + delta;
+    const totalPages = this.projectActivitiesPageSize > 0
+      ? Math.ceil(this.projectActivitiesTotalCount / this.projectActivitiesPageSize)
+      : 0;
+
+    if (nextPage < 0 || nextPage >= totalPages) {
+      return;
+    }
+
+    this.projectActivitiesCurrentPage = nextPage;
+    this.refreshProjectActivitiesWidget();
+  }
+
+  private computeRole(roleValue: string | null): DashboardRole {
+    const normalized = String(roleValue ?? '').trim().toLowerCase();
+    return normalized === 'admin' || normalized === 'superadmin' ? 'admin' : 'client';
+  }
+
+  private isRoleMatch(roleValue: string | null): boolean {
+    return this.computeRole(roleValue) === this.role;
+  }
+
+  private restoreFromSnapshot(snapshot: DashboardSnapshot): void {
+    this.role = snapshot.role;
+    this.widgets = snapshot.widgets.map(w => ({ ...w }));
+    this.statCards = [...snapshot.statCards];
+    this.projects = [...snapshot.projects];
+    this.vehicles = [...snapshot.vehicles];
+    this.clients = [...snapshot.clients];
+    this.totalVehiclesCount = snapshot.totalVehiclesCount;
+    this.allClientVehicles = [...snapshot.allClientVehicles];
+    this.allClientTickets = [...snapshot.allClientTickets];
+    this.userIdToUsername = { ...snapshot.userIdToUsername };
+    this.allMapProjects = [...snapshot.allMapProjects];
+    this.allMapClients = [...snapshot.allMapClients];
+    this.allMapManufacturers = [...snapshot.allMapManufacturers];
+    this.allMapLocations = [...snapshot.allMapLocations];
+    this.dashboardMapDataLoaded = snapshot.dashboardMapDataLoaded;
+    this.welcomeUserName = snapshot.welcomeUserName;
+    this.vehicleStationLabels = [...snapshot.vehicleStationLabels];
+    this.clientProfile = snapshot.clientProfile;
+    this.customerLogoName = snapshot.customerLogoName;
+    this.showFilters = snapshot.showFilters;
+    this.includeClosedProjects = snapshot.includeClosedProjects;
+    this.selectedProject = snapshot.selectedProject;
+    this.selectedVehicle = snapshot.selectedVehicle;
+    this.selectedClient = snapshot.selectedClient;
+    this.currentProjectStats = snapshot.currentProjectStats;
+    this.title = this.isAdminRole ? 'BusPulse Fleet Dashboard' : 'BusPulse Client Dashboard';
+    this.dashboardMapLoading = false;
+    this.updateDashboardMapView();
+    this.refreshProjectActivitiesWidget(true);
+    this.dataInitialized = true;
+    this.cdr.markForCheck();
+  }
+
   onResizeStart(event: MouseEvent, widgetId: string, handle: 'corner' | 'right' | 'bottom'): void {
     event.preventDefault();
     event.stopPropagation();
@@ -927,13 +1143,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   resetDashboardLayout(): void {
     localStorage.removeItem(this.getLayoutStorageKey());
-    // Restore any deleted widgets while preserving chart data in existing widgets
-    const existingIds = new Set(this.widgets.map((w) => w.id));
-    const missing = createDefaultDashboardWidgets().filter((w) => !existingIds.has(w.id));
-    if (missing.length) {
-      this.widgets = [...this.widgets, ...missing];
-    }
-    this.applyDefaultWidgetLayout();
+    this.initializeWidgets();
+    this.widgets = this.buildWidgets();
+    this.saveLayoutToStorage();
     window.dispatchEvent(new Event('resize'));
   }
 
@@ -995,6 +1207,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const effectiveClientId = this.getEffectiveClientId();
     const requestVersion = ++this.projectsRequestVersion;
     ++this.vehiclesRequestVersion;
+    this.resetProjectTimelinePagination();
 
     this.dashboardProjectsService.getProjectOptions({
       clientId: effectiveClientId ?? 0,
@@ -1014,7 +1227,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         this.updateProjectStatusChart(this.projects);
         this.updateProjectScopedComparisonWidgets();
-        this.fetchAllVehiclesForSelectedProjects();
+        this.refreshVehiclesByMakeModelChart();
+        this.refreshVehiclesByPropulsionTypesChart();
 
         this.syncMapProjectsFromLoaded();
         if (!this.dashboardMapDataLoaded) {
@@ -1022,13 +1236,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
         this.updateDashboardMapView();
         this.loadVehicles(this.selectedProject);
-        if (this.isAdminRole) {
-          this.setAdminStatCards();
-        } else {
+        if (!this.isAdminRole) {
           this.refreshClientView();
         }
-        this.dataInitialized = true;
-        this.cdr.markForCheck();
+        this.refreshProjectTimelineWidget();
       },
       error: (err) => {
         if (requestVersion !== this.projectsRequestVersion) return;
@@ -1037,11 +1248,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.selectedVehicle = 'all';
         this.updateProjectStatusChart(this.projects);
         this.updateProjectScopedComparisonWidgets();
-        this.fetchAllVehiclesForSelectedProjects();
+        this.refreshVehiclesByMakeModelChart();
+        this.refreshVehiclesByPropulsionTypesChart();
         this.updateDashboardMapView();
         this.loadVehicles(this.selectedProject);
+        if (!this.isAdminRole) {
+          this.refreshClientView();
+        }
         this.toastService.show('Failed to load projects: ' + (err?.message || 'Unknown error'), { classname: 'bg-danger text-light', autohide: true });
-        this.cdr.markForCheck();
       },
     });
   }
@@ -1083,21 +1297,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
           ? explicitTotal
           : derivedTotal;
 
+        this.refreshTicketCreationActivityWidget();
+
         if (this.isAdminRole) {
           this.setAdminStatCards();
         } else {
           this.fetchAllClientVehiclesAndTickets();
           this.refreshClientView();
         }
-        this.cdr.markForCheck();
+
+        this.refreshProjectActivitiesWidget(true);
       },
       error: (err) => {
         if (requestVersion !== this.vehiclesRequestVersion) return;
         this.vehicles = [{ id: 'all', name: 'All Vehicles' }];
         this.selectedVehicle = 'all';
         this.totalVehiclesCount = null;
+        this.refreshTicketCreationActivityWidget();
+        this.refreshProjectActivitiesWidget(true);
         this.toastService.show('Failed to load vehicles: ' + (err?.message || 'Unknown error'), { classname: 'bg-danger text-light', autohide: true });
-        this.cdr.markForCheck();
       },
     });
   }
@@ -1121,14 +1339,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
 
         this.updateDashboardMapView();
-        this.cdr.markForCheck();
       },
       error: (err) => {
         this.clients = [{ id: 'all', name: 'All Clients' }];
         this.selectedClient = 'all';
         this.updateDashboardMapView();
         this.toastService.show('Failed to load clients: ' + (err?.message || 'Unknown error'), { classname: 'bg-danger text-light', autohide: true });
-        this.cdr.markForCheck();
       },
     });
   }
@@ -1175,7 +1391,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.dashboardMapDataLoaded = true;
         this.dashboardMapLoading = false;
         this.updateDashboardMapView();
-        this.cdr.markForCheck();
       },
       error: (err) => {
         this.dashboardMapLoading = false;
@@ -1186,14 +1401,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.dashboardMapLocations = [];
         this.dashboardMapManufacturerOptions = [];
         this.updateDashboardMapWidgetState();
-        this.cdr.markForCheck();
       },
     });
   }
 
   private updateDashboardMapView(): void {
-    // ...existing code...
-    // ...existing code...
     if (!this.dashboardMapDataLoaded) {
       return;
     }
@@ -1206,9 +1418,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (effectiveClientKey && project.clientId !== effectiveClientKey) {
         return false;
       }
+
       if (selectedProjectKey && selectedProjectKey !== 'all') {
         return project.id === this.selectedProject;
       }
+
       return true;
     });
 
@@ -1235,6 +1449,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (!this.dashboardMapSelectedManufacturerIds.includes(manufacturer.id)) {
           return;
         }
+
         manufacturer.locationIds.forEach((locationId) => selectedManufacturerLocationIds.add(locationId));
       });
     }
@@ -1247,9 +1462,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (!statusMatch) {
         return false;
       }
+
       if (selectedManufacturerLocationIds.size === 0) {
         return true;
       }
+
       return this.projectMatchesDashboardMapManufacturerFilter(project, selectedManufacturerLocationIds);
     });
 
@@ -1334,7 +1551,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private syncDashboardTheme(theme?: string | null): void {
     const html = document.documentElement;
     const resolvedTheme = String(theme ?? html.getAttribute('data-theme-mode') ?? '').trim().toLowerCase();
-    this.dashboardMapIsDark = resolvedTheme === 'dark' || html.classList.contains('dark');
+    const nextIsDark = resolvedTheme === 'dark' || html.classList.contains('dark');
+    const didThemeChange = this.dashboardMapIsDark !== nextIsDark;
+
+    this.dashboardMapIsDark = nextIsDark;
+
+    if (didThemeChange) {
+      this.rebuildTicketActivityChartForTheme();
+    }
   }
 
   private isDashboardMapSelectionVisible(entity: FleetSelectedEntity): boolean {
@@ -1392,17 +1616,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
           vehicle: client.name || fallbackProfile.vehicle,
         };
         this.customerLogoName = client.logoName || client.name || '';
-        this.cdr.markForCheck();
       },
       error: () => {
         this.clientProfile = fallbackProfile;
         this.customerLogoName = '';
-        this.cdr.markForCheck();
       },
     });
   }
 
-  private getEffectiveClientId(): number | undefined {
+  getEffectiveClientId(): number | undefined {
     if (this.isAdminRole) {
       if (this.selectedClient === 'all') {
         return undefined;
@@ -1417,12 +1639,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private setAdminStatCards(): void {
     const totalProjects = this.projects.filter((project) => project.id !== 'all').length || 0;
-    const requestVersion = ++this.ticketsDashboardRequestVersion;
-
-    if (totalProjects > 0 || this.projects.some((p) => p.id !== 'all')) {
-      this.updateProjectStatusChart(this.projects);
-    }
-
+    this.updateProjectStatusChart(this.projects);
+    // Always fetch tickets dashboard and update admin stats from API result
     this.dashboardProjectsService.getTicketsDashboard({
       projectId: this.selectedProject !== 'all' ? this.selectedProject : undefined,
       vehicleId: this.selectedVehicle !== 'all' ? this.selectedVehicle : undefined,
@@ -1430,40 +1648,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
       includeClosed: this.includeClosedProjects,
     }).subscribe({
       next: (res) => {
-        if (requestVersion !== this.ticketsDashboardRequestVersion) return;
-        const resolveCount = (candidates: any[]): number | null => {
-          for (const c of candidates) {
-            const n = Number(c);
-            if (Number.isFinite(n) && n >= 0) return n;
-          }
-          return null;
-        };
+        // Reuse repeatedTickets and safetyCriticalTickets from API result
         const statsSource = {
           ...busPulseData.dashboardStats,
-          repeatedDefects: resolveCount([res?.repeatedTickets, (res as any)?.RepeatedTickets, (res as any)?.repeatTickets, (res as any)?.RepeatTickets, (res as any)?.data?.repeatedTickets, (res as any)?.result?.repeatedTickets]) ?? busPulseData.dashboardStats.repeatedDefects,
-          criticalDefects: resolveCount([res?.safetyCriticalTickets, (res as any)?.SafetyCriticalTickets, (res as any)?.criticalTickets, (res as any)?.CriticalTickets, (res as any)?.data?.safetyCriticalTickets, (res as any)?.result?.safetyCriticalTickets]) ?? busPulseData.dashboardStats.criticalDefects,
+          repeatedDefects: res?.repeatedTickets ?? busPulseData.dashboardStats.repeatedDefects,
+          criticalDefects: res?.safetyCriticalTickets ?? busPulseData.dashboardStats.criticalDefects,
         };
         this.statCards = buildAdminStatCards(statsSource, totalProjects, this.totalVehiclesCount);
         this.updateTicketsByStatusWidgetFromApi(res);
-        this.cdr.markForCheck();
       },
       error: () => {
-        if (requestVersion !== this.ticketsDashboardRequestVersion) return;
         this.statCards = buildAdminStatCards(busPulseData.dashboardStats, totalProjects, this.totalVehiclesCount);
         this.updateTicketsByStatusWidgetFromApi([]);
-        this.cdr.markForCheck();
       },
     });
   }
 
   private refreshClientView(): void {
-    const requestVersion = ++this.ticketsDashboardRequestVersion;
-
     this.currentProjectStats = resolveClientProjectStats(
       projectStats,
       this.selectedProject,
       this.selectedVehicle,
-    );
+    ) ?? this.currentProjectStats;
 
     {
       let totalAssets = Number(this.currentProjectStats.totalAssets ?? 0);
@@ -1490,63 +1696,198 @@ export class DashboardComponent implements OnInit, OnDestroy {
         totalAssets,
       };
     }
-
+    
     // If a client has selected a specific project, fetch authoritative ticket totals
     // from the tickets dashboard API. Use project-level totals when "All Vehicles"
     // is selected, and vehicle-level totals when a single vehicle is selected.
     if (!this.isAdminRole && this.selectedProject !== 'all') {
       const projectIdParam = this.selectedProject;
-      const clientIdParam = this.getEffectiveClientId();
-      const params = this.selectedVehicle === 'all'
-        ? { projectId: projectIdParam, clientId: clientIdParam }
-        : { projectId: projectIdParam, vehicleId: this.selectedVehicle, clientId: clientIdParam };
 
-      this.dashboardProjectsService.getTicketsDashboard(params).subscribe({
-        next: (res) => {
-          if (requestVersion !== this.ticketsDashboardRequestVersion) return;
-          const result: any = res ?? {};
+      if (this.selectedVehicle === 'all') {
+        this.dashboardProjectsService.getTicketsDashboard({ projectId: projectIdParam }).subscribe({
+          next: (res) => {
+            const result: any = res ?? {};
+            const candidates = [result.totalTickets, result.total, result.count, result.totalItems, result.totalRecords];
+            let total = Number(this.currentProjectStats.totalTickets ?? 0);
+            for (const c of candidates) {
+              const n = Number(c);
+              if (Number.isFinite(n) && n >= 0) {
+                total = n;
+                break;
+              }
+            }
+
+            this.currentProjectStats = {
+              ...this.currentProjectStats,
+              totalTickets: total,
+            };
+
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+            // Update Tickets by Status widget from API response when available
+            this.updateTicketsByStatusWidgetFromApi(result);
+          },
+          error: () => {
+            // Show canonical zeros on API error
+            this.updateTicketsByStatusWidgetFromApi([]);
+          },
+        });
+      } else {
+        const vehicleIdParam = this.selectedVehicle;
+        this.dashboardProjectsService.getTicketsDashboard({ projectId: projectIdParam, vehicleId: vehicleIdParam }).subscribe({
+          next: (res) => {
+            const result: any = res ?? {};
+            const candidates = [result.totalTickets, result.total, result.count, result.totalItems, result.totalRecords];
+            let total = Number(this.currentProjectStats.totalTickets ?? 0);
+            for (const c of candidates) {
+              const n = Number(c);
+              if (Number.isFinite(n) && n >= 0) {
+                total = n;
+                break;
+              }
+            }
+
+            this.currentProjectStats = {
+              ...this.currentProjectStats,
+              totalTickets: total,
+            };
+
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+            // Update Tickets by Status widget from API response when available
+            this.updateTicketsByStatusWidgetFromApi(result);
+          },
+          error: () => {
+            // Show canonical zeros on API error
+            this.updateTicketsByStatusWidgetFromApi([]);
+          },
+        });
+      }
+    }
+    // If a specific vehicle is selected, request the tickets dashboard for that vehicle
+    // and update the Total Tickets card with the API result (if present).
+    if (!this.isAdminRole && this.selectedProject !== 'all' && this.selectedVehicle !== 'all') {
+      const projectIdParam = this.selectedProject;
+      const vehicleIdParam = this.selectedVehicle;
+
+      this.dashboardProjectsService.getTicketsDashboard({ projectId: projectIdParam, vehicleId: vehicleIdParam }).subscribe({
+        next: (result) => {
+          const res: any = result ?? {};
+          const candidates = [res.totalTickets, res.total, res.count, res.totalItems, res.totalRecords];
+
+          let total = 0;
+          for (const c of candidates) {
+            const n = Number(c);
+            if (Number.isFinite(n) && n >= 0) {
+              total = n;
+              break;
+            }
+          }
+
           this.currentProjectStats = {
             ...this.currentProjectStats,
-            totalTickets: this.extractTicketTotal(result),
+            totalTickets: total,
           };
-          this.statCards = buildClientStatCards(this.currentProjectStats, this.showFilters, this.selectedProject);
-          this.updateTicketsByStatusWidgetFromApi(result);
-          this.cdr.markForCheck();
+
+          this.statCards = buildClientStatCards(
+            this.currentProjectStats,
+            this.showFilters,
+            this.selectedProject,
+          );
+          // Update Tickets by Status widget from API response when available
+          this.updateTicketsByStatusWidgetFromApi(res);
         },
         error: () => {
-          if (requestVersion !== this.ticketsDashboardRequestVersion) return;
+          // Show canonical zeros on API error
           this.updateTicketsByStatusWidgetFromApi([]);
-          this.cdr.markForCheck();
         },
       });
     }
     // If All Projects is selected, either fetch vehicle-scoped totals (option A)
     // or aggregate per-project totals when no vehicle is selected.
     if (!this.isAdminRole && this.selectedProject === 'all') {
-      const clientIdParam = this.getEffectiveClientId();
-      const params = (this.selectedVehicle && this.selectedVehicle !== 'all')
-        ? { vehicleId: this.selectedVehicle, clientId: clientIdParam }
-        : { clientId: clientIdParam };
+      if (this.selectedVehicle && this.selectedVehicle !== 'all') {
+        // Option A: single call by vehicleId across all projects
+        this.dashboardProjectsService.getTicketsDashboard({ vehicleId: this.selectedVehicle }).subscribe({
+          next: (res) => {
+            const r: any = res ?? {};
+            const candidates = [r.totalTickets, r.total, r.count, r.totalItems, r.totalRecords];
+            let total = Number(this.currentProjectStats.totalTickets ?? 0);
+            for (const c of candidates) {
+              const n = Number(c);
+              if (Number.isFinite(n) && n >= 0) {
+                total = n;
+                break;
+              }
+            }
 
-      this.dashboardProjectsService.getTicketsDashboard(params).subscribe({
-        next: (res) => {
-          if (requestVersion !== this.ticketsDashboardRequestVersion) return;
-          const r: any = res ?? {};
-          this.currentProjectStats = {
-            ...this.currentProjectStats,
-            totalTickets: this.extractTicketTotal(r),
-          };
-          this.statCards = buildClientStatCards(this.currentProjectStats, this.showFilters, this.selectedProject);
-          this.updateTicketsByStatusWidgetFromApi(r);
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          if (requestVersion !== this.ticketsDashboardRequestVersion) return;
-          this.updateTicketsByStatusWidgetFromApi([]);
-          this.statCards = buildClientStatCards(this.currentProjectStats, this.showFilters, this.selectedProject);
-          this.cdr.markForCheck();
-        },
-      });
+            this.currentProjectStats = {
+              ...this.currentProjectStats,
+              totalTickets: total,
+            };
+
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+            // Update Tickets by Status widget from API response when available
+            this.updateTicketsByStatusWidgetFromApi(r);
+          },
+          error: () => {
+            // Show canonical zeros on API error and keep stat cards
+            this.updateTicketsByStatusWidgetFromApi([]);
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+          },
+        });
+      } else {
+        // Use one aggregated request for client scope to avoid spawning
+        // one network call per project (can freeze/crash on large fleets).
+        this.dashboardProjectsService.getTicketsDashboard().subscribe({
+          next: (res) => {
+            const r: any = res ?? {};
+            const candidates = [r.totalTickets, r.total, r.count, r.totalItems, r.totalRecords];
+            let total = Number(this.currentProjectStats.totalTickets ?? 0);
+            for (const c of candidates) {
+              const n = Number(c);
+              if (Number.isFinite(n) && n >= 0) {
+                total = n;
+                break;
+              }
+            }
+
+            this.currentProjectStats = {
+              ...this.currentProjectStats,
+              totalTickets: total,
+            };
+
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+            this.updateTicketsByStatusWidgetFromApi(r);
+          },
+          error: () => {
+            this.updateTicketsByStatusWidgetFromApi([]);
+            this.statCards = buildClientStatCards(
+              this.currentProjectStats,
+              this.showFilters,
+              this.selectedProject,
+            );
+          },
+        });
+      }
     } else {
       this.statCards = buildClientStatCards(
         this.currentProjectStats,
@@ -1562,15 +1903,116 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private initializeWidgets(): void {
     this.widgets = createDefaultDashboardWidgets();
+    this.updateProjectStatusWidget(this.projectStatusChartOptions);
+
     this.loadLayoutFromStorage();
   }
 
-  private setDonutChartsLoading(): void {
-    if (!this.widgets.length) return;
-    const donutIds = new Set(['widget-1', 'widget-2', 'widget-3']);
-    this.widgets = this.widgets.map((widget) =>
-      donutIds.has(widget.id) ? { ...widget, loading: true, chartOptions: null } : widget,
+  private bindProjectActivitiesWidgetState(): void {
+    this.projectActivitiesSubscriptions.unsubscribe();
+    this.projectActivitiesSubscriptions = new Subscription();
+
+    this.projectActivitiesSubscriptions.add(
+      this.projectActivitiesDataService.rows$.subscribe((rows) => {
+        this.projectActivitiesRows = rows;
+        this.cdr.markForCheck();
+      }),
     );
+
+    this.projectActivitiesSubscriptions.add(
+      this.projectActivitiesDataService.totalCount$.subscribe((totalCount) => {
+        this.projectActivitiesTotalCount = totalCount;
+        this.cdr.markForCheck();
+      }),
+    );
+
+    this.projectActivitiesSubscriptions.add(
+      this.projectActivitiesDataService.loading$.subscribe((loading) => {
+        this.projectActivitiesLoading = loading;
+        this.cdr.markForCheck();
+      }),
+    );
+  }
+
+  private refreshProjectActivitiesWidget(resetPage = false): void {
+    const widgetId = 'widget-project-activities';
+    const widget = this.widgets.find((item) => item.id === widgetId);
+    if (!widget || !this.isWidgetVisible(widget)) {
+      return;
+    }
+
+    if (resetPage) {
+      this.projectActivitiesCurrentPage = 0;
+    }
+
+    const projectScope = this.resolveProjectActivitiesProjectScope();
+    const selectedVehicleId = String(this.selectedVehicle ?? '').trim();
+    const vehicleId = selectedVehicleId && selectedVehicleId.toLowerCase() !== 'all' && projectScope.projectId
+      ? selectedVehicleId
+      : undefined;
+
+    this.widgets = this.widgets.map((item) => (
+      item.id === widgetId
+        ? {
+            ...item,
+            subtitle: this.buildProjectActivitiesSubtitle(projectScope.projectName, !!vehicleId),
+            loading: false,
+          }
+        : item
+    ));
+
+    this.projectActivitiesDataService.loadPage({
+      page: this.projectActivitiesCurrentPage,
+      pageSize: this.projectActivitiesPageSize,
+      clientId: this.getEffectiveClientId(),
+      includeClosed: this.includeClosedProjects,
+      projectId: projectScope.projectId,
+      projectName: projectScope.projectName,
+      projectTypeId: projectScope.projectTypeId,
+      vehicleId,
+    });
+  }
+
+  private resolveProjectActivitiesProjectScope(): {
+    projectId?: string;
+    projectName?: string;
+    projectTypeId?: number;
+  } {
+    const explicitProjectId = String(this.selectedProject ?? '').trim();
+    if (explicitProjectId && explicitProjectId.toLowerCase() !== 'all') {
+      const explicitProject = this.projects.find((project) => project.id === explicitProjectId);
+      return {
+        projectId: explicitProjectId,
+        projectName: explicitProject?.name,
+        projectTypeId: explicitProject?.projectTypeId,
+      };
+    }
+
+    if (!this.isAdminRole && String(this.selectedVehicle ?? '').trim().toLowerCase() !== 'all') {
+      const inferredProjectId = String(this.currentProjectStats?.projectId ?? '').trim();
+      if (inferredProjectId) {
+        const inferredProject = this.projects.find((project) => project.id === inferredProjectId);
+        return {
+          projectId: inferredProjectId,
+          projectName: inferredProject?.name ?? this.currentProjectStats?.projectName,
+          projectTypeId: inferredProject?.projectTypeId,
+        };
+      }
+    }
+
+    return {};
+  }
+
+  private buildProjectActivitiesSubtitle(projectName?: string, vehicleScoped = false): string {
+    if (projectName && vehicleScoped) {
+      return `Ticket volume, staffing, and sync status for ${projectName} and the selected vehicle`;
+    }
+
+    if (projectName) {
+      return `Ticket volume, staffing, and sync status for ${projectName}`;
+    }
+
+    return 'Live ticket volume, staffing, and sync status by project';
   }
 
   private updateProjectStatusChart(projects: DashboardProjectOption[]): void {
@@ -1619,6 +2061,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
 
     const widget10ProjectNames = projectNames.slice(0, 12);
+    const widget12ProjectNames = projectNames.slice(0, 12);
     const widget13ProjectNames = projectNames.slice(0, 10);
     const widget15VehicleNames = (Array.isArray(this.vehicles) && this.vehicles.filter(v => String(v?.id ?? '').toLowerCase() !== 'all').map((v: any) => String(v.name ?? v.id)).slice(0, 10)) || widget13ProjectNames;
 
@@ -1636,6 +2079,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
           }))
         : [],
     };
+
+    const templateWidget11 = busPulseData.projectsByStationHeatmap as any;
+    const templateHeatmapSeries = Array.isArray(templateWidget11?.series) ? templateWidget11.series : [];
+    const widget11Options = {
+      ...templateWidget11,
+      series: widget10ProjectNames.map((projectName, index) => ({
+        ...(templateHeatmapSeries[index % Math.max(templateHeatmapSeries.length, 1)] ?? {}),
+        name: projectName,
+      })),
+    };
+
+    const templateWidget12 = busPulseData.stationTimeComparisonChart as any;
+    const widget12Options = {
+      ...templateWidget12,
+      yaxis: {
+        ...(templateWidget12?.yaxis ?? {}),
+        categories: widget12ProjectNames,
+      },
+      series: Array.isArray(templateWidget12?.series)
+        ? templateWidget12.series.map((seriesItem: any) => ({
+            ...seriesItem,
+            data: fitSeriesData(seriesItem?.data, widget12ProjectNames.length),
+          }))
+        : [],
+    };
+
     const templateWidget13 = busPulseData.projectTimelineChart as any;
     const templateTimelineData = Array.isArray(templateWidget13?.series?.[0]?.data)
       ? templateWidget13.series[0].data
@@ -1669,8 +2138,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.widgets = this.widgets.map((widget) => {
       if (widget.id === 'widget-10') return { ...widget, chartOptions: widget10Options, loading: false };
-      if (widget.id === 'widget-11') return { ...widget, loading: true };
-      if (widget.id === 'widget-12') return { ...widget, loading: true };
+      if (widget.id === 'widget-11') return { ...widget, chartOptions: widget11Options, loading: false };
+      if (widget.id === 'widget-12') return { ...widget, chartOptions: widget12Options, loading: false };
       if (widget.id === 'widget-13') return { ...widget, chartOptions: widget13Options, loading: false };
       if (widget.id === 'widget-15') return { ...widget, chartOptions: widget15Options, loading: false };
       return widget;
@@ -2600,6 +3069,43 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   }
 
+  private refreshVehiclesByMakeModelChart(): void {
+    this.refreshVehicleDistributionWidget(
+      'widget-2',
+      () => ++this.makeModelRequestVersion,
+      () => this.makeModelRequestVersion,
+      () => this.dashboardProjectsService.getVehiclesByMakeModelData({
+        projectIds: this.getSelectedOrAllVisibleProjectIds(),
+        clientId: this.getEffectiveClientId(),
+        userId: undefined,
+        includeClosed: this.includeClosedProjects,
+        maxItems: 7,
+      }),
+      (items) => buildVehiclesByMakeModelChartOptions(
+        busPulseData.vehiclesByMakeModelChart,
+        items,
+      ),
+    );
+  }
+
+  private refreshVehiclesByPropulsionTypesChart(): void {
+    this.refreshVehicleDistributionWidget(
+      'widget-3',
+      () => ++this.propulsionRequestVersion,
+      () => this.propulsionRequestVersion,
+      () => this.dashboardProjectsService.getVehiclesByPropulsionTypeData({
+        projectIds: this.getSelectedOrAllVisibleProjectIds(),
+        clientId: this.getEffectiveClientId(),
+        userId: undefined,
+        includeClosed: this.includeClosedProjects,
+        maxItems: 7,
+      }),
+      (items) => buildVehiclesByPropulsionTypeChartOptions(
+        busPulseData.vehiclesByPropulsionChart,
+        items,
+      ),
+    );
+  }
 
   private refreshVehicleDistributionWidget(
     widgetId: 'widget-2' | 'widget-3',
@@ -2617,7 +3123,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
 
         this.updateVehicleDistributionWidget(widgetId, buildChartOptions(items));
-        this.cdr.markForCheck();
       },
       error: () => {
         if (requestVersion !== currentRequestVersion()) {
@@ -2625,7 +3130,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
 
         this.updateVehicleDistributionWidget(widgetId, buildChartOptions([]));
-        this.cdr.markForCheck();
       },
     });
   }
@@ -2719,18 +3223,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
         // Ensure unique ordering and then populate series for each vehicle id.
         vehicleIdsToShow = Array.from(new Set(vehicleIdsToShow));
 
-        // Build a single lookup map to avoid repeated .find() calls per vehicle
-        const vehicleLookup = new Map<string, any>([
-          ...(this.vehicles || []).map((v: any) => [String(v.id), v] as [string, any]),
-          ...(this.allClientVehicles || []).map((v: any) => [String(v.id), v] as [string, any]),
-        ]);
-        const getVehicleLabel = (vid: string): string => {
-          const opt = vehicleLookup.get(vid);
-          return opt ? String(opt.name ?? opt.id) : `Vehicle ${vid}`;
-        };
-
         // Prepare left-column labels (exposed to template) based on ordered ids
-        this.vehicleStationLabels = vehicleIdsToShow.map(getVehicleLabel);
+        const vehicleLabels = vehicleIdsToShow.map((vid) => {
+          const opt = (this.vehicles || []).find((v: any) => String(v.id) === String(vid)) || (this.allClientVehicles || []).find((v: any) => String(v.id) === String(vid));
+          return opt ? String(opt.name ?? opt.id) : `Vehicle ${vid}`;
+        });
+        this.vehicleStationLabels = vehicleLabels;
 
         const parseIsoToMs = (value: unknown): number | null => {
           if (value == null) {
@@ -2773,7 +3271,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         for (const vid of vehicleIdsToShow) {
           const records = grouped.get(vid) ?? [];
-          const vehicleLabel = getVehicleLabel(vid);
+
+          const vehicleOption = (this.vehicles || []).find((v: any) => String(v.id) === String(vid)) || (this.allClientVehicles || []).find((v: any) => String(v.id) === String(vid));
+          const vehicleLabel = vehicleOption ? String(vehicleOption.name ?? vehicleOption.id) : `Vehicle ${vid}`;
 
           if (!records.length) {
             // Do not add a time placeholder here because it distorts x-axis range.
@@ -2916,37 +3416,64 @@ export class DashboardComponent implements OnInit, OnDestroy {
           : (template?.states?.hover?.filter ?? {});
 
         const chartOptions = {
-          ...(template ?? {}),
+          ...(template || {}),
           chart: {
-            ...(template?.chart ?? {}),
+            ...((template && template.chart) || {}),
             height: calculatedHeight,
             width: calculatedWidth,
-            zoom: { ...(template?.chart?.zoom ?? {}), enabled: false },
-            toolbar: { ...(template?.chart?.toolbar ?? {}), show: false },
+            zoom: {
+              ...(((template && template.chart && template.chart.zoom) || {})),
+              enabled: false,
+            },
+            toolbar: {
+              ...(((template && template.chart && template.chart.toolbar) || {})),
+              show: false,
+            },
           },
+          // Align bars and y-axis labels: increase bar height slightly and
+          // nudge y-axis label vertical offset so labels and range bars center
+          // on the same row. We merge with any template.plotOptions.
           plotOptions: {
-            ...(template?.plotOptions ?? {}),
+            ...((template && template.plotOptions) || {}),
             bar: {
-              ...(template?.plotOptions?.bar ?? {}),
-              barHeight: template?.plotOptions?.bar?.barHeight ?? '60%',
-              rangeBarGroupRows: template?.plotOptions?.bar?.rangeBarGroupRows ?? false,
+              ...(((template && template.plotOptions && template.plotOptions.bar) || {})),
+              // restore template bar height for consistent alignment
+              barHeight: ((template && template.plotOptions && template.plotOptions.bar && template.plotOptions.bar.barHeight) !== undefined)
+                ? template.plotOptions.bar.barHeight
+                : '60%',
+              // maintain grouping behavior from template if present
+              rangeBarGroupRows: ((template && template.plotOptions && template.plotOptions.bar && template.plotOptions.bar.rangeBarGroupRows) !== undefined)
+                ? template.plotOptions.bar.rangeBarGroupRows
+                : false,
             },
           },
           xaxis: {
-            ...(template?.xaxis ?? {}),
+            ...((template && template.xaxis) || {}),
             type: 'datetime',
             min: xaxisMin,
             max: xaxisMax,
             tickAmount: 6,
-            title: template?.xaxis?.title ?? {
-              text: 'Date',
-              style: { fontSize: '13px', fontFamily: 'Poppins, sans-serif', color: axisTitleColor },
-            },
+            // Add an explicit x-axis title for the timeline (Date)
+            // Use template xaxis title when present, otherwise default to
+            // 'Date' and match the y-axis title color when available.
+            title: ((template && template.xaxis && template.xaxis.title) !== undefined)
+              ? template.xaxis.title
+              : {
+                text: 'Date',
+                style: {
+                  fontSize: '13px',
+                  fontFamily: 'Poppins, sans-serif',
+                  color: axisTitleColor,
+                },
+              },
             labels: {
-              ...(template?.xaxis?.labels ?? {}),
+              ...(((template && template.xaxis && template.xaxis.labels) || {})),
               rotate: -30,
               hideOverlappingLabels: true,
-              style: { ...(template?.xaxis?.labels?.style ?? {}), fontSize: '11px' },
+              style: {
+                ...(((template && template.xaxis && template.xaxis.labels && template.xaxis.labels.style) || {})),
+                fontSize: '11px',
+              },
               formatter: (val: any) => {
                 const d = new Date(val);
                 try {
@@ -2958,16 +3485,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
             },
           },
           yaxis: {
-            ...(template?.yaxis ?? {}),
+            ...((template && template.yaxis) || {}),
+            // Ensure y-axis title uses the same explicit color as the x-axis
             title: {
-              ...(template?.yaxis?.title ?? {}),
-              style: { ...(template?.yaxis?.title?.style ?? {}), color: axisTitleColor },
+              ...(((template && template.yaxis && template.yaxis.title) || {})),
+              style: {
+                ...(((template && template.yaxis && template.yaxis.title && template.yaxis.title.style) || {})),
+                color: axisTitleColor,
+              },
             },
             labels: {
-              ...(template?.yaxis?.labels ?? {}),
-              offsetY: template?.yaxis?.labels?.offsetY ?? 0,
+              ...(((template && template.yaxis && template.yaxis.labels) || {})),
+              // Respect template offset when present; otherwise no manual nudge
+              offsetY: ((template && template.yaxis && template.yaxis.labels && template.yaxis.labels.offsetY) !== undefined)
+                ? template.yaxis.labels.offsetY
+                : 0,
               style: {
-                ...(template?.yaxis?.labels?.style ?? {}),
+                ...(((template && template.yaxis && template.yaxis.labels && template.yaxis.labels.style) || {})),
                 fontSize: '12px',
                 lineHeight: '20px',
               },
@@ -3026,21 +3560,442 @@ export class DashboardComponent implements OnInit, OnDestroy {
           series: [{ ...(template?.series?.[0] ?? {}), data: seriesData }],
         };
 
-        // Attach calculated sizes for the host element to consume
+        // small helpers to sync label/scroll interactions exist in template
+        // attach calculated sizes for the host element to consume
+        (chartOptions as any).__calculatedHostHeight = calculatedHeight;
+        (chartOptions as any).__calculatedHostWidth = calculatedWidth;
+
+        // Attach the calculated height and width to the chartOptions so callers
+        // can read them (used by the template to set the host element size).
         (chartOptions as any).__calculatedHostHeight = calculatedHeight;
         (chartOptions as any).__calculatedHostWidth = calculatedWidth;
 
         this.widgets = this.widgets.map((w) => (w.id === 'widget-15' ? { ...w, chartOptions, loading: false } : w));
-        this.cdr.markForCheck();
       },
       error: () => {
         if (requestVersion !== this.vehicleStationRequestVersion) return;
         this.vehicleStationHasNextPage = false;
         this.widgets = this.widgets.map((w) => (w.id === 'widget-15' ? { ...w, chartOptions: (busPulseData as any).vehicleStationTrackingChart, loading: false } : w));
         try { this.toastService.show('Failed to load Vehicle Station Tracking data', { classname: 'bg-warning text-dark', autohide: true }); } catch { }
-        this.cdr.markForCheck();
       }
     });
+  }
+
+  applyProjectTimelineDateFilter(): void {
+    this.resetProjectTimelinePagination();
+    this.refreshProjectTimelineWidget();
+  }
+
+  onProjectTimelinePageSizeChange(pageSize: string | number): void {
+    const normalizedPageSize = Math.max(1, Number(pageSize) || 50);
+    if (normalizedPageSize === this.projectTimelinePageSize) {
+      return;
+    }
+
+    this.projectTimelinePageSize = normalizedPageSize;
+    this.resetProjectTimelinePagination();
+    this.refreshProjectTimelineWidget();
+  }
+
+  loadPreviousProjectTimelinePage(): void {
+    if (!this.canLoadPreviousProjectTimelinePage) {
+      return;
+    }
+
+    const targetPage = Math.max(1, this.projectTimelinePageNumber - 1);
+    this.refreshProjectTimelineWidget({ pageNumber: targetPage, append: false });
+  }
+
+  loadNextProjectTimelinePage(): void {
+    if (!this.canLoadNextProjectTimelinePage) {
+      return;
+    }
+
+    const targetPage = this.projectTimelineRangeEndPage + 1;
+    this.refreshProjectTimelineWidget({ pageNumber: targetPage, append: false });
+  }
+
+  loadMoreProjectTimeline(): void {
+    if (!this.canLoadMoreProjectTimeline) {
+      return;
+    }
+
+    const targetPage = this.projectTimelineRangeEndPage + 1;
+    this.refreshProjectTimelineWidget({ pageNumber: targetPage, append: true });
+  }
+
+  get projectTimelineTotalPages(): number {
+    if (!this.projectTimelineTotalCount) {
+      return 0;
+    }
+
+    if (this.projectTimelineLoadedAllRecords) {
+      return this.projectTimelineItems.length ? 1 : 0;
+    }
+
+    return Math.max(1, Math.ceil(this.projectTimelineTotalCount / this.projectTimelinePageSize));
+  }
+
+  get projectTimelineRangeStart(): number {
+    if (!this.projectTimelineTotalCount || !this.projectTimelineItems.length) {
+      return 0;
+    }
+
+    if (this.projectTimelineLoadedAllRecords) {
+      return 1;
+    }
+
+    return ((this.projectTimelinePageNumber - 1) * this.projectTimelinePageSize) + 1;
+  }
+
+  get projectTimelineRangeEnd(): number {
+    if (!this.projectTimelineTotalCount || !this.projectTimelineItems.length) {
+      return 0;
+    }
+
+    return Math.min(this.projectTimelineRangeStart + this.projectTimelineItems.length - 1, this.projectTimelineTotalCount);
+  }
+
+  get projectTimelineRangeEndPage(): number {
+    if (this.projectTimelineLoadedAllRecords) {
+      return this.projectTimelineItems.length ? 1 : 0;
+    }
+
+    return this.projectTimelinePageNumber + this.projectTimelineLoadedPageCount - 1;
+  }
+
+  get canLoadPreviousProjectTimelinePage(): boolean {
+    if (this.projectTimelineLoadedAllRecords) {
+      return false;
+    }
+
+    return this.projectTimelinePageNumber > 1 && !this.isProjectTimelineLoading;
+  }
+
+  get canLoadNextProjectTimelinePage(): boolean {
+    if (this.projectTimelineLoadedAllRecords) {
+      return false;
+    }
+
+    return this.projectTimelineTotalPages > 0 &&
+      this.projectTimelineRangeEndPage < this.projectTimelineTotalPages &&
+      !this.isProjectTimelineLoading;
+  }
+
+  get canLoadMoreProjectTimeline(): boolean {
+    if (this.projectTimelineLoadedAllRecords) {
+      return false;
+    }
+
+    return this.projectTimelineTotalPages > 0 &&
+      this.projectTimelineRangeEndPage < this.projectTimelineTotalPages &&
+      !this.isProjectTimelineLoading;
+  }
+
+  get isProjectTimelineLoading(): boolean {
+    return !!this.widgets.find((widget) => widget.id === 'widget-13')?.loading;
+  }
+
+  private refreshProjectTimelineWidget(options: { pageNumber?: number; append?: boolean } = {}): void {
+    const requestVersion = ++this.projectTimelineRequestVersion;
+    const targetPageNumber = Math.max(1, Number(options.pageNumber ?? this.projectTimelinePageNumber) || 1);
+    const append = !!options.append;
+
+    const projectIdParam = this.selectedProject !== 'all' ? this.selectedProject : undefined;
+    const vehicleIdParam = this.selectedVehicle !== 'all' ? this.selectedVehicle : undefined;
+    const startDate = this.projectTimelineStartDate || undefined;
+    const endDate = this.projectTimelineEndDate || undefined;
+
+    this.dashboardProjectsService.clearStationTrackersCache();
+
+    this.widgets = this.widgets.map((w) => (
+      w.id === 'widget-13'
+        ? { ...w, chartOptions: append ? w.chartOptions : this.buildEmptyProjectTimelineChartOptions(), loading: true }
+        : w
+    ));
+
+    const shouldLoadAllProjectTimelineRecords = !!projectIdParam;
+    const request$: Observable<any> = shouldLoadAllProjectTimelineRecords
+      ? this.dashboardProjectsService.getAllStationTrackers({
+          projectId: projectIdParam,
+          vehicleId: vehicleIdParam,
+          startDate,
+          endDate,
+          pageSize: Math.max(this.projectTimelinePageSize, 250),
+          refresh: true,
+        })
+      : this.dashboardProjectsService.getStationTrackersPage({
+          projectId: projectIdParam,
+          vehicleId: vehicleIdParam,
+          startDate,
+          endDate,
+          pageNumber: targetPageNumber,
+          pageSize: this.projectTimelinePageSize,
+          refresh: true,
+        });
+
+    request$.subscribe({
+      next: (result: any) => {
+        if (requestVersion !== this.projectTimelineRequestVersion) return;
+        const incomingItems = shouldLoadAllProjectTimelineRecords
+          ? (Array.isArray(result) ? result : [])
+          : (Array.isArray((result as any)?.items) ? (result as any).items : []);
+        this.projectTimelineItems = shouldLoadAllProjectTimelineRecords
+          ? incomingItems
+          : (append ? [...this.projectTimelineItems, ...incomingItems] : incomingItems);
+        this.projectTimelineTotalCount = shouldLoadAllProjectTimelineRecords
+          ? incomingItems.length
+          : Number((result as any)?.totalCount ?? 0);
+        this.projectTimelinePageNumber = shouldLoadAllProjectTimelineRecords
+          ? 1
+          : (append ? this.projectTimelinePageNumber : targetPageNumber);
+        this.projectTimelineLoadedPageCount = shouldLoadAllProjectTimelineRecords
+          ? (incomingItems.length ? 1 : 0)
+          : (append ? Math.max(1, (targetPageNumber - this.projectTimelinePageNumber) + 1) : 1);
+        this.projectTimelineLoadedAllRecords = shouldLoadAllProjectTimelineRecords;
+
+        const chartOptions = this.buildProjectTimelineChartOptions(this.projectTimelineItems, projectIdParam);
+
+        this.widgets = this.widgets.map((w) => (w.id === 'widget-13' ? { ...w, chartOptions, loading: false } : w));
+      },
+      error: () => {
+        if (requestVersion !== this.projectTimelineRequestVersion) return;
+        this.projectTimelineItems = [];
+        this.projectTimelineTotalCount = 0;
+        this.projectTimelineLoadedPageCount = 1;
+        this.projectTimelineLoadedAllRecords = false;
+        this.widgets = this.widgets.map((w) => (w.id === 'widget-13' ? { ...w, chartOptions: (busPulseData as any).projectTimelineChart, loading: false } : w));
+        try { this.toastService.show('Failed to load Project Timeline data', { classname: 'bg-warning text-dark', autohide: true }); } catch { }
+      },
+    });
+  }
+
+  private buildEmptyProjectTimelineChartOptions(): any {
+    const template = (busPulseData as any).projectTimelineChart ?? {};
+    return {
+      ...template,
+      series: [{ ...(template?.series?.[0] ?? {}), data: [] }],
+    };
+  }
+
+  private resetProjectTimelinePagination(): void {
+    this.projectTimelinePageNumber = 1;
+    this.projectTimelineTotalCount = 0;
+    this.projectTimelineLoadedPageCount = 1;
+    this.projectTimelineLoadedAllRecords = false;
+    this.projectTimelineItems = [];
+  }
+
+  private buildProjectTimelineChartOptions(items: any[], projectIdParam?: string): any {
+    const grouped = new Map<string, any[]>();
+    for (const rec of Array.isArray(items) ? items : []) {
+      const pid = String(rec?.projectId ?? rec?.projectID ?? rec?.project_id ?? 'unknown');
+      if (!grouped.has(pid)) grouped.set(pid, []);
+      grouped.get(pid)!.push(rec);
+    }
+
+    const palette = ['#1b5e20', '#2e7d32', '#388e3c', '#4caf50', '#66bb6a', '#81c784', '#50c878', '#83bc96'];
+    const seriesData: any[] = [];
+    let colorIndex = 0;
+
+    let projectIdsToShow: string[] = projectIdParam
+      ? [String(projectIdParam)]
+      : Array.from(grouped.keys());
+
+    if (!projectIdsToShow.length && Array.isArray(this.projects)) {
+      projectIdsToShow = this.projects
+        .map((p: any) => String(p?.id ?? ''))
+        .filter((id) => id && id.toLowerCase() !== 'all');
+    }
+
+    projectIdsToShow = Array.from(new Set(projectIdsToShow));
+
+    for (const pid of projectIdsToShow) {
+      const records = grouped.get(pid) ?? [];
+
+      const projectOption = (this.projects || []).find((p: any) => String(p.id) === pid);
+      const projectLabel = projectOption
+        ? String(projectOption.name ?? projectOption.id)
+        : records[0]?.projectName ?? `Project ${pid}`;
+
+      if (!records.length) {
+        const now = Date.now();
+        seriesData.push({ x: projectLabel, y: [now, now + 1], fillColor: 'rgba(0,0,0,0)', meta: { stationId: null, stationNumber: '', stationName: '', raw: null, label: '' } });
+        continue;
+      }
+
+      for (const rec of records) {
+        const startDateIso = rec?.startDate ?? rec?.dateStarted ?? null;
+        const endDateIso = rec?.endDate ?? rec?.dateEnded ?? null;
+        const startMs = startDateIso ? new Date(startDateIso).getTime() : Date.now();
+        const endMs = endDateIso ? new Date(endDateIso).getTime() : (startMs + 60 * 60 * 1000);
+        const stationId = rec?.stationId ?? rec?.stationID ?? null;
+        const stationNumber = String(rec?.stationNumber ?? rec?.stationNo ?? '').trim();
+        const stationName = String(rec?.stationName ?? '').trim();
+        const label = stationNumber || stationName || (stationId ? `Station ${stationId}` : String(rec?.description ?? ''));
+        const color = palette[(colorIndex++) % palette.length];
+        seriesData.push({ x: projectLabel, y: [startMs, endMs], fillColor: color, meta: { stationId, stationNumber, stationName, raw: rec, label, startDate: startDateIso, endDate: endDateIso } });
+      }
+    }
+
+    const template = (busPulseData as any).projectTimelineChart ?? {};
+    const isDark = this.dashboardMapIsDark;
+    const textColor = isDark ? '#e0e0e0' : '#333333';
+    const visibleProjectCount = Math.max(1, new Set(seriesData.map((point) => String(point?.x ?? ''))).size);
+    const timelineBounds = seriesData
+      .map((point) => Array.isArray(point?.y) ? point.y : [])
+      .filter((range) => range.length === 2)
+      .reduce((acc, range) => {
+        const start = Number(range[0]);
+        const end = Number(range[1]);
+        if (Number.isFinite(start)) {
+          acc.min = acc.min === null ? start : Math.min(acc.min, start);
+        }
+        if (Number.isFinite(end)) {
+          acc.max = acc.max === null ? end : Math.max(acc.max, end);
+        }
+        return acc;
+      }, { min: null as number | null, max: null as number | null });
+    const spanDays = (timelineBounds.min !== null && timelineBounds.max !== null)
+      ? Math.max(1, Math.ceil((timelineBounds.max - timelineBounds.min) / (1000 * 60 * 60 * 24)))
+      : 90;
+    const calculatedHeight = Math.min(Math.max(200, (visibleProjectCount * 28) + 28), 340);
+    const calculatedWidth = Math.min(Math.max(960, 840 + (Math.min(spanDays, 210) * 2)), 1440);
+
+    const chartOptions = {
+      ...template,
+      chart: {
+        ...(template?.chart ?? {}),
+        type: 'rangeBar',
+        height: calculatedHeight,
+        width: calculatedWidth,
+        parentHeightOffset: 0,
+        toolbar: {
+          ...(template?.chart?.toolbar ?? {}),
+          show: true,
+          tools: {
+            download: true,
+            selection: false,
+            zoom: false,
+            zoomin: false,
+            zoomout: false,
+            pan: false,
+            reset: false,
+          },
+        },
+      },
+      plotOptions: {
+        bar: {
+          ...(template?.plotOptions?.bar ?? {}),
+          horizontal: true,
+          barHeight: visibleProjectCount <= 6 ? '58%' : '52%',
+          rangeBarGroupRows: false,
+        },
+      },
+      grid: {
+        ...(template?.grid ?? {}),
+        padding: {
+          ...(template?.grid?.padding ?? {}),
+          top: 6,
+          right: 18,
+          bottom: 0,
+          left: 8,
+        },
+      },
+      xaxis: {
+        ...(template?.xaxis ?? {}),
+        type: 'datetime',
+        tickAmount: spanDays > 150 ? 7 : 6,
+        labels: {
+          ...(template?.xaxis?.labels ?? {}),
+          format: "MMM 'yy",
+          rotate: 0,
+          datetimeUTC: false,
+          hideOverlappingLabels: true,
+          style: {
+            ...(template?.xaxis?.labels?.style ?? {}),
+            colors: textColor,
+            fontSize: '11px',
+          },
+        },
+      },
+      yaxis: {
+        ...(template?.yaxis ?? {}),
+        title: {
+          ...(template?.yaxis?.title ?? {}),
+          text: 'Projects',
+        },
+        labels: {
+          ...(template?.yaxis?.labels ?? {}),
+          minWidth: 108,
+          maxWidth: 150,
+          offsetX: -4,
+          style: {
+            ...(template?.yaxis?.labels?.style ?? {}),
+            fontSize: '12px',
+            colors: textColor,
+          },
+          formatter: (val: any) => {
+            const s = String(val ?? '');
+            return s.length > 30 ? s.slice(0, 27) + '\u2026' : s;
+          },
+        },
+      },
+      tooltip: {
+        ...(template?.tooltip ?? {}),
+        custom: ({ seriesIndex, dataPointIndex, w }: any) => {
+          const point = w?.config?.series?.[seriesIndex]?.data?.[dataPointIndex];
+          const meta = point?.meta ?? {};
+          const project = String(point?.x ?? '').trim() || 'Project';
+          const stationName = String(meta?.stationName ?? meta?.stationNumber ?? meta?.label ?? '').trim();
+          const stationLine = stationName ? `<div><strong>Station:</strong> ${stationName}</div>` : '';
+          const fmt = (iso?: string | null) => {
+            if (!iso) return '';
+            try { return new Date(iso).toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch { return String(iso); }
+          };
+          const startLine = meta?.startDate ? `<div><strong>Start:</strong> ${fmt(meta.startDate)}</div>` : '';
+          const endLine = meta?.endDate ? `<div><strong>End:</strong> ${fmt(meta.endDate)}</div>` : '';
+          return `<div class="apexcharts-tooltip-rangebar" style="padding:8px 10px;">` +
+            `<div><strong>Project:</strong> ${project}</div>` +
+            stationLine + startLine + endLine +
+            `</div>`;
+        },
+      },
+      series: [{ ...(template?.series?.[0] ?? {}), data: seriesData }],
+    };
+
+    (chartOptions as any).__calculatedHostHeight = calculatedHeight;
+    (chartOptions as any).__calculatedHostWidth = calculatedWidth;
+    (chartOptions as any).__busPulseResponsiveOptions = ({ width }: { width: number }) => {
+      if (width >= 720) {
+        return {};
+      }
+
+      return {
+        xaxis: {
+          labels: {
+            rotate: 0,
+            style: {
+              fontSize: '10px',
+            },
+          },
+        },
+        yaxis: {
+          title: {
+            text: '',
+          },
+          labels: {
+            minWidth: 88,
+            maxWidth: 118,
+            style: {
+              fontSize: '11px',
+            },
+          },
+        },
+      };
+    };
+
+    return chartOptions;
   }
 
   private updateVehicleDistributionWidget(widgetId: 'widget-2' | 'widget-3', chartOptions: unknown): void {
@@ -3053,10 +4008,329 @@ export class DashboardComponent implements OnInit, OnDestroy {
     ));
   }
 
+  private refreshTicketCreationActivityWidget(showLoading = true): void {
+    const widgetId = 'widget-16';
+    const widget = this.widgets.find((item) => item.id === widgetId);
+    if (!widget) {
+      return;
+    }
+
+    const requestVersion = ++this.ticketActivityRequestVersion;
+    const projectId = this.selectedProject !== 'all' ? this.selectedProject : undefined;
+    const vehicleId = this.selectedVehicle !== 'all' ? this.selectedVehicle : undefined;
+    const clientId = this.getEffectiveClientId();
+
+    const shouldShowLoading = showLoading || !widget.chartOptions;
+    if (shouldShowLoading) {
+      this.widgets = this.widgets.map((item) => (
+        item.id === widgetId
+          ? { ...item, loading: true }
+          : item
+      ));
+    }
+
+    this.dashboardProjectsService.getTicketCreationActivity({
+      clientId,
+      projectId,
+      vehicleId,
+      includeClosed: this.includeClosedProjects,
+      startDate: this.ticketActivityStartDate || undefined,
+      endDate: this.ticketActivityEndDate || undefined,
+    }).subscribe({
+      next: (activity) => {
+        if (requestVersion !== this.ticketActivityRequestVersion) {
+          return;
+        }
+
+        const projectLabel = this.getTicketActivityProjectLabel(activity);
+        const scopeLabel = this.getTicketActivityScopeLabel(projectLabel, activity.projectCount);
+        this.ticketActivityGranularity = this.getTicketActivityGranularity(activity);
+        const chartOptions = buildTicketCreationActivityChartOptions(
+          busPulseData.ticketCreationActivityChart,
+          activity,
+          this.ticketActivityGranularity,
+          this.dashboardMapIsDark,
+        );
+
+        this.lastTicketActivityResult = activity;
+        this.ticketActivityViewModel = this.buildTicketActivityViewModel(activity, scopeLabel, projectLabel);
+
+        this.widgets = this.widgets.map((item) => (
+          item.id === widgetId
+            ? {
+                ...item,
+                loading: false,
+                subtitle: activity.points.length
+                  ? `${this.getTicketActivityGranularityLabel(this.ticketActivityGranularity)} created-ticket flow for ${scopeLabel.toLowerCase()}`
+                  : 'Created-date ticket flow for the selected range',
+                chartOptions,
+              }
+            : item
+        ));
+      },
+      error: () => {
+        if (requestVersion !== this.ticketActivityRequestVersion) {
+          return;
+        }
+
+        this.lastTicketActivityResult = null;
+        this.ticketActivityViewModel = this.buildEmptyTicketActivityViewModel();
+        this.ticketActivityGranularity = 'day';
+
+        this.widgets = this.widgets.map((item) => (
+          item.id === widgetId
+            ? {
+                ...item,
+                loading: false,
+                chartOptions: buildTicketCreationActivityChartOptions(
+                  busPulseData.ticketCreationActivityChart,
+                  this.createEmptyTicketActivityResult(),
+                  this.ticketActivityGranularity,
+                  this.dashboardMapIsDark,
+                ),
+              }
+            : item
+        ));
+      },
+    });
+  }
+
+  private rebuildTicketActivityChartForTheme(): void {
+    const widgetId = 'widget-16';
+    const widget = this.widgets.find((item) => item.id === widgetId);
+
+    if (!widget) {
+      return;
+    }
+
+    const activity = this.lastTicketActivityResult ?? this.createEmptyTicketActivityResult();
+    const chartOptions = buildTicketCreationActivityChartOptions(
+      busPulseData.ticketCreationActivityChart,
+      activity,
+      this.ticketActivityGranularity,
+      this.dashboardMapIsDark,
+    );
+
+    this.widgets = this.widgets.map((item) => (
+      item.id === widgetId
+        ? {
+            ...item,
+            chartOptions,
+          }
+        : item
+    ));
+  }
+
+  private createEmptyTicketActivityResult(): DashboardTicketActivityResult {
+    return {
+      points: [],
+      totalTickets: 0,
+      spanDays: 0,
+      activeDays: 0,
+      projectCount: 0,
+      averagePerDay: 0,
+      firstTicketAt: null,
+      lastTicketAt: null,
+      peakDayDate: null,
+      peakDayCount: 0,
+      projectNames: [],
+    };
+  }
+
+  private buildTicketActivityViewModel(
+    activity: DashboardTicketActivityResult,
+    scopeLabel: string,
+    projectLabel: string,
+  ): SpkTicketActivityWidgetViewModel {
+    return {
+      scopeLabel,
+      projectLabel,
+      totalTickets: this.formatNumber(activity.totalTickets),
+      spanDays: this.formatNumber(activity.spanDays),
+      activeDays: this.formatNumber(activity.activeDays),
+      averagePerDay: activity.averagePerDay.toFixed(activity.averagePerDay >= 100 ? 0 : 1),
+      peakDayLabel: activity.peakDayDate ? this.formatTicketActivityDate(activity.peakDayDate) : '-',
+      peakDayCount: this.formatNumber(activity.peakDayCount),
+      firstTicketLabel: activity.firstTicketAt ? this.formatTicketActivityDateTime(activity.firstTicketAt) : '-',
+      lastTicketLabel: activity.lastTicketAt ? this.formatTicketActivityDateTime(activity.lastTicketAt) : '-',
+      rangeLabel: activity.points.length
+        ? `${this.formatTicketActivityDate(activity.points[0].date)} - ${this.formatTicketActivityDate(activity.points[activity.points.length - 1].date)}`
+        : 'No created ticket dates',
+    };
+  }
+
+  private buildEmptyTicketActivityViewModel(): SpkTicketActivityWidgetViewModel {
+    return {
+      scopeLabel: 'Current selection',
+      projectLabel: '',
+      totalTickets: '0',
+      spanDays: '0',
+      activeDays: '0',
+      averagePerDay: '0.0',
+      peakDayLabel: '-',
+      peakDayCount: '0',
+      firstTicketLabel: '-',
+      lastTicketLabel: '-',
+      rangeLabel: 'No created ticket dates',
+    };
+  }
+
+  private getTicketActivityProjectLabel(activity: DashboardTicketActivityResult): string {
+    if (this.selectedProject !== 'all') {
+      return this.getSelectedProjectName();
+    }
+
+    if (activity.projectCount <= 1 && activity.projectNames.length === 1) {
+      return activity.projectNames[0];
+    }
+
+    if (this.isAdminRole && this.selectedClient !== 'all') {
+      return this.getSelectedClientName();
+    }
+
+    return activity.projectCount > 1
+      ? `${this.formatNumber(activity.projectCount)} Projects`
+      : 'All Projects';
+  }
+
+  private getTicketActivityScopeLabel(projectLabel: string, projectCount: number): string {
+    if (this.selectedProject !== 'all') {
+      return projectLabel;
+    }
+
+    if (this.selectedVehicle !== 'all') {
+      return this.getSelectedVehicleName();
+    }
+
+    if (projectCount > 1) {
+      return projectLabel;
+    }
+
+    return projectLabel || 'Current selection';
+  }
+
+  private getTicketActivityGranularity(
+    activity: DashboardTicketActivityResult,
+  ): DashboardTicketActivityGranularity {
+    if (this.ticketActivityRangePreset === 'all' || activity.points.length > 365) {
+      return 'month';
+    }
+
+    if (activity.points.length > 120) {
+      return 'week';
+    }
+
+    return 'day';
+  }
+
+  private scheduleTicketActivityLiveRefresh(): void {
+    this.clearTicketActivityLiveRefreshTimeout();
+    if (!this.hasValidTicketActivityDateRange()) {
+      return;
+    }
+
+    this.ticketActivityLiveRefreshTimeout = setTimeout(() => {
+      this.ticketActivityLiveRefreshTimeout = null;
+      this.refreshTicketCreationActivityWidget(false);
+    }, 160);
+  }
+
+  private clearTicketActivityLiveRefreshTimeout(): void {
+    if (this.ticketActivityLiveRefreshTimeout) {
+      clearTimeout(this.ticketActivityLiveRefreshTimeout);
+      this.ticketActivityLiveRefreshTimeout = null;
+    }
+  }
+
+  private hasValidTicketActivityDateRange(): boolean {
+    const startDate = String(this.ticketActivityStartDate ?? '').trim();
+    const endDate = String(this.ticketActivityEndDate ?? '').trim();
+    return !startDate || !endDate || startDate <= endDate;
+  }
+
+  private getTicketActivityGranularityLabel(
+    granularity: DashboardTicketActivityGranularity,
+  ): string {
+    if (granularity === 'month') {
+      return 'Monthly';
+    }
+
+    if (granularity === 'week') {
+      return 'Weekly';
+    }
+
+    return 'Daily';
+  }
+
+  private formatTicketActivityDate(value: string): string {
+    if (!value) {
+      return '-';
+    }
+
+    const parsed = value.includes('T')
+      ? new Date(value)
+      : new Date(`${value}T00:00:00`);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return parsed.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
+
+  private formatTicketActivityDateTime(value: string): string {
+    if (!value) {
+      return '-';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return parsed.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
+  private formatNumber(value: number): string {
+    return new Intl.NumberFormat().format(Number(value ?? 0));
+  }
+
+  private getSelectedVehicleName(): string {
+    const vehicle = this.vehicles.find((item) => String(item.id ?? '') === String(this.selectedVehicle ?? ''));
+    return vehicle?.name ?? `Vehicle ${this.selectedVehicle}`;
+  }
+
   private updateTicketsByStatusWidgetFromApi(payload: any | any[]): void {
     if (!this.widgets.length) return;
 
+    this.updateSafetyCriticalGaugeWidgetFromApi(payload);
+    this.updateRepeatedDefectsGaugeWidgetFromApi(payload);
+    this.updateOverallDefectsByAreaWidgetFromApi(payload);
+    this.updateRepeatedDefectsByAreaWidgetFromApi(payload);
+    this.updateDefectsByStationWidgetFromApi(payload);
+    this.loadProjectsByAreaWidget();
+
+    // Temporary debug logging to help capture API payloads that cause the
+    // Tickets-by-Status widget to fall back to demo/demo values. Reproduce
+    // the failing selection and check the browser console for these entries.
+    try {
+      console.debug('[TicketsByStatus] raw payload:', payload, { project: this.selectedProject, vehicle: this.selectedVehicle });
+    } catch (e) {
+      // Ignore console failures in restricted environments
+    }
+
     let combined: Array<{ name: string; value: number }> = [];
+
     if (Array.isArray(payload)) {
       for (const p of payload) {
         const items = this.normalizeTicketsByStatusShape(p?.ticketsByStatus ?? p?.data?.ticketsByStatus ?? p?.ticketsByStatus?.items ?? null);
@@ -3067,61 +4341,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
       combined = items.map((it: any) => ({ name: String(it?.name ?? ''), value: Number(it?.value ?? 0) || 0 }));
     }
 
-    // Compute all chart options and apply in a single widgets pass
-    this.applyWidgetUpdates({
-      'widget-7': { chartOptions: this.computeSafetyCriticalGaugeOptions(payload), loading: false },
-      'widget-5': { chartOptions: this.computeRepeatedDefectsGaugeOptions(payload), loading: false },
-      'widget-4': { chartOptions: this.computeOverallDefectsByAreaOptions(payload), loading: false },
-      'widget-8': { chartOptions: this.computeRepeatedDefectsByAreaOptions(payload), loading: false },
-      'widget-6': { chartOptions: this.computeDefectsByStationOptions(payload), loading: false, width: 12 },
-      'widget-9': { chartOptions: busPulseData.buildTicketsByStatusBar({ ticketsByStatus: combined }), loading: false },
-    });
-
-    if (this.isAdminRole) {
-      this.updateStatCardCountsFromPayload(payload);
+    try {
+      console.debug('[TicketsByStatus] normalized combined:', combined);
+    } catch (e) {
+      // swallow
     }
+
+    const chartOptions = busPulseData.buildTicketsByStatusBar({ ticketsByStatus: combined });
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-9' ? { ...widget, chartOptions, loading: false } : widget
+    ));
   }
 
-  private updateStatCardCountsFromPayload(payload: any | any[]): void {
-    if (!this.statCards.length) return;
-
-    const source = Array.isArray(payload) ? payload[0] : payload;
-    if (!source) return;
-
-    const resolveCount = (candidates: any[]): number | null => {
-      for (const c of candidates) {
-        const n = Number(c);
-        if (Number.isFinite(n) && n >= 0) return n;
-      }
-      return null;
-    };
-
-    const criticalCount = resolveCount([
-      source?.safetyCriticalTickets, source?.SafetyCriticalTickets,
-      source?.criticalTickets, source?.CriticalTickets,
-      source?.data?.safetyCriticalTickets, source?.result?.safetyCriticalTickets,
-    ]);
-
-    const repeatedCount = resolveCount([
-      source?.repeatedTickets, source?.RepeatedTickets,
-      source?.repeatTickets, source?.RepeatTickets,
-      source?.data?.repeatedTickets, source?.result?.repeatedTickets,
-    ]);
-
-    if (criticalCount === null && repeatedCount === null) return;
-
-    this.statCards = this.statCards.map((card) => {
-      if (card.label === 'Critical Issues' && criticalCount !== null) {
-        return { ...card, value: criticalCount };
-      }
-      if (card.label === 'Repeated Issues' && repeatedCount !== null) {
-        return { ...card, value: repeatedCount };
-      }
-      return card;
-    });
-  }
-
-  private computeOverallDefectsByAreaOptions(payload: any | any[]): unknown {
+  private updateOverallDefectsByAreaWidgetFromApi(payload: any | any[]): void {
+    if (!this.widgets.length) return;
 
     const totalsByArea = new Map<string, number>();
 
@@ -3188,25 +4422,47 @@ export class DashboardComponent implements OnInit, OnDestroy {
         : fallbackSeries,
     };
 
-    return chartOptions;
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-4' ? { ...widget, chartOptions, loading: false } : widget
+    ));
   }
 
-  private computeRepeatedDefectsGaugeOptions(payload: any | any[]): unknown {
-    const percent = this.resolveRepeatedPercent(payload);
-    const boundedPercent = Math.max(0, Math.min(100, percent));
-    return { ...(busPulseData.repeatedDefectsGauge as any), series: [Number(boundedPercent.toFixed(2))] };
+  private updateRepeatedDefectsGaugeWidgetFromApi(payload: any | any[]): void {
+    if (!this.widgets.length) return;
+
+    const resolvedPercent = this.resolveRepeatedPercent(payload);
+    const boundedPercent = Number.isFinite(resolvedPercent)
+      ? Math.max(0, Math.min(100, Number(resolvedPercent)))
+      : 0;
+
+    const fallbackGauge = busPulseData.repeatedDefectsGauge as any;
+    const chartOptions = {
+      ...fallbackGauge,
+      series: [Number(boundedPercent.toFixed(2))],
+    };
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-5' ? { ...widget, chartOptions, loading: false } : widget
+    ));
   }
 
-  private computeSafetyCriticalGaugeOptions(payload: any | any[]): unknown {
-    const percent = this.resolveSafetyCriticalPercent(payload);
-    const boundedPercent = Math.max(0, Math.min(100, percent));
-    return { ...(busPulseData.safetyCriticalDefectsGauge as any), series: [Number(boundedPercent.toFixed(2))] };
-  }
+  private updateSafetyCriticalGaugeWidgetFromApi(payload: any | any[]): void {
+    if (!this.widgets.length) return;
 
-  /** Apply one or more widget updates in a single array pass. */
-  private applyWidgetUpdates(updates: Record<string, Partial<DashboardWidget>>): void {
-    if (!this.widgets.length || !Object.keys(updates).length) return;
-    this.widgets = this.widgets.map((w) => updates[w.id] ? { ...w, ...updates[w.id] } : w);
+    const resolvedPercent = this.resolveSafetyCriticalPercent(payload);
+    const boundedPercent = Number.isFinite(resolvedPercent)
+      ? Math.max(0, Math.min(100, Number(resolvedPercent)))
+      : 0;
+
+    const fallbackGauge = busPulseData.safetyCriticalDefectsGauge as any;
+    const chartOptions = {
+      ...fallbackGauge,
+      series: [Number(boundedPercent.toFixed(2))],
+    };
+
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-7' ? { ...widget, chartOptions, loading: false } : widget
+    ));
   }
 
   private resolveSafetyCriticalPercent(payload: any | any[]): number {
@@ -3343,39 +4599,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return null;
     };
 
-    const normalizePercentValue = (value: number): number => {
-      if (!Number.isFinite(value) || value < 0) {
-        return 0;
-      }
-
-      // Handle APIs that return ratios (0..1) instead of percentages (0..100).
-      if (value > 0 && value <= 1) {
-        return value * 100;
-      }
-
-      return value;
-    };
-
-    const readRepeatedTickets = (source: any): number | null => {
-      const candidates = [
-        source?.repeatedTickets,
-        source?.RepeatedTickets,
-        source?.repeatTickets,
-        source?.RepeatTickets,
-        source?.data?.repeatedTickets,
-        source?.result?.repeatedTickets,
-      ];
-
-      for (const candidate of candidates) {
-        const parsed = Number(candidate);
-        if (Number.isFinite(parsed) && parsed >= 0) {
-          return parsed;
-        }
-      }
-
-      return null;
-    };
-
     const readTotalTickets = (source: any): number | null => {
       const candidates = [
         source?.totalTickets,
@@ -3396,18 +4619,45 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return null;
     };
 
+    const normalizePercentValue = (value: number): number => {
+      if (!Number.isFinite(value) || value < 0) {
+        return 0;
+      }
+      // Handle APIs that return ratios (0..1) instead of percentages (0..100).
+      if (value > 0 && value <= 1) {
+        return value * 100;
+      }
+      return value;
+    };
+
+    const readRepeatedTickets = (source: any): number | null => {
+      const candidates = [
+        source?.repeatedTickets,
+        source?.RepeatedTickets,
+        source?.repeatTickets,
+        source?.RepeatTickets,
+        source?.data?.repeatedTickets,
+        source?.result?.repeatedTickets,
+      ];
+      for (const candidate of candidates) {
+        const parsed = Number(candidate);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          return parsed;
+        }
+      }
+      return null;
+    };
+
     const computePercent = (source: any): number | null => {
       const explicitPercent = readPercent(source);
       if (explicitPercent !== null) {
         return normalizePercentValue(explicitPercent);
       }
-
       const repeatedTickets = readRepeatedTickets(source);
       const totalTickets = readTotalTickets(source);
       if (repeatedTickets !== null && totalTickets !== null && totalTickets > 0) {
         return (repeatedTickets / totalTickets) * 100;
       }
-
       return null;
     };
 
@@ -3489,9 +4739,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private extractOverallByAreaEntries(payload: any): Array<{ area: string; count: number }> {
-    const container =
-      payload?.overallByDefectType ?? payload?.data?.overallByDefectType ?? payload?.result?.overallByDefectType ??
-      payload?.overallByArea       ?? payload?.data?.overallByArea       ?? payload?.result?.overallByArea;
+    const container = payload?.overallByArea ?? payload?.data?.overallByArea ?? payload?.result?.overallByArea;
     if (!container) {
       return [];
     }
@@ -3506,28 +4754,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
         .filter((entry) => entry.area.length > 0 && Number.isFinite(entry.count) && entry.count >= 0);
     };
 
+    let raw: Array<{ area: string; count: number }> = [];
+
     if (Array.isArray(container)) {
-      return toEntriesFromArray(container);
-    }
-
-    if (Array.isArray(container?.items)) {
-      return toEntriesFromArray(container.items);
-    }
-
-    if (Array.isArray(container?.$values)) {
-      return toEntriesFromArray(container.$values);
-    }
-
-    if (typeof container === 'object') {
-      return Object.entries(container)
+      raw = toEntriesFromArray(container);
+    } else if (Array.isArray(container?.items)) {
+      raw = toEntriesFromArray(container.items);
+    } else if (Array.isArray(container?.$values)) {
+      raw = toEntriesFromArray(container.$values);
+    } else if (typeof container === 'object') {
+      raw = Object.entries(container)
         .map(([key, value]) => ({ area: String(key).trim(), count: Number(value ?? 0) }))
         .filter((entry) => entry.area.length > 0 && Number.isFinite(entry.count) && entry.count >= 0);
     }
 
-    return [];
+    return normalizeAreaEntries(raw);
   }
 
-  private computeRepeatedDefectsByAreaOptions(payload: any | any[]): unknown {
+  private updateRepeatedDefectsByAreaWidgetFromApi(payload: any | any[]): void {
+    if (!this.widgets.length) return;
 
     const totalsByArea = new Map<string, number>();
 
@@ -3594,10 +4839,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
         : fallbackSeries,
     };
 
-    return chartOptions;
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-8' ? { ...widget, chartOptions, loading: false } : widget
+    ));
   }
 
-  private computeDefectsByStationOptions(payload: any | any[]): unknown {
+  private updateDefectsByStationWidgetFromApi(payload: any | any[]): void {
+    if (!this.widgets.length) return;
 
     const totalsByStation = new Map<string, number>();
 
@@ -3782,7 +5030,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
     };
 
-    return chartOptions;
+    this.widgets = this.widgets.map((widget) => (
+      widget.id === 'widget-6' ? { ...widget, width: 12, chartOptions, loading: false } : widget
+    ));
   }
 
   private extractStationPrefixNumber(stationName: string): number | null {
@@ -3927,6 +5177,167 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return [];
   }
 
+  /**
+   * Calls GET /tickets/dashboard?projectId={id} once per project in parallel
+   * (forkJoin), extracts the overallByArea block from each response, and builds
+   * widget-10 as a stacked bar chart where:
+   *   - each column  = one project  (projectNames[])
+   *   - each series  = one area     (areas[].name)
+   *   - each value   = defect count for that area in that project
+   * Missing areas for a project are filled with 0 so all series stay aligned.
+   */
+  private loadProjectsByAreaWidget(): void {
+    if (!this.widgets.length) return;
+
+    // Skip API calls entirely when the widget is hidden (e.g. client compact mode).
+    const widget = this.widgets.find(w => w.id === 'widget-10');
+    if (!widget || !this.isWidgetVisible(widget)) return;
+
+    const projectIds = this.getSelectedOrAllVisibleProjectIds();
+    if (projectIds.length === 0) return;
+
+    // Stamp this request so stale forkJoin results from rapid filter changes
+    // are discarded on arrival rather than overwriting fresher data.
+    const requestVersion = ++this.widget10RequestVersion;
+
+    this.widgets = this.widgets.map(w =>
+      w.id === 'widget-10' ? { ...w, loading: true } : w,
+    );
+
+    // Apply vehicle filter when a specific vehicle is selected.
+    const rawVehicle = String(this.selectedVehicle ?? '').trim().toLowerCase();
+    const effectiveVehicleId = rawVehicle && rawVehicle !== 'all'
+      ? String(this.selectedVehicle).trim()
+      : undefined;
+
+    const calls = projectIds.map(id =>
+      forkJoin({
+        tickets: this.dashboardProjectsService.getTicketsDashboard({
+          projectId: id,
+          clientId: this.getEffectiveClientId(),
+          includeClosed: this.includeClosedProjects,
+          vehicleId: effectiveVehicleId,
+        }).pipe(catchError(() => of(null as any))),
+        vehicles: this.dashboardProjectsService.getVehicleOptionsByProjectResult(id, {
+          clientId: this.getEffectiveClientId(),
+          includeClosed: this.includeClosedProjects,
+          includeAllOption: false,
+        }).pipe(catchError(() => of({ options: [] as any[], totalCount: 0 }))),
+      }).pipe(
+        map(({ tickets, vehicles }) => {
+          const rawCount = Number(vehicles?.totalCount ?? 0);
+          const vehicleCount = rawCount > 0
+            ? rawCount
+            : (vehicles?.options ?? []).filter((v: any) => String(v.id ?? '').toLowerCase() !== 'all').length;
+          return { id, res: tickets ?? {} as any, failed: tickets === null, vehicleCount: Math.max(vehicleCount, 1) };
+        }),
+      ),
+    );
+
+    from(calls).pipe(mergeMap(call => call, 6), toArray()).subscribe({
+      next: (results) => {
+        // Discard results from a superseded request (user changed filters).
+        if (requestVersion !== this.widget10RequestVersion) return;
+
+        const projectNames: string[] = [];
+        const areaMap = new Map<string, number[]>();
+        let failedCount = 0;
+
+        results.forEach(({ id, res, failed, vehicleCount }, colIdx) => {
+          const project = this.projects.find(p => String(p.id) === String(id));
+          projectNames.push(project?.name ?? String(id));
+
+          if (failed) {
+            failedCount++;
+            // Pad all areas already in the map so every column stays aligned.
+            for (const data of areaMap.values()) data.push(0);
+            return;
+          }
+
+          const entries = this.extractOverallByAreaEntries(res);
+          const seenAreas = new Set<string>();
+
+          for (const entry of entries) {
+            seenAreas.add(entry.area);
+            if (!areaMap.has(entry.area)) {
+              areaMap.set(entry.area, Array(colIdx).fill(0));
+            }
+            const avg = Math.round((entry.count / vehicleCount) * 100) / 100;
+            areaMap.get(entry.area)!.push(avg);
+          }
+
+          for (const [area, data] of areaMap.entries()) {
+            if (!seenAreas.has(area)) data.push(0);
+          }
+        });
+
+        const setNoData = (text: string) => {
+          const noDataOptions = {
+            ...busPulseData.projectsByAreaStackedChart,
+            series: [],
+            noData: {
+              text,
+              align: 'center',
+              verticalAlign: 'middle',
+              style: { fontSize: '14px', fontFamily: 'Poppins, sans-serif', color: '#6c757d' },
+            },
+          };
+          this.widgets = this.widgets.map(w =>
+            w.id === 'widget-10' ? { ...w, chartOptions: noDataOptions, loading: false } : w,
+          );
+        };
+
+        if (projectNames.length === 0 || areaMap.size === 0) {
+          setNoData(failedCount > 0
+            ? 'Data unavailable — API error'
+            : 'No defect data for selected projects',
+          );
+          return;
+        }
+
+        // Sort areas by total count descending — largest area is always the
+        // bottom segment in the stack, keeping colours consistent across loads.
+        const areas = Array.from(areaMap.entries())
+          .map(([name, data]) => ({
+            name,
+            data: data.map(v => (Number.isFinite(v) ? v : 0)),
+            total: data.reduce((sum, v) => sum + (Number.isFinite(v) ? v : 0), 0),
+          }))
+          .sort((a, b) => b.total - a.total)
+          .map(({ name, data }) => ({ name, data }));
+
+        const chartOptions = buildProjectsByAreaChartOptions(
+          busPulseData.projectsByAreaStackedChart,
+          { projectNames, areas },
+        );
+
+        const subtitle = failedCount > 0
+          ? `Average defects per vehicle per area (${failedCount} project${failedCount > 1 ? 's' : ''} unavailable)`
+          : 'Average defects per vehicle per area';
+
+        this.widgets = this.widgets.map(w =>
+          w.id === 'widget-10' ? { ...w, chartOptions, loading: false, subtitle } : w,
+        );
+      },
+      error: () => {
+        if (requestVersion !== this.widget10RequestVersion) return;
+        const errorOptions = {
+          ...busPulseData.projectsByAreaStackedChart,
+          series: [],
+          noData: {
+            text: 'Failed to load data',
+            align: 'center',
+            verticalAlign: 'middle',
+            style: { fontSize: '14px', fontFamily: 'Poppins, sans-serif', color: '#6c757d' },
+          },
+        };
+        this.widgets = this.widgets.map(w =>
+          w.id === 'widget-10' ? { ...w, chartOptions: errorOptions, loading: false } : w,
+        );
+      },
+    });
+  }
+
   private getSelectedOrAllVisibleProjectIds(): string[] {
     const selectedProjectId = String(this.selectedProject ?? '').trim().toLowerCase();
     if (selectedProjectId && selectedProjectId !== 'all') {
@@ -3964,7 +5375,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private buildWidgets(): DashboardWidget[] {
-    return sortWidgetsByOrder(this.widgets).map((item) => ({ ...item }));
+    const base = sortWidgetsByOrder(this.widgets).map((item) => ({ ...item }));
+
+    if (!this.isAdminRole) {
+      const clientBase = base.filter((widget) => widget.id !== 'widget-14');
+
+      if (this.showFilters && this.selectedProject !== 'all') {
+        return clientBase.filter((widget) => !CLIENT_COMPACT_HIDDEN_WIDGET_IDS.includes(widget.id));
+      }
+
+      return clientBase;
+    }
+
+    return base;
   }
 
   private loadLayoutFromStorage(): void {
@@ -4019,7 +5442,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private onMouseMove(event: MouseEvent): void {
     if (!this.resizeSession) return;
+
     applyResizeDeltaToDom(this.resizeSession, event);
+
+    window.dispatchEvent(new Event('resize'));
   }
 
   private onMouseUp(): void {
@@ -4038,21 +5464,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     window.dispatchEvent(new Event('resize'));
     this.saveLayoutToStorage();
     this.cdr.markForCheck();
-  }
-
-  private extractTicketTotal(response: any): number {
-    const candidates = [
-      response?.totalTickets,
-      response?.total,
-      response?.count,
-      response?.totalItems,
-      response?.totalRecords,
-    ];
-    for (const c of candidates) {
-      const n = Number(c);
-      if (Number.isFinite(n) && n >= 0) return n;
-    }
-    return Number(this.currentProjectStats.totalTickets ?? 0);
   }
 
   private fetchAllClientVehiclesAndTickets(): void {
@@ -4089,6 +5500,137 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
       },
     });
+  }
+
+  private buildProjectVehicleSummaries(items: any[]): VehicleStats[] {
+    const vehicles = new Map<string, VehicleStats>();
+
+    items.forEach((item) => {
+      const vehicleId = toOptionalText(getFirstDefinedValue(item, [
+        'id',
+        'vehicleId',
+        'vehicleID',
+        'VehicleId',
+        'VehicleID',
+        'assetId',
+        'AssetId',
+      ]));
+      const vehicleName = toOptionalText(getFirstDefinedValue(item, [
+        'fleetNumber',
+        'vehicleName',
+        'VehicleName',
+        'name',
+        'title',
+      ]));
+      const dedupeKey = String(vehicleId ?? vehicleName ?? '').trim().toLowerCase();
+
+      if (!dedupeKey) {
+        return;
+      }
+
+      if (!vehicles.has(dedupeKey)) {
+        vehicles.set(dedupeKey, {
+          vehicleId: String(vehicleId ?? dedupeKey),
+          vehicleName: toText(vehicleName, `Vehicle ${vehicles.size + 1}`),
+          totalTickets: 0,
+          totalAssets: 0,
+          ticketsChangePercentage: 0,
+          assetsChangePercentage: 0,
+          ticketsStatus: 'decreased',
+          assetsStatus: 'decreased',
+        });
+      }
+    });
+
+    return Array.from(vehicles.values());
+  }
+
+  private pickLatestStationEntry(entries: any[]): any {
+    if (!entries?.length) return null;
+    return entries.reduce((latest, entry) => {
+      const a = entry?.startDate ?? entry?.endDate ?? '';
+      const b = latest?.startDate ?? latest?.endDate ?? '';
+      return a > b ? entry : latest;
+    }, entries[0]);
+  }
+
+  // ── Fleet Map Downloads ───────────────────────────────────────────────────
+
+  private getActiveMapStage(): MapStageComponent | undefined {
+    const all = this.mapStageComponents.toArray();
+    return this.fullscreenWidgetId === 'widget-map' ? all[all.length - 1] : all[0];
+  }
+
+  async downloadMapPNG(): Promise<void> {
+    const blob = await this.getActiveMapStage()?.captureMapImage();
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fleet-map.png';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  downloadMapCSV(): void {
+    const projects = this.dashboardMapProjects;
+    if (!projects.length) return;
+    const headers = ['Name', 'Status', 'Type', 'Client', 'Latitude', 'Longitude'];
+    const rows = projects.map((p) => {
+      const client = this.dashboardMapClients.find((c) => c.id === p.clientId);
+      return [
+        `"${p.name ?? ''}"`,
+        p.status ?? '',
+        p.type ?? '',
+        `"${client?.name ?? p.clientId ?? ''}"`,
+        p.lat ?? '',
+        p.lng ?? '',
+      ].join(',');
+    });
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fleet-map-projects.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async downloadMapExcel(): Promise<void> {
+    const projects = this.dashboardMapProjects;
+    if (!projects.length) return;
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'BusPulse';
+    const sheet = workbook.addWorksheet('Fleet Map Projects');
+    sheet.columns = [
+      { header: 'Name', key: 'name', width: 30 },
+      { header: 'Status', key: 'status', width: 14 },
+      { header: 'Type', key: 'type', width: 18 },
+      { header: 'Client', key: 'client', width: 24 },
+      { header: 'Latitude', key: 'lat', width: 14 },
+      { header: 'Longitude', key: 'lng', width: 14 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+    projects.forEach((p) => {
+      const client = this.dashboardMapClients.find((c) => c.id === p.clientId);
+      sheet.addRow({
+        name: p.name ?? '',
+        status: p.status ?? '',
+        type: p.type ?? '',
+        client: client?.name ?? p.clientId ?? '',
+        lat: p.lat ?? '',
+        lng: p.lng ?? '',
+      });
+    });
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fleet-map-projects.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 }
 

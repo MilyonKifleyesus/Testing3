@@ -1,0 +1,381 @@
+<div class="main-container container-fluid px-0">
+  <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
+    <div>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-2">
+          <li class="breadcrumb-item"><a [routerLink]="['/admin/dashboard']">Home</a></li>
+          <li class="breadcrumb-item"><a [routerLink]="['/admin/tickets']">Tickets</a></li>
+          <li class="breadcrumb-item active" aria-current="page">New Ticket</li>
+        </ol>
+      </nav>
+      <h1 class="page-title fw-semibold fs-20 mb-1">New Ticket</h1>
+      <p class="mb-0 text-muted fs-13">Create and assign a ticket for a project vehicle.</p>
+    </div>
+    <div class="btn-list mt-3 mt-md-0">
+      <button type="button" class="btn btn-light btn-wave" (click)="backToTickets()">
+        <i class="ti ti-arrow-left me-2"></i>Back to Tickets
+      </button>
+    </div>
+  </div>
+
+  <div class="alert alert-danger py-2 px-3 mb-3" *ngIf="submitError">
+    {{ submitError }}
+  </div>
+
+  <div class="alert alert-success py-2 px-3 mb-3 d-flex flex-wrap align-items-center gap-2" *ngIf="submitSuccess">
+    <span>{{ submitSuccess }}</span>
+    <button type="button" class="btn btn-sm btn-success ms-auto" (click)="createAnother()">
+      Create Another
+    </button>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-12 col-xl-8">
+      <div class="card custom-card ct-form-card">
+        <div class="card-header border-bottom">
+          <div class="card-title mb-0">Ticket Details</div>
+        </div>
+        <div class="card-body">
+          <div *ngIf="loadingLookups" class="ct-loading-state">
+            <div class="spinner-border text-primary" role="status" aria-label="Loading ticket lookups">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <span>Loading form options...</span>
+          </div>
+
+          <form *ngIf="!loadingLookups" [formGroup]="ticketForm" (ngSubmit)="onSubmit()" novalidate>
+            <div class="row g-3">
+              <div class="col-12 col-md-6 col-lg-4">
+                <label class="form-label">Project <span class="text-danger">*</span></label>
+                <ng-select
+                  class="ct-select"
+                  [items]="projects"
+                  bindLabel="name"
+                  bindValue="id"
+                  [searchable]="true"
+                  [clearable]="true"
+                  [placeholder]="'Choose a project'"
+                  formControlName="projectId">
+                </ng-select>
+                <div class="invalid-feedback d-block" *ngIf="getFieldError('projectId')">{{ getFieldError('projectId') }}</div>
+              </div>
+
+              <div class="col-12 col-md-6 col-lg-4">
+                <label class="form-label">Vehicle <span class="text-danger">*</span></label>
+                <ng-select
+                  class="ct-select"
+                  [items]="vehicles"
+                  bindLabel="name"
+                  bindValue="id"
+                  [searchable]="true"
+                  [clearable]="true"
+                  [loading]="loadingVehicles"
+                  [placeholder]="selectedProject ? 'Choose a vehicle' : 'Select a project first'"
+                  formControlName="vehicleId">
+                </ng-select>
+                <div class="form-text" *ngIf="selectedProject && !loadingVehicles && vehicles.length === 0">
+                  No vehicles were returned for this project yet.
+                </div>
+                <div class="invalid-feedback d-block" *ngIf="getFieldError('vehicleId')">{{ getFieldError('vehicleId') }}</div>
+              </div>
+
+              <div class="col-12 col-md-6 col-lg-4">
+                <label class="form-label">Station <span class="text-danger">*</span></label>
+                <ng-select
+                  class="ct-select"
+                  [items]="stations"
+                  bindLabel="name"
+                  bindValue="id"
+                  [searchable]="true"
+                  [clearable]="true"
+                  [placeholder]="'Choose a station'"
+                  formControlName="stationId">
+                </ng-select>
+                <div class="invalid-feedback d-block" *ngIf="getFieldError('stationId')">{{ getFieldError('stationId') }}</div>
+              </div>
+
+              <div class="col-12 col-md-6 col-lg-4">
+                <label class="form-label">Defect Type <span class="text-danger">*</span></label>
+                <ng-select
+                  class="ct-select"
+                  [items]="defectTypes"
+                  bindLabel="name"
+                  bindValue="id"
+                  [searchable]="true"
+                  [clearable]="true"
+                  [placeholder]="'Choose a defect type'"
+                  formControlName="defectTypeId">
+                </ng-select>
+                <div class="invalid-feedback d-block" *ngIf="getFieldError('defectTypeId')">{{ getFieldError('defectTypeId') }}</div>
+              </div>
+
+              <div class="col-12 col-md-6 col-lg-4">
+                <label class="form-label">Defect Location <span class="text-danger">*</span></label>
+                <ng-select
+                  class="ct-select"
+                  [items]="defectLocations"
+                  bindLabel="name"
+                  bindValue="id"
+                  [searchable]="true"
+                  [clearable]="true"
+                  [placeholder]="'Choose a defect location'"
+                  formControlName="defectLocationId">
+                </ng-select>
+                <div class="invalid-feedback d-block" *ngIf="getFieldError('defectLocationId')">{{ getFieldError('defectLocationId') }}</div>
+              </div>
+
+              <div class="col-12 col-md-6 col-lg-6">
+                <label class="form-label">Assigned By <span class="text-danger">*</span></label>
+                <ng-select
+                  *ngIf="canOverrideAssignedBy; else assignedByReadonly"
+                  class="ct-select"
+                  [items]="assignableUsers"
+                  bindLabel="name"
+                  bindValue="id"
+                  [searchable]="true"
+                  [clearable]="false"
+                  [placeholder]="'Choose the creator'"
+                  formControlName="assignedById">
+                </ng-select>
+                <ng-template #assignedByReadonly>
+                  <input
+                    type="text"
+                    class="form-control"
+                    [value]="currentAssignedBy.name"
+                    readonly>
+                </ng-template>
+                <div class="form-text" *ngIf="canOverrideAssignedBy">
+                  Defaults to you. Admins can override this field when creating a ticket for someone else.
+                </div>
+                <div class="invalid-feedback d-block" *ngIf="getFieldError('assignedById')">{{ getFieldError('assignedById') }}</div>
+              </div>
+
+              <div class="col-12 col-md-6 col-lg-6">
+                <label class="form-label">Assign To <span class="text-danger">*</span></label>
+                <ng-select
+                  class="ct-select"
+                  [items]="assignableUsers"
+                  bindLabel="name"
+                  bindValue="id"
+                  [searchable]="true"
+                  [clearable]="true"
+                  [placeholder]="'Choose an inspector'"
+                  formControlName="assignedToId">
+                </ng-select>
+                <div class="invalid-feedback d-block" *ngIf="getFieldError('assignedToId')">{{ getFieldError('assignedToId') }}</div>
+              </div>
+
+              <div class="col-12 col-md-6 col-lg-3">
+                <label class="form-label">Priority</label>
+                <select class="form-select ct-native-select" formControlName="priority">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-6 col-lg-3">
+                <label class="form-label">Status</label>
+                <select class="form-select ct-native-select" formControlName="status">
+                  <option value="open">Open</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-6 col-lg-3">
+                <label class="form-label">Safety Critical <span class="text-danger">*</span></label>
+                <div class="ct-toggle-group" role="group" aria-label="Safety critical">
+                  <input type="radio" class="btn-check" id="safety-no" [value]="false" formControlName="safetyCritical">
+                  <label class="btn btn-outline-secondary" for="safety-no">No</label>
+                  <input type="radio" class="btn-check" id="safety-yes" [value]="true" formControlName="safetyCritical">
+                  <label class="btn btn-outline-secondary" for="safety-yes">Yes</label>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6 col-lg-3">
+                <label class="form-label">Repeater <span class="text-danger">*</span></label>
+                <div class="ct-toggle-group" role="group" aria-label="Repeater">
+                  <input type="radio" class="btn-check" id="repeater-no" [value]="false" formControlName="repeater">
+                  <label class="btn btn-outline-secondary" for="repeater-no">No</label>
+                  <input type="radio" class="btn-check" id="repeater-yes" [value]="true" formControlName="repeater">
+                  <label class="btn btn-outline-secondary" for="repeater-yes">Yes</label>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6" *ngIf="showResolvedDate">
+                <label class="form-label">Resolved Date</label>
+                <input type="date" class="form-control" formControlName="resolvedDate">
+                <div class="form-text">Optional. Leave it as today if this ticket is already resolved or closed.</div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Description <span class="text-danger">*</span></label>
+                <textarea
+                  class="form-control ct-description"
+                  rows="5"
+                  formControlName="description"
+                  placeholder="Enter ticket description"></textarea>
+                <div class="d-flex justify-content-between align-items-center mt-1">
+                  <div class="invalid-feedback d-block mb-0" *ngIf="getFieldError('description')">{{ getFieldError('description') }}</div>
+                  <div class="ct-character-count ms-auto">{{ descriptionLength }}/1000</div>
+                </div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Attachments</label>
+                <div
+                  class="ct-upload-zone"
+                  [class.ct-upload-zone--active]="dragActive"
+                  tabindex="0"
+                  role="button"
+                  aria-label="Upload ticket attachments"
+                  (click)="openFilePicker(fileInput)"
+                  (keydown.enter)="openFilePicker(fileInput)"
+                  (keydown.space)="openFilePicker(fileInput); $event.preventDefault()"
+                  (dragover)="onDragOver($event)"
+                  (dragleave)="onDragLeave($event)"
+                  (drop)="onDrop($event)">
+                  <input
+                    #fileInput
+                    type="file"
+                    class="d-none"
+                    accept="image/*"
+                    multiple
+                    (change)="onFileInputChange($event)">
+
+                  <div class="ct-upload-inner">
+                    <div class="ct-upload-icon">
+                      <i class="ti ti-cloud-upload"></i>
+                    </div>
+                    <p class="mb-1 fw-semibold">Drop up to {{ maxAttachments }} images here or click to upload</p>
+                    <p class="mb-0 text-muted fs-12">PNG, JPG, WEBP. Maximum 5 MB each.</p>
+                    <button type="button" class="btn btn-outline-primary btn-sm mt-3" (click)="$event.stopPropagation(); openFilePicker(fileInput)">
+                      Choose Files
+                    </button>
+                  </div>
+                </div>
+
+                <div class="ct-attachment-grid mt-3" *ngIf="attachmentPreviews.length > 0">
+                  <div class="ct-attachment-card" *ngFor="let attachment of attachmentPreviews; let i = index">
+                    <img [src]="attachment.url" [alt]="attachment.file.name" class="ct-attachment-thumb" *ngIf="attachment.isImage">
+                    <div class="ct-attachment-meta">
+                      <span class="ct-attachment-name">{{ attachment.file.name }}</span>
+                      <span class="ct-attachment-size">{{ attachment.file.size / 1024 / 1024 | number:'1.1-1' }} MB</span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-icon btn-light-danger" (click)="removeAttachment(i)" aria-label="Remove attachment">
+                      <i class="ti ti-x"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ct-actions mt-4">
+              <div class="ct-actions-hint" *ngIf="ticketForm.invalid && !submitting">
+                Complete the required fields to enable ticket creation.
+              </div>
+              <button type="button" class="btn btn-light btn-wave" (click)="backToTickets()">Cancel</button>
+              <button type="submit" class="btn btn-primary btn-wave" [disabled]="ticketForm.invalid || submitting">
+                <span *ngIf="!submitting">
+                  <i class="ti ti-ticket me-2"></i>Create Ticket
+                </span>
+                <span *ngIf="submitting">
+                  <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Creating...
+                </span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-4">
+      <div class="card custom-card ct-summary-card">
+        <div class="card-header border-bottom">
+          <div class="card-title mb-0">Ticket Summary</div>
+        </div>
+        <div class="card-body">
+          <div class="ct-summary-section">
+            <div class="ct-summary-label">Client</div>
+            <div class="ct-summary-value">{{ currentClientName }}</div>
+          </div>
+
+          <div class="ct-summary-section">
+            <div class="ct-summary-label">Assigned By</div>
+            <div class="ct-summary-value">
+              {{ currentAssignedBy.name }}
+              <span class="ct-summary-subtext" *ngIf="currentAssignedBy.email">{{ currentAssignedBy.email }}</span>
+              <span class="ct-summary-subtext" *ngIf="isAssignedByOverridden">Admin override</span>
+            </div>
+          </div>
+
+          <div class="ct-summary-section">
+            <div class="ct-summary-label">Assigned To</div>
+            <div class="ct-summary-value">
+              {{ currentAssignedTo?.name || 'Not selected' }}
+              <span class="ct-summary-subtext" *ngIf="currentAssignedTo?.role">{{ currentAssignedTo?.role }}</span>
+            </div>
+          </div>
+
+          <div class="ct-summary-section">
+            <div class="ct-summary-label">Project / Vehicle</div>
+            <div class="ct-summary-value">
+              {{ selectedProject?.name || 'Project not selected' }}
+              <span class="ct-summary-subtext">{{ selectedVehicle?.name || 'Vehicle not selected' }}</span>
+            </div>
+          </div>
+
+          <div class="ct-summary-badges">
+            <span class="badge rounded-pill" [ngClass]="getPriorityBadgeClass(ticketForm.get('priority')?.value)">
+              {{ (ticketForm.get('priority')?.value || 'low') | titlecase }} Priority
+            </span>
+            <span class="badge rounded-pill" [ngClass]="getStatusBadgeClass(ticketForm.get('status')?.value)">
+              {{ (ticketForm.get('status')?.value || 'open') | titlecase }}
+            </span>
+          </div>
+
+          <hr class="my-4">
+
+          <div class="ct-summary-section">
+            <div class="ct-summary-label">Ticket Number</div>
+            <div class="ct-summary-value">{{ savedTicket?.ticketNumber || 'Generated after save' }}</div>
+          </div>
+
+          <div class="ct-summary-section">
+            <div class="ct-summary-label">Created At</div>
+            <div class="ct-summary-value">{{ savedTicket?.createdDate ? (savedTicket?.createdDate | date:'medium') : 'Generated after save' }}</div>
+          </div>
+
+          <div class="ct-summary-section">
+            <div class="ct-summary-label">Last Update</div>
+            <div class="ct-summary-value">{{ savedTicket?.lastUpdate ? (savedTicket?.lastUpdate | date:'medium') : 'Generated after save' }}</div>
+          </div>
+
+          <div class="ct-summary-section">
+            <div class="ct-summary-label">Resolved Date</div>
+            <div class="ct-summary-value">
+              {{ savedTicket?.resolvedDate ? (savedTicket?.resolvedDate | date:'mediumDate') : 'Not resolved' }}
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          <div class="ct-summary-section">
+            <div class="ct-summary-label">Attachments</div>
+            <div class="ct-summary-value">{{ attachmentCount }} selected</div>
+          </div>
+
+          <div class="ct-summary-section mb-0">
+            <div class="ct-summary-label">Description Preview</div>
+            <div class="ct-description-preview">
+              {{ ticketForm.get('description')?.value || 'Start typing to preview the ticket description here.' }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

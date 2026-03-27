@@ -32,6 +32,11 @@ export const adminRoutingModule: Routes = [
     data: { roles: ['superadmin'] },
     children: [
       {
+        path: '',
+        redirectTo: 'list',
+        pathMatch: 'full'
+      },
+      {
         path: 'list',
         loadComponent: () => import('./user-management/user-list/user-list.component').then(m => m.UserListComponent)
       },
@@ -221,9 +226,15 @@ export const adminRoutingModule: Routes = [
     loadComponent: () => import('./snags/snags.component').then(m => m.SnagsComponent)
   },
   {
+    path: 'tickets/new',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
+    loadComponent: () => import('./simulator/create-ticket/create-ticket.component').then(m => m.CreateTicketComponent)
+  },
+  {
     path: 'tickets',
     canActivate: [roleGuard],
-    data: { roles: ['superadmin'] },
+    data: { roles: ['superadmin', 'admin'] },
     loadComponent: () => import('../../shared/features/tickets/tickets.component').then(m => m.TicketsComponent)
   },
   // YRT Data route removed

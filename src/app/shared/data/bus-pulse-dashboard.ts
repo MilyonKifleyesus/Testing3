@@ -11,6 +11,12 @@ const PRIMARY_GREEN_COLORS_4 = ['#609764', '#95c097', '#cfead0', '#e0ece2'];
 const PRIMARY_GREEN_COLORS_3 = ['#609764', '#95c097', '#cfead0'];
 const PRIMARY_GREEN_COLORS_6 = ['#1b5e20', '#2e7d32', '#388e3c', '#4caf50', '#66bb6a', '#81c784'];
 const PRIMARY_GREEN_COLORS_3_ALT = ['#609764', '#95c097', '#cfead0'];
+const AREA_CHART_COLORS = [
+  '#1b5e20', '#2e7d32', '#388e3c', '#43a047', '#4caf50',
+  '#66bb6a', '#81c784', '#a5d6a7', '#c8e6c9',
+  '#609764', '#95c097', '#cfead0',
+  '#004d40', '#00695c', '#00897b', '#26a69a', '#4db6ac', '#80cbc4',
+];
 const BLUE_ACCENT_COLORS = ['#4099ff', '#00d4ff', '#50c878'];
 const SINGLE_GREEN_DARK = ['#2e7d32'];
 const SINGLE_GREEN_LIGHT = ['#66bb6a'];
@@ -310,11 +316,7 @@ export const repeatedDefectsByAreaTreemap = {
  * 9. Comparison of Projects by Area (Stacked Column Chart)
  */
 export const projectsByAreaStackedChart = {
-  series: [
-    { name: 'Area A', data: [3.2, 2.8, 3.5, 4.1, 2.9] },
-    { name: 'Area B', data: [2.1, 3.4, 2.7, 3.2, 3.8] },
-    { name: 'Area C', data: [3.8, 2.5, 4.2, 2.9, 3.3] }
-  ],
+  series: [] as { name: string; data: number[] }[],
   chart: {
     height: 300,
     type: 'bar',
@@ -332,22 +334,155 @@ export const projectsByAreaStackedChart = {
     }
   },
   xaxis: {
-    categories: ['Project 1', 'Project 2', 'Project 3', 'Project 4', 'Project 5'],
+    categories: [] as string[],
     axisBorder: { show: false },
     axisTicks: { show: false },
     labels: { style: { fontSize: '12px', fontFamily: 'Poppins, sans-serif' } }
   },
-  yaxis: { title: { text: 'Avg Defects', style: { fontSize: '13px', fontFamily: 'Poppins, sans-serif' } } },
+  yaxis: { title: { text: 'Avg Defects / Vehicle', style: { fontSize: '13px', fontFamily: 'Poppins, sans-serif' } } },
   dataLabels: {
     enabled: true,
-    formatter: function (val: number) { return val.toFixed(1); },
+    formatter: function (val: number) { return Number.isFinite(val) ? String(Math.round(val)) : '0'; },
     offsetY: 0,
     style: { colors: ['#ffffff'], fontSize: '11px', fontWeight: 600 },
     dropShadow: { enabled: false }
   },
   fill: { opacity: 1 },
-  colors: PRIMARY_GREEN_COLORS_3_ALT,
+  colors: AREA_CHART_COLORS,
   legend: { position: 'top', fontSize: '13px', fontFamily: 'Poppins, sans-serif' }
+};
+
+/**
+ * Ticket Creation Activity (Daily Created Tickets + 7 Day Trend)
+ */
+export const ticketCreationActivityChart = {
+  series: [
+    { name: 'Tickets Created', type: 'bar', data: [] as Array<{ x: number; y: number }> },
+    { name: '7 Day Trend', type: 'line', data: [] as Array<{ x: number; y: number }> },
+  ],
+  chart: {
+    type: 'line',
+    stacked: false,
+    toolbar: { show: false },
+    zoom: { enabled: false },
+    foreColor: '#a0aec0',
+    background: 'transparent',
+    redrawOnParentResize: true,
+    redrawOnWindowResize: true,
+    parentHeightOffset: 0,
+  },
+  theme: {
+    mode: 'dark',
+  },
+  stroke: {
+    width: [0, 2.5],
+    curve: 'smooth',
+    lineCap: 'round',
+  },
+  plotOptions: {
+    bar: {
+      columnWidth: '52%',
+      borderRadius: 8,
+      borderRadiusApplication: 'end',
+    },
+  },
+  fill: {
+    type: ['gradient', 'solid'],
+    gradient: {
+      shade: 'dark',
+      type: 'vertical',
+      shadeIntensity: 0.35,
+      gradientToColors: ['#9188ff'],
+      opacityFrom: 0.95,
+      opacityTo: 0.42,
+      stops: [0, 100],
+    },
+  },
+  colors: ['#7c6fe0', '#c5c8ff'],
+  markers: {
+    size: [0, 2],
+    hover: {
+      sizeOffset: 2,
+    },
+  },
+  grid: {
+    borderColor: 'rgba(255,255,255,0.06)',
+    strokeDashArray: 0,
+    padding: {
+      top: 8,
+      right: 12,
+      bottom: 0,
+      left: 8,
+    },
+  },
+  legend: {
+    show: false,
+  },
+  xaxis: {
+    type: 'datetime',
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+    labels: {
+      datetimeUTC: false,
+      style: {
+        colors: '#a0aec0',
+        fontSize: '11px',
+        fontFamily: 'Poppins, sans-serif',
+      },
+    },
+  },
+  yaxis: {
+    min: 0,
+    forceNiceScale: true,
+    tickAmount: 5,
+    labels: {
+      style: {
+        colors: '#a0aec0',
+        fontSize: '11px',
+        fontFamily: 'Poppins, sans-serif',
+      },
+      formatter: (value: number) => `${Math.round(Number(value ?? 0))}`,
+    },
+    title: {
+      text: 'Tickets / Day',
+      style: {
+        color: '#cbd5e1',
+        fontSize: '12px',
+        fontFamily: 'Poppins, sans-serif',
+      },
+    },
+  },
+  tooltip: {
+    shared: true,
+    intersect: false,
+    theme: 'dark',
+    x: {
+      format: 'dd MMM yyyy',
+    },
+    y: {
+      formatter: (value: number, context?: any) => {
+        const seriesName = String(context?.w?.config?.series?.[context?.seriesIndex]?.name ?? '').trim();
+        if (seriesName === '7 Day Trend') {
+          return `${Number(value ?? 0).toFixed(2)} avg/day`;
+        }
+
+        return `${Math.round(Number(value ?? 0))} tickets`;
+      },
+    },
+  },
+  dataLabels: {
+    enabled: false,
+  },
+  noData: {
+    text: 'No ticket activity',
+    align: 'center',
+    verticalAlign: 'middle',
+    style: {
+      color: '#94a3b8',
+      fontSize: '14px',
+      fontFamily: 'Poppins, sans-serif',
+    },
+  },
 };
 
 /**

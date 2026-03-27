@@ -1,0 +1,228 @@
+:host {
+  display: block;
+}
+
+.ct-form-card,
+.ct-summary-card {
+  border: 1px solid var(--default-border, #d8dce6);
+  box-shadow: 0 0.5rem 1.25rem rgba(15, 23, 42, 0.06);
+}
+
+.ct-loading-state {
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: #64748b;
+}
+
+:host ::ng-deep .ct-select.ng-select .ng-select-container {
+  min-height: 44px;
+  border-radius: 0.65rem;
+  border-color: var(--default-border, #d8dce6);
+  font-size: 0.875rem;
+  box-shadow: none;
+}
+
+:host ::ng-deep .ct-select.ng-select .ng-value-container {
+  padding-left: 0.85rem;
+}
+
+:host ::ng-deep .ct-select.ng-select .ng-arrow-wrapper {
+  padding-right: 0.75rem;
+}
+
+:host ::ng-deep .ct-select.ng-select.ng-select-disabled > .ng-select-container {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+:host ::ng-deep .ct-select.ng-select.ng-select-focused:not(.ng-select-opened) > .ng-select-container,
+.ct-native-select:focus,
+.ct-description:focus,
+.form-control:focus {
+  border-color: #5b8def;
+  box-shadow: 0 0 0 0.2rem rgba(91, 141, 239, 0.14);
+}
+
+.ct-native-select,
+.ct-description {
+  border-radius: 0.65rem;
+}
+
+.ct-toggle-group {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.ct-toggle-group .btn {
+  border-radius: 0.65rem;
+  font-weight: 600;
+}
+
+.ct-toggle-group .btn-check:checked + .btn {
+  background: rgba(91, 141, 239, 0.14);
+  color: #2557b7;
+  border-color: rgba(91, 141, 239, 0.38);
+}
+
+.ct-character-count {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ct-upload-zone {
+  border: 1px dashed #cbd5e1;
+  border-radius: 1rem;
+  padding: 2rem 1.25rem;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 1));
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+
+.ct-upload-zone:focus-visible {
+  outline: none;
+  border-color: #5b8def;
+  box-shadow: 0 0 0 0.2rem rgba(91, 141, 239, 0.14);
+}
+
+.ct-upload-zone--active {
+  border-color: #5b8def;
+  background: rgba(91, 141, 239, 0.06);
+  transform: translateY(-1px);
+}
+
+.ct-upload-inner {
+  text-align: center;
+}
+
+.ct-upload-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: 0 auto 1rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(91, 141, 239, 0.12);
+  color: #2557b7;
+  font-size: 1.6rem;
+}
+
+.ct-attachment-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.ct-attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem;
+  border: 1px solid var(--default-border, #d8dce6);
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.ct-attachment-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  flex-shrink: 0;
+}
+
+.ct-attachment-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ct-attachment-name {
+  font-weight: 600;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.ct-attachment-size,
+.ct-summary-subtext {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.ct-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ct-actions-hint {
+  margin-right: auto;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.ct-summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 1rem;
+}
+
+.ct-summary-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.ct-summary-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.ct-summary-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ct-description-preview {
+  min-height: 120px;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  white-space: pre-wrap;
+}
+
+.btn-light-danger {
+  color: #c2410c;
+  background: rgba(251, 146, 60, 0.12);
+  border-color: transparent;
+}
+
+@media (max-width: 767.98px) {
+  .ct-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .ct-actions-hint {
+    margin-right: 0;
+    text-align: center;
+  }
+
+  .ct-attachment-card {
+    align-items: flex-start;
+  }
+}
