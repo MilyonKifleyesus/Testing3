@@ -29,7 +29,7 @@
                                         <label class="form-label">Username</label>
                                         <input 
                                             class="form-control" 
-                                            placeholder="superadmin" 
+                                            placeholder="Enter your username" 
                                             type="text"
                                             formControlName="username"
                                             [class.is-invalid]="submitted && f['username'].errors">
@@ -41,22 +41,13 @@
                                         <label class="form-label">Password</label>
                                         <input 
                                             class="form-control" 
-                                            placeholder="admin123" 
+                                            placeholder="Enter your password" 
                                             type="password"
                                             formControlName="password"
                                             [class.is-invalid]="submitted && f['password'].errors">
                                         <div *ngIf="submitted && f['password'].errors" class="invalid-feedback">
                                             <div *ngIf="f['password'].errors['required']">Password is required</div>
                                         </div>
-                                    </div>
-
-                                    <!-- Test Credentials Info -->
-                                    <div class="alert alert-info mb-3" role="alert">
-                                        <strong>Test Credentials:</strong><br>
-                                        Super Admin: <code>superadmin / admin123</code><br>
-                                        Admin: <code>admin / admin123</code><br>
-                                        Inspector: <code>inspector / inspector123</code><br>
-                                        Client: <code>client / client123</code>
                                     </div>
 
                                     <div class="d-grid">

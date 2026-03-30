@@ -1,0 +1,388 @@
+<section
+  class="fleet-activity-table"
+  [class.inline-layout]="layoutMode() === 'inline'"
+  [class.collapsed]="!open()"
+  [class.resizing]="isResizing()"
+  [style.height.px]="open() && layoutMode() === 'overlay' ? tableHeight() : null">
+  @if (open()) {
+    <button
+      type="button"
+      class="fleet-activity-resizer top"
+      aria-label="Resize data table height from top edge"
+      (pointerdown)="beginResize($event)"
+      (keydown)="onResizeHandleKeyDown($event)">
+      <span class="handle-line"></span>
+    </button>
+  }
+
+  <div class="fleet-activity-toolbar">
+    <div class="toolbar-left">
+      <div class="table-title-wrap">
+        <h3 class="table-title">Data Management</h3>
+        <p class="table-subtitle">Projects, clients, manufacturers, and locations</p>
+      </div>
+      <span class="entries-pill">{{ entryCount() }} Entries</span>
+
+      @if (open()) {
+        <div class="toolbar-tabs" role="tablist" aria-label="Data management tabs">
+          <button type="button" class="tab-btn" [class.active]="isTabActive('projects')" (click)="setActiveTab('projects')">Projects</button>
+          <button type="button" class="tab-btn" [class.active]="isTabActive('clients')" (click)="setActiveTab('clients')">Clients</button>
+          <button type="button" class="tab-btn" [class.active]="isTabActive('manufacturers')" (click)="setActiveTab('manufacturers')">Manufacturers</button>
+          <button type="button" class="tab-btn" [class.active]="isTabActive('locations')" (click)="setActiveTab('locations')">Locations</button>
+        </div>
+      }
+    </div>
+
+    <div class="toolbar-right">
+      @if (open()) {
+        <label class="search-wrap" aria-label="Search entries">
+          <span class="search-icon">&#128269;</span>
+          <input
+            type="search"
+            [ngModel]="searchInput()"
+            (ngModelChange)="onSearchTermChange($event)"
+            placeholder="Search..." />
+        </label>
+        @if (canEdit()) {
+          <button type="button" class="export-btn" (click)="openCreateDrawer($event)">Create</button>
+        }
+        <details class="secondary-controls">
+          <summary>Display</summary>
+          <div class="secondary-controls-menu">
+            <label class="select-wrap" aria-label="Row size">
+              <span>Row Size</span>
+              <select [ngModel]="rowSize()" (ngModelChange)="setRowSize($event)">
+                <option value="compact">Compact</option>
+                <option value="default">Default</option>
+                <option value="comfortable">Comfortable</option>
+              </select>
+            </label>
+          </div>
+        </details>
+      }
+      <button
+        type="button"
+        class="collapse-btn"
+        (click)="togglePanel()"
+        [attr.aria-label]="open() ? 'Collapse table' : 'Expand table'">
+        {{ open() ? 'v' : '^' }}
+      </button>
+    </div>
+  </div>
+
+  @if (open()) {
+    <div class="fleet-table-scroll" [style.height.px]="layoutMode() === 'overlay' ? tableHeight() - 74 : null">
+      @switch (activeTab()) {
+        @case ('projects') {
+          <table class="fleet-table">
+            <thead>
+              <tr>
+                <th>Project Name</th>
+                <th>Client</th>
+                <th>Locations</th>
+                <th>Manufacturer</th>
+                <th>Status</th>
+                <th class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of visibleRows(); track row.id) {
+                <tr
+                  [class.selected]="selectedProjectId() === row.projectId"
+                  (mouseenter)="onRowMouseEnter(row)"
+                  (mouseleave)="onRowMouseLeave()"
+                  (click)="onRowClicked(row)">
+                  <td [class]="rowCellPaddingClass()">{{ row.entityName }}</td>
+                  <td [class]="rowCellPaddingClass()">{{ row.clientName }}</td>
+                  <td [class]="rowCellPaddingClass()">
+                    <div class="chips-inline">
+                      @for (locationLabel of projectLocationChips(row); track locationLabel) {
+                        <span class="chip">{{ locationLabel }}</span>
+                      } @empty {
+                        <span class="chip muted">None</span>
+                      }
+                    </div>
+                  </td>
+                  <td [class]="rowCellPaddingClass()">{{ row.manufacturerName || 'Unknown' }}</td>
+                  <td [class]="rowCellPaddingClass()"><span [class]="statusClass(row)">{{ row.status }}</span></td>
+                  <td [class]="rowCellPaddingClass() + ' actions-col'">
+                    <div class="row-actions always-visible">
+                      <button type="button" (click)="rowView.emit(row); $event.stopPropagation()">View</button>
+                      @if (canEdit()) {
+                        <button type="button" (click)="openProjectEdit(row, $event)">Edit</button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+
+        @case ('clients') {
+          <table class="fleet-table">
+            <thead>
+              <tr>
+                <th>Client Name</th>
+                <th>Linked Locations</th>
+                <th>Linked Projects</th>
+                <th class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of visibleClientRows(); track row.id) {
+                <tr>
+                  <td [class]="rowCellPaddingClass()">{{ row.clientName }}</td>
+                  <td [class]="rowCellPaddingClass()">
+                    <div class="chips-inline">
+                      @for (loc of row.linkedLocations ?? []; track loc.id) {
+                        <span class="chip">{{ loc.name }}</span>
+                      } @empty {
+                        <span class="chip muted">None</span>
+                      }
+                    </div>
+                  </td>
+                  <td [class]="rowCellPaddingClass()">{{ row.projectCount }}</td>
+                  <td [class]="rowCellPaddingClass() + ' actions-col'">
+                    <div class="row-actions always-visible">
+                      <button type="button" (click)="clientView.emit(row); $event.stopPropagation()">View</button>
+                      @if (canEdit()) {
+                        <button type="button" (click)="openClientEdit(row, $event)">Edit</button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+
+        @case ('manufacturers') {
+          <table class="fleet-table">
+            <thead>
+              <tr>
+                <th>Manufacturer Name</th>
+                <th>Linked Locations</th>
+                <th class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of visibleManufacturerRows(); track row.id) {
+                <tr>
+                  <td [class]="rowCellPaddingClass()">{{ row.manufacturerName }}</td>
+                  <td [class]="rowCellPaddingClass()">
+                    <div class="chips-inline">
+                      @for (loc of row.linkedLocations ?? []; track loc.id) {
+                        <span class="chip">{{ loc.name }}</span>
+                      } @empty {
+                        <span class="chip muted">None</span>
+                      }
+                    </div>
+                  </td>
+                  <td [class]="rowCellPaddingClass() + ' actions-col'">
+                    <div class="row-actions always-visible">
+                      <button type="button" (click)="manufacturerView.emit(row); $event.stopPropagation()">View</button>
+                      @if (canEdit()) {
+                        <button type="button" (click)="openManufacturerEdit(row, $event)">Edit</button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+
+        @case ('locations') {
+          <table class="fleet-table">
+            <thead>
+              <tr>
+                <th>Location Name</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of visibleLocationRows(); track row.id) {
+                <tr>
+                  <td [class]="rowCellPaddingClass()">{{ row.locationName }}</td>
+                  <td [class]="rowCellPaddingClass()">{{ displayCoordinate(row.latitude) }}</td>
+                  <td [class]="rowCellPaddingClass()">{{ displayCoordinate(row.longitude) }}</td>
+                  <td [class]="rowCellPaddingClass() + ' actions-col'">
+                    <div class="row-actions always-visible">
+                      <button type="button" (click)="locationView.emit(row); $event.stopPropagation()">View</button>
+                      @if (canEdit()) {
+                        <button type="button" (click)="openLocationEdit(row, $event)">Edit</button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      }
+
+      @if (entryCount() === 0) {
+        <div class="empty">
+          <p>No results found with current search.</p>
+          @if (activeTab() === 'projects' && showClearFilters()) {
+            <button type="button" class="clear-filters-btn" (click)="clearFilters($event)">Clear all filters</button>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (drawerOpen()) {
+    <aside class="data-drawer" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="drawer-head">
+        <h4>
+          {{ drawerMode() === 'create' ? 'Create' : 'Edit' }}
+          {{ drawerEntity() === 'project' ? 'Project' : drawerEntity() === 'client' ? 'Client' : drawerEntity() === 'manufacturer' ? 'Manufacturer' : 'Location' }}
+        </h4>
+        <button type="button" (click)="closeDrawer($event)">x</button>
+      </div>
+
+      <div class="drawer-body">
+        @if (drawerEntity() === 'project' && projectDraft(); as draft) {
+          <section class="form-section">
+            <h5 class="form-section-title">Project Info</h5>
+            <div class="form-grid two-col">
+              <div class="form-field">
+                <label class="editor-label">Project Name</label>
+                <input class="cell-input" [ngModel]="draft.projectDraft.name" (ngModelChange)="patchProjectDraft('name', $event)" />
+              </div>
+              <div class="form-field">
+                <label class="editor-label">Client</label>
+                <select class="cell-select" [ngModel]="draft.projectDraft.clientId" (ngModelChange)="patchProjectDraft('clientId', $event)">
+                  @for (client of clientRows(); track client.id) {
+                    <option [value]="client.clientId">{{ client.clientName }}</option>
+                  }
+                </select>
+              </div>
+              <div class="form-field">
+                <label class="editor-label">Project Type ID</label>
+                <input class="cell-input mono" [ngModel]="draft.projectDraft.projectTypeId" (ngModelChange)="patchProjectDraft('projectTypeId', $event)" />
+              </div>
+              <div class="form-field">
+                <label class="editor-label">Contract</label>
+                <input class="cell-input" [ngModel]="draft.projectDraft.contract" (ngModelChange)="patchProjectDraft('contract', $event)" />
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="editor-label">Has Road Test</label>
+              <label class="toggle-wrap">
+                <input type="checkbox" [ngModel]="draft.projectDraft.hasRoadTest" (ngModelChange)="patchProjectDraft('hasRoadTest', $event)" />
+                <span>{{ draft.projectDraft.hasRoadTest ? 'Enabled' : 'Disabled' }}</span>
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <h5 class="form-section-title">Location Links</h5>
+            <div class="form-field">
+              <label class="editor-label">Locations</label>
+              <app-location-multi-select
+                [options]="locationOptions()"
+                [value]="draft.projectDraft.locationIds ?? []"
+                (valueChange)="patchProjectDraft('locationIds', $event)">
+              </app-location-multi-select>
+              <p class="field-hint">Search and link one or more locations.</p>
+            </div>
+            <div class="form-field">
+              <label class="editor-label">Manufacturer (Derived)</label>
+              <div class="editor-readonly-value">{{ draft.projectDraft.manufacturerDisplay || 'Unknown' }}</div>
+              <p class="field-hint">Derived from selected locations. Save is allowed even when value is "Multiple".</p>
+            </div>
+          </section>
+        }
+
+        @if (drawerEntity() === 'client' && clientDraft(); as draft) {
+          <section class="form-section">
+            <h5 class="form-section-title">Client Details</h5>
+            <div class="form-field">
+              <label class="editor-label">Client Name</label>
+              <input class="cell-input" [ngModel]="draft.name" (ngModelChange)="patchClientDraft('name', $event)" />
+            </div>
+            <div class="form-field">
+              <label class="editor-label">Logo Upload</label>
+              <input class="cell-input file-input" type="file" accept="image/*" (change)="onClientLogoSelected($event)" />
+              <p class="field-hint">PNG/JPG up to 2MB. File is encoded for API automatically.</p>
+            </div>
+          </section>
+          <section class="form-section">
+            <h5 class="form-section-title">Location Links</h5>
+            <div class="form-field">
+              <label class="editor-label">Locations</label>
+              <app-location-multi-select
+                [options]="locationOptions()"
+                [value]="draft.locationIds ?? []"
+                (valueChange)="patchClientDraft('locationIds', $event)">
+              </app-location-multi-select>
+            </div>
+          </section>
+        }
+
+        @if (drawerEntity() === 'manufacturer' && manufacturerDraft(); as draft) {
+          <section class="form-section">
+            <h5 class="form-section-title">Manufacturer Details</h5>
+            <div class="form-field">
+              <label class="editor-label">Manufacturer Name</label>
+              <input class="cell-input" [ngModel]="draft.name" (ngModelChange)="patchManufacturerDraft('name', $event)" />
+            </div>
+            <div class="form-field">
+              <label class="editor-label">Logo Upload</label>
+              <input class="cell-input file-input" type="file" accept="image/*" (change)="onManufacturerLogoSelected($event)" />
+              <p class="field-hint">PNG/JPG up to 2MB. File is encoded for API automatically.</p>
+            </div>
+          </section>
+          <section class="form-section">
+            <h5 class="form-section-title">Location Links</h5>
+            <div class="form-field">
+              <label class="editor-label">Locations</label>
+              <app-location-multi-select
+                [options]="locationOptions()"
+                [value]="draft.locationIds ?? []"
+                (valueChange)="patchManufacturerDraft('locationIds', $event)">
+              </app-location-multi-select>
+            </div>
+          </section>
+        }
+
+        @if (drawerEntity() === 'location' && locationDraft(); as draft) {
+          <section class="form-section">
+            <h5 class="form-section-title">Location Details</h5>
+            <div class="form-field">
+              <label class="editor-label">Location Name</label>
+              <input class="cell-input" [ngModel]="draft.name" (ngModelChange)="patchLocationDraft('name', $event)" />
+            </div>
+            <div class="form-grid two-col">
+              <div class="form-field">
+                <label class="editor-label">Latitude</label>
+                <input class="cell-input mono" [ngModel]="draft.latitude" (ngModelChange)="patchLocationDraft('latitude', $event)" />
+              </div>
+              <div class="form-field">
+                <label class="editor-label">Longitude</label>
+                <input class="cell-input mono" [ngModel]="draft.longitude" (ngModelChange)="patchLocationDraft('longitude', $event)" />
+              </div>
+            </div>
+            <p class="field-hint">Coordinates are managed only in Locations.</p>
+          </section>
+        }
+
+        @if (drawerError()) {
+          <div class="editor-warning">{{ drawerError() }}</div>
+        }
+      </div>
+
+      <div class="drawer-actions">
+        <button type="button" class="primary" [disabled]="drawerSaving()" (click)="saveDrawer($event)">
+          {{ drawerSaving() ? 'Saving...' : 'Save' }}
+        </button>
+        <button type="button" [disabled]="drawerSaving()" (click)="closeDrawer($event)">Cancel</button>
+      </div>
+    </aside>
+  }
+</section>

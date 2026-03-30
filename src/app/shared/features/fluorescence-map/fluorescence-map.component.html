@@ -1,0 +1,543 @@
+<div
+  class="fleet-shell"
+  [id]="shellElementId"
+  [class.route-screenshot-mode]="screenshotMode()"
+  [class.table-collapsed]="!dataManagementOnly() && !panelVisible()"
+  [class.fleet-shell-admin-layout]="layoutPreset() === 'admin'"
+  [class.fleet-shell-inline-table]="true">
+  <div class="visually-hidden" aria-live="polite" aria-atomic="true">{{ announcementMessage() }}</div>
+
+  @if (markerStabilityMessage()) {
+  <div class="marker-stability-status" data-testid="marker-stability-status" role="status">
+    {{ markerStabilityMessage() }}
+  </div>
+  }
+
+  @if (!dataManagementOnly()) {
+  <header class="fleet-shell-header" role="banner">
+    <div class="fleet-header-left">
+      <div class="fleet-brand">FP</div>
+      <div class="fleet-brand-name">FleetPulse</div>
+      <span class="fleet-connection-pill" [attr.data-state]="realtimeUiState()">
+        {{ realtimeUiState() === 'connected' ? 'Connected' : realtimeStatusLabel() }}
+      </span>
+    </div>
+
+    <div class="fleet-mode-tabs" role="tablist" aria-label="Map mode">
+      <button type="button" [class.active]="mapViewMode() === 'project'" (click)="setMapViewMode('project')">
+        Projects
+      </button>
+      @if (canSeeClientView()) {
+      <button type="button" [class.active]="mapViewMode() === 'client'" (click)="setMapViewMode('client')">
+        Clients
+      </button>
+      }
+      <button type="button" [class.active]="mapViewMode() === 'manufacturer'" (click)="setMapViewMode('manufacturer')">
+        Manufacturers
+      </button>
+    </div>
+
+    <div class="fleet-header-actions" role="group" aria-label="Toolbar actions">
+      <button
+        type="button"
+        class="map-filter-btn"
+        aria-label="Toggle filters"
+        title="Toggle filters"
+        (click)="toggleFiltersPanel()"
+        [class.active]="filtersPanelVisible()">
+        <i class="fe fe-filter" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        aria-label="Toggle table"
+        title="Toggle table"
+        (click)="togglePanels()"
+        [class.active]="panelVisible()">
+        <i class="fe fe-grid" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        aria-label="Toggle fullscreen"
+        [attr.aria-pressed]="mapBrowserFullscreenActive()"
+        [title]="mapBrowserFullscreenActive() ? 'Exit fullscreen' : 'Enter fullscreen'"
+        (click)="toggleMapFullscreen()"
+        [class.active]="mapBrowserFullscreenActive()">
+        <i class="fe" [class.fe-maximize]="!mapBrowserFullscreenActive()" [class.fe-minimize]="mapBrowserFullscreenActive()"
+          aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        aria-label="Toggle theme"
+        title="Toggle theme"
+        (click)="toggleTheme()"
+        [class.active]="isDarkTheme()">
+        <i class="fe" [class.fe-moon]="!isDarkTheme()" [class.fe-sun]="isDarkTheme()" aria-hidden="true"></i>
+      </button>
+    </div>
+  </header>
+
+  <section class="fleet-shell-stats" aria-label="Fleet summary metrics">
+    <article class="stats-card">
+      <div class="stats-label">Total Projects</div>
+      <div class="stats-value">{{ totalProjectsCount() }}</div>
+    </article>
+    <article class="stats-card">
+      <div class="stats-label">Total Shipped</div>
+      <div class="stats-value">{{ totalShippedCount() }}</div>
+    </article>
+    <article class="stats-card">
+      <div class="stats-label">Under Inspection</div>
+      <div class="stats-value">{{ underInspectionCount() }}</div>
+    </article>
+  </section>
+
+  <section class="fleet-quick-filters" aria-label="Quick filters and actions">
+    <div class="fleet-quick-filters-left">
+      <button
+        type="button"
+        class="fleet-quick-btn fleet-quick-btn-primary"
+        (click)="toggleFiltersPanel()"
+        [attr.aria-expanded]="filtersPanelVisible()"
+        aria-controls="war-room-filters-panel">
+        <i class="fe fe-sliders" aria-hidden="true"></i>
+        Filters
+      </button>
+      <button
+        type="button"
+        class="fleet-quick-btn"
+        (click)="togglePanels()"
+        [class.active]="panelVisible()"
+        [attr.aria-pressed]="panelVisible()">
+        <i class="fe fe-grid" aria-hidden="true"></i>
+        Table
+      </button>
+      <button
+        type="button"
+        class="fleet-quick-btn"
+        (click)="clearAllFilters()"
+        [disabled]="activeFilters().length === 0">
+        <i class="fe fe-refresh-cw" aria-hidden="true"></i>
+        Clear
+      </button>
+    </div>
+
+    <div class="fleet-quick-filter-pills" role="status" aria-live="polite">
+      @if (!isClientOrUser()) {
+      <span class="quick-filter-pill">
+        Clients: {{ filterApplied().clientIds.length || 'All' }}
+      </span>
+      }
+      <span class="quick-filter-pill">
+        Projects: {{ filterApplied().projectIds.length || 'All' }}
+      </span>
+      <span class="quick-filter-pill">
+        Manufacturers: {{ filterApplied().manufacturerIds.length || 'All' }}
+      </span>
+      <span class="quick-filter-pill">
+        Regions: {{ filterApplied().regions.length || 'All' }}
+      </span>
+      <span class="quick-filter-pill quick-filter-pill-status">
+        Status:
+        {{
+          filterApplied().status === 'all'
+            ? 'All'
+            : (filterApplied().status === 'active' ? 'Active' : 'Inactive')
+        }}
+      </span>
+    </div>
+  </section>
+
+  @if (activeFilters().length > 0) {
+  <section class="active-filters-bar" role="region" aria-label="Active filters">
+    @for (item of activeFilters(); track item.type + ':' + (item.value ?? item.label)) {
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-light active-filter-chip"
+      (click)="removeFilter(item)"
+      [attr.aria-label]="'Remove filter ' + item.label">
+      <span>{{ item.label }}</span>
+      <i class="fe fe-x" aria-hidden="true"></i>
+    </button>
+    }
+  </section>
+  }
+
+  @if (selectionOutsideFiltersNotice()) {
+  <section class="active-filters-bar" role="status" aria-live="polite">
+    <span>{{ selectionOutsideFiltersNotice() }}</span>
+  </section>
+  }
+
+  @if (filtersPanelVisible()) {
+  <section id="war-room-filters-panel" class="fleet-filter-overlay" role="dialog" aria-modal="true" aria-label="Advanced filters">
+    <div class="fleet-filter-overlay-header">
+      <div class="fleet-filter-header-copy">
+        <span class="fleet-filter-icon-wrap">
+          <i class="fe fe-filter" aria-hidden="true"></i>
+        </span>
+        <div>
+          <h2 class="fleet-filter-title">Advanced Filters</h2>
+          <p class="fleet-filter-subtitle">Narrow down your fleet data with precision</p>
+        </div>
+      </div>
+      <div class="fleet-filter-header-actions">
+        <button type="button" class="btn btn-link btn-sm" (click)="resetDraftFilters()">Reset All</button>
+        <button type="button" class="btn-close" (click)="cancelFiltersPanel()" aria-label="Close filters"></button>
+      </div>
+    </div>
+
+    <div class="fleet-filter-overlay-body">
+      <div class="fleet-filter-grid">
+        @if (!isClientOrUser()) {
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label">Client</span>
+            <span class="filter-summary">{{ filterDraft().clientIds.length ? filterDraft().clientIds.length + ' selected' : 'All Clients' }}</span>
+          </div>
+          <div class="filters-options options-list">
+            @if (clientOptionsSignal().length > 5) {
+            <input
+              type="search"
+              class="form-control form-control-sm"
+              placeholder="Search clients..."
+              [value]="clientFilterSearch()"
+              (input)="clientFilterSearch.set($any($event.target).value)"
+              aria-label="Search clients" />
+            }
+            @for (opt of filteredClientOptions(); track opt.id) {
+            @let selected = isClientSelectedInDraft(opt.id);
+            <button
+              type="button"
+              class="filter-option-row"
+              [class.active]="selected"
+              [attr.aria-pressed]="selected"
+              (click)="toggleClient(opt.id)">
+              <span class="option-main">
+                <span class="option-check" [attr.aria-hidden]="true">{{ selected ? '✓' : '' }}</span>
+                <span class="option-label">{{ opt.name }}</span>
+              </span>
+              <span class="option-count">{{ opt.count }}</span>
+            </button>
+            }
+            @if (filteredClientOptions().length === 0) {
+            <p class="filter-empty">No matching clients.</p>
+            }
+          </div>
+          @if (hiddenClientOptionsCount() > 0) {
+          <button
+            type="button"
+            class="btn btn-link btn-sm unavailable-toggle"
+            [attr.aria-pressed]="showUnavailableClients()"
+            (click)="showUnavailableClients.set(!showUnavailableClients())">
+            {{ showUnavailableClients() ? 'Hide unavailable' : 'Show unavailable (' + hiddenClientOptionsCount() + ')' }}
+          </button>
+          }
+        </div>
+        }
+
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label">Manufacturer</span>
+            <span class="filter-summary">{{ filterDraft().manufacturerIds.length ? filterDraft().manufacturerIds.length + ' selected' : 'All Manufacturers' }}</span>
+          </div>
+          <div class="filters-options options-list">
+            @if (manufacturerOptionsSignal().length > 5) {
+            <input
+              type="search"
+              class="form-control form-control-sm"
+              placeholder="Search manufacturers..."
+              [value]="manufacturerFilterSearch()"
+              (input)="manufacturerFilterSearch.set($any($event.target).value)"
+              aria-label="Search manufacturers" />
+            }
+            @for (opt of filteredManufacturerOptions(); track opt.id) {
+            <button
+              type="button"
+              class="filter-option-row"
+              [class.active]="filterDraft().manufacturerIds.includes(opt.id)"
+              [attr.aria-pressed]="filterDraft().manufacturerIds.includes(opt.id)"
+              (click)="toggleManufacturer(opt.id)">
+              <span class="option-main">
+                <span class="option-check" [attr.aria-hidden]="true">
+                  {{ filterDraft().manufacturerIds.includes(opt.id) ? '✓' : '' }}
+                </span>
+                <span class="option-label">{{ opt.name }}</span>
+              </span>
+              <span class="option-count">{{ opt.count }}</span>
+            </button>
+            }
+            @if (filteredManufacturerOptions().length === 0) {
+            <p class="filter-empty">No matching manufacturers.</p>
+            }
+          </div>
+          @if (hiddenManufacturerOptionsCount() > 0) {
+          <button
+            type="button"
+            class="btn btn-link btn-sm unavailable-toggle"
+            [attr.aria-pressed]="showUnavailableManufacturers()"
+            (click)="showUnavailableManufacturers.set(!showUnavailableManufacturers())">
+            {{ showUnavailableManufacturers() ? 'Hide unavailable' : 'Show unavailable (' + hiddenManufacturerOptionsCount() + ')' }}
+          </button>
+          }
+        </div>
+
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label">Project Type</span>
+            <span class="filter-summary">{{ filterDraft().projectTypeIds.length ? filterDraft().projectTypeIds.length + ' selected' : 'All Project Types' }}</span>
+          </div>
+          <div class="filters-options options-list">
+            @if (projectTypeOptionsSignal().length > 5) {
+            <input
+              type="search"
+              class="form-control form-control-sm"
+              placeholder="Search project types..."
+              [value]="projectTypeFilterSearch()"
+              (input)="projectTypeFilterSearch.set($any($event.target).value)"
+              aria-label="Search project types" />
+            }
+            @for (opt of filteredProjectTypeOptions(); track opt.id) {
+            <button
+              type="button"
+              class="filter-option-row"
+              [class.active]="filterDraft().projectTypeIds.includes(opt.id)"
+              [attr.aria-pressed]="filterDraft().projectTypeIds.includes(opt.id)"
+              (click)="toggleProjectType(opt.id)">
+              <span class="option-main">
+                <span class="option-check" [attr.aria-hidden]="true">
+                  {{ filterDraft().projectTypeIds.includes(opt.id) ? '✓' : '' }}
+                </span>
+                <span class="option-label">{{ opt.name }}</span>
+              </span>
+              <span class="option-count">{{ opt.count }}</span>
+            </button>
+            }
+            @if (filteredProjectTypeOptions().length === 0) {
+            <p class="filter-empty">No matching project types.</p>
+            }
+          </div>
+          @if (hiddenProjectTypeOptionsCount() > 0) {
+          <button
+            type="button"
+            class="btn btn-link btn-sm unavailable-toggle"
+            [attr.aria-pressed]="showUnavailableProjectTypes()"
+            (click)="showUnavailableProjectTypes.set(!showUnavailableProjectTypes())">
+            {{ showUnavailableProjectTypes() ? 'Hide unavailable' : 'Show unavailable (' + hiddenProjectTypeOptionsCount() + ')' }}
+          </button>
+          }
+        </div>
+
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label">Project</span>
+            <span class="filter-summary">{{ filterDraft().projectIds.length ? filterDraft().projectIds.length + ' selected' : 'All Projects' }}</span>
+          </div>
+          <div class="filters-options options-list">
+            @if (projectOptionsSignal().length > 5) {
+            <input
+              type="search"
+              class="form-control form-control-sm"
+              placeholder="Search projects..."
+              [value]="projectFilterSearch()"
+              (input)="projectFilterSearch.set($any($event.target).value)"
+              aria-label="Search projects" />
+            }
+            @for (opt of filteredProjectOptions(); track opt.id) {
+            <button
+              type="button"
+              class="filter-option-row"
+              [class.active]="filterDraft().projectIds.includes(opt.id)"
+              [attr.aria-pressed]="filterDraft().projectIds.includes(opt.id)"
+              (click)="toggleProject(opt.id)">
+              <span class="option-main">
+                <span class="option-check" [attr.aria-hidden]="true">
+                  {{ filterDraft().projectIds.includes(opt.id) ? '✓' : '' }}
+                </span>
+                <span class="option-label">{{ opt.name }}</span>
+              </span>
+              <span class="option-count">{{ opt.count }}</span>
+            </button>
+            }
+            @if (filteredProjectOptions().length === 0) {
+            <p class="filter-empty">No matching projects.</p>
+            }
+          </div>
+          @if (hiddenProjectOptionsCount() > 0) {
+          <button
+            type="button"
+            class="btn btn-link btn-sm unavailable-toggle"
+            [attr.aria-pressed]="showUnavailableProjects()"
+            (click)="showUnavailableProjects.set(!showUnavailableProjects())">
+            {{ showUnavailableProjects() ? 'Hide unavailable' : 'Show unavailable (' + hiddenProjectOptionsCount() + ')' }}
+          </button>
+          }
+        </div>
+
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label" id="status-filter-label">Project Status</span>
+            <span class="filter-summary">
+              {{ filterDraft().status === 'all' ? 'All' : (filterDraft().status === 'active' ? 'Active' : 'Inactive') }}
+            </span>
+          </div>
+          <div class="filters-pill-group" role="radiogroup" aria-labelledby="status-filter-label">
+            <button
+              type="button"
+              class="btn filter-option-row filter-status-option"
+              [class.active]="filterDraft().status === 'all'"
+              [attr.aria-pressed]="filterDraft().status === 'all'"
+              (click)="setStatusFilter('all')">
+              All ({{ statusCounts().total }})
+            </button>
+            <button
+              type="button"
+              class="btn filter-option-row filter-status-option"
+              [class.active]="filterDraft().status === 'active'"
+              [attr.aria-pressed]="filterDraft().status === 'active'"
+              (click)="setStatusFilter('active')">
+              Active ({{ statusCounts().active }})
+            </button>
+            <button
+              type="button"
+              class="btn filter-option-row filter-status-option"
+              [class.active]="filterDraft().status === 'inactive'"
+              [attr.aria-pressed]="filterDraft().status === 'inactive'"
+              (click)="setStatusFilter('inactive')">
+              Inactive ({{ statusCounts().inactive }})
+            </button>
+          </div>
+        </div>
+
+        <div class="filters-section fleet-filter-section-card">
+          <div class="filter-section-header">
+            <span class="form-label">Regions</span>
+            <span class="filter-summary">{{ filterDraft().regions.length ? filterDraft().regions.length + ' selected' : 'All Regions' }}</span>
+          </div>
+          <div class="filters-options options-list">
+            @for (region of availableRegions(); track region) {
+            <button
+              type="button"
+              class="filter-option-row"
+              [class.active]="filterDraft().regions.includes(region)"
+              [attr.aria-pressed]="filterDraft().regions.includes(region)"
+              (click)="toggleRegion(region)">
+              <span class="option-main">
+                <span class="option-check" [attr.aria-hidden]="true">
+                  {{ filterDraft().regions.includes(region) ? '✓' : '' }}
+                </span>
+                <span class="option-label">{{ region }}</span>
+              </span>
+            </button>
+            }
+            @if (availableRegions().length === 0) {
+            <p class="filter-empty">No regions available.</p>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fleet-filter-overlay-footer filters-actions">
+      <button type="button" class="btn btn-outline-primary" (click)="cancelFiltersPanel()">Cancel</button>
+      <button type="button" class="btn btn-primary" [disabled]="!draftHasChanges()" (click)="applyFilters()">
+        Apply ({{ draftResultCount() }})
+      </button>
+    </div>
+  </section>
+  }
+
+  <main class="fleet-shell-map-stage">
+    @if (showBlockingRequiredDataLoading()) {
+    <div class="map-data-state-banner loading" role="status" aria-live="polite">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+      Loading backend data from Clients, Projects, Manufacturers, and Locations...
+    </div>
+    }
+
+    @if (hasRequiredEndpointError()) {
+    <div class="map-data-state-banner error" role="alert">
+      <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 w-100">
+        <div>
+          <strong>Failed to load required backend data.</strong>
+          @if (endpointErrorSummary()) {
+          <div class="fs-12 mt-1">{{ endpointErrorSummary() }}</div>
+          }
+        </div>
+        <button type="button" class="btn btn-sm btn-primary" (click)="retryRequiredDataLoad()">Retry</button>
+      </div>
+    </div>
+    }
+
+    <app-fluorescence-map-map class="fleet-shell-map-fill" [screenshotMode]="screenshotMode()"
+      [dashboardFullscreenMode]="dashboardFullscreenMode()"
+      [dashboardFullscreen]="dashboardFullscreen()"
+      [fullscreenContainerSelector]="shellFullscreenSelector"
+      [overlaySnapshot]="mapOverlaySnapshot()"
+      [nodes]="shouldPassMapData() ? strictMapNodes() : []"
+      [selectedEntity]="selectedEntity()"
+      [transitRoutes]="shouldPassMapData() ? filteredTransitRoutes() : []"
+      [projectRoutes]="shouldPassMapData() ? strictMapProjectRoutes() : []"
+      [filterStatus]="effectiveStatusFilter()"
+      (nodeSelected)="onNodeSelected($event)"
+      (routeSelected)="onRouteSelected($event)"
+      (zoomStable)="onMapZoomStable($event)"
+      (userInteracted)="onMapUserInteracted()"
+      (dashboardFullscreenToggleRequested)="dashboardFullscreenToggleRequested.emit()"
+      (fullscreenChange)="onMapFullscreenChange($event)"
+      (zoomedToEntity)="onMapZoomedToEntity()"
+      (previousViewRestored)="onPreviousViewRestored()"></app-fluorescence-map-map>
+
+    @if (showReturnToPreviousView() && mapComponent()) {
+    <button type="button" class="btn btn-sm war-room-return-previous-btn" (click)="mapComponent()!.restorePreviousView()"
+      aria-label="Return to previous map view" title="Return to previous map view">
+      <i class="fe fe-arrow-left" aria-hidden="true"></i>
+      Return to previous view
+    </button>
+    }
+
+    @if (showEmptyStateOverlay()) {
+    <div class="empty-state-overlay">
+      <div class="empty-state-content card custom-card shadow-lg border-0">
+        <h5 class="fw-bold mb-2">{{ mapViewModelStrict().emptyState.message ?? 'No map entities match current filters' }}</h5>
+        <p class="text-muted mb-4 fs-13">Try adjusting your filters, or clear all filters to see the full map.</p>
+        <button class="btn btn-primary w-100" (click)="clearAllFilters()">
+          <i class="fe fe-x me-2"></i> Clear All Filters
+        </button>
+      </div>
+    </div>
+    }
+  </main>
+
+  }
+
+  <section class="fleet-shell-table-zone" [class.data-management-only]="dataManagementOnly()">
+    <app-fleet-activity-table
+      [rows]="activityTableRows()"
+      [clientRows]="clientTableRows()"
+      [manufacturerRows]="manufacturerTableRows()"
+      [locationRows]="locationTableRows()"
+      [canEdit]="canEditWarRoom()"
+      [open]="dataManagementOnly() ? true : panelVisible()"
+      [layoutMode]="'inline'"
+      [selectedProjectId]="selectedProjectId()"
+      [showClearFilters]="activeFilters().length > 0"
+      (openChange)="onTableOpenChange($event)"
+      (rowView)="onActivityRowView($event)"
+      (clientView)="onClientRowView($event)"
+      (manufacturerView)="onManufacturerRowView($event)"
+      (locationView)="onLocationRowView($event)"
+      (rowDelete)="onActivityRowDelete($event)"
+      (rowSelected)="onActivityRowSelected($event)"
+      (rowHovered)="onActivityRowHovered($event)"
+      (rowSaveRequested)="onActivityRowSaveRequested($event)"
+      (rowCreateRequested)="onActivityRowCreateRequested($event)"
+      (clientSaveRequested)="onClientRowSaveRequested($event)"
+      (clientCreateRequested)="onClientRowCreateRequested($event)"
+      (manufacturerSaveRequested)="onManufacturerRowSaveRequested($event)"
+      (manufacturerCreateRequested)="onManufacturerRowCreateRequested($event)"
+      (locationSaveRequested)="onLocationRowSaveRequested($event)"
+      (locationCreateRequested)="onLocationRowCreateRequested($event)"
+      (clearFiltersRequested)="clearAllFilters()">
+    </app-fleet-activity-table>
+  </section>
+</div>

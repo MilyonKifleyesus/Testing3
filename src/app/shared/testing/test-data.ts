@@ -49,6 +49,7 @@ export function getFirstClient(): Client {
 
 export function getFirstFactoryOption(): FactoryOption {
   return {
+    manufacturerLocationId: 101,
     factoryId: 101,
     manufacturerId: 1,
     manufacturerName: 'Nova Bus',

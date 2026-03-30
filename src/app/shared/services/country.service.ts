@@ -5,7 +5,8 @@ import {BehaviorSubject, Observable, of, Subject} from 'rxjs';
 
 import {DecimalPipe} from '@angular/common';
 import {debounceTime, delay, switchMap, tap} from 'rxjs/operators';
-import { Country, SortColumn, SortDirection } from '../directives/sortable.directive';
+import { SortColumn, SortDirection } from '../directives/sortable.directive';
+import { Country } from '../data/tables_data/countries';
 import { COUNTRIES } from '../data/countries';
 
 interface SearchResult {
@@ -35,9 +36,13 @@ function sort(countries: Country[], column: SortColumn, direction: string): Coun
 }
 
 function matches(country: Country, term: string, pipe: PipeTransform) {
-  return country.name.toLowerCase().includes(term.toLowerCase())
-    || pipe.transform(country.area).includes(term)
-    || pipe.transform(country.population).includes(term);
+  const loweredTerm = term.toLowerCase();
+  const name = (country.name ?? '').toLowerCase();
+  const areaStr = (pipe.transform(country.area) ?? '').toString();
+  const popStr = (pipe.transform(country.population) ?? '').toString();
+  return name.includes(loweredTerm)
+    || areaStr.includes(term)
+    || popStr.includes(term);
 }
 
 @Injectable({providedIn: 'root'})

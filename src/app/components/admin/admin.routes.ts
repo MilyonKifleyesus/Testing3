@@ -21,6 +21,20 @@ export const adminRoutingModule: Routes = [
     loadChildren: () => import('../../shared/features/fleet-map/fleet-map.routes').then((m) => m.fleetMapRoutes)
   },
   {
+    path: 'map',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
+    loadComponent: () =>
+      import('./map/admin-map.component').then((m) => m.AdminMapComponent)
+  },
+  {
+    path: 'data-management',
+    canActivate: [roleGuard],
+    data: { roles: ['superadmin', 'admin'] },
+    loadComponent: () =>
+      import('./data-management/admin-data-management.component').then((m) => m.AdminDataManagementComponent)
+  },
+  {
     path: 'projects',
     canActivate: [roleGuard],
     data: { roles: ['superadmin', 'admin'] },
@@ -190,7 +204,8 @@ export const adminRoutingModule: Routes = [
       },
       {
         path: 'create-timesheet',
-        loadComponent: () => import('./simulator/create-timesheet/create-timesheet.component').then(m => m.CreateTimesheetComponent)
+        redirectTo: '/admin/timesheet/new',
+        pathMatch: 'full'
       },
       {
         path: 'inspection-list',

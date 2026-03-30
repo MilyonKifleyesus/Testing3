@@ -1,0 +1,36 @@
+@if (tooltip() && tooltip()!.visible) {
+<div class="company-logo-tooltip" [style.top.px]="tooltip()!.top" [style.left.px]="tooltip()!.left"
+  [class.flipped]="tooltip()!.flipped">
+  <div class="tooltip-content">
+    <div class="tooltip-header">
+      @if (tooltip()!.logoPath) {
+      <img [src]="tooltip()!.logoPath" [alt]="tooltip()!.displayName + ' logo'" class="tooltip-logo"
+        (error)="logoError.emit({ nodeId: tooltip()!.nodeId, logoPath: tooltip()!.logoPath })">
+      }
+      <div class="tooltip-title-block">
+        <div class="tooltip-title">{{ tooltip()!.displayName }}</div>
+        <div class="tooltip-subtitle">Operational Node</div>
+      </div>
+      <div class="tooltip-status-pill" [ngClass]="tooltip()!.statusClass">
+        {{ tooltip()!.statusLabel || 'STATUS' }}
+      </div>
+    </div>
+    <div class="tooltip-body">
+      <div class="tooltip-chips">
+        <span class="tooltip-chip">{{ tooltip()!.typeLabel }}</span>
+        <span class="tooltip-chip">{{ tooltip()!.locationLabel || 'Location Pending' }}</span>
+      </div>
+      <div class="tooltip-description">{{ tooltip()!.description }}</div>
+      <div class="tooltip-meta">
+        @if (tooltip()!.fullAddress) {
+        <div class="tooltip-meta-line">{{ tooltip()!.fullAddress }}</div>
+        }
+        @if (tooltip()!.notes) {
+        <div class="tooltip-meta-line tooltip-meta-line-muted">{{ tooltip()!.notes }}</div>
+        }
+      </div>
+    </div>
+  </div>
+  <div class="tooltip-arrow"></div>
+</div>
+}

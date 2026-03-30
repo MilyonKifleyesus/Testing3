@@ -1,15 +1,10 @@
-import {Directive, EventEmitter, Input, Output} from '@angular/core';
-export interface Country {
-    id: number;
-    name: string;
-    flag: string;
-    area: number;
-    population: number;
-  }
+import { Directive, EventEmitter, Input, Output } from '@angular/core';
+import type { Country } from '../data/tables_data/countries';
+export type { Country } from '../data/tables_data/countries';
 
 export type SortColumn = keyof Country | '';
 export type SortDirection = 'asc' | 'desc' | '';
-const rotate: {[key: string]: SortDirection} = { 'asc': 'desc', 'desc': '', '': 'asc' };
+const rotate: { [key: string]: SortDirection } = { asc: 'desc', desc: '', '': 'asc' };
 
 export interface SortEvent {
   column: SortColumn;

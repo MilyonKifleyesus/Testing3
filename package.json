@@ -4,9 +4,17 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "start:timesheet-mock": "echo [NON-DEFAULT] Emergency timesheet mock mode && ng serve --proxy-config proxy.inspectors.mock.conf.json",
+    "mock:timesheet-api": "echo [NON-DEFAULT] Emergency mock API source && npx -y json-server --watch public/assets/data/inspectors.json --port 3001",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "verify:admin:api": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-admin-dashboard-api.ps1",
+    "verify:admin:ui": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-admin-dashboard-ui.ps1",
+    "verify:admin:all": "npm run verify:admin:api && npm run verify:admin:ui",
+    "verify:fluorescence-map:ui": "node ./scripts/verify-fluorescence-map-ui.mjs",
+    "verify:fluorescence-map:video": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-testsprite-fluorescence-map.ps1 -VideoUrlOutputPath ./output/playwright/verification-video.url.txt",
+    "verify:fluorescence-map:all": "npm run verify:fluorescence-map:ui",
     "sass": "sass ./public/assets/scss:./public/assets/css/",
     "sass-min": "sass ./public/assets/scss:./public/assets/css/ --style compressed"
   },
@@ -32,6 +40,7 @@
     "@fullcalendar/timegrid": "^6.1.15",
     "@ks89/angular-modal-gallery": "^13.0.0",
     "@maksim_m/ngx-sortablejs": "^15.0.0",
+    "@microsoft/signalr": "^8.0.17",
     "@ng-bootstrap/ng-bootstrap": "^18.0.0",
     "@ng-select/ng-select": "^14.9.0",
     "@ngneat/input-mask": "^6.1.0",
@@ -50,6 +59,7 @@
     "d3-cloud": "^1.2.9",
     "date-fns": "^4.1.0",
     "echarts": "^6.0.0",
+    "echarts-wordcloud": "^2.1.0",
     "exceljs": "^4.4.0",
     "filepond": "^4.32.11",
     "flatpickr": "^4.6.13",
@@ -102,6 +112,7 @@
     "karma-coverage": "~2.2.1",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
+    "playwright": "^1.58.2",
     "typescript": "~5.7.3"
   }
 }

@@ -11,6 +11,7 @@ import { Subscription, filter } from 'rxjs';
 })
 export class FullLayoutComponent implements OnInit {
   public menuItems!: Menu[];
+  hideFooter = false;
 
   currentRoute:  string | undefined;
   urlData:  string[] | undefined;
@@ -30,11 +31,14 @@ export class FullLayoutComponent implements OnInit {
         html?.getAttribute('data-toggled') == 'close' ? 'close' : 'close'
       );
     }
-    this.router.events.pipe(
-      filter(event => event instanceof NavigationEnd)
-    ).subscribe(() => {
-      window.scrollTo(0, 0);
-    });
+    this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe(() => {
+        this.updateLayoutByRoute(this.router.url);
+        window.scrollTo(0, 0);
+      });
+
+    this.updateLayoutByRoute(this.router.url);
        this.navServices.items.subscribe((menuItems: any) => {
      this.menuItems = menuItems;
    });
@@ -103,6 +107,10 @@ export class FullLayoutComponent implements OnInit {
   @HostListener('window:scroll', [])
   onWindowScroll() {
     this.scrolled = window.scrollY > 64;
+  }
+
+  private updateLayoutByRoute(url: string): void {
+    this.hideFooter = /^\/admin\/map(?:$|[/?#])/.test(url);
   }
 
 }

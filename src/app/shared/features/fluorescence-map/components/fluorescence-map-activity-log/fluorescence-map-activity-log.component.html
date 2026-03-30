@@ -1,0 +1,312 @@
+<div class="activity-log-container card custom-card">
+  <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <h6 class="main-content-label mb-0 d-flex align-items-center gap-1">
+      Critical Operation Log
+      <i class="fe fe-info status-legend-icon" aria-hidden="true"
+        title="ACTIVE = has projects; INACTIVE = has inactive projects; NO PROJECT ASSIGNED = no projects linked"></i>
+    </h6>
+    <div class="activity-log-header-actions d-flex align-items-center gap-2 flex-wrap">
+      <div class="manufacturer-search-wrap" [class.has-query]="manufacturerSearchQuery()">
+        <i class="fe fe-search manufacturer-search-icon" aria-hidden="true"></i>
+        <input type="text" class="form-control form-control-sm manufacturer-search-input"
+          placeholder="Search manufacturers..."
+          [value]="manufacturerSearchQuery()"
+          (input)="manufacturerSearchQuery.set($any($event.target).value)"
+          aria-label="Search manufacturers"
+          title="Search updates as you type" />
+        @if (manufacturerSearchQuery()) {
+        <button type="button" class="manufacturer-search-clear" (click)="manufacturerSearchQuery.set('')"
+          aria-label="Clear search">
+          <i class="fe fe-x" aria-hidden="true"></i>
+        </button>
+        }
+      </div>
+      @if (manufacturerSearchQuery().trim()) {
+      <span class="search-feedback text-muted fs-11" role="status">
+        @if (searchMatchCount() === 0) {
+        No matches
+        } @else {
+        {{ searchMatchCount() }} {{ searchMatchCount() === 1 ? 'manufacturer' : 'manufacturers' }}
+        }
+      </span>
+      }
+      <button type="button" class="btn btn-sm btn-outline-secondary refresh-log-btn" (click)="refreshLayout()"
+        aria-label="Refresh data" title="Update list and data">
+        <i class="fe fe-refresh-cw" aria-hidden="true"></i>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="card-body p-0 position-relative">
+    <div class="activity-log-entries list-group list-group-flush manufacturers-compact-list"
+      [class.edit-mode-active]="editMode()"
+      [attr.aria-busy]="refreshing() || isBusy()" #logList>
+      @for (group of filteredParentGroupsForDisplay(); track group.id) {
+      <div class="hierarchy-group" [attr.data-entity-id]="'parent:' + group.id">
+        @for (subsidiary of group.subsidiaries; track subsidiary.id) {
+        <div class="manufacturer-row" [class.expanded]="isSubsidiaryExpanded(subsidiary.id)">
+          <button
+            type="button"
+            class="manufacturer-list-item list-group-item list-group-item-action d-flex align-items-center gap-2"
+            [class.active]="isSelected('subsidiary', subsidiary.id)"
+            [class.status-active]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-active'"
+            [class.status-inactive]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-inactive'"
+            [class.status-unassigned]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-unassigned'"
+            (click)="editMode() ? startEditSubsidiary(subsidiary) : onSubsidiaryClick(subsidiary)"
+            (mouseenter)="onSubsidiaryHover(subsidiary, true)" (mouseleave)="onSubsidiaryHover(subsidiary, false)"
+            (focus)="onSubsidiaryHover(subsidiary, true)" (blur)="onSubsidiaryHover(subsidiary, false)"
+            (keydown.enter)="editMode() ? startEditSubsidiary(subsidiary) : onSubsidiaryClick(subsidiary)"
+            (keydown.space)="$event.preventDefault(); editMode() ? startEditSubsidiary(subsidiary) : onSubsidiaryClick(subsidiary)"
+            [attr.data-entity-id]="'subsidiary:' + subsidiary.id"
+            [attr.aria-selected]="isSelected('subsidiary', subsidiary.id)"
+            [attr.aria-expanded]="isSubsidiaryExpanded(subsidiary.id)"
+            tabindex="0" role="button">
+            <span class="manufacturer-chevron" aria-hidden="true">
+              {{ isSubsidiaryExpanded(subsidiary.id) ? '?' : '?' }}
+            </span>
+            @if (subsidiary.logo) {
+            <img [src]="subsidiary.logo" alt="" class="manufacturer-list-logo" />
+            }
+            <span class="manufacturer-list-name flex-grow-1 text-start">{{ subsidiary.name }}</span>
+            <span class="manufacturer-list-count badge bg-primary-transparent">
+              {{ (subsidiary.factories ?? []).length }} {{ (subsidiary.factories ?? []).length === 1 ? 'site' : 'sites' }}
+            </span>
+            <span class="manufacturer-status-pill"
+              [class.status-active]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-active'"
+              [class.status-inactive]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-inactive'"
+              [class.status-unassigned]="getStatusClass(getProjectStatusForSubsidiary(subsidiary)) === 'status-unassigned'"
+              [attr.title]="getProjectStatusForSubsidiary(subsidiary) === 'none' ? 'No projects linked to this manufacturer. Click Edit mode to add a project.' : null"
+              [attr.aria-label]="formatStatusLabel(getProjectStatusForSubsidiary(subsidiary)) + (getProjectStatusForSubsidiary(subsidiary) === 'none' ? '. No projects linked to this manufacturer. Click Edit mode to add a project.' : '')">
+              {{ formatStatusLabel(getProjectStatusForSubsidiary(subsidiary)) }}
+            </span>
+            @if (editMode()) {
+            <button type="button" class="btn btn-sm btn-outline-primary"
+              (click)="startEditSubsidiary(subsidiary); $event.stopPropagation()" aria-label="Edit company details">
+              Edit
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger"
+              (click)="requestDeleteSubsidiary(subsidiary.id); $event.stopPropagation()" aria-label="Delete company">
+              Delete
+            </button>
+            }
+          </button>
+
+          @if (isSubsidiaryExpanded(subsidiary.id)) {
+          @if (editMode() && isEditingSubsidiary(subsidiary.id)) {
+          <div class="manufacturer-edit-form" (click)="$event.stopPropagation()">
+            <input type="text" class="form-control form-control-sm mb-2"
+              [value]="subsidiaryDrafts().get(subsidiary.id)?.name"
+              (input)="onSubsidiaryNameInput($event, subsidiary.id)" placeholder="Name" />
+            <input type="text" class="form-control form-control-sm mb-2"
+              [value]="subsidiaryDrafts().get(subsidiary.id)?.location"
+              (input)="onSubsidiaryLocationInput($event, subsidiary.id)" placeholder="Location" />
+            <select class="form-select form-select-sm mb-2"
+              [value]="subsidiaryDrafts().get(subsidiary.id)?.status"
+              (change)="onSubsidiaryStatusChange($event, subsidiary.id)">
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+            <textarea class="form-control form-control-sm mb-2" rows="2"
+              [value]="subsidiaryDrafts().get(subsidiary.id)?.description"
+              (input)="onSubsidiaryDescriptionInput($event, subsidiary.id)" placeholder="Notes"></textarea>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-success" (click)="saveSubsidiaryDetails(subsidiary.id)">
+                Save
+              </button>
+              <button type="button" class="btn btn-sm btn-light" (click)="cancelEditSubsidiary()">
+                Cancel
+              </button>
+            </div>
+          </div>
+          } @else {
+          <div class="factory-list">
+            @if ((subsidiary.factories ?? []).length === 0) {
+            <div class="factory-empty-state text-muted">No sites for this manufacturer</div>
+            } @else if (hasNoProjectsButHasSites(subsidiary)) {
+            <div class="factory-empty-state text-muted">No active projects assigned to any sites for this manufacturer.</div>
+            <button type="button" class="btn btn-link view-factories-toggle"
+              [class.expanded]="isNoProjectSitesExpanded(subsidiary.id)"
+              (click)="toggleNoProjectSites(subsidiary.id); $event.stopPropagation()"
+              [attr.aria-label]="isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + (subsidiary.factories ?? []).length + ' ' + ((subsidiary.factories ?? []).length === 1 ? 'site' : 'sites')">
+              <i class="fe fe-chevron-down view-factories-chevron" aria-hidden="true"></i>
+              {{ isNoProjectSitesExpanded(subsidiary.id) ? 'Hide sites' : 'View ' + (subsidiary.factories ?? []).length + ' ' + ((subsidiary.factories ?? []).length === 1 ? 'site' : 'sites') }}
+            </button>
+            @if (isNoProjectSitesExpanded(subsidiary.id)) {
+            @for (factory of getVisibleFactories(subsidiary); track factory.id) {
+            <div class="factory-row" [class.editing]="editMode() && isEditingFactory(factory.id)">
+              @if (editMode() && isEditingFactory(factory.id)) {
+              <div class="manufacturer-edit-form" (click)="$event.stopPropagation()">
+                <input type="text" class="form-control form-control-sm mb-2"
+                  [value]="factoryDrafts().get(factory.id)?.name" (input)="onNameInput($event, factory.id)"
+                  placeholder="Name" />
+                <input type="text" class="form-control form-control-sm mb-2"
+                  [value]="factoryDrafts().get(factory.id)?.location" (input)="onLocationInput($event, factory.id)"
+                  placeholder="Location" />
+                <select class="form-select form-select-sm mb-2"
+                  [value]="factoryDrafts().get(factory.id)?.status"
+                  (change)="onFactoryStatusChange($event, factory.id)">
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+                <textarea class="form-control form-control-sm mb-2" rows="2"
+                  [value]="factoryDrafts().get(factory.id)?.description"
+                  (input)="onDescriptionInput($event, factory.id)" placeholder="Notes"></textarea>
+                @if (factoryValidationErrors().get(factory.id); as factoryError) {
+                <div class="text-danger fs-12 mb-2">{{ factoryError }}</div>
+                }
+                <div class="d-flex gap-2 flex-wrap">
+                  @if (getProjectStatusForFactory(factory.id) === 'none') {
+                  <button type="button" class="btn btn-sm btn-success"
+                    (click)="addProjectForFactory.emit({ factoryId: factory.id, subsidiaryId: subsidiary.id })">
+                    Add Project
+                  </button>
+                  }
+                  <button type="button" class="btn btn-sm btn-success" (click)="saveFactoryDetails(factory.id)"
+                    [disabled]="!hasValidFactoryName(factory.id)">
+                    Save
+                  </button>
+                  <button type="button" class="btn btn-sm btn-light" (click)="cancelEditFactory()">
+                    Cancel
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-danger"
+                    (click)="requestDeleteFactory(factory.id)">
+                    Delete
+                  </button>
+                </div>
+              </div>
+              } @else {
+              <div class="factory-row-content d-flex align-items-center gap-2"
+                (click)="editMode() ? startEditFactory(factory) : onFactoryClick(factory)"
+                (mouseenter)="onFactoryHover(factory, true)" (mouseleave)="onFactoryHover(factory, false)"
+                (keydown.enter)="editMode() ? startEditFactory(factory) : onFactoryClick(factory)"
+                (keydown.space)="$event.preventDefault(); editMode() ? startEditFactory(factory) : onFactoryClick(factory)"
+                role="button" tabindex="0"
+                [attr.data-entity-id]="'factory:' + factory.id"
+                [attr.aria-selected]="isSelected('factory', factory.id)">
+                <span class="factory-name">{{ factory.name }}</span>
+                <span class="factory-location text-muted">{{ getFactoryLocationLabel(factory, subsidiary) }}</span>
+                <span class="manufacturer-status-pill"
+                  [class.status-active]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-active'"
+                  [class.status-inactive]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-inactive'"
+                  [class.status-unassigned]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-unassigned'"
+                  [attr.title]="getProjectStatusForFactory(factory.id) === 'none' ? 'No projects linked to this site. Click Edit mode to add a project.' : null"
+                  [attr.aria-label]="formatStatusLabel(getProjectStatusForFactory(factory.id)) + (getProjectStatusForFactory(factory.id) === 'none' ? '. No projects linked to this site. Click Edit mode to add a project.' : '')">
+                  {{ formatStatusLabel(getProjectStatusForFactory(factory.id)) }}
+                </span>
+                @if (editMode()) {
+                <button type="button" class="btn btn-sm btn-outline-primary ms-auto"
+                  (click)="startEditFactory(factory); $event.stopPropagation()">
+                  Edit
+                </button>
+                }
+              </div>
+              }
+            </div>
+            }
+            @if (shouldCollapseFactories(subsidiary)) {
+            <button type="button" class="btn btn-link view-factories-toggle"
+              (click)="toggleFactoryList(subsidiary.id); $event.stopPropagation()"
+              [attr.aria-label]="isFactoryListExpanded(subsidiary.id) ? 'Collapse factory list' : 'View all factories'">
+              {{ isFactoryListExpanded(subsidiary.id) ? 'Hide factories' : 'View all factories' }}
+              <span class="count-badge">({{ getHiddenFactoryCount(subsidiary) }})</span>
+            </button>
+            }
+            }
+            } @else {
+            @for (factory of getVisibleFactories(subsidiary); track factory.id) {
+            <div class="factory-row" [class.editing]="editMode() && isEditingFactory(factory.id)">
+              @if (editMode() && isEditingFactory(factory.id)) {
+              <div class="manufacturer-edit-form" (click)="$event.stopPropagation()">
+                <input type="text" class="form-control form-control-sm mb-2"
+                  [value]="factoryDrafts().get(factory.id)?.name" (input)="onNameInput($event, factory.id)"
+                  placeholder="Name" />
+                <input type="text" class="form-control form-control-sm mb-2"
+                  [value]="factoryDrafts().get(factory.id)?.location" (input)="onLocationInput($event, factory.id)"
+                  placeholder="Location" />
+                <select class="form-select form-select-sm mb-2"
+                  [value]="factoryDrafts().get(factory.id)?.status"
+                  (change)="onFactoryStatusChange($event, factory.id)">
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+                <textarea class="form-control form-control-sm mb-2" rows="2"
+                  [value]="factoryDrafts().get(factory.id)?.description"
+                  (input)="onDescriptionInput($event, factory.id)" placeholder="Notes"></textarea>
+                @if (factoryValidationErrors().get(factory.id); as factoryError) {
+                <div class="text-danger fs-12 mb-2">{{ factoryError }}</div>
+                }
+                <div class="d-flex gap-2 flex-wrap">
+                  @if (getProjectStatusForFactory(factory.id) === 'none') {
+                  <button type="button" class="btn btn-sm btn-success"
+                    (click)="addProjectForFactory.emit({ factoryId: factory.id, subsidiaryId: subsidiary.id })">
+                    Add Project
+                  </button>
+                  }
+                  <button type="button" class="btn btn-sm btn-success" (click)="saveFactoryDetails(factory.id)"
+                    [disabled]="!hasValidFactoryName(factory.id)">
+                    Save
+                  </button>
+                  <button type="button" class="btn btn-sm btn-light" (click)="cancelEditFactory()">
+                    Cancel
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-danger"
+                    (click)="requestDeleteFactory(factory.id)">
+                    Delete
+                  </button>
+                </div>
+              </div>
+              } @else {
+              <div class="factory-row-content d-flex align-items-center gap-2"
+                (click)="editMode() ? startEditFactory(factory) : onFactoryClick(factory)"
+                (mouseenter)="onFactoryHover(factory, true)" (mouseleave)="onFactoryHover(factory, false)"
+                (keydown.enter)="editMode() ? startEditFactory(factory) : onFactoryClick(factory)"
+                (keydown.space)="$event.preventDefault(); editMode() ? startEditFactory(factory) : onFactoryClick(factory)"
+                role="button" tabindex="0"
+                [attr.data-entity-id]="'factory:' + factory.id"
+                [attr.aria-selected]="isSelected('factory', factory.id)">
+                <span class="factory-name">{{ factory.name }}</span>
+                <span class="factory-location text-muted">{{ getFactoryLocationLabel(factory, subsidiary) }}</span>
+                <span class="manufacturer-status-pill"
+                  [class.status-active]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-active'"
+                  [class.status-inactive]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-inactive'"
+                  [class.status-unassigned]="getStatusClass(getProjectStatusForFactory(factory.id)) === 'status-unassigned'"
+                  [attr.title]="getProjectStatusForFactory(factory.id) === 'none' ? 'No projects linked to this site. Click Edit mode to add a project.' : null"
+                  [attr.aria-label]="formatStatusLabel(getProjectStatusForFactory(factory.id)) + (getProjectStatusForFactory(factory.id) === 'none' ? '. No projects linked to this site. Click Edit mode to add a project.' : '')">
+                  {{ formatStatusLabel(getProjectStatusForFactory(factory.id)) }}
+                </span>
+                @if (editMode()) {
+                <button type="button" class="btn btn-sm btn-outline-primary ms-auto"
+                  (click)="startEditFactory(factory); $event.stopPropagation()">
+                  Edit
+                </button>
+                }
+              </div>
+              }
+            </div>
+            }
+            @if (shouldCollapseFactories(subsidiary)) {
+            <button type="button" class="btn btn-link view-factories-toggle"
+              (click)="toggleFactoryList(subsidiary.id); $event.stopPropagation()"
+              [attr.aria-label]="isFactoryListExpanded(subsidiary.id) ? 'Collapse factory list' : 'View all factories'">
+              {{ isFactoryListExpanded(subsidiary.id) ? 'Hide factories' : 'View all factories' }}
+              <span class="count-badge">({{ getHiddenFactoryCount(subsidiary) }})</span>
+            </button>
+            }
+            }
+          </div>
+          }
+          }
+        </div>
+        }
+      </div>
+      }
+    </div>
+    @if (refreshing() || isBusy()) {
+    <div class="activity-log-refresh-overlay" role="status" aria-live="polite">
+      <div class="spinner-border text-primary" aria-hidden="true"></div>
+      <span class="visually-hidden">Refreshing operation log</span>
+    </div>
+    }
+  </div>
+</div>

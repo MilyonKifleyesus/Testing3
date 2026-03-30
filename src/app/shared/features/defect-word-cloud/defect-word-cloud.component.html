@@ -1,0 +1,134 @@
+<div class="defect-word-cloud">
+  <div class="filter-grid">
+    <div class="filter-field">
+      <label for="inspection-area-filter" class="form-label">Inspection Area</label>
+      <select
+        id="inspection-area-filter"
+        class="form-select form-select-sm"
+        [ngModel]="uiFilters().inspectionAreaId"
+        (ngModelChange)="onInspectionAreaChange($event)"
+      >
+        <option value="">All inspection areas</option>
+        <option
+          *ngFor="let option of inspectionAreaOptions(); trackBy: trackByInspectionArea"
+          [value]="option.id"
+        >
+          {{ option.name }}
+        </option>
+      </select>
+    </div>
+
+    <div class="filter-field">
+      <label for="defect-filter" class="form-label">Defect Type</label>
+      <select
+        id="defect-filter"
+        class="form-select form-select-sm"
+        [ngModel]="uiFilters().selectedDefectKey"
+        (ngModelChange)="onSelectedDefectChange($event)"
+      >
+        <option value="">All defects</option>
+        <option
+          *ngFor="let option of defectOptions(); trackBy: trackByDefect"
+          [value]="option.id"
+        >
+          {{ option.label }} ({{ option.count }})
+        </option>
+      </select>
+    </div>
+
+    <div class="filter-field">
+      <label for="date-from-filter" class="form-label">Date From</label>
+      <input
+        id="date-from-filter"
+        class="form-control form-control-sm"
+        type="date"
+        [ngModel]="uiFilters().dateFrom"
+        (ngModelChange)="onDateFromChange($event)"
+      />
+    </div>
+
+    <div class="filter-field">
+      <label for="date-to-filter" class="form-label">Date To</label>
+      <input
+        id="date-to-filter"
+        class="form-control form-control-sm"
+        type="date"
+        [ngModel]="uiFilters().dateTo"
+        (ngModelChange)="onDateToChange($event)"
+      />
+    </div>
+
+    <div class="filter-field">
+      <label for="vehicle-id-filter" class="form-label">Vehicle ID</label>
+      <input
+        id="vehicle-id-filter"
+        class="form-control form-control-sm"
+        type="text"
+        placeholder="Filter by vehicle ID"
+        [ngModel]="uiFilters().vehicleId"
+        (ngModelChange)="onVehicleIdChange($event)"
+      />
+    </div>
+
+    <div class="filter-actions">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-success"
+        (click)="resetFilters()"
+      >
+        Reset Filters
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="hasInvalidDateRange()" class="date-validation text-danger" role="alert">
+    Date From must be on or before Date To.
+  </div>
+
+  <div *ngIf="loading()" class="state-card skeleton-state" aria-live="polite" role="status">
+    <div class="skeleton-header placeholder-glow">
+      <span class="placeholder col-4"></span>
+    </div>
+    <div class="skeleton-chart">
+      <div class="skeleton-pill placeholder-glow"><span class="placeholder col-10"></span></div>
+      <div class="skeleton-pill placeholder-glow"><span class="placeholder col-8"></span></div>
+      <div class="skeleton-pill placeholder-glow"><span class="placeholder col-6"></span></div>
+      <div class="skeleton-pill placeholder-glow"><span class="placeholder col-9"></span></div>
+      <div class="skeleton-pill placeholder-glow"><span class="placeholder col-5"></span></div>
+      <div class="skeleton-pill placeholder-glow"><span class="placeholder col-7"></span></div>
+    </div>
+  </div>
+
+  <div *ngIf="!loading() && error()" class="state-card error-state" role="alert">
+    <h6>Unable to load defect data</h6>
+    <p>{{ error() }}</p>
+    <button type="button" class="btn btn-sm btn-primary" (click)="retry()">Retry</button>
+  </div>
+
+  <div *ngIf="!loading() && !error() && emptyStateMessage()" class="state-card empty-state">
+    <h6>{{ emptyStateMessage() }}</h6>
+    <p *ngIf="hasWidgetOwnedFilters()">
+      Try clearing one or more filters to see more defect descriptions.
+    </p>
+    <p *ngIf="!hasWidgetOwnedFilters()">
+      No valid ticket descriptions are available for the current dashboard scope.
+    </p>
+  </div>
+
+  <div *ngIf="!loading() && !error() && !emptyStateMessage()" class="chart-section">
+    <div
+      #chartHost
+      class="word-cloud-chart"
+      echarts
+      [options]="chartOptions()"
+      [autoResize]="true"
+      (chartInit)="onChartInit($event)"
+    ></div>
+
+    <div class="chart-meta">
+      <span>{{ totalTickets() }} tickets</span>
+      <span>{{ validDescriptionCount() }} descriptions processed</span>
+      <span>{{ uniqueDescriptionCount() }} unique defects</span>
+    </div>
+  </div>
+</div>

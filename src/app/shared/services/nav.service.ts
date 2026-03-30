@@ -126,6 +126,13 @@ export class NavService implements OnDestroy {
         // ...existing code...
           // ...existing code...
     {
+      path: '/admin/map',
+      title: 'Fleet Map',
+      icon: 'ti-location-pin',
+      type: 'link',
+      active: false,
+    },
+    {
       title: 'Project Management',
       type: 'sub',
       icon: 'ti-layout',
@@ -220,8 +227,8 @@ export class NavService implements OnDestroy {
       ]
     },
     {
-      path: '/admin/timesheet',
-      title: 'Time Sheet',
+      path: '/admin/TimeLogs',
+      title: 'Time Log',
       icon: 'ti-time',
       type: 'link',
       active: false,
@@ -271,8 +278,8 @@ export class NavService implements OnDestroy {
           type: 'link',
         },
         {
-          path: '/admin/simulator/create-timesheet',
-          title: 'Create Timesheet',
+          path: '/admin/timesheet/new',
+          title: 'Create Time Log',
           type: 'link',
         },
         {

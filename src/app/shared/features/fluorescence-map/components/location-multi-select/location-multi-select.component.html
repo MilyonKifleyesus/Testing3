@@ -1,0 +1,42 @@
+<div class="location-multi-select" [class.disabled]="disabled()">
+  <input
+    type="search"
+    class="cell-input"
+    [disabled]="disabled()"
+    [value]="searchTerm()"
+    (input)="onSearchChange($any($event.target).value)"
+    [placeholder]="placeholder()" />
+
+  @if (selectedOptions().length > 0) {
+    <div class="chips">
+      @for (option of selectedOptions(); track option.id) {
+        <button
+          type="button"
+          class="chip"
+          [disabled]="disabled()"
+          (click)="removeChip(option.id)">
+          {{ option.name }}
+        </button>
+      }
+    </div>
+  }
+
+  <div class="options">
+    @for (option of filteredOptions(); track option.id) {
+      <button
+        type="button"
+        class="option"
+        [class.selected]="isSelected(option.id)"
+        [disabled]="disabled()"
+        (click)="toggleOption(option.id)">
+        <span class="name">{{ option.name }}</span>
+        @if (option.latitude != null && option.longitude != null) {
+          <span class="meta">{{ option.latitude }}, {{ option.longitude }}</span>
+        }
+      </button>
+    } @empty {
+      <div class="empty">No locations found.</div>
+    }
+  </div>
+</div>
+

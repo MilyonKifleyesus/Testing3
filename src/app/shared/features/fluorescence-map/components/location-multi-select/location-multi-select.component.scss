@@ -1,0 +1,95 @@
+.location-multi-select {
+  --loc-select-chip-border: rgba(45, 122, 79, 0.28);
+  --loc-select-chip-bg: rgba(45, 122, 79, 0.1);
+  --loc-select-chip-text: #2d7a4f;
+  --loc-select-border: rgba(45, 122, 79, 0.2);
+  --loc-select-bg: #fff;
+  --loc-select-divider: rgba(45, 122, 79, 0.1);
+  --loc-select-text: #1b5e20;
+  --loc-select-selected: rgba(45, 122, 79, 0.15);
+  --loc-select-empty: #558b2f;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.location-multi-select.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  border: 1px solid var(--loc-select-chip-border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: var(--loc-select-chip-bg);
+  color: var(--loc-select-chip-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.options {
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--loc-select-border);
+  border-radius: 10px;
+  background: var(--loc-select-bg);
+}
+
+.option {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--loc-select-divider);
+  background: transparent;
+  color: var(--loc-select-text);
+  padding: 8px 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.option:last-child {
+  border-bottom: 0;
+}
+
+.option.selected {
+  background: var(--loc-select-selected);
+}
+
+.name {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.meta {
+  font-size: 11px;
+  opacity: 0.75;
+  font-family: var(--fleet-font-mono, 'JetBrains Mono', monospace);
+}
+
+.empty {
+  padding: 8px 10px;
+  opacity: 0.75;
+  font-size: 12px;
+  color: var(--loc-select-empty);
+}
+
+:host-context(html[data-theme-mode='dark']) .location-multi-select,
+:host-context(body.dark-theme) .location-multi-select {
+  --loc-select-chip-border: rgba(102, 209, 143, 0.35);
+  --loc-select-chip-bg: rgba(102, 209, 143, 0.16);
+  --loc-select-chip-text: #8ee7b0;
+  --loc-select-border: rgba(148, 163, 184, 0.35);
+  --loc-select-bg: #111923;
+  --loc-select-divider: rgba(148, 163, 184, 0.22);
+  --loc-select-text: #e5edf6;
+  --loc-select-selected: rgba(102, 209, 143, 0.2);
+  --loc-select-empty: #9bb0c4;
+}

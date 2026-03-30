@@ -1,4 +1,10 @@
-import { Country } from "../../../components/tables/table-modal/countreies.modal";
+export interface Country {
+  readonly id: number;
+  readonly name: string;
+  readonly flag: string;
+  readonly area: number;
+  readonly population: number;
+}
 
 
 export const COUNTRIES: Country[] = [

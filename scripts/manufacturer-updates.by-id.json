@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "manufacturerName": "Sp",
+    "customerLogo": "https://eusbuspulsesgprod.blob.core.windows.net/images/0000000_SP%20Logo.jpg",
+    "customerLogoName": "0000000_SP%20Logo.jpg"
+  },
+  {
+    "id": 2,
+    "manufacturerName": "New Flyer",
+    "customerLogo": "https://eusbuspulsesgprod.blob.core.windows.net/images/0000000_NewFlyerLogo.png",
+    "customerLogoName": "0000000_NewFlyerLogo.png"
+  },
+  {
+    "id": 3,
+    "manufacturerName": "Nova",
+    "customerLogo": "https://eusbuspulsesgprod.blob.core.windows.net/images/0000000_NovaLogo.jpg",
+    "customerLogoName": "0000000_NovaLogo.jpg"
+  },
+  {
+    "id": 6,
+    "manufacturerName": "BYD",
+    "customerLogo": "https://eusbuspulsesgprod.blob.core.windows.net/images/0000000_BYDlogo.jpg",
+    "customerLogoName": "0000000_BYDlogo.jpg"
+  },
+  {
+    "id": 7,
+    "manufacturerName": "Vicinity",
+    "customerLogo": "https://eusbuspulsesgprod.blob.core.windows.net/images/0000000_Vicinity_Logo.png",
+    "customerLogoName": "0000000_Vicinity_Logo.png"
+  },
+  {
+    "id": 8,
+    "manufacturerName": "ENC",
+    "customerLogo": "https://eusbuspulsesgprod.blob.core.windows.net/images/0000000_ENCLogo.png",
+    "customerLogoName": "0000000_ENCLogo.png"
+  },
+  {
+    "id": 15,
+    "manufacturerName": "Electromin",
+    "customerLogo": "https://eusbuspulsesgprod.blob.core.windows.net/images/afe5271_ElectroMin%20Logo.png",
+    "customerLogoName": "afe5271_ElectroMin%20Logo.png"
+  }
+]

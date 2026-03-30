@@ -1,0 +1,254 @@
+[
+  {
+    "id": 1,
+    "ticketDescription": "Engine fire wire is loose.",
+    "projectId": 11,
+    "vehicleId": 541,
+    "defectLocationId": 9,
+    "defectLocationName": "Vehicle Understructure",
+    "createdAt": "2024-04-01T08:15:00Z"
+  },
+  {
+    "id": 2,
+    "ticketDescription": " engine  fire wire is loose. ",
+    "projectId": 11,
+    "vehicleId": 541,
+    "defectLocationId": 9,
+    "defectLocationName": "Vehicle Understructure",
+    "createdAt": "2024-04-01T11:45:00Z"
+  },
+  {
+    "id": 3,
+    "ticketDescription": "Protect a/c lines better",
+    "projectId": 11,
+    "vehicleId": 541,
+    "defectLocationId": 9,
+    "defectLocationName": "Vehicle Understructure",
+    "createdAt": "2024-04-02T09:05:00Z"
+  },
+  {
+    "id": 4,
+    "ticketDescription": "Protect   a/c   lines better",
+    "projectId": 11,
+    "vehicleId": 541,
+    "defectLocationId": 9,
+    "defectLocationName": "Vehicle Understructure",
+    "createdAt": "2024-04-03T10:20:00Z"
+  },
+  {
+    "id": 5,
+    "ticketDescription": "Floor L track metal bent.",
+    "projectId": 11,
+    "vehicleId": 541,
+    "defectLocationId": 15,
+    "defectLocationName": "Interior Floor",
+    "createdAt": "2024-04-03T12:00:00Z"
+  },
+  {
+    "id": 6,
+    "ticketDescription": "Secure air line to tank bracket.",
+    "projectId": 11,
+    "vehicleId": 548,
+    "defectLocationId": 9,
+    "defectLocationName": "Vehicle Understructure",
+    "createdAt": "2024-04-04T07:10:00Z"
+  },
+  {
+    "id": 7,
+    "ticketDescription": "Washers sunk into frame tube.",
+    "projectId": 11,
+    "vehicleId": 548,
+    "defectLocationId": 9,
+    "defectLocationName": "Vehicle Understructure",
+    "createdAt": "2024-04-05T14:35:00Z"
+  },
+  {
+    "id": 8,
+    "ticketDescription": "Seal driver antenna wires.",
+    "projectId": 11,
+    "vehicleId": 552,
+    "defectLocationId": 4,
+    "defectLocationName": "Driver Area",
+    "createdAt": "2024-04-06T15:00:00Z"
+  },
+  {
+    "id": 9,
+    "ticketDescription": "Protect wire and a/c hose at driver pillar.",
+    "projectId": 11,
+    "vehicleId": 552,
+    "defectLocationId": 4,
+    "defectLocationName": "Driver Area",
+    "createdAt": "2024-04-06T18:25:00Z"
+  },
+  {
+    "id": 10,
+    "ticketDescription": "Front cap screws into passenger antenna module.",
+    "projectId": 11,
+    "vehicleId": 552,
+    "defectLocationId": 12,
+    "defectLocationName": "Front Cap",
+    "createdAt": "2024-04-07T08:50:00Z"
+  },
+  {
+    "id": 11,
+    "ticketDescription": "Mirror housing loose",
+    "projectId": 11,
+    "vehicleId": 555,
+    "defectLocationId": 4,
+    "defectLocationName": "Driver Area",
+    "createdAt": "2024-04-08T09:00:00Z"
+  },
+  {
+    "id": 12,
+    "ticketDescription": "mirror   housing loose",
+    "projectId": 11,
+    "vehicleId": 555,
+    "defectLocationId": 4,
+    "defectLocationName": "Driver Area",
+    "createdAt": "2024-04-08T16:10:00Z"
+  },
+  {
+    "id": 13,
+    "ticketDescription": "Wheel well panel cracked",
+    "projectId": 12,
+    "vehicleId": 601,
+    "defectLocationId": 9,
+    "defectLocationName": "Vehicle Understructure",
+    "createdAt": "2024-05-01T10:15:00Z"
+  },
+  {
+    "id": 14,
+    "ticketDescription": "Brake chamber line rubbing",
+    "projectId": 12,
+    "vehicleId": 601,
+    "defectLocationId": 9,
+    "defectLocationName": "Vehicle Understructure",
+    "createdAt": "2024-05-02T08:25:00Z"
+  },
+  {
+    "id": 15,
+    "ticketDescription": "Seat base bolt is loose",
+    "projectId": 12,
+    "vehicleId": 602,
+    "defectLocationId": 15,
+    "defectLocationName": "Interior Floor",
+    "createdAt": "2024-05-03T12:40:00Z"
+  },
+  {
+    "id": 16,
+    "ticketDescription": "Seat base bolt is loose",
+    "projectId": 12,
+    "vehicleId": 602,
+    "defectLocationId": 15,
+    "defectLocationName": "Interior Floor",
+    "createdAt": "2024-05-04T09:30:00Z"
+  },
+  {
+    "id": 17,
+    "ticketDescription": "Destination sign flickers",
+    "projectId": 12,
+    "vehicleId": 603,
+    "defectLocationId": 18,
+    "defectLocationName": "Electrical",
+    "createdAt": "2024-05-05T17:15:00Z"
+  },
+  {
+    "id": 18,
+    "ticketDescription": "Door interlock not engaging",
+    "projectId": 12,
+    "vehicleId": 603,
+    "defectLocationId": 22,
+    "defectLocationName": "Doors",
+    "createdAt": "2024-05-06T07:55:00Z"
+  },
+  {
+    "id": 19,
+    "ticketDescription": "Rear door interlock not engaging",
+    "projectId": 12,
+    "vehicleId": 603,
+    "defectLocationId": 22,
+    "defectLocationName": "Doors",
+    "createdAt": "2024-05-06T18:05:00Z"
+  },
+  {
+    "id": 20,
+    "ticketDescription": "Driver seat cushion torn",
+    "projectId": 14,
+    "vehicleId": 710,
+    "defectLocationId": 4,
+    "defectLocationName": "Driver Area",
+    "createdAt": "2024-06-01T10:10:00Z"
+  },
+  {
+    "id": 21,
+    "ticketDescription": "Driver seat cushion torn",
+    "projectId": 14,
+    "vehicleId": 710,
+    "defectLocationId": 4,
+    "defectLocationName": "Driver Area",
+    "createdAt": "2024-06-02T13:25:00Z"
+  },
+  {
+    "id": 22,
+    "ticketDescription": "Windshield washer line pinched",
+    "projectId": 14,
+    "vehicleId": 711,
+    "defectLocationId": 12,
+    "defectLocationName": "Front Cap",
+    "createdAt": "2024-06-03T07:40:00Z"
+  },
+  {
+    "id": 23,
+    "ticketDescription": "Battery cover latch broken",
+    "projectId": 14,
+    "vehicleId": 711,
+    "defectLocationId": 18,
+    "defectLocationName": "Electrical",
+    "createdAt": "2024-06-03T16:55:00Z"
+  },
+  {
+    "id": 24,
+    "ticketDescription": " ",
+    "projectId": 14,
+    "vehicleId": 711,
+    "defectLocationId": 18,
+    "defectLocationName": "Electrical",
+    "createdAt": "2024-06-04T09:05:00Z"
+  },
+  {
+    "id": 25,
+    "ticketDescription": null,
+    "projectId": 14,
+    "vehicleId": 711,
+    "defectLocationId": 18,
+    "defectLocationName": "Electrical",
+    "createdAt": "2024-06-04T09:20:00Z"
+  },
+  {
+    "id": 26,
+    "ticketDescription": "HVAC panel rattles at idle",
+    "projectId": 14,
+    "vehicleId": 715,
+    "defectLocationId": 4,
+    "defectLocationName": "Driver Area",
+    "createdAt": "2024-06-05T11:00:00Z"
+  },
+  {
+    "id": 27,
+    "ticketDescription": "HVAC panel rattles at idle",
+    "projectId": 14,
+    "vehicleId": 715,
+    "defectLocationId": 4,
+    "defectLocationName": "Driver Area",
+    "createdAt": "2024-06-05T11:45:00Z"
+  },
+  {
+    "id": 28,
+    "ticketDescription": "Stepwell light not working",
+    "projectId": 14,
+    "vehicleId": 716,
+    "defectLocationId": 18,
+    "defectLocationName": "Electrical",
+    "createdAt": "2024-06-06T08:35:00Z"
+  }
+]
