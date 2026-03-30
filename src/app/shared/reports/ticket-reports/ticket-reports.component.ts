@@ -96,6 +96,7 @@ export class TicketReportsComponent implements OnInit {
   totalCount: number = 0;
   readonly dashboardPath: string;
   readonly reportsPath: string;
+  private lastAutoRunSignature: string | null = null;
 
   constructor(
     private router: Router, 
@@ -109,16 +110,6 @@ export class TicketReportsComponent implements OnInit {
   }
 
   ngOnInit() {
-    // Check URL to determine report type
-    this.route.url.subscribe(segments => {
-      const lastSegment = segments[segments.length - 1]?.path;
-      if (lastSegment === 'weekly') {
-        this.reportType = 'weekly';
-      } else {
-        this.reportType = 'daily';
-      }
-    });
-
     // Set default date to today
     const today = new Date();
     this.selectedDate = today.toISOString().split('T')[0];
@@ -128,7 +119,17 @@ export class TicketReportsComponent implements OnInit {
     weekAgo.setDate(weekAgo.getDate() - 7);
     this.startDate = weekAgo.toISOString().split('T')[0];
     this.endDate = today.toISOString().split('T')[0];
-    
+
+    this.route.url.subscribe(segments => {
+      const lastSegment = segments[segments.length - 1]?.path;
+      this.reportType = lastSegment === 'weekly' ? 'weekly' : 'daily';
+      this.applyRouteFilters();
+    });
+
+    this.route.queryParamMap.subscribe(() => {
+      this.applyRouteFilters();
+    });
+
     this.loadFilterOptions();
   }
 
@@ -162,6 +163,71 @@ export class TicketReportsComponent implements OnInit {
         this.isLoadingFilters = false;
       }
     });
+  }
+
+  private applyRouteFilters(): void {
+    const queryParams = this.route.snapshot.queryParamMap;
+    const selectedProject = this.normalizeRouteValue(queryParams.get('projectId'));
+    const selectedInspector = this.normalizeRouteValue(queryParams.get('inspectorId'));
+    const selectedDate = this.normalizeDateValue(queryParams.get('date'));
+    const startDate = this.normalizeDateValue(queryParams.get('startDate'));
+    const endDate = this.normalizeDateValue(queryParams.get('endDate'));
+
+    if (selectedProject) {
+      this.selectedProject = selectedProject;
+    }
+
+    if (selectedInspector) {
+      this.selectedInspector = selectedInspector;
+    }
+
+    if (this.reportType === 'daily') {
+      if (selectedDate) {
+        this.selectedDate = selectedDate;
+      } else if (startDate) {
+        this.selectedDate = startDate;
+      }
+    } else {
+      if (startDate) {
+        this.startDate = startDate;
+      }
+      if (endDate) {
+        this.endDate = endDate;
+      } else if (startDate) {
+        this.endDate = startDate;
+      }
+    }
+
+    const autoRun = queryParams.get('autoRun');
+    if (autoRun !== '1' && autoRun?.toLowerCase() !== 'true') {
+      return;
+    }
+
+    const signature = JSON.stringify({
+      reportType: this.reportType,
+      selectedProject: this.selectedProject,
+      selectedInspector: this.selectedInspector,
+      selectedDate: this.selectedDate,
+      startDate: this.startDate,
+      endDate: this.endDate,
+    });
+
+    if (signature === this.lastAutoRunSignature) {
+      return;
+    }
+
+    this.lastAutoRunSignature = signature;
+    queueMicrotask(() => this.runReport());
+  }
+
+  private normalizeRouteValue(value: string | null): string | null {
+    const text = String(value ?? '').trim();
+    return text ? text : null;
+  }
+
+  private normalizeDateValue(value: string | null): string | null {
+    const text = String(value ?? '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
   }
 
   switchReportType(type: 'daily' | 'weekly') {

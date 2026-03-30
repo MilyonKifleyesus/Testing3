@@ -48,7 +48,7 @@
   </div>
 
   <!-- Prompt when no project selected -->
-  <div *ngIf="!hasProjectSelected" class="card custom-card">
+  <div *ngIf="!canViewTickets" class="card custom-card">
     <div class="card-body text-center py-5 text-muted">
       <i class="ti ti-filter fs-40 mb-3 d-block"></i>
       <p class="fs-15 mb-0">Select a project to view tickets.</p>
@@ -56,7 +56,7 @@
   </div>
 
   <!-- Action Bar -->
-  <div *ngIf="hasProjectSelected" class="d-flex align-items-center justify-content-between mb-3">
+  <div *ngIf="canViewTickets" class="d-flex align-items-center justify-content-between mb-3">
     <div class="d-flex align-items-center gap-2">
       <div class="position-relative">
         <button class="btn btn-sm btn-outline-secondary" (click)="toggleColumnMenu()" title="Column visibility">
@@ -104,7 +104,7 @@
   </div>
 
   <!-- Table Card -->
-  <div *ngIf="hasProjectSelected" class="card custom-card">
+  <div *ngIf="canViewTickets" class="card custom-card">
     <div class="card-body project-table-body p-0">
       <div *ngIf="isLoadingTickets" class="d-flex flex-column align-items-center justify-content-center py-5">
         <div class="spinner-border text-primary" role="status" aria-label="Loading tickets">

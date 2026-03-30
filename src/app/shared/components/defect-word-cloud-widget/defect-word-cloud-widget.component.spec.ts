@@ -12,6 +12,9 @@ describe('DefectWordCloudWidgetComponent', () => {
     getVehicles: jasmine.Spy;
     getDefectTypes: jasmine.Spy;
   };
+  let dashboardProjectsService: {
+    getAllTickets: jasmine.Spy;
+  };
   let clientService: {
     getClients: jasmine.Spy;
   };
@@ -53,6 +56,9 @@ describe('DefectWordCloudWidgetComponent', () => {
       getVehicles: jasmine.createSpy('getVehicles').and.returnValue(of([])),
       getDefectTypes: jasmine.createSpy('getDefectTypes').and.returnValue(of([])),
     };
+    dashboardProjectsService = {
+      getAllTickets: jasmine.createSpy('getAllTickets').and.returnValue(of([])),
+    };
     clientService = {
       getClients: jasmine.createSpy('getClients').and.returnValue(of([])),
     };
@@ -60,6 +66,7 @@ describe('DefectWordCloudWidgetComponent', () => {
     component = new DefectWordCloudWidgetComponent(
       dashboardService as any,
       clientService as any,
+      dashboardProjectsService as any,
     );
     container = attachMeasuredContainer(360, 260);
     component.cloudContainer = new ElementRef(container);
@@ -201,5 +208,39 @@ describe('DefectWordCloudWidgetComponent', () => {
     expect(top).toBeGreaterThanOrEqual(4);
     expect(left + tooltipWidth).toBeLessThanOrEqual(356);
     expect(top + tooltipHeight).toBeLessThanOrEqual(256);
+  });
+
+  it('reuses external project and vehicle options instead of refetching them', () => {
+    component.projectOptions = [{ id: '11', name: 'Project 11' }];
+    component.vehicleOptions = [{ id: '22', name: 'Vehicle 22' }];
+
+    component.loadData();
+
+    expect(dashboardService.getProjects).not.toHaveBeenCalled();
+    expect(dashboardService.getVehicles).not.toHaveBeenCalled();
+    expect(component.projects).toEqual([{ id: '11', name: 'Project 11' }]);
+    expect(component.vehicles).toEqual([{ id: '22', name: 'Vehicle 22' }]);
+  });
+
+  it('loads tickets through the paged dashboard-projects helper so the cloud is not capped to page one', () => {
+    component.loadData();
+
+    expect(dashboardProjectsService.getAllTickets).toHaveBeenCalledWith(jasmine.objectContaining({
+      maxItems: Number.MAX_SAFE_INTEGER,
+      pageSize: 10000,
+    }));
+    expect(dashboardService.getTickets).not.toHaveBeenCalled();
+  });
+
+  it('passes non-numeric scoped ids through unchanged so the service can normalize them', () => {
+    component.projectId = 'proj-12';
+    component.vehicleId = 'veh-9';
+
+    component.loadData();
+
+    expect(dashboardProjectsService.getAllTickets).toHaveBeenCalledWith(jasmine.objectContaining({
+      projectId: 'proj-12',
+      vehicleId: 'veh-9',
+    }));
   });
 });

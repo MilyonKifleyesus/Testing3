@@ -119,6 +119,8 @@ export class TicketsComponent implements OnInit {
   };
 
   private initialProjectIdFromRoute: string | null = null;
+  private initialVehicleIdFromRoute: string | null = null;
+  private initialClientIdFromRoute: string | null = null;
 
   private userIdToName = new Map<number, string>();
   isPrintLoading = false;
@@ -145,8 +147,14 @@ export class TicketsComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.initialProjectIdFromRoute = this.normalizeRouteProjectId(
+    this.initialClientIdFromRoute = this.normalizeRouteFilterId(
+      this.route.snapshot.queryParamMap.get('clientId'),
+    );
+    this.initialProjectIdFromRoute = this.normalizeRouteFilterId(
       this.route.snapshot.queryParamMap.get('projectId'),
+    );
+    this.initialVehicleIdFromRoute = this.normalizeRouteFilterId(
+      this.route.snapshot.queryParamMap.get('vehicleId'),
     );
     this.loadClientNames();
     this.loadClientFilterOptions();
@@ -187,12 +195,20 @@ export class TicketsComponent implements OnInit {
           .sort((left, right) => left.name.localeCompare(right.name));
 
         this.clientOptions = [{ id: 'all', name: 'All Clients' }, ...mapped];
-        this.filters.client = 'all';
+        this.filters.client = this.initialClientIdFromRoute ?? 'all';
+        const selectedClientExists = this.clientOptions.some(
+          (client) => client.id === this.filters.client,
+        );
+        if (!selectedClientExists) {
+          this.filters.client = 'all';
+        }
+        this.initialClientIdFromRoute = null;
         this.initializeDataForCurrentClient();
       },
       error: () => {
         this.clientOptions = [{ id: 'all', name: 'All Clients' }];
         this.filters.client = 'all';
+        this.initialClientIdFromRoute = null;
         this.initializeDataForCurrentClient();
       },
     });
@@ -590,6 +606,11 @@ export class TicketsComponent implements OnInit {
           this.initialProjectIdFromRoute = null;
         }
 
+        if (this.initialVehicleIdFromRoute) {
+          this.filters.vehicle = this.initialVehicleIdFromRoute;
+          this.initialVehicleIdFromRoute = null;
+        }
+
         const selectedProjectExists = this.projectOptions.some(
           (project) => project.id === this.filters.project,
         );
@@ -598,31 +619,34 @@ export class TicketsComponent implements OnInit {
         }
 
         if (!this.filters.project || this.filters.project === 'all') {
+          if (this.hasVehicleSelected) {
+            this.loadVehiclesByProject('all', fetchTicketsAfterLoad);
+            return;
+          }
           this.resetVehiclesDropdown();
-        } else {
-          this.loadVehiclesByProject(this.filters.project);
+          return;
         }
 
-        if (fetchTicketsAfterLoad && this.filters.project && this.filters.project !== 'all') {
-          this.fetchTicketsFromApi();
-        }
+        this.loadVehiclesByProject(this.filters.project, fetchTicketsAfterLoad);
       },
       error: () => {
         this.projectOptions = [{ id: 'all', name: 'All Projects' }];
-        this.resetVehiclesDropdown();
-        if (fetchTicketsAfterLoad && this.filters.project && this.filters.project !== 'all') {
+        if (this.hasVehicleSelected) {
+          this.vehicleOptions = [{ id: 'all', name: 'All Vehicles' }, { id: this.filters.vehicle, name: `Vehicle ${this.filters.vehicle}` }];
           this.fetchTicketsFromApi();
+          return;
         }
+        this.resetVehiclesDropdown();
       },
     });
   }
 
-  private normalizeRouteProjectId(value: string | null): string | null {
-    const projectId = String(value ?? '').trim();
-    if (!projectId || projectId === 'all') {
+  private normalizeRouteFilterId(value: string | null): string | null {
+    const normalizedValue = String(value ?? '').trim();
+    if (!normalizedValue || normalizedValue === 'all') {
       return null;
     }
-    return projectId;
+    return normalizedValue;
   }
 
   private resetVehiclesDropdown(): void {
@@ -630,7 +654,7 @@ export class TicketsComponent implements OnInit {
     this.filters.vehicle = 'all';
   }
 
-  private loadVehiclesByProject(projectId: string): void {
+  private loadVehiclesByProject(projectId: string, fetchTicketsAfterLoad = false): void {
     const clientId = this.getEffectiveClientId();
     const userId = this.authService.currentUserValue?.userId;
 
@@ -645,19 +669,44 @@ export class TicketsComponent implements OnInit {
           const selectedVehicleExists = this.vehicleOptions.some(
             (vehicle) => vehicle.id === this.filters.vehicle,
           );
-          if (!selectedVehicleExists) {
+          if (!selectedVehicleExists && this.hasVehicleSelected) {
+            this.vehicleOptions = [
+              ...this.vehicleOptions,
+              { id: this.filters.vehicle, name: `Vehicle ${this.filters.vehicle}` },
+            ];
+          } else if (!selectedVehicleExists) {
             this.filters.vehicle = 'all';
+          }
+
+          if (fetchTicketsAfterLoad && this.canViewTickets) {
+            this.fetchTicketsFromApi();
           }
         },
         error: () => {
           this.vehicleOptions = [{ id: 'all', name: 'All Vehicles' }];
-          this.filters.vehicle = 'all';
+          if (this.hasVehicleSelected) {
+            this.vehicleOptions.push({ id: this.filters.vehicle, name: `Vehicle ${this.filters.vehicle}` });
+          } else {
+            this.filters.vehicle = 'all';
+          }
+
+          if (fetchTicketsAfterLoad && this.canViewTickets) {
+            this.fetchTicketsFromApi();
+          }
         },
       });
   }
 
   get hasProjectSelected(): boolean {
     return !!this.filters.project && this.filters.project !== 'all';
+  }
+
+  get hasVehicleSelected(): boolean {
+    return !!this.filters.vehicle && this.filters.vehicle !== 'all';
+  }
+
+  get canViewTickets(): boolean {
+    return this.hasProjectSelected || this.hasVehicleSelected;
   }
 
   onProjectFilterChange(projectId: string): void {
@@ -678,9 +727,14 @@ export class TicketsComponent implements OnInit {
   }
 
   onVehicleFilterChange(vehicleId: string): void {
-    if (!this.hasProjectSelected) return;
     this.filters.vehicle = String(vehicleId ?? '').trim() || 'all';
     this.currentPage = 1;
+    if (!this.canViewTickets) {
+      this.tickets = [];
+      this.filteredTickets = [];
+      this.totalCount = 0;
+      return;
+    }
     this.fetchTicketsFromApi();
   }
 

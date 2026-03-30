@@ -6,9 +6,10 @@ import { catchError } from 'rxjs/operators';
 import * as d3 from 'd3';
 import cloud from 'd3-cloud';
 import { jsPDF } from 'jspdf';
-import { extractArrayFromApiResponse } from '../../utils/api-data.utils';
+import { extractArrayFromApiResponse, getFirstDefinedValue, toText } from '../../utils/api-data.utils';
 import { ClientDashboardService } from '../../services/client-dashboard.service';
 import { ClientService } from '../../services/client.service';
+import { DashboardProjectsService } from '../../services/dashboard-projects.service';
 import { Client } from '../../models/client.model';
 
 // Interfaces
@@ -37,6 +38,11 @@ interface NormalizedVehicle {
   id: string;
   name: string;
   fleetNumber?: string;
+}
+
+interface ExternalOption {
+  id: string;
+  name: string;
 }
 
 interface WordFreq {
@@ -74,6 +80,8 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
   @Input() clientId?: number;
   @Input() projectId?: number | string;
   @Input() vehicleId?: number | string;
+  @Input() projectOptions: ExternalOption[] | null = null;
+  @Input() vehicleOptions: ExternalOption[] | null = null;
   // Optional external filters (e.g. from the dashboard widget).
   // These mirror the dashboard "Filter by Project" and "Filter by Vehicle" selects.
   projectIdSelection: string = 'all';
@@ -112,6 +120,7 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
   clients: Client[] = [];
   loading = true;
   error: string | null = null;
+  emptyStateMessage: string | null = null;
 
   isFullscreen = false;
   showDownloadMenu = false;
@@ -130,6 +139,7 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
   constructor(
     private clientDashboardService: ClientDashboardService,
     private clientService: ClientService,
+    private dashboardProjectsService: DashboardProjectsService,
   ) {}
 
   ngOnInit() {
@@ -302,6 +312,7 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
   loadData() {
     this.loading = true;
     this.error = null;
+    this.emptyStateMessage = null;
 
     // Prefer the widget's own client filter; fall back to @Input() clientId from dashboard
     const clientId = this.filters.client !== 'all'
@@ -309,22 +320,32 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
       : this.clientId;
     // Prefer the widget's own filter selection; fall back to @Input() from dashboard
     const projectId = this.filters.project !== 'all'
-      ? Number(this.filters.project)
-      : (this.projectId && this.projectId !== 'all') ? Number(this.projectId) : undefined;
+      ? this.normalizeScopedFilterId(this.filters.project)
+      : this.normalizeScopedFilterId(this.projectId);
     const vehicleId = this.filters.vehicle !== 'all'
-      ? Number(this.filters.vehicle)
-      : (this.vehicleId && this.vehicleId !== 'all') ? Number(this.vehicleId) : undefined;
+      ? this.normalizeScopedFilterId(this.filters.vehicle)
+      : this.normalizeScopedFilterId(this.vehicleId);
 
     forkJoin({
-      tickets: this.clientDashboardService
-        .getTickets({ clientId, projectId, vehicleId, page: 1, pageSize: 5000 })
+      tickets: this.dashboardProjectsService
+        .getAllTickets({
+          clientId,
+          projectId,
+          vehicleId,
+          maxItems: Number.MAX_SAFE_INTEGER,
+          pageSize: 10000,
+        })
         .pipe(catchError(() => of([]))),
-      projects: this.clientDashboardService
-        .getProjects({ clientId })
-        .pipe(catchError(() => of([]))),
-      vehicles: this.clientDashboardService
-        .getVehicles({ clientId })
-        .pipe(catchError(() => of([]))),
+      projects: Array.isArray(this.projectOptions) && this.projectOptions.length > 0
+        ? of(this.projectOptions)
+        : this.clientDashboardService
+          .getProjects({ clientId })
+          .pipe(catchError(() => of([]))),
+      vehicles: Array.isArray(this.vehicleOptions) && this.vehicleOptions.length > 0
+        ? of(this.vehicleOptions)
+        : this.clientDashboardService
+          .getVehicles({ clientId })
+          .pipe(catchError(() => of([]))),
       defectTypes: this.clientDashboardService
         .getDefectTypes({ clientId })
         .pipe(catchError((err) => { console.warn('[WordCloud] /api/DefectTypes failed:', err); return of([]); })),
@@ -333,26 +354,39 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
         // Normalize API shapes to what the widget expects.
         const rawTickets = extractArrayFromApiResponse(tickets);
         this.tickets = rawTickets.map((ticket: any) => ({
-          id: String(ticket.id ?? ''),
-          ticketDescription: String(ticket.ticketDescription ?? ''),
-          projectId: Number(ticket.projectId) || 0,
-          vehicleId: Number(ticket.vehicleId) || 0,
-          defectLocationId: Number(ticket.defectLocationId) || 0,
-          defectLocationName: String(ticket.defectLocationName ?? ''),
-          defectTypeId: Number(ticket.defacttype ?? ticket.defactTypeId ?? ticket.defectTypeId) || 0,
-          createdAt: String(ticket.createdAt ?? ''),
+          id: String(getFirstDefinedValue(ticket, ['id', 'ticketId', 'ticketID', 'ticketNumber']) ?? ''),
+          ticketDescription: toText(
+            getFirstDefinedValue(ticket, ['ticketDescription', 'ticketdescription', 'description', 'details', 'comment']),
+            '',
+          ),
+          projectId: this.toOptionalNumber(getFirstDefinedValue(ticket, ['projectId', 'project_id', 'ProjectId', 'projectID'])) ?? 0,
+          vehicleId: this.toOptionalNumber(getFirstDefinedValue(ticket, ['vehicleId', 'vehicle_id', 'VehicleId', 'vehicleID'])) ?? 0,
+          defectLocationId: this.toOptionalNumber(
+            getFirstDefinedValue(ticket, ['defectLocationId', 'defect_location_id', 'DefectLocationId', 'stationId', 'station_id']),
+          ) ?? 0,
+          defectLocationName: toText(
+            getFirstDefinedValue(ticket, ['defectLocationName', 'defect_location_name', 'defectlocationname', 'defectLocation', 'stationName', 'station']),
+            '',
+          ),
+          defectTypeId: this.toOptionalNumber(
+            getFirstDefinedValue(ticket, ['defacttype', 'defactTypeId', 'defectTypeId', 'defect_type_id', 'DefectTypeId']),
+          ) ?? 0,
+          createdAt: toText(
+            getFirstDefinedValue(ticket, ['createdAt', 'createdDate', 'ticketCreatedDate', 'created_at', 'CreatedDate', 'dateCreated']),
+            '',
+          ),
         }));
 
         const rawProjects = extractArrayFromApiResponse(projects);
         this.projects = rawProjects.map((project: any) => ({
           id: String(project.id ?? ''),
-          name: String(project.name ?? ''),
+          name: String(project.name ?? project.label ?? ''),
         }));
 
         const rawVehicles = extractArrayFromApiResponse(vehicles);
         this.vehicles = rawVehicles.map((vehicle: any) => ({
           id: String(vehicle.id ?? ''),
-          name: String(vehicle.fleetNumber ?? ''),
+          name: String(vehicle.fleetNumber ?? vehicle.name ?? ''),
         }));
 
         // Try extractArrayFromApiResponse first, then fall back to checking every object key
@@ -375,6 +409,29 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
         this.loading = false;
       },
     });
+  }
+
+  private normalizeScopedFilterId(value: number | string | undefined): number | string | undefined {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    const text = String(value).trim();
+    if (!text || text.toLowerCase() === 'all') {
+      return undefined;
+    }
+
+    const numericValue = Number(text);
+    return Number.isFinite(numericValue) ? numericValue : text;
+  }
+
+  private toOptionalNumber(value: unknown): number | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
   }
 
   getFilteredTickets(): NormalizedTicket[] {
@@ -477,8 +534,11 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
     const words = this.processWords().slice(0, this.getResponsiveWordLimit()); // Keep fewer words so the dominant terms stay visually clear.
 
     if (words.length === 0) {
+      this.emptyStateMessage = this.getEmptyStateMessage();
       return;
     }
+
+    this.emptyStateMessage = null;
 
     const sortedCounts = words.map(w => w.count).sort((a, b) => a - b);
     const minCount = sortedCounts[0];
@@ -517,6 +577,20 @@ export class DefectWordCloudWidgetComponent implements OnInit, AfterViewInit, On
       });
 
     this.activeLayout.start();
+  }
+
+  private getEmptyStateMessage(): string {
+    const filteredTickets = this.getFilteredTickets();
+    if (filteredTickets.length === 0) {
+      return 'No tickets match the current filters.';
+    }
+
+    const describedTickets = filteredTickets.filter((ticket) => ticket.ticketDescription.trim().length > 0);
+    if (describedTickets.length === 0) {
+      return 'Tickets loaded, but no defect descriptions were available to build the word cloud.';
+    }
+
+    return 'No repeated defect terms were available to build the word cloud.';
   }
 
   draw(words: any[], width: number, height: number) {

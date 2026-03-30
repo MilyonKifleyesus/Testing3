@@ -60,7 +60,7 @@ export interface ProjectInspector {
   avatarUrl?: string | null;
 }
 
-export type ProjectType = 'New Build' | 'Condition Assessment' | 'PDI' | 'Mid-Life Overhaul';
+export type ProjectType = 'New Build' | 'Condition Assessment' | 'PDI' | 'Mid-Life Overhaul' | 'Audit';
 
 export interface ProjectStats {
   projectId: string;
@@ -117,6 +117,7 @@ export interface TicketsByStatusData {
 }
 
 export interface TicketsByVehicleItem {
+  vehicleId?: string;
   vehicleName: string;
   openCount: number;
   closedCount: number;

@@ -279,7 +279,7 @@ describe('DashboardProjectsService', () => {
       items: [
         { projectId: 11, createdAt: '2026-03-02T09:00:00Z' },
       ],
-      total: 10001,
+      total: 2,
       page: 2,
       pageSize: 10000,
     });
@@ -294,8 +294,6 @@ describe('DashboardProjectsService', () => {
   }));
 
   it('getTicketsByVehicleData aggregates filtered ticket pages by vehicle status', async () => {
-    (environment as any).apiPagedFetchPageSize = 200;
-
     const resultPromise = firstValueFrom(service.getTicketsByVehicleData({
       clientId: 7,
       projectId: '12',
@@ -309,19 +307,19 @@ describe('DashboardProjectsService', () => {
       request.params.get('includeClosed') === 'false' &&
       request.params.get('page') === '1',
     );
-    expect(page1.request.params.get('pageSize')).toBe('200');
+    expect(page1.request.params.get('pageSize')).toBe('10000');
     page1.flush({
       items: [
         { vehicleId: 1, fleetNumber: 'Bus-01', statusTicketName: 'Open' },
-        ...Array.from({ length: 199 }, () => ({
+        ...Array.from({ length: 9999 }, () => ({
           vehicleId: 2,
           fleetNumber: 'Bus-02',
           statusTicketName: 'Pending Review',
         })),
       ],
-      total: 201,
+      total: 10001,
       page: 1,
-      pageSize: 200,
+      pageSize: 10000,
     });
     await Promise.resolve();
 
@@ -333,22 +331,21 @@ describe('DashboardProjectsService', () => {
       items: [
         { vehicleId: 1, fleetNumber: 'Bus-01', statusTicketName: 'Closed' },
       ],
-      total: 201,
+      total: 10001,
       page: 2,
-      pageSize: 200,
+      pageSize: 10000,
     });
 
     await expectAsync(resultPromise).toBeResolvedTo({
       ticketsByVehicle: [
-        { vehicleName: 'Bus-02', openCount: 199, closedCount: 0 },
-        { vehicleName: 'Bus-01', openCount: 1, closedCount: 1 },
+        { vehicleId: '2', vehicleName: 'Bus-02', openCount: 9999, closedCount: 0 },
+        { vehicleId: '1', vehicleName: 'Bus-01', openCount: 1, closedCount: 1 },
       ],
     });
   });
 
   it('retries transient tickets-by-vehicle page failures once', fakeAsync(() => {
     let result: any;
-    (environment as any).apiPagedFetchPageSize = 200;
 
     firstValueFrom(service.getTicketsByVehicleData({
       clientId: 7,
@@ -366,15 +363,15 @@ describe('DashboardProjectsService', () => {
     page1.flush({
       items: [
         { vehicleId: 1, fleetNumber: 'Bus-01', statusTicketName: 'Open' },
-        ...Array.from({ length: 199 }, () => ({
+        ...Array.from({ length: 9999 }, () => ({
           vehicleId: 2,
           fleetNumber: 'Bus-02',
           statusTicketName: 'Pending Review',
         })),
       ],
-      total: 201,
+      total: 10001,
       page: 1,
-      pageSize: 200,
+      pageSize: 10000,
     });
 
     tick();
@@ -393,18 +390,135 @@ describe('DashboardProjectsService', () => {
       items: [
         { vehicleId: 1, fleetNumber: 'Bus-01', statusTicketName: 'Closed' },
       ],
-      total: 201,
+      total: 10001,
       page: 2,
-      pageSize: 200,
+      pageSize: 10000,
     });
 
     tick();
 
     expect(result).toEqual({
       ticketsByVehicle: [
-        { vehicleName: 'Bus-02', openCount: 199, closedCount: 0 },
-        { vehicleName: 'Bus-01', openCount: 1, closedCount: 1 },
+        { vehicleId: '2', vehicleName: 'Bus-02', openCount: 9999, closedCount: 0 },
+        { vehicleId: '1', vehicleName: 'Bus-01', openCount: 1, closedCount: 1 },
       ],
     });
   }));
+
+  it('getAllTickets surfaces persistent first-page failures instead of returning a blank result', fakeAsync(() => {
+    let receivedError: unknown;
+
+    service.getAllTickets({
+      clientId: 7,
+      projectId: 'proj-12',
+      maxItems: 10000,
+      pageSize: 10000,
+    }).subscribe({
+      error: (error) => {
+        receivedError = error;
+      },
+    });
+
+    tick();
+
+    const page1 = httpMock.expectOne((request) =>
+      request.url.endsWith('/Tickets') &&
+      request.params.get('page') === '1',
+    );
+    expect(page1.request.params.get('clientId')).toBe('7');
+    expect(page1.request.params.get('projectId')).toBe('12');
+    page1.error(new ProgressEvent('error'));
+
+    tick(300);
+
+    const page1Retry = httpMock.expectOne((request) =>
+      request.url.endsWith('/Tickets') &&
+      request.params.get('page') === '1',
+    );
+    expect(page1Retry.request.params.get('projectId')).toBe('12');
+    page1Retry.error(new ProgressEvent('error'));
+
+    tick(300);
+
+    expect(receivedError).toBeTruthy();
+  }));
+
+  it('gets project vehicle counts from the per-project vehicles endpoints', async () => {
+    const resultPromise = firstValueFrom(service.getVehicleCountsByProjectIds(['12', '34'], {
+      clientId: 7,
+      includeClosed: false,
+    }));
+
+    const req12 = httpMock.expectOne((request) =>
+      request.url.endsWith('/projects/12/vehicles') &&
+      request.params.get('page') === '1' &&
+      request.params.get('pageSize') === '1',
+    );
+    expect(req12.request.params.get('clientId')).toBe('7');
+    expect(req12.request.params.get('includeClosed')).toBe('false');
+    req12.flush({
+      items: [{ id: 1 }],
+      totalCount: 205,
+    });
+
+    const req34 = httpMock.expectOne((request) =>
+      request.url.endsWith('/projects/34/vehicles') &&
+      request.params.get('page') === '1' &&
+      request.params.get('pageSize') === '1',
+    );
+    req34.flush({
+      items: [{ id: 2 }],
+      totalCount: 18,
+    });
+
+    const result = await resultPromise;
+    expect(result.get('12')).toBe(205);
+    expect(result.get('34')).toBe(18);
+  });
+
+  it('does not cap tickets-by-vehicle to the first 5000 tickets', async () => {
+    (environment as any).apiPagedFetchPageSize = 3000;
+
+    const resultPromise = firstValueFrom(service.getTicketsByVehicleData({
+      clientId: 7,
+      includeClosed: false,
+    }));
+
+    const page1 = httpMock.expectOne((request) =>
+      request.url.endsWith('/Tickets') && request.params.get('page') === '1',
+    );
+    expect(page1.request.params.get('pageSize')).toBe('10000');
+    page1.flush({
+      items: Array.from({ length: 10000 }, () => ({
+        vehicleId: 1,
+        fleetNumber: 'Bus-01',
+        statusTicketName: 'Open',
+      })),
+      total: 12050,
+      page: 1,
+      pageSize: 10000,
+    });
+    await Promise.resolve();
+
+    const page2 = httpMock.expectOne((request) =>
+      request.url.endsWith('/Tickets') && request.params.get('page') === '2',
+    );
+    page2.flush({
+      items: Array.from({ length: 2050 }, () => ({
+        vehicleId: 1,
+        fleetNumber: 'Bus-01',
+        statusTicketName: 'Closed',
+      })),
+      total: 12050,
+      page: 2,
+      pageSize: 10000,
+    });
+
+    const result = await resultPromise;
+    expect(result).toEqual({
+      ticketsByVehicle: [
+        { vehicleId: '1', vehicleName: 'Bus-01', openCount: 10000, closedCount: 2050 },
+      ],
+    });
+  });
 });

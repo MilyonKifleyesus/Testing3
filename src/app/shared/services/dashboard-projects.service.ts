@@ -14,6 +14,7 @@ export interface DashboardProjectOption {
   status?: string;
   isClosed?: boolean;
   projectTypeId?: number;
+  projectTypeName?: string;
 }
 
 export interface DashboardVehicleOption {
@@ -115,6 +116,10 @@ export class DashboardProjectsService {
     string,
     { expiresAt: number; observable: Observable<TicketsByVehicleData> }
   >();
+  private readonly rawTicketsCache = new Map<
+    string,
+    { expiresAt: number; observable: Observable<any[]> }
+  >();
   private readonly rawVehiclesCache = new Map<
     string,
     { expiresAt: number; observable: Observable<any[]> }
@@ -136,7 +141,9 @@ export class DashboardProjectsService {
     query: Record<string, string | number | boolean | null | undefined>,
     page: number,
     pageSize: number,
+    options: { suppressErrors?: boolean } = {},
   ): Observable<unknown> {
+    const { suppressErrors = true } = options;
     const httpParams = this.buildHttpParams({
       projectId: query['projectId'],
       vehicleId: query['vehicleId'],
@@ -149,7 +156,7 @@ export class DashboardProjectsService {
       pageSize,
     });
 
-    return this.http.get<unknown>(`${this.apiBaseUrl}/Tickets`, { params: httpParams }).pipe(
+    const request$ = this.http.get<unknown>(`${this.apiBaseUrl}/Tickets`, { params: httpParams }).pipe(
       catchError((error) => (
         this.shouldFallbackToLowercaseTicketsEndpoint(error)
           ? this.http.get<unknown>(`${this.apiBaseUrl}/tickets`, { params: httpParams })
@@ -163,8 +170,36 @@ export class DashboardProjectsService {
             : throwError(() => error)
         ),
       }),
-      catchError(() => of({ items: [], total: 0, page, pageSize })),
     );
+
+    return suppressErrors
+      ? request$.pipe(catchError(() => of({ items: [], total: 0, page, pageSize })))
+      : request$;
+  }
+
+  private normalizeTicketQueryParams(
+    params: DashboardTicketActivityQuery = {},
+  ): Record<string, string | number | boolean | null | undefined> {
+    const normalizedParams: Record<string, string | number | boolean | null | undefined> = { ...params };
+
+    if (normalizedParams['projectId'] !== undefined && normalizedParams['projectId'] !== null) {
+      const asString = String(normalizedParams['projectId'] ?? '').trim();
+      const normalizedProject = this.normalizeProjectId(asString);
+      if (normalizedProject) {
+        normalizedParams['projectId'] = normalizedProject;
+      } else {
+        const parsed = Number(asString);
+        normalizedParams['projectId'] = Number.isFinite(parsed) ? parsed : asString;
+      }
+    }
+
+    if (normalizedParams['vehicleId'] !== undefined && normalizedParams['vehicleId'] !== null) {
+      const asString = String(normalizedParams['vehicleId'] ?? '').trim();
+      const parsed = Number(asString);
+      normalizedParams['vehicleId'] = Number.isFinite(parsed) ? parsed : asString;
+    }
+
+    return normalizedParams;
   }
 
   getProjectOptions(params: {
@@ -249,6 +284,15 @@ export class DashboardProjectsService {
                   item?.ProjectType_Id ??
                   0,
                 ) || undefined,
+                projectTypeName: String(
+                  item?.projectTypeName ??
+                  item?.ProjectTypeName ??
+                  item?.projectType ??
+                  item?.ProjectType ??
+                  item?.assessmentType ??
+                  item?.AssessmentType ??
+                  '',
+                ).trim() || undefined,
               }))
               .filter((project: DashboardProjectOption) => project.id);
 
@@ -824,6 +868,47 @@ export class DashboardProjectsService {
     );
   }
 
+  getVehicleCountsByProjectIds(
+    projectIds: string[],
+    params: {
+      clientId?: number;
+      userId?: number;
+      includeClosed?: boolean;
+    } = {},
+  ): Observable<Map<string, number>> {
+    const normalizedProjectIds = Array.from(new Set(
+      (projectIds ?? [])
+        .map((projectId) => this.normalizeProjectId(projectId))
+        .filter((projectId) => !!projectId),
+    ));
+
+    if (!normalizedProjectIds.length) {
+      return of(new Map<string, number>());
+    }
+
+    return forkJoin(
+      normalizedProjectIds.map((projectId) =>
+        this.getVehicleOptionsByProjectResult(projectId, {
+          clientId: params.clientId,
+          userId: params.userId,
+          includeClosed: params.includeClosed,
+          includeAllOption: false,
+          page: 1,
+          pageSize: 1,
+        }).pipe(
+          map((result) => {
+            const rawCount = Number(result?.totalCount ?? 0);
+            const fallbackCount = Array.isArray(result?.options) ? result.options.length : 0;
+            return [projectId, rawCount > 0 ? rawCount : fallbackCount] as const;
+          }),
+          catchError(() => of([projectId, 0] as const)),
+        ),
+      ),
+    ).pipe(
+      map((entries) => new Map<string, number>(entries)),
+    );
+  }
+
   getTicketsDashboard(params: {
     projectId?: number | string;
     vehicleId?: number | string;
@@ -831,28 +916,7 @@ export class DashboardProjectsService {
     clientId?: number | string;
     includeClosed?: boolean;
   } = {}): Observable<DashboardTicketsDashboardResult> {
-    // Normalize incoming ids so API receives numeric IDs when possible
-    const normalizedParams: Record<string, string | number | boolean | null | undefined> = { ...params };
-
-    if (normalizedParams['projectId'] !== undefined && normalizedParams['projectId'] !== null) {
-      const asString = String(normalizedParams['projectId'] ?? '').trim();
-      const normalizedProject = this.normalizeProjectId(asString);
-      if (normalizedProject) {
-        normalizedParams['projectId'] = normalizedProject;
-      } else {
-        const parsed = Number(asString);
-        normalizedParams['projectId'] = Number.isFinite(parsed) ? parsed : asString;
-      }
-    }
-
-    if (normalizedParams['vehicleId'] !== undefined && normalizedParams['vehicleId'] !== null) {
-      const asString = String(normalizedParams['vehicleId'] ?? '').trim();
-      // Only convert to a numeric vehicleId when the entire string is numeric.
-      // Avoid extracting digit groups from alphanumeric external IDs
-      // (e.g. "SR3054-2607") because that causes incorrect API queries.
-      const parsed = Number(asString);
-      normalizedParams['vehicleId'] = Number.isFinite(parsed) ? parsed : asString;
-    }
+    const normalizedParams = this.normalizeTicketQueryParams(params);
 
     const httpParams = this.buildHttpParams(normalizedParams);
     const cacheKey = JSON.stringify({
@@ -871,21 +935,7 @@ export class DashboardProjectsService {
   }
 
   getTicketCreationActivity(params: DashboardTicketActivityQuery = {}): Observable<DashboardTicketActivityResult> {
-    const normalizedParams: Record<string, string | number | boolean | null | undefined> = { ...params };
-
-    if (normalizedParams['projectId'] !== undefined && normalizedParams['projectId'] !== null) {
-      const asString = String(normalizedParams['projectId'] ?? '').trim();
-      const normalizedProject = this.normalizeProjectId(asString);
-      if (normalizedProject) {
-        normalizedParams['projectId'] = normalizedProject;
-      }
-    }
-
-    if (normalizedParams['vehicleId'] !== undefined && normalizedParams['vehicleId'] !== null) {
-      const asString = String(normalizedParams['vehicleId'] ?? '').trim();
-      const parsed = Number(asString);
-      normalizedParams['vehicleId'] = Number.isFinite(parsed) ? parsed : asString;
-    }
+    const normalizedParams = this.normalizeTicketQueryParams(params);
 
     const sourceCacheKey = JSON.stringify({
       projectId: normalizedParams['projectId'] ?? null,
@@ -919,22 +969,53 @@ export class DashboardProjectsService {
     }, this.ticketActivitySourceCacheTtlMs);
   }
 
+  getAllTickets(params: (DashboardTicketActivityQuery & {
+    maxItems?: number;
+    pageSize?: number;
+  }) = {}): Observable<any[]> {
+    const normalizedParams = this.normalizeTicketQueryParams(params);
+    const requestedPageSize = Number(params.pageSize ?? environment.apiPagedFetchPageSize ?? 10000) || 10000;
+    const pageSize = Math.max(200, requestedPageSize);
+    const maxItems = Math.max(pageSize, Number(params.maxItems ?? pageSize) || pageSize);
+    const maxPages = Math.max(1, Math.min(
+      Math.max(1, Number(environment.apiPagedFetchMaxPages ?? 200) || 200),
+      Math.ceil(maxItems / pageSize),
+    ));
+    const cacheKey = JSON.stringify({
+      projectId: normalizedParams['projectId'] ?? null,
+      vehicleId: normalizedParams['vehicleId'] ?? null,
+      userId: normalizedParams['userId'] ?? null,
+      clientId: normalizedParams['clientId'] ?? null,
+      includeClosed: normalizedParams['includeClosed'] ?? null,
+      startDate: toOptionalText(normalizedParams['startDate']) ?? null,
+      endDate: toOptionalText(normalizedParams['endDate']) ?? null,
+      pageSize,
+      maxItems,
+    });
+
+    return this.getCachedObservable(
+      this.rawTicketsCache,
+      cacheKey,
+      () =>
+        fetchAllPages<any>(
+          (page, resolvedPageSize) => this.fetchTicketsPage(normalizedParams, page, resolvedPageSize, {
+            suppressErrors: false,
+          }),
+          {
+            pageSize,
+            maxPages,
+            startPage: 1,
+          },
+        ).pipe(
+          map((response) => (response.items ?? []).slice(0, maxItems)),
+        ),
+      this.ticketActivitySourceCacheTtlMs,
+    );
+  }
+
   getTicketsByVehicleData(params: DashboardTicketActivityQuery = {}): Observable<TicketsByVehicleData> {
-    const normalizedParams: Record<string, string | number | boolean | null | undefined> = { ...params };
-
-    if (normalizedParams['projectId'] !== undefined && normalizedParams['projectId'] !== null) {
-      const asString = String(normalizedParams['projectId'] ?? '').trim();
-      const normalizedProject = this.normalizeProjectId(asString);
-      if (normalizedProject) {
-        normalizedParams['projectId'] = normalizedProject;
-      }
-    }
-
-    if (normalizedParams['vehicleId'] !== undefined && normalizedParams['vehicleId'] !== null) {
-      const asString = String(normalizedParams['vehicleId'] ?? '').trim();
-      const parsed = Number(asString);
-      normalizedParams['vehicleId'] = Number.isFinite(parsed) ? parsed : asString;
-    }
+    const normalizedParams = this.normalizeTicketQueryParams(params);
+    const pageSize = Math.max(10000, Number(environment.apiPagedFetchPageSize ?? 10000) || 10000);
 
     const cacheKey = JSON.stringify({
       projectId: normalizedParams['projectId'] ?? null,
@@ -944,10 +1025,19 @@ export class DashboardProjectsService {
       includeClosed: normalizedParams['includeClosed'] ?? null,
       startDate: normalizedParams['startDate'] ?? null,
       endDate: normalizedParams['endDate'] ?? null,
+      pageSize,
     });
 
     return this.getCachedObservable(this.ticketsByVehicleCache, cacheKey, () =>
-      from(this.fetchTicketsByVehicleData(normalizedParams)),
+      this.getAllTickets({
+        ...normalizedParams,
+        maxItems: Number.MAX_SAFE_INTEGER,
+        pageSize,
+      }).pipe(
+        map((items) => ({
+          ticketsByVehicle: this.aggregateTicketsByVehicle(items),
+        })),
+      ),
     );
   }
 
@@ -1662,6 +1752,7 @@ export class DashboardProjectsService {
 
       if (!vehicleMap.has(vehicleKey)) {
         vehicleMap.set(vehicleKey, {
+          vehicleId: vehicleId ?? undefined,
           vehicleName,
           openCount: 0,
           closedCount: 0,

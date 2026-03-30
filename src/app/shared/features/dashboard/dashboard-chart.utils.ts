@@ -4,6 +4,13 @@ import {
   ProjectsByAreaPayload,
 } from '../../services/dashboard-projects.service';
 import { ProjectDurationItem } from '../../models/client-dashboard.models';
+import {
+  PROJECT_DURATION_AXIS_TICK_COUNT,
+  PROJECT_DURATION_BASE_CHART_HEIGHT,
+  PROJECT_DURATION_CHART_PADDING,
+  PROJECT_DURATION_ROW_HEIGHT,
+  PROJECT_DURATION_TYPE_COLORS,
+} from './dashboard.constants';
 
 const CLOSED_STATUSES = new Set(['closed', 'inactive', 'completed', 'complete']);
 
@@ -179,12 +186,6 @@ function buildVehicleDistributionChartOptions(
 
 // ── Widget-18: Project Duration by Type ──────────────────────────────────────
 
-const PROJECT_DURATION_TYPE_COLORS: Record<string, string> = {
-  'New Build': '#1B4332',
-  'Condition Assessment': '#2D6A4F',
-  'PDI': '#74C69D',
-  'Mid-Life Overhaul': '#F4A261',
-};
 const PROJECT_DURATION_DEFAULT_COLOR = '#52796F';
 
 /**
@@ -214,21 +215,20 @@ export function buildProjectDurationChartOptions(
   const data = items.map(i => i.durationDays);
   const colors = items.map(i => PROJECT_DURATION_TYPE_COLORS[i.projectType] ?? PROJECT_DURATION_DEFAULT_COLOR);
   const maxVal = Math.max(...data, 1);
+  const chartHeight = Math.max(
+    PROJECT_DURATION_BASE_CHART_HEIGHT,
+    items.length * PROJECT_DURATION_ROW_HEIGHT + PROJECT_DURATION_CHART_PADDING,
+  );
   // Extra right-side space so data labels never clip
   const xMax = Math.ceil(maxVal * 1.30);
 
   return {
     chart: {
       type: 'bar',
-      height: 420,
+      height: chartHeight,
       toolbar: { show: false },
       foreColor,
       background: 'transparent',
-      scrollablePlotArea: {
-        enabled: true,
-        minHeight: 420,
-        scrollHeight: Math.max(420, items.length * 44 + 60),
-      },
     },
     plotOptions: {
       bar: {
@@ -255,13 +255,15 @@ export function buildProjectDurationChartOptions(
       categories,
       min: 0,
       max: xMax,
+      tickAmount: PROJECT_DURATION_AXIS_TICK_COUNT - 1,
       labels: {
+        show: false,
         style: { colors: foreColor, fontSize: '12px' },
         formatter: (val: number) => `${Math.round(val)}d`,
       },
       axisBorder: { show: false },
       axisTicks: { show: false },
-      title: { text: 'Days Active', style: { color: foreColor, fontSize: '11px' } },
+      title: { text: undefined },
     },
     yaxis: {
       labels: {

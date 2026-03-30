@@ -3693,7 +3693,7 @@ body.is-resizing {
   min-width: 52px;
   max-width: 80px;
   height: 100%;
-  cursor: default;
+  cursor: pointer;
   transition: opacity 0.18s ease;
   animation: tbv-fade-in 0.4s ease both;
 
@@ -3947,6 +3947,8 @@ body.is-resizing {
   flex-direction: column;
   width: 100%;
   height: 100%;
+  min-height: 0;
+  gap: 8px;
 
   &--fullscreen {
     padding: 8px 12px;
@@ -3957,7 +3959,8 @@ body.is-resizing {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 16px;
-  padding: 4px 4px 10px;
+  padding: 4px 4px 2px;
+  flex-shrink: 0;
 }
 
 .pd-legend__item {
@@ -3977,6 +3980,105 @@ body.is-resizing {
   flex-shrink: 0;
 }
 
+.pd-scroll-hint {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--default-text-color, #555);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.pd-chart-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+
+  &--fullscreen {
+    padding-right: 10px;
+  }
+}
+
+.pd-chart-scroll spk-apex-charts {
+  display: block;
+  width: 100%;
+  min-width: 100%;
+}
+
+.pd-axis {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 4px var(--pd-axis-right, 10px) 0 var(--pd-axis-left, 176px);
+
+  &--fullscreen {
+    --pd-axis-right: 14px;
+  }
+}
+
+.pd-axis__ticks {
+  position: relative;
+  height: 11px;
+  color: var(--default-text-color, #6b7280);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.pd-axis__tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.pd-axis__tick--start {
+  transform: none;
+}
+
+.pd-axis__tick--end {
+  transform: translateX(-100%);
+}
+
+.pd-axis__title {
+  color: var(--default-text-color, #555);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.pd-chart-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.pd-chart-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pd-chart-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+}
+
 :host-context(html[data-theme-mode='dark']) .pd-legend__item {
+  color: #b0b0b0;
+}
+
+:host-context(html[data-theme-mode='dark']) .pd-scroll-hint {
+  background: rgba(148, 163, 184, 0.16);
+  color: #d1d5db;
+}
+
+:host-context(html[data-theme-mode='dark']) .pd-axis__ticks,
+:host-context(html[data-theme-mode='dark']) .pd-axis__title {
   color: #b0b0b0;
 }

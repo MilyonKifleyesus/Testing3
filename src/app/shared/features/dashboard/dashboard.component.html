@@ -588,6 +588,7 @@
                                  [style.animation-delay.ms]="i * 30"
                                  [class.tbv-col--dimmed]="tbvHoveredIndex !== -1 && tbvHoveredIndex !== i"
                                  [class.tbv-col--active]="tbvHoveredIndex === i"
+                                 (click)="openTicketsByVehicle(v)"
                                  (mouseenter)="tbvHoveredIndex = i"
                                  (mouseleave)="tbvHoveredIndex = -1">
                               <div class="tbv-col__bars">
@@ -625,14 +626,37 @@
 
                 <!-- ── Widget-18: Project Duration ── -->
                 <ng-container *ngIf="widget.id === 'widget-18'">
-                  <div class="pd-widget" [class.widget-content-blur]="widget.loading">
+                  <div #projectDurationWidget class="pd-widget" [class.widget-content-blur]="widget.loading">
                     <div class="pd-legend">
-                      <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#1B4332"></span>New Build</span>
-                      <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#2D6A4F"></span>Condition Assessment</span>
-                      <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#74C69D"></span>PDI</span>
-                      <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#F4A261"></span>Mid-Life Overhaul</span>
+                      <span class="pd-legend__item" *ngFor="let item of projectDurationLegendItems">
+                        <span class="pd-legend__dot" [style.background]="item.color"></span>{{ item.label }}
+                      </span>
                     </div>
-                    <spk-apex-charts *ngIf="widget.chartOptions" [chartOptions]="widget.chartOptions"></spk-apex-charts>
+                    <ng-container *ngIf="widget.chartOptions as chartOptions">
+                      <div class="pd-scroll-hint" *ngIf="projectDurationChartNeedsScroll(chartOptions)">
+                        Scroll to view all projects
+                      </div>
+                      <div class="pd-chart-scroll">
+                        <spk-apex-charts
+                          [chartOptions]="chartOptions"
+                          [style.height.px]="chartOptions?.chart?.height || 420"
+                        ></spk-apex-charts>
+                      </div>
+                      <div class="pd-axis">
+                        <div class="pd-axis__ticks">
+                          <span
+                            class="pd-axis__tick"
+                            *ngFor="let tick of getProjectDurationAxisTicks(chartOptions); let index = index; let last = last"
+                            [style.left.%]="getProjectDurationAxisTickPosition(index, getProjectDurationAxisTicks(chartOptions).length)"
+                            [class.pd-axis__tick--start]="index === 0"
+                            [class.pd-axis__tick--end]="last"
+                          >
+                            {{ tick }}
+                          </span>
+                        </div>
+                        <div class="pd-axis__title">Days Active</div>
+                      </div>
+                    </ng-container>
                   </div>
                 </ng-container>
 
@@ -744,6 +768,8 @@
                   [clientId]="getEffectiveClientId()"
                   [projectId]="selectedProject"
                   [vehicleId]="selectedVehicle"
+                  [projectOptions]="projects"
+                  [vehicleOptions]="vehicles"
                   [class.widget-content-blur]="widget.loading"
                   style="display:block;width:100%;height:100%;">
                 </app-defect-word-cloud-widget>
@@ -1129,6 +1155,7 @@
                          [style.animation-delay.ms]="i * 30"
                          [class.tbv-col--dimmed]="tbvHoveredIndex !== -1 && tbvHoveredIndex !== i"
                          [class.tbv-col--active]="tbvHoveredIndex === i"
+                         (click)="openTicketsByVehicle(v)"
                          (mouseenter)="tbvHoveredIndex = i"
                          (mouseleave)="tbvHoveredIndex = -1">
                       <div class="tbv-col__bars">
@@ -1160,14 +1187,37 @@
           </ng-container>
 
           <!-- widget-18 fullscreen -->
-          <div *ngIf="fullscreenWidget.id === 'widget-18'" class="pd-widget pd-widget--fullscreen">
+          <div *ngIf="fullscreenWidget.id === 'widget-18'" #projectDurationWidget class="pd-widget pd-widget--fullscreen">
             <div class="pd-legend">
-              <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#1B4332"></span>New Build</span>
-              <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#2D6A4F"></span>Condition Assessment</span>
-              <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#74C69D"></span>PDI</span>
-              <span class="pd-legend__item"><span class="pd-legend__dot" style="background:#F4A261"></span>Mid-Life Overhaul</span>
+              <span class="pd-legend__item" *ngFor="let item of projectDurationLegendItems">
+                <span class="pd-legend__dot" [style.background]="item.color"></span>{{ item.label }}
+              </span>
             </div>
-            <spk-apex-charts *ngIf="fullscreenWidget.chartOptions" [chartOptions]="fullscreenWidget.chartOptions" style="flex:1;display:block;"></spk-apex-charts>
+            <ng-container *ngIf="fullscreenWidget.chartOptions as chartOptions">
+              <div class="pd-scroll-hint" *ngIf="projectDurationChartNeedsScroll(chartOptions)">
+                Scroll to view all projects
+              </div>
+              <div class="pd-chart-scroll pd-chart-scroll--fullscreen">
+                <spk-apex-charts
+                  [chartOptions]="chartOptions"
+                  [style.height.px]="chartOptions?.chart?.height || 420"
+                ></spk-apex-charts>
+              </div>
+              <div class="pd-axis pd-axis--fullscreen">
+                <div class="pd-axis__ticks">
+                  <span
+                    class="pd-axis__tick"
+                    *ngFor="let tick of getProjectDurationAxisTicks(chartOptions); let index = index; let last = last"
+                    [style.left.%]="getProjectDurationAxisTickPosition(index, getProjectDurationAxisTicks(chartOptions).length)"
+                    [class.pd-axis__tick--start]="index === 0"
+                    [class.pd-axis__tick--end]="last"
+                  >
+                    {{ tick }}
+                  </span>
+                </div>
+                <div class="pd-axis__title">Days Active</div>
+              </div>
+            </ng-container>
           </div>
 
           <ng-template #fullscreenDefaultChart>
@@ -1282,6 +1332,8 @@
               [clientId]="getEffectiveClientId()"
               [projectId]="selectedProject"
               [vehicleId]="selectedVehicle"
+              [projectOptions]="projects"
+              [vehicleOptions]="vehicles"
               style="display:block;width:100%;height:100%;">
             </app-defect-word-cloud-widget>
           </div>

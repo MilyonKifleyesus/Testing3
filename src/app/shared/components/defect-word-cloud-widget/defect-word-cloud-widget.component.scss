@@ -270,6 +270,14 @@
     text-align: center;
     padding: 20px;
   }
+
+  .empty-message {
+    color: var(--default-text-color, #58687a);
+    text-align: center;
+    padding: 20px;
+    max-width: 26rem;
+    margin: 0 auto;
+  }
 }
 
 @container defect-word-cloud (max-width: 41rem) {
@@ -441,6 +449,10 @@
 
     .error-message {
       color: #f87171;
+    }
+
+    .empty-message {
+      color: var(--default-text-color, #d0d0e2);
     }
   }
 }

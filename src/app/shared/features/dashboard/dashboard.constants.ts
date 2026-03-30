@@ -8,6 +8,29 @@ export const PROJECT_TYPE_LOOKUP: Record<number, string> = {
   2: 'Condition Assessment',
   3: 'PDI',
   4: 'Mid-Life Overhaul',
+  5: 'Audit',
+};
+
+export const PROJECT_DURATION_BASE_CHART_HEIGHT = 420;
+export const PROJECT_DURATION_ROW_HEIGHT = 30;
+export const PROJECT_DURATION_CHART_PADDING = 48;
+export const PROJECT_DURATION_AXIS_TICK_COUNT = 10;
+
+export const PROJECT_DURATION_LEGEND_ITEMS = [
+  { label: 'New Build', color: '#16A34A' },
+  { label: 'Condition Assessment', color: '#2563EB' },
+  { label: 'PDI', color: '#86EFAC' },
+  { label: 'Mid-Life Overhaul', color: '#F59E0B' },
+  { label: 'Audit', color: '#DC2626' },
+] as const;
+
+export const PROJECT_DURATION_TYPE_COLORS: Record<string, string> = {
+  'New Build': '#16A34A',
+  'Condition Assessment': '#2563EB',
+  PDI: '#86EFAC',
+  'Mid-Life Overhaul': '#F59E0B',
+  'Mid Life': '#F59E0B',
+  Audit: '#DC2626',
 };
 
 export const CLIENT_COMPACT_HIDDEN_WIDGET_IDS = ['widget-2', 'widget-10', 'widget-11', 'widget-12'];

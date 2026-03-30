@@ -1,4 +1,5 @@
 import {
+  buildProjectDurationChartOptions,
   buildProjectsByAreaChartOptions,
   extractProjectsByAreaData,
 } from './dashboard-chart.utils';
@@ -157,5 +158,45 @@ describe('buildProjectsByAreaChartOptions', () => {
     const data = { projectNames: ['P1'], areas: [{ name: 'A', data: [1] }] };
     const opts = buildProjectsByAreaChartOptions(baseOptions, data);
     expect(opts.xaxis.labels).toEqual(baseOptions.xaxis.labels);
+  });
+});
+
+describe('buildProjectDurationChartOptions', () => {
+  it('applies the developer check-in palette by project type', () => {
+    const opts = buildProjectDurationChartOptions([
+      { projectId: '1', projectName: 'Alpha', projectType: 'New Build', durationDays: 10, startDate: null, endDate: null },
+      { projectId: '2', projectName: 'Bravo', projectType: 'Condition Assessment', durationDays: 20, startDate: null, endDate: null },
+      { projectId: '3', projectName: 'Charlie', projectType: 'PDI', durationDays: 30, startDate: null, endDate: null },
+      { projectId: '4', projectName: 'Delta', projectType: 'Mid Life', durationDays: 40, startDate: null, endDate: null },
+      { projectId: '5', projectName: 'Echo', projectType: 'Audit', durationDays: 50, startDate: null, endDate: null },
+    ], true);
+
+    expect(opts.colors).toEqual(['#16A34A', '#2563EB', '#86EFAC', '#F59E0B', '#DC2626']);
+  });
+
+  it('grows chart height when there are many projects so the wrapper can scroll', () => {
+    const items = Array.from({ length: 20 }, (_, index) => ({
+      projectId: String(index + 1),
+      projectName: `Project ${index + 1}`,
+      projectType: 'New Build',
+      durationDays: 10 + index,
+      startDate: null,
+      endDate: null,
+    }));
+
+    const opts = buildProjectDurationChartOptions(items, false);
+
+    expect(opts.chart.height).toBeGreaterThan(420);
+    expect(opts.series[0].data.length).toBe(20);
+  });
+
+  it('hides the built-in x-axis so the widget can render a fixed footer axis', () => {
+    const opts = buildProjectDurationChartOptions([
+      { projectId: '1', projectName: 'Alpha', projectType: 'New Build', durationDays: 10, startDate: null, endDate: null },
+    ], false);
+
+    expect(opts.xaxis.labels.show).toBeFalse();
+    expect(opts.xaxis.title.text).toBeUndefined();
+    expect(opts.xaxis.tickAmount).toBe(9);
   });
 });
